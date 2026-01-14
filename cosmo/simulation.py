@@ -18,11 +18,12 @@ from .integrator import LeapfrogIntegrator
 class CosmologicalSimulation:
     """Main class for running cosmological simulations"""
     
-    def __init__(self, n_particles=1000, box_size_Gpc=20.0, 
-                 use_external_nodes=True, external_node_params=None):
+    def __init__(self, n_particles=1000, box_size_Gpc=20.0,
+                 use_external_nodes=True, external_node_params=None,
+                 t_start_Gyr=10.8, a_start=None, use_dark_energy=None):
         """
         Initialize simulation
-        
+
         Parameters:
         -----------
         n_particles : int
@@ -30,21 +31,36 @@ class CosmologicalSimulation:
         box_size_Gpc : float
             Size of simulation box [Gpc]
         use_external_nodes : bool
-            True = External-Node Model, False = ΛCDM
+            True = External-Node Model, False = matter-only
         external_node_params : ExternalNodeParameters, optional
             Parameters for HMEA nodes
+        t_start_Gyr : float
+            Simulation start time since Big Bang (in Gyr)
+        a_start : float, optional
+            Scale factor at start time (a=1 at present day)
+        use_dark_energy : bool, optional
+            Whether to include dark energy acceleration.
+            If None, defaults to (not use_external_nodes)
         """
         self.const = CosmologicalConstants()
         self.use_external_nodes = use_external_nodes
-        
+        self.t_start_Gyr = t_start_Gyr
+        self.a_start = a_start if a_start is not None else 1.0
+
+        # Default: use dark energy only if not using external nodes
+        if use_dark_energy is None:
+            use_dark_energy = (not use_external_nodes)
+        self.use_dark_energy = use_dark_energy
+
         # Convert box size to meters
         box_size = box_size_Gpc * self.const.Gpc_to_m
-        
+
         # Initialize particle system
         print(f"Initializing {n_particles} particles in {box_size_Gpc} Gpc box...")
-        self.particles = ParticleSystem(n_particles=n_particles, 
+        self.particles = ParticleSystem(n_particles=n_particles,
                                        box_size=box_size,
-                                       total_mass=self.const.M_observable)
+                                       total_mass=self.const.M_observable,
+                                       a_start=self.a_start)
         
         # Initialize HMEA grid if using External-Node Model
         self.hmea_grid = None
@@ -52,16 +68,16 @@ class CosmologicalSimulation:
             self.hmea_grid = HMEAGrid(node_params=external_node_params, n_nodes=8)
             print(f"External-Node Model: {self.hmea_grid}")
         else:
-            print("Running standard ΛCDM (with dark energy)")
+            print("Running standard matter-only (no dark energy)")
         
         # Create integrator
         softening = 1.0 * self.const.Mpc_to_m  # 1 Mpc softening
         self.integrator = LeapfrogIntegrator(
-            self.particles, 
-            self.hmea_grid, 
+            self.particles,
+            self.hmea_grid,
             softening=softening,
             use_external_nodes=use_external_nodes,
-            use_dark_energy=(not use_external_nodes)  # ΛCDM uses dark energy, External-Node doesn't
+            use_dark_energy=self.use_dark_energy
         )
         
         # Simulation results
@@ -92,7 +108,7 @@ class CosmologicalSimulation:
         print("\n" + "="*60)
         print("RUNNING COSMOLOGICAL SIMULATION")
         print("="*60)
-        print(f"Model: {'External-Node' if self.use_external_nodes else 'ΛCDM'}")
+        print(f"Model: {'External-Node' if self.use_external_nodes else 'Matter-only'}")
         print(f"Duration: {t_end_Gyr} Gyr")
         print(f"Timesteps: {n_steps}")
         print("="*60 + "\n")

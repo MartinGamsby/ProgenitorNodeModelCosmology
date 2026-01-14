@@ -43,6 +43,25 @@ class LambdaCDMParameters:
         self.t_universe = 13.8e9  # years
         self.t_universe_s = self.t_universe * 365.25 * 24 * 3600  # seconds
         
+    def H_at_time(self, a):
+        """
+        Calculate Hubble parameter at scale factor a
+
+        H(a) = H₀ √(Ω_m a⁻³ + Ω_Λ)
+
+        Parameters:
+        -----------
+        a : float
+            Scale factor (a=1 at present day)
+
+        Returns:
+        --------
+        H : float
+            Hubble parameter [s^-1]
+        """
+        import numpy as np
+        return self.H0 * np.sqrt(self.Omega_m / a**3 + self.Omega_Lambda)
+
     def __str__(self):
         return (f"ΛCDM Parameters:\n"
                 f"  H0 = {self.H0_km_s_Mpc} km/s/Mpc\n"
@@ -124,34 +143,64 @@ class ExternalNodeParameters:
 
 
 class SimulationParameters:
-    """Parameters for running N-body simulations"""
-    
-    def __init__(self):
-        # Box size (simulation volume)
-        self.box_size_Gpc = 20.0  # Gpc
-        self.box_size = self.box_size_Gpc * CosmologicalConstants.Gpc_to_m  # meters
-        
-        # Number of particles (galaxy clusters as tracers)
-        self.n_particles = 1000  # Start with 1000 clusters
-        
-        # Time stepping
-        self.t_start = 0.0  # Start at Big Bang
-        self.t_end = 13.8e9 * 365.25 * 24 * 3600  # Present day (seconds)
-        self.n_timesteps = 1000  # Number of snapshots
-        
-        # Softening length (prevents singularities)
-        self.softening_Mpc = 1.0  # Mpc
-        self.softening = self.softening_Mpc * CosmologicalConstants.Mpc_to_m
-        
-        # Integration method
-        self.integrator = 'leapfrog'  # or 'rk4'
-        
+    """Parameters for running cosmological simulations"""
+
+    def __init__(self, M_value=800, S_value=24.0, n_particles=300, seed=42,
+                 t_start_Gyr=10.8, t_duration_Gyr=6.0, n_steps=150):
+        """
+        Initialize simulation parameters
+
+        Parameters:
+        -----------
+        M_value : float, optional
+            External mass parameter (in units of observable mass). Default: 800
+        S_value : float, optional
+            Node separation distance (in Gpc). Default: 24.0
+        n_particles : int, optional
+            Number of simulation particles. Default: 300
+        seed : int, optional
+            Random seed for reproducibility. Default: 42
+        t_start_Gyr : float, optional
+            Simulation start time since Big Bang (in Gyr). Default: 10.8
+        t_duration_Gyr : float, optional
+            Simulation duration (in Gyr). Default: 6.0
+        n_steps : int, optional
+            Number of simulation timesteps. Default: 150
+        """
+        self.M_value = M_value
+        self.S_value = S_value
+        self.n_particles = n_particles
+        self.seed = seed
+        self.t_start_Gyr = t_start_Gyr
+        self.t_duration_Gyr = t_duration_Gyr
+        self.n_steps = n_steps
+
+        # Calculate derived quantities
+        self._calculate_derived()
+
+    def _calculate_derived(self):
+        """Calculate derived quantities"""
+        const = CosmologicalConstants()
+
+        # Convert to physical units
+        self.M_ext = self.M_value * const.M_observable
+        self.S = self.S_value * const.Gpc_to_m
+
+        # Calculate end time
+        self.t_end_Gyr = self.t_start_Gyr + self.t_duration_Gyr
+
+        # Create external node parameters for this configuration
+        self.external_params = ExternalNodeParameters(M_ext=self.M_ext, S=self.S)
+
     def __str__(self):
         return (f"Simulation Parameters:\n"
-                f"  Box size = {self.box_size_Gpc} Gpc\n"
+                f"  M = {self.M_value} × M_obs\n"
+                f"  S = {self.S_value} Gpc\n"
                 f"  Particles = {self.n_particles}\n"
-                f"  Timesteps = {self.n_timesteps}\n"
-                f"  Duration = {self.t_end/(365.25*24*3600*1e9):.1f} Gyr")
+                f"  Seed = {self.seed}\n"
+                f"  Time = {self.t_start_Gyr} → {self.t_end_Gyr} Gyr ({self.t_duration_Gyr} Gyr)\n"
+                f"  Steps = {self.n_steps}\n"
+                f"  Ω_Λ_eff = {self.external_params.Omega_Lambda_eff:.3f}")
 
 
 def test_parameters():

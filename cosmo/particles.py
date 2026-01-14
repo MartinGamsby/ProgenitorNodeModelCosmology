@@ -38,10 +38,10 @@ class Particle:
 class ParticleSystem:
     """Collection of particles representing the observable universe"""
     
-    def __init__(self, n_particles=1000, box_size=None, total_mass=None):
+    def __init__(self, n_particles=1000, box_size=None, total_mass=None, a_start=1.0):
         """
         Initialize a system of particles
-        
+
         Parameters:
         -----------
         n_particles : int
@@ -50,35 +50,62 @@ class ParticleSystem:
             Size of simulation box [meters]
         total_mass : float
             Total mass to distribute among particles [kg]
+        a_start : float
+            Scale factor at simulation start time (a=1 at present day)
         """
         const = CosmologicalConstants()
-        
+
         self.n_particles = n_particles
         self.box_size = box_size if box_size is not None else const.R_hubble
         self.total_mass = total_mass if total_mass is not None else const.M_observable
-        
+        self.a_start = a_start
+
         self.particles = []
         self.time = 0.0
-        
+
         # Initialize particles
         self._initialize_particles()
         
     def _initialize_particles(self):
         """Create initial particle distribution with Hubble flow"""
         lcdm = LambdaCDMParameters()
-        
+
+        # Calculate Hubble parameter at start time using scale factor
+        H_start = lcdm.H_at_time(self.a_start)
+
+        # Calculate deceleration parameter q at start time
+        # q = -1 - (1/H)(dH/dt) = 0.5 * Omega_m(a) / [Omega_m(a) + Omega_Lambda] - 1
+        # where Omega_m(a) = Omega_m / a^3 / [Omega_m / a^3 + Omega_Lambda]
+        Omega_m_eff = lcdm.Omega_m / self.a_start**3
+        Omega_Lambda_eff = lcdm.Omega_Lambda
+        total_omega = Omega_m_eff + Omega_Lambda_eff
+
+        if total_omega > 0:
+            q = 0.5 * Omega_m_eff / total_omega - 1.0
+        else:
+            q = 0.5  # Default to matter-dominated if something goes wrong
+
+        # Damping factor based on deceleration parameter
+        # q > 0 (decelerating) → more damping needed
+        # q < 0 (accelerating) → less damping needed
+        # Range: ~0.15 (strong deceleration) to ~0.65 (acceleration)
+        damping_factor = 0.4 - 0.25 * q
+
+        # Clamp to reasonable range
+        damping_factor = np.clip(damping_factor, 0.1, 0.7)
+
         particle_mass = self.total_mass / self.n_particles
-        
+
         for i in range(self.n_particles):
             # Random position in box
             pos = np.random.uniform(-self.box_size/2, self.box_size/2, 3)
-            
-            # Initial velocity: Hubble flow + small peculiar velocity
-            # v = H₀ × r (cosmological expansion)
-            v_hubble = lcdm.H0 * pos  # Hubble flow
+
+            # Initial velocity: Damped Hubble flow + small peculiar velocity
+            # Damping compensates for lack of ongoing Hubble drag during integration
+            v_hubble = damping_factor * H_start * pos
             v_peculiar = np.random.normal(0, 1e5, 3)  # ~100 km/s peculiar velocity
             vel = v_hubble + v_peculiar
-            
+
             particle = Particle(pos, vel, particle_mass, particle_id=i)
             self.particles.append(particle)
     

@@ -73,15 +73,36 @@ class ParticleSystem:
         # Calculate Hubble parameter at start time using scale factor
         H_start = lcdm.H_at_time(self.a_start)
 
+        # Calculate deceleration parameter q at start time
+        # q = -1 - (1/H)(dH/dt) = 0.5 * Omega_m(a) / [Omega_m(a) + Omega_Lambda] - 1
+        # where Omega_m(a) = Omega_m / a^3 / [Omega_m / a^3 + Omega_Lambda]
+        Omega_m_eff = lcdm.Omega_m / self.a_start**3
+        Omega_Lambda_eff = lcdm.Omega_Lambda
+        total_omega = Omega_m_eff + Omega_Lambda_eff
+
+        if total_omega > 0:
+            q = 0.5 * Omega_m_eff / total_omega - 1.0
+        else:
+            q = 0.5  # Default to matter-dominated if something goes wrong
+
+        # Damping factor based on deceleration parameter
+        # q > 0 (decelerating) → more damping needed
+        # q < 0 (accelerating) → less damping needed
+        # Range: ~0.15 (strong deceleration) to ~0.65 (acceleration)
+        damping_factor = 0.4 - 0.25 * q
+
+        # Clamp to reasonable range
+        damping_factor = np.clip(damping_factor, 0.1, 0.7)
+
         particle_mass = self.total_mass / self.n_particles
 
         for i in range(self.n_particles):
             # Random position in box
             pos = np.random.uniform(-self.box_size/2, self.box_size/2, 3)
 
-            # Initial velocity: Hubble flow + small peculiar velocity
-            # v = H(t_start) × r (cosmological expansion at start time)
-            v_hubble = H_start * pos  # Hubble flow with time-dependent H
+            # Initial velocity: Damped Hubble flow + small peculiar velocity
+            # Damping compensates for lack of ongoing Hubble drag during integration
+            v_hubble = damping_factor * H_start * pos
             v_peculiar = np.random.normal(0, 1e5, 3)  # ~100 km/s peculiar velocity
             vel = v_hubble + v_peculiar
 

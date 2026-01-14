@@ -102,13 +102,22 @@ def run_simulation(output_dir, sim_params):
     H_start_hubble = H_start * const.Mpc_to_m / 1000
     print(f"H(t_start={sim_params.t_start_Gyr} Gyr) = {H_start_hubble:.1f} km/s/Mpc")
 
+    # Calculate and display deceleration parameter and damping
+    Omega_m_eff = lcdm_params.Omega_m / a_at_start**3
+    Omega_Lambda_eff = lcdm_params.Omega_Lambda
+    total_omega = Omega_m_eff + Omega_Lambda_eff
+    q = 0.5 * Omega_m_eff / total_omega - 1.0 if total_omega > 0 else 0.5
+    damping_factor = np.clip(0.4 - 0.25 * q, 0.1, 0.7)
+    print(f"Deceleration parameter q = {q:.3f}, velocity damping = {damping_factor:.3f}")
+
     sim = CosmologicalSimulation(
         n_particles=sim_params.n_particles,
         box_size_Gpc=ext_initial_size,
         use_external_nodes=True,
         external_node_params=sim_params.external_params,
         t_start_Gyr=sim_params.t_start_Gyr,
-        a_start=a_at_start
+        a_start=a_at_start,
+        use_dark_energy=False  # Explicitly disable dark energy for matter-only
     )
 
     print("\nRunning External-Node simulation...")

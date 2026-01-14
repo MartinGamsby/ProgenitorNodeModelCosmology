@@ -60,7 +60,7 @@ class CosmologicalSimulation:
             self.hmea_grid = HMEAGrid(node_params=external_node_params, n_nodes=8)
             print(f"External-Node Model: {self.hmea_grid}")
         else:
-            print("Running standard ΛCDM (with dark energy)")
+            print("Running standard matter-only (no dark energy)")
         
         # Create integrator
         softening = 1.0 * self.const.Mpc_to_m  # 1 Mpc softening
@@ -100,7 +100,7 @@ class CosmologicalSimulation:
         print("\n" + "="*60)
         print("RUNNING COSMOLOGICAL SIMULATION")
         print("="*60)
-        print(f"Model: {'External-Node' if self.use_external_nodes else 'ΛCDM'}")
+        print(f"Model: {'External-Node' if self.use_external_nodes else 'Matter-only'}")
         print(f"Duration: {t_end_Gyr} Gyr")
         print(f"Timesteps: {n_steps}")
         print("="*60 + "\n")

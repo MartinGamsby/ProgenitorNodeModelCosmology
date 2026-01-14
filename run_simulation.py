@@ -70,11 +70,26 @@ def run_simulation(output_dir, sim_params):
     a_lcdm = a_full[mask]
     a_lcdm_normalized = a_lcdm / a_lcdm[0]
     size_lcdm = lcdm_initial_size * a_lcdm_normalized
-    
+
     H_lcdm_raw = lcdm_params.H0 * np.sqrt(lcdm_params.Omega_m / a_lcdm**3 + lcdm_params.Omega_Lambda)
     H_lcdm_hubble = H_lcdm_raw * const.Mpc_to_m / 1000
 
     print(f"LCDM: {lcdm_initial_size:.3f} -> {size_lcdm[-1]:.2f} Gpc")
+
+    # Solve matter-only evolution (Omega_Lambda=0)
+    a_matter_full = odeint(friedmann_equation, a0, t_span_full,
+                           args=(lcdm_params.H0, lcdm_params.Omega_m, 0.0))  # Omega_Lambda=0
+    a_matter_full = a_matter_full.flatten()
+
+    # Extract matter-only window
+    a_matter = a_matter_full[mask]
+    a_matter_normalized = a_matter / a_matter[0]
+    size_matter = lcdm_initial_size * a_matter_normalized
+
+    H_matter_raw = lcdm_params.H0 * np.sqrt(lcdm_params.Omega_m / a_matter**3)
+    H_matter_hubble = H_matter_raw * const.Mpc_to_m / 1000
+
+    print(f"Matter-only: {lcdm_initial_size:.3f} -> {size_matter[-1]:.2f} Gpc")
     
     # Set up External-Node simulation
     ext_initial_size = lcdm_initial_size
@@ -96,13 +111,30 @@ def run_simulation(output_dir, sim_params):
         a_start=a_at_start
     )
 
-    print("\nRunning simulation...")
+    print("\nRunning External-Node simulation...")
     sim.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=10)
-    
-    # Extract results
+
+    # Extract External-Node results
     t_ext = np.array([h['time_Gyr'] for h in sim.expansion_history])
     a_ext = np.array([h['scale_factor'] for h in sim.expansion_history])
     size_ext = ext_initial_size * a_ext
+
+    # Run matter-only simulation (no external nodes, no dark energy)
+    print("\nRunning Matter-only simulation...")
+    sim_matter = CosmologicalSimulation(
+        n_particles=sim_params.n_particles,
+        box_size_Gpc=ext_initial_size,
+        use_external_nodes=False,
+        external_node_params=None,
+        t_start_Gyr=sim_params.t_start_Gyr,
+        a_start=a_at_start
+    )
+    sim_matter.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=10)
+
+    # Extract Matter-only results
+    t_matter = np.array([h['time_Gyr'] for h in sim_matter.expansion_history])
+    a_matter_sim = np.array([h['scale_factor'] for h in sim_matter.expansion_history])
+    size_matter_sim = ext_initial_size * a_matter_sim
     
     size_ext_final = size_ext[-1]
     size_lcdm_final = size_lcdm[-1]
@@ -119,53 +151,63 @@ def run_simulation(output_dir, sim_params):
     H_ext = np.gradient(a_ext_smooth, t_ext * 1e9 * 365.25 * 24 * 3600) / a_ext_smooth
     H_ext_hubble = H_ext * const.Mpc_to_m / 1000
 
+    a_matter_sim_smooth = gaussian_filter1d(a_matter_sim, sigma=2)
+    H_matter_sim = np.gradient(a_matter_sim_smooth, t_matter * 1e9 * 365.25 * 24 * 3600) / a_matter_sim_smooth
+    H_matter_sim_hubble = H_matter_sim * const.Mpc_to_m / 1000
+
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle(f'ΛCDM vs External-Node (M={sim_params.M_value}, S={sim_params.S_value}, {sim_params.n_particles}p) - {100-size_diff:.1f}% match',
+    fig.suptitle(f'Cosmology Comparison (M={sim_params.M_value}, S={sim_params.S_value}, {sim_params.n_particles}p)',
                  fontsize=16, fontweight='bold')
-    
+
     ax1 = axes[0, 0]
-    ax1.plot(t_lcdm, a_lcdm_normalized, 'b-', label='ΛCDM', linewidth=2)
+    ax1.plot(t_lcdm, a_lcdm_normalized, 'b-', label='LCDM (with dark energy)', linewidth=2)
     ax1.plot(t_ext, a_ext, 'r--', label='External-Node', linewidth=2)
+    ax1.plot(t_matter, a_matter_sim, 'g:', label='Matter-only (no dark energy)', linewidth=2)
     ax1.axvline(x=3.0, color='gray', linestyle=':', alpha=0.5, label='Today')
     ax1.set_xlabel('Time [Gyr]', fontsize=11)
     ax1.set_ylabel('Scale Factor', fontsize=11)
     ax1.set_title('Cosmic Expansion', fontsize=13)
-    ax1.legend(fontsize=10)
+    ax1.legend(fontsize=9)
     ax1.grid(True, alpha=0.3)
-    
+
     ax2 = axes[0, 1]
-    ax2.plot(t_lcdm, H_lcdm_hubble, 'b-', label='ΛCDM', linewidth=2)
+    ax2.plot(t_lcdm, H_lcdm_hubble, 'b-', label='LCDM', linewidth=2)
     ax2.plot(t_ext, H_ext_hubble, 'r--', label='External-Node', linewidth=2)
+    ax2.plot(t_matter, H_matter_sim_hubble, 'g:', label='Matter-only', linewidth=2)
     ax2.axvline(x=3.0, color='gray', linestyle=':', alpha=0.5)
     ax2.set_xlabel('Time [Gyr]', fontsize=11)
     ax2.set_ylabel('Hubble Parameter [km/s/Mpc]', fontsize=11)
     ax2.set_title('Expansion Rate', fontsize=13)
-    ax2.legend(fontsize=10)
+    ax2.legend(fontsize=9)
     ax2.grid(True, alpha=0.3)
     
     ax3 = axes[1, 0]
     size_lcdm_interp = np.interp(t_ext, t_lcdm, size_lcdm)
-    size_ratio = size_ext / size_lcdm_interp
-    ax3.plot(t_ext, size_ratio, 'g-', linewidth=2)
-    ax3.axhline(1.0, color='black', linestyle='--')
+    size_ratio_ext = size_ext / size_lcdm_interp
+    size_matter_interp = np.interp(t_matter, t_lcdm, size_lcdm)
+    size_ratio_matter = size_matter_sim / size_matter_interp
+    ax3.plot(t_ext, size_ratio_ext, 'r--', label='External-Node', linewidth=2)
+    ax3.plot(t_matter, size_ratio_matter, 'g:', label='Matter-only', linewidth=2)
+    ax3.axhline(1.0, color='black', linestyle='--', label='LCDM')
     ax3.axvline(x=3.0, color='gray', linestyle=':', alpha=0.5)
-    ax3.fill_between(t_ext, 0.95, 1.05, color='green', alpha=0.2, label='±5%')
+    ax3.fill_between(t_ext, 0.90, 1.10, color='blue', alpha=0.1)
     ax3.set_xlabel('Time [Gyr]', fontsize=11)
-    ax3.set_ylabel('Ratio: External-Node / ΛCDM', fontsize=11)
-    ax3.set_title(f'Size Agreement ({100-size_diff:.1f}%)', fontsize=13)
-    ax3.legend(fontsize=10)
-    ax3.set_ylim([0.95, 1.05])
+    ax3.set_ylabel('Ratio to LCDM', fontsize=11)
+    ax3.set_title('Relative Expansion', fontsize=13)
+    ax3.legend(fontsize=9)
+    ax3.set_ylim([0.85, 1.15])
     ax3.grid(True, alpha=0.3)
-    
+
     ax4 = axes[1, 1]
-    ax4.plot(t_lcdm, size_lcdm, 'b-', label='ΛCDM', linewidth=2)
+    ax4.plot(t_lcdm, size_lcdm, 'b-', label='LCDM', linewidth=2)
     ax4.plot(t_ext, size_ext, 'r--', label='External-Node', linewidth=2)
+    ax4.plot(t_matter, size_matter_sim, 'g:', label='Matter-only', linewidth=2)
     ax4.axhline(sim_params.S_value, color='orange', linestyle='--', label=f'Nodes ({sim_params.S_value} Gpc)', linewidth=2)
     ax4.axvline(x=3.0, color='gray', linestyle=':', alpha=0.5)
     ax4.set_xlabel('Time [Gyr]', fontsize=11)
     ax4.set_ylabel('Universe Radius [Gpc]', fontsize=11)
-    ax4.set_title('Physical Size vs Nodes', fontsize=13)
-    ax4.legend(fontsize=10)
+    ax4.set_title('Physical Size', fontsize=13)
+    ax4.legend(fontsize=9)
     ax4.grid(True, alpha=0.3)
     
     plt.tight_layout()
@@ -177,11 +219,16 @@ def run_simulation(output_dir, sim_params):
     plt.savefig(plot_path, dpi=150)
     sim.save(sim_path)
     
-    print(f"\n✓ Files saved to {output_dir}/")
+    print(f"\nFiles saved to {output_dir}/")
     print(f"  - {os.path.basename(plot_path)}")
     print(f"  - {os.path.basename(sim_path)}")
-    
-    return sim, size_ext_final, size_lcdm_final, 100-size_diff
+
+    # Calculate final sizes and comparisons
+    size_matter_sim_final = size_matter_sim[-1]
+    ext_vs_lcdm_diff = 100 - size_diff
+    matter_vs_lcdm_diff = (1 - size_matter_sim_final / size_lcdm_final) * 100
+
+    return sim, sim_matter, size_ext_final, size_lcdm_final, size_matter_sim_final, ext_vs_lcdm_diff, matter_vs_lcdm_diff
 
 
 def parse_arguments():
@@ -266,12 +313,12 @@ if __name__ == "__main__":
         n_steps=args.n_steps
     )
 
-    sim, ext_final, lcdm_final, match = run_simulation(args.output_dir, sim_params)
+    sim, sim_matter, ext_final, lcdm_final, matter_final, ext_match, matter_match = run_simulation(args.output_dir, sim_params)
 
     print("\n" + "="*70)
     print("SUMMARY")
     print("="*70)
-    print(f"External-Node: {ext_final:.2f} Gpc")
-    print(f"ΛCDM: {lcdm_final:.2f} Gpc")
-    print(f"Match: {match:.2f}%")
+    print(f"LCDM (with dark energy):        {lcdm_final:.2f} Gpc")
+    print(f"External-Node (M={sim_params.M_value}, S={sim_params.S_value}): {ext_final:.2f} Gpc  ({ext_match:+.1f}% vs LCDM)")
+    print(f"Matter-only (no dark energy):   {matter_final:.2f} Gpc  ({matter_match:+.1f}% vs LCDM)")
     print("\nSimulation complete!")

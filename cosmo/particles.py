@@ -38,10 +38,10 @@ class Particle:
 class ParticleSystem:
     """Collection of particles representing the observable universe"""
     
-    def __init__(self, n_particles=1000, box_size=None, total_mass=None):
+    def __init__(self, n_particles=1000, box_size=None, total_mass=None, a_start=1.0):
         """
         Initialize a system of particles
-        
+
         Parameters:
         -----------
         n_particles : int
@@ -50,35 +50,41 @@ class ParticleSystem:
             Size of simulation box [meters]
         total_mass : float
             Total mass to distribute among particles [kg]
+        a_start : float
+            Scale factor at simulation start time (a=1 at present day)
         """
         const = CosmologicalConstants()
-        
+
         self.n_particles = n_particles
         self.box_size = box_size if box_size is not None else const.R_hubble
         self.total_mass = total_mass if total_mass is not None else const.M_observable
-        
+        self.a_start = a_start
+
         self.particles = []
         self.time = 0.0
-        
+
         # Initialize particles
         self._initialize_particles()
         
     def _initialize_particles(self):
         """Create initial particle distribution with Hubble flow"""
         lcdm = LambdaCDMParameters()
-        
+
+        # Calculate Hubble parameter at start time using scale factor
+        H_start = lcdm.H_at_time(self.a_start)
+
         particle_mass = self.total_mass / self.n_particles
-        
+
         for i in range(self.n_particles):
             # Random position in box
             pos = np.random.uniform(-self.box_size/2, self.box_size/2, 3)
-            
+
             # Initial velocity: Hubble flow + small peculiar velocity
-            # v = H₀ × r (cosmological expansion)
-            v_hubble = lcdm.H0 * pos  # Hubble flow
+            # v = H(t_start) × r (cosmological expansion at start time)
+            v_hubble = H_start * pos  # Hubble flow with time-dependent H
             v_peculiar = np.random.normal(0, 1e5, 3)  # ~100 km/s peculiar velocity
             vel = v_hubble + v_peculiar
-            
+
             particle = Particle(pos, vel, particle_mass, particle_id=i)
             self.particles.append(particle)
     

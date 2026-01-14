@@ -18,11 +18,12 @@ from .integrator import LeapfrogIntegrator
 class CosmologicalSimulation:
     """Main class for running cosmological simulations"""
     
-    def __init__(self, n_particles=1000, box_size_Gpc=20.0, 
-                 use_external_nodes=True, external_node_params=None):
+    def __init__(self, n_particles=1000, box_size_Gpc=20.0,
+                 use_external_nodes=True, external_node_params=None,
+                 t_start_Gyr=10.8, a_start=None):
         """
         Initialize simulation
-        
+
         Parameters:
         -----------
         n_particles : int
@@ -33,18 +34,25 @@ class CosmologicalSimulation:
             True = External-Node Model, False = ΛCDM
         external_node_params : ExternalNodeParameters, optional
             Parameters for HMEA nodes
+        t_start_Gyr : float
+            Simulation start time since Big Bang (in Gyr)
+        a_start : float, optional
+            Scale factor at start time (a=1 at present day)
         """
         self.const = CosmologicalConstants()
         self.use_external_nodes = use_external_nodes
-        
+        self.t_start_Gyr = t_start_Gyr
+        self.a_start = a_start if a_start is not None else 1.0
+
         # Convert box size to meters
         box_size = box_size_Gpc * self.const.Gpc_to_m
-        
+
         # Initialize particle system
         print(f"Initializing {n_particles} particles in {box_size_Gpc} Gpc box...")
-        self.particles = ParticleSystem(n_particles=n_particles, 
+        self.particles = ParticleSystem(n_particles=n_particles,
                                        box_size=box_size,
-                                       total_mass=self.const.M_observable)
+                                       total_mass=self.const.M_observable,
+                                       a_start=self.a_start)
         
         # Initialize HMEA grid if using External-Node Model
         self.hmea_grid = None

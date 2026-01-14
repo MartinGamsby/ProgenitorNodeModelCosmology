@@ -73,20 +73,27 @@ def run_simulation(output_dir, sim_params):
     
     H_lcdm_raw = lcdm_params.H0 * np.sqrt(lcdm_params.Omega_m / a_lcdm**3 + lcdm_params.Omega_Lambda)
     H_lcdm_hubble = H_lcdm_raw * const.Mpc_to_m / 1000
-    
-    print(f"ΛCDM: {lcdm_initial_size:.3f} → {size_lcdm[-1]:.2f} Gpc")
+
+    print(f"LCDM: {lcdm_initial_size:.3f} -> {size_lcdm[-1]:.2f} Gpc")
     
     # Set up External-Node simulation
     ext_initial_size = lcdm_initial_size
 
-    print(f"\nM={sim_params.M_value}, S={sim_params.S_value}, Ω_Λ_eff={sim_params.external_params.Omega_Lambda_eff:.3f}")
+    print(f"\nM={sim_params.M_value}, S={sim_params.S_value}, Omega_Lambda_eff={sim_params.external_params.Omega_Lambda_eff:.3f}")
     print(f"{sim_params.n_particles} particles, seed={sim_params.seed}")
+
+    # Calculate and display H at start time for verification
+    H_start = lcdm_params.H_at_time(a_at_start)
+    H_start_hubble = H_start * const.Mpc_to_m / 1000
+    print(f"H(t_start={sim_params.t_start_Gyr} Gyr) = {H_start_hubble:.1f} km/s/Mpc")
 
     sim = CosmologicalSimulation(
         n_particles=sim_params.n_particles,
         box_size_Gpc=ext_initial_size,
         use_external_nodes=True,
-        external_node_params=sim_params.external_params
+        external_node_params=sim_params.external_params,
+        t_start_Gyr=sim_params.t_start_Gyr,
+        a_start=a_at_start
     )
 
     print("\nRunning simulation...")

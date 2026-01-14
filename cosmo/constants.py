@@ -43,6 +43,25 @@ class LambdaCDMParameters:
         self.t_universe = 13.8e9  # years
         self.t_universe_s = self.t_universe * 365.25 * 24 * 3600  # seconds
         
+    def H_at_time(self, a):
+        """
+        Calculate Hubble parameter at scale factor a
+
+        H(a) = H₀ √(Ω_m a⁻³ + Ω_Λ)
+
+        Parameters:
+        -----------
+        a : float
+            Scale factor (a=1 at present day)
+
+        Returns:
+        --------
+        H : float
+            Hubble parameter [s^-1]
+        """
+        import numpy as np
+        return self.H0 * np.sqrt(self.Omega_m / a**3 + self.Omega_Lambda)
+
     def __str__(self):
         return (f"ΛCDM Parameters:\n"
                 f"  H0 = {self.H0_km_s_Mpc} km/s/Mpc\n"

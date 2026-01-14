@@ -127,7 +127,8 @@ def run_simulation(output_dir, sim_params):
         use_external_nodes=False,
         external_node_params=None,
         t_start_Gyr=sim_params.t_start_Gyr,
-        a_start=a_at_start
+        a_start=a_at_start,
+        use_dark_energy=False  # Explicitly disable dark energy for matter-only
     )
     sim_matter.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=10)
 

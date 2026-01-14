@@ -1,37 +1,41 @@
 #!/usr/bin/env python3
 """
 External-Node Cosmology Simulation
-Main script to run the final optimized configuration (M=800, S=24, 300 particles)
-
-Usage:
-    python run_simulation.py [output_dir]
-    
-    output_dir: Optional output directory (default: current directory)
+Main script to run cosmology simulations with configurable parameters.
 """
 
 import sys
 import os
+import argparse
 import numpy as np
 from scipy.integrate import odeint
 from scipy.ndimage import gaussian_filter1d
 import matplotlib.pyplot as plt
 
-from cosmo.constants import CosmologicalConstants, LambdaCDMParameters, ExternalNodeParameters
+from cosmo.constants import CosmologicalConstants, LambdaCDMParameters, SimulationParameters
 from cosmo.simulation import CosmologicalSimulation
 
 
-def run_final_simulation(output_dir):
-    """Run the final optimized simulation configuration"""
-    
+def run_simulation(output_dir, sim_params):
+    """Run cosmological simulation with specified parameters
+
+    Parameters:
+    -----------
+    output_dir : str
+        Directory to save output files
+    sim_params : SimulationParameters
+        Simulation configuration parameters
+    """
+
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
-    
+
     print("="*70)
-    print("FINAL CONFIGURATION - M=800, S=24, Fixed Seed")
+    print(f"SIMULATION CONFIGURATION - M={sim_params.M_value}, S={sim_params.S_value}, {sim_params.n_particles} particles")
     print("="*70)
-    
-    # Set fixed random seed for reproducibility
-    np.random.seed(42)
+
+    # Set random seed for reproducibility
+    np.random.seed(sim_params.seed)
     
     const = CosmologicalConstants()
     lcdm_params = LambdaCDMParameters()
@@ -73,23 +77,19 @@ def run_final_simulation(output_dir):
     
     # Set up External-Node simulation
     ext_initial_size = lcdm_initial_size
-    
-    M = 800 * const.M_observable
-    S = 24.0 * const.Gpc_to_m
-    params = ExternalNodeParameters(M_ext=M, S=S)
-    
-    print(f"\nM=800, S=24, Ω_Λ_eff={params.Omega_Lambda_eff:.3f}")
-    print(f"300 particles, fixed seed=42")
-    
+
+    print(f"\nM={sim_params.M_value}, S={sim_params.S_value}, Ω_Λ_eff={sim_params.external_params.Omega_Lambda_eff:.3f}")
+    print(f"{sim_params.n_particles} particles, seed={sim_params.seed}")
+
     sim = CosmologicalSimulation(
-        n_particles=300,
+        n_particles=sim_params.n_particles,
         box_size_Gpc=ext_initial_size,
         use_external_nodes=True,
-        external_node_params=params
+        external_node_params=sim_params.external_params
     )
-    
+
     print("\nRunning simulation...")
-    sim.run(t_end_Gyr=6.0, n_steps=150, save_interval=10)
+    sim.run(t_end_Gyr=sim_params.t_end_Gyr, n_steps=sim_params.n_steps, save_interval=10)
     
     # Extract results
     t_ext = np.array([h['time_Gyr'] for h in sim.expansion_history])
@@ -99,8 +99,8 @@ def run_final_simulation(output_dir):
     size_ext_final = size_ext[-1]
     size_lcdm_final = size_lcdm[-1]
     size_diff = abs(size_ext_final - size_lcdm_final) / size_lcdm_final * 100
-    
-    print(f"\nFinal: {size_ext_final:.2f} Gpc")
+
+    print(f"\n{size_ext_final:.2f} Gpc")
     print(f"Match: {100-size_diff:.2f}%")
     
     max_r_gpc = np.max(np.sqrt(np.sum(sim.snapshots[-1]['positions']**2, axis=1))) / const.Gpc_to_m
@@ -110,9 +110,9 @@ def run_final_simulation(output_dir):
     a_ext_smooth = gaussian_filter1d(a_ext, sigma=2)
     H_ext = np.gradient(a_ext_smooth, t_ext * 1e9 * 365.25 * 24 * 3600) / a_ext_smooth
     H_ext_hubble = H_ext * const.Mpc_to_m / 1000
-    
+
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle(f'ΛCDM vs External-Node (M=800, S=24, 300p, seed=42) - {100-size_diff:.1f}% match', 
+    fig.suptitle(f'ΛCDM vs External-Node (M={sim_params.M_value}, S={sim_params.S_value}, {sim_params.n_particles}p) - {100-size_diff:.1f}% match',
                  fontsize=16, fontweight='bold')
     
     ax1 = axes[0, 0]
@@ -152,7 +152,7 @@ def run_final_simulation(output_dir):
     ax4 = axes[1, 1]
     ax4.plot(t_lcdm, size_lcdm, 'b-', label='ΛCDM', linewidth=2)
     ax4.plot(t_ext, size_ext, 'r--', label='External-Node', linewidth=2)
-    ax4.axhline(24.0, color='orange', linestyle='--', label='Nodes (24 Gpc)', linewidth=2)
+    ax4.axhline(sim_params.S_value, color='orange', linestyle='--', label=f'Nodes ({sim_params.S_value} Gpc)', linewidth=2)
     ax4.axvline(x=3.0, color='gray', linestyle=':', alpha=0.5)
     ax4.set_xlabel('Time [Gyr]', fontsize=11)
     ax4.set_ylabel('Universe Radius [Gpc]', fontsize=11)
@@ -164,8 +164,8 @@ def run_final_simulation(output_dir):
     
     # Save outputs
     plot_path = os.path.join(output_dir, 'figure_simulation_results.png')
-    sim_path = os.path.join(output_dir, 'simulation_final.pkl')
-    
+    sim_path = os.path.join(output_dir, 'simulation.pkl')
+
     plt.savefig(plot_path, dpi=150)
     sim.save(sim_path)
     
@@ -176,17 +176,86 @@ def run_final_simulation(output_dir):
     return sim, size_ext_final, size_lcdm_final, 100-size_diff
 
 
+def parse_arguments():
+    """Parse command-line arguments"""
+    parser = argparse.ArgumentParser(
+        description='Run External-Node Cosmology Simulation',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+
+    parser.add_argument(
+        '--output-dir',
+        type=str,
+        default='./results',
+        help='Output directory for simulation results'
+    )
+
+    parser.add_argument(
+        '--M',
+        type=float,
+        default=800,
+        help='External mass parameter (in units of observable mass)'
+    )
+
+    parser.add_argument(
+        '--S',
+        type=float,
+        default=24.0,
+        help='Node separation distance (in Gpc)'
+    )
+
+    parser.add_argument(
+        '--particles',
+        type=int,
+        default=300,
+        help='Number of simulation particles'
+    )
+
+    parser.add_argument(
+        '--seed',
+        type=int,
+        default=42,
+        help='Random seed for reproducibility'
+    )
+
+    parser.add_argument(
+        '--t-end',
+        type=float,
+        default=6.0,
+        help='Simulation end time (in Gyr)'
+    )
+
+    parser.add_argument(
+        '--n-steps',
+        type=int,
+        default=150,
+        help='Number of simulation timesteps'
+    )
+
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    output_dir = sys.argv[1] if len(sys.argv) > 1 else "./results"
-    
-    print(f"Output directory: {os.path.abspath(output_dir)}\n")
-    
-    sim, ext_final, lcdm_final, match = run_final_simulation(output_dir)
-    
+    args = parse_arguments()
+
+    print(f"Output directory: {os.path.abspath(args.output_dir)}\n")
+
+    # Create simulation parameters from command-line arguments
+    sim_params = SimulationParameters(
+        M_value=args.M,
+        S_value=args.S,
+        n_particles=args.particles,
+        seed=args.seed,
+        t_end_Gyr=args.t_end,
+        n_steps=args.n_steps
+    )
+
+    sim, ext_final, lcdm_final, match = run_simulation(args.output_dir, sim_params)
+
     print("\n" + "="*70)
     print("SUMMARY")
     print("="*70)
-    print(f"External-Node final: {ext_final:.2f} Gpc")
-    print(f"ΛCDM final: {lcdm_final:.2f} Gpc")
+    print(f"External-Node: {ext_final:.2f} Gpc")
+    print(f"ΛCDM: {lcdm_final:.2f} Gpc")
     print(f"Match: {match:.2f}%")
-    print("\n Simulation complete!")
+    print("\nSimulation complete!")

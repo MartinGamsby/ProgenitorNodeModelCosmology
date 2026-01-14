@@ -49,23 +49,24 @@ def run_simulation(output_dir, sim_params):
     
     # Solve ΛCDM evolution
     a0 = 0.001
-    t_span_full = np.linspace(0, 16.8e9 * 365.25 * 24 * 3600, 400)
+    t_max = sim_params.t_end_Gyr + 3.0  # Add buffer beyond end time
+    t_span_full = np.linspace(0, t_max * 1e9 * 365.25 * 24 * 3600, 400)
     t_Gyr_full = t_span_full / (1e9 * 365.25 * 24 * 3600)
-    
+
     a_full = odeint(friedmann_equation, a0, t_span_full,
                     args=(lcdm_params.H0, lcdm_params.Omega_m, lcdm_params.Omega_Lambda))
     a_full = a_full.flatten()
-    
-    # Find initial conditions at t = 10.8 Gyr
-    idx_10_8 = np.argmin(np.abs(t_Gyr_full - 10.8))
-    a_at_10_8 = a_full[idx_10_8]
-    a_at_13_8 = np.argmin(np.abs(t_Gyr_full - 13.8))
-    
-    lcdm_initial_size = 14.5 * (a_at_10_8 / a_full[a_at_13_8])
-    
+
+    # Find initial conditions at start time
+    idx_start = np.argmin(np.abs(t_Gyr_full - sim_params.t_start_Gyr))
+    a_at_start = a_full[idx_start]
+    idx_today = np.argmin(np.abs(t_Gyr_full - 13.8))
+
+    lcdm_initial_size = 14.5 * (a_at_start / a_full[idx_today])
+
     # Extract simulation window
-    mask = (t_Gyr_full >= 10.8) & (t_Gyr_full <= 16.8)
-    t_lcdm = t_Gyr_full[mask] - 10.8
+    mask = (t_Gyr_full >= sim_params.t_start_Gyr) & (t_Gyr_full <= sim_params.t_end_Gyr)
+    t_lcdm = t_Gyr_full[mask] - sim_params.t_start_Gyr
     a_lcdm = a_full[mask]
     a_lcdm_normalized = a_lcdm / a_lcdm[0]
     size_lcdm = lcdm_initial_size * a_lcdm_normalized
@@ -89,7 +90,7 @@ def run_simulation(output_dir, sim_params):
     )
 
     print("\nRunning simulation...")
-    sim.run(t_end_Gyr=sim_params.t_end_Gyr, n_steps=sim_params.n_steps, save_interval=10)
+    sim.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=10)
     
     # Extract results
     t_ext = np.array([h['time_Gyr'] for h in sim.expansion_history])
@@ -219,10 +220,17 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        '--t-end',
+        '--t-start',
+        type=float,
+        default=10.8,
+        help='Simulation start time since Big Bang (in Gyr)'
+    )
+
+    parser.add_argument(
+        '--t-duration',
         type=float,
         default=6.0,
-        help='Simulation end time (in Gyr)'
+        help='Simulation duration (in Gyr)'
     )
 
     parser.add_argument(
@@ -246,7 +254,8 @@ if __name__ == "__main__":
         S_value=args.S,
         n_particles=args.particles,
         seed=args.seed,
-        t_end_Gyr=args.t_end,
+        t_start_Gyr=args.t_start,
+        t_duration_Gyr=args.t_duration,
         n_steps=args.n_steps
     )
 

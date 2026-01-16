@@ -60,7 +60,8 @@ class CosmologicalSimulation:
         self.particles = ParticleSystem(n_particles=n_particles,
                                        box_size=box_size,
                                        total_mass=self.const.M_observable,
-                                       a_start=self.a_start)
+                                       a_start=self.a_start,
+                                       use_dark_energy=self.use_dark_energy)
         
         # Initialize HMEA grid if using External-Node Model
         self.hmea_grid = None

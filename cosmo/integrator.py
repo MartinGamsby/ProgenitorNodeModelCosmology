@@ -104,9 +104,9 @@ class Integrator:
     def calculate_dark_energy_forces(self):
         """
         Calculate dark energy acceleration (ΛCDM model)
-        
+
         Dark energy acceleration: a_Λ = H₀² Ω_Λ R
-        
+
         Returns:
         --------
         accelerations : array, shape (N, 3)
@@ -114,20 +114,52 @@ class Integrator:
         """
         if not self.use_dark_energy:
             return np.zeros((len(self.particles), 3))
-        
+
         # Get positions (R vectors from origin)
         positions = self.particles.get_positions()
-        
+
         # Dark energy acceleration: a_Λ = H₀² Ω_Λ R (pointing outward)
         # This is the repulsive "push" from vacuum energy
         a_Lambda = self.lcdm.H0**2 * self.lcdm.Omega_Lambda * positions
-        
+
         return a_Lambda
+
+    def calculate_hubble_drag(self):
+        """
+        Calculate Hubble drag acceleration
+
+        In an expanding universe, particles experience friction-like drag:
+        a_drag = -2*H(t)*v
+
+        This is only applied for LCDM simulations with dark energy.
+        For matter-only and external-node models, the damping is baked into
+        the initial velocities only, not applied as ongoing acceleration.
+
+        Returns:
+        --------
+        accelerations : array, shape (N, 3)
+            Hubble drag acceleration for each particle [m/s^2]
+        """
+        # Only apply Hubble drag for LCDM with dark energy
+        # For matter-only/external-nodes, damping is in initial velocities only
+        if not self.use_dark_energy:
+            return np.zeros((len(self.particles), 3))
+
+        # Get current velocities
+        velocities = self.particles.get_velocities()
+
+        # LCDM: H ≈ H₀ (roughly constant due to dark energy dominance)
+        H_current = self.lcdm.H0
+
+        # Hubble drag: a_drag = -2*H*v
+        a_drag = -2.0 * H_current * velocities
+
+        return a_drag
     
     def calculate_total_forces(self):
         """
-        Calculate total forces (internal + external/dark energy)
-        
+        Calculate total forces (internal + external/dark energy + Hubble drag)
+
         Returns:
         --------
         accelerations : array, shape (N, 3)
@@ -136,8 +168,15 @@ class Integrator:
         a_internal = self.calculate_internal_forces()
         a_external = self.calculate_external_forces()
         a_dark_energy = self.calculate_dark_energy_forces()
-        
-        return a_internal + a_external + a_dark_energy
+        a_hubble_drag = self.calculate_hubble_drag()
+
+        #print(f"a_internal max: {np.max(np.linalg.norm(a_internal, axis=1)):.2e} m/s²")
+        #print(f"a_external max: {np.max(np.linalg.norm(a_external, axis=1)):.2e} m/s²")
+        #print(f"a_dark_energy max: {np.max(np.linalg.norm(a_dark_energy, axis=1)):.2e} m/s²")
+        #print(f"a_hubble_drag max: {np.max(np.linalg.norm(a_hubble_drag, axis=1)):.2e} m/s²")
+
+
+        return a_internal + a_external + a_dark_energy + a_hubble_drag
     
     def total_energy(self):
         """
@@ -354,43 +393,3 @@ class RK4Integrator(Integrator):
             'velocities': self.particles.get_velocities().copy(),
             'accelerations': self.particles.get_accelerations().copy(),
         }
-
-
-def test_integrator():
-    """Test the integrator"""
-    print("="*60)
-    print("TESTING N-BODY INTEGRATOR")
-    print("="*60)
-    
-    # Create small test system
-    print("\nSetting up test system...")
-    particles = ParticleSystem(n_particles=10, box_size=1e24)
-    hmea_grid = HMEAGrid(n_nodes=8)
-    
-    # Test with external nodes
-    print("\n1. Testing WITH external nodes (External-Node Model)...")
-    integrator = LeapfrogIntegrator(particles, hmea_grid, use_external_nodes=True)
-    
-    print(f"Initial energy: {integrator.total_energy():.2e} J")
-    
-    # Short integration
-    t_end = 1e15  # ~30 Myr
-    snapshots = integrator.evolve(t_end, n_steps=100, save_interval=20)
-    
-    print(f"Final energy: {integrator.total_energy():.2e} J")
-    print(f"Snapshots saved: {len(snapshots)}")
-    
-    # Test without external nodes
-    print("\n2. Testing WITHOUT external nodes (pure internal gravity)...")
-    particles2 = ParticleSystem(n_particles=10, box_size=1e24)
-    integrator2 = LeapfrogIntegrator(particles2, hmea_grid, use_external_nodes=False)
-    
-    print(f"Initial energy: {integrator2.total_energy():.2e} J")
-    snapshots2 = integrator2.evolve(t_end, n_steps=100, save_interval=20)
-    print(f"Final energy: {integrator2.total_energy():.2e} J")
-    
-    print("\n" + "="*60)
-
-
-if __name__ == "__main__":
-    test_integrator()

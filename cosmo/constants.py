@@ -146,7 +146,7 @@ class SimulationParameters:
     """Parameters for running cosmological simulations"""
 
     def __init__(self, M_value=800, S_value=24.0, n_particles=300, seed=42,
-                 t_start_Gyr=10.8, t_duration_Gyr=6.0, n_steps=150):
+                 t_start_Gyr=10.8, t_duration_Gyr=6.0, n_steps=150, damping_factor=None):
         """
         Initialize simulation parameters
 
@@ -166,6 +166,8 @@ class SimulationParameters:
             Simulation duration (in Gyr). Default: 6.0
         n_steps : int, optional
             Number of simulation timesteps. Default: 150
+        damping_factor : float, optional
+            Initial velocity damping factor (0-1). If None, auto-calculated.
         """
         self.M_value = M_value
         self.S_value = S_value
@@ -174,6 +176,7 @@ class SimulationParameters:
         self.t_start_Gyr = t_start_Gyr
         self.t_duration_Gyr = t_duration_Gyr
         self.n_steps = n_steps
+        self.damping_factor = damping_factor
 
         # Calculate derived quantities
         self._calculate_derived()

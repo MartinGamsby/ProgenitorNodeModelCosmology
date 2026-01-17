@@ -20,7 +20,8 @@ class CosmologicalSimulation:
     
     def __init__(self, n_particles=1000, box_size_Gpc=20.0,
                  use_external_nodes=True, external_node_params=None,
-                 t_start_Gyr=10.8, a_start=None, use_dark_energy=None):
+                 t_start_Gyr=10.8, a_start=None, use_dark_energy=None,
+                 damping_factor=None):
         """
         Initialize simulation
 
@@ -41,6 +42,8 @@ class CosmologicalSimulation:
         use_dark_energy : bool, optional
             Whether to include dark energy acceleration.
             If None, defaults to (not use_external_nodes)
+        damping_factor : float, optional
+            Initial velocity damping factor (0-1). If None, auto-calculated.
         """
         self.const = CosmologicalConstants()
         self.use_external_nodes = use_external_nodes
@@ -61,7 +64,8 @@ class CosmologicalSimulation:
                                        box_size=box_size,
                                        total_mass=self.const.M_observable,
                                        a_start=self.a_start,
-                                       use_dark_energy=self.use_dark_energy)
+                                       use_dark_energy=self.use_dark_energy,
+                                       damping_factor_override=damping_factor)
         
         # Initialize HMEA grid if using External-Node Model
         self.hmea_grid = None

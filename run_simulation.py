@@ -112,7 +112,8 @@ def run_simulation(output_dir, sim_params):
         external_node_params=sim_params.external_params,
         t_start_Gyr=sim_params.t_start_Gyr,
         a_start=a_at_start,
-        use_dark_energy=False  # Explicitly disable dark energy for matter-only
+        use_dark_energy=False,  # Explicitly disable dark energy for matter-only
+        damping_factor=sim_params.damping_factor
     )
 
     print("\nRunning External-Node simulation...")
@@ -134,7 +135,8 @@ def run_simulation(output_dir, sim_params):
         external_node_params=None,
         t_start_Gyr=sim_params.t_start_Gyr,
         a_start=a_at_start,
-        use_dark_energy=False  # Explicitly disable dark energy for matter-only
+        use_dark_energy=False,  # Explicitly disable dark energy for matter-only
+        damping_factor=sim_params.damping_factor
     )
     sim_matter.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=10)
 
@@ -228,7 +230,7 @@ def run_simulation(output_dir, sim_params):
     plt.tight_layout()
     
     # Save outputs
-    plot_path = os.path.join(output_dir, f'figure_simulation_results_{datetime.now().strftime("%Y-%m-%d_%H.%M.%S")}_{sim_params.n_particles}p_{sim_params.t_start_Gyr}-{sim_params.t_start_Gyr+sim_params.t_duration_Gyr}Gyr_{sim_params.M_value}M_{sim_params.S_value}S_{sim_params.n_steps}steps.png')
+    plot_path = os.path.join(output_dir, f'figure_simulation_results_{datetime.now().strftime("%Y-%m-%d_%H.%M.%S")}_{sim_params.n_particles}p_{sim_params.t_start_Gyr}-{sim_params.t_start_Gyr+sim_params.t_duration_Gyr}Gyr_{sim_params.M_value}M_{sim_params.S_value}S_{sim_params.n_steps}steps_{sim_params.damping_factor}d.png')
     sim_path = os.path.join(output_dir, 'simulation.pkl')
 
     plt.savefig(plot_path, dpi=150)
@@ -296,6 +298,13 @@ def parse_arguments():
     )
 
     parser.add_argument(
+        '--damping',
+        type=float,
+        default=None,
+        help='Initial velocity damping factor (0-1). If not specified, auto-calculated.'
+    )
+
+    parser.add_argument(
         '--t-duration',
         type=float,
         default=6.0,
@@ -325,7 +334,8 @@ if __name__ == "__main__":
         seed=args.seed,
         t_start_Gyr=args.t_start,
         t_duration_Gyr=args.t_duration,
-        n_steps=args.n_steps
+        n_steps=args.n_steps,
+        damping_factor=args.damping
     )
 
     sim, sim_matter, ext_final, lcdm_final, matter_final, ext_match, matter_match = run_simulation(args.output_dir, sim_params)

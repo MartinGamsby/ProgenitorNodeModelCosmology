@@ -82,7 +82,7 @@ class Integrator:
                 a_mag = self.const.G * masses[j] / r_soft**2
                 a_vec = a_mag * (r_vec / r)
                 
-                accelerations[i] += a_vec
+                accelerations[i] -= a_vec
         
         return accelerations
     

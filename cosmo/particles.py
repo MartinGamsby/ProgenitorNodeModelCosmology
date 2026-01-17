@@ -38,7 +38,7 @@ class Particle:
 class ParticleSystem:
     """Collection of particles representing the observable universe"""
     
-    def __init__(self, n_particles=1000, box_size=None, total_mass=None, a_start=1.0):
+    def __init__(self, n_particles=1000, box_size=None, total_mass=None, a_start=1.0, use_dark_energy=True, damping_factor_override=0.91):#TODO: Pass from argument
         """
         Initialize a system of particles
 
@@ -52,6 +52,8 @@ class ParticleSystem:
             Total mass to distribute among particles [kg]
         a_start : float
             Scale factor at simulation start time (a=1 at present day)
+        use_dark_energy : bool
+            Whether dark energy will be used in the simulation (affects initial velocities)
         """
         const = CosmologicalConstants()
 
@@ -59,6 +61,8 @@ class ParticleSystem:
         self.box_size = box_size if box_size is not None else const.R_hubble
         self.total_mass = total_mass if total_mass is not None else const.M_observable
         self.a_start = a_start
+        self.use_dark_energy = use_dark_energy
+        self.damping_factor = damping_factor_override
 
         self.particles = []
         self.time = 0.0
@@ -70,29 +74,31 @@ class ParticleSystem:
         """Create initial particle distribution with Hubble flow"""
         lcdm = LambdaCDMParameters()
 
-        # Calculate Hubble parameter at start time using scale factor
         H_start = lcdm.H_at_time(self.a_start)
-
-        # Calculate deceleration parameter q at start time
-        # q = -1 - (1/H)(dH/dt) = 0.5 * Omega_m(a) / [Omega_m(a) + Omega_Lambda] - 1
-        # where Omega_m(a) = Omega_m / a^3 / [Omega_m / a^3 + Omega_Lambda]
-        Omega_m_eff = lcdm.Omega_m / self.a_start**3
-        Omega_Lambda_eff = lcdm.Omega_Lambda
-        total_omega = Omega_m_eff + Omega_Lambda_eff
-
-        if total_omega > 0:
-            q = 0.5 * Omega_m_eff / total_omega - 1.0
+        
+        if self.damping_factor is not None:
+            damping_factor = self.damping_factor
         else:
-            q = 0.5  # Default to matter-dominated if something goes wrong
+            # where Omega_m(a) = Omega_m / a^3 / [Omega_m / a^3 + Omega_Lambda]
+            Omega_m_eff = lcdm.Omega_m / self.a_start**3
+            Omega_Lambda_eff = lcdm.Omega_Lambda
+            total_omega = Omega_m_eff + Omega_Lambda_eff
 
-        # Damping factor based on deceleration parameter
-        # q > 0 (decelerating) → more damping needed
-        # q < 0 (accelerating) → less damping needed
-        # Range: ~0.15 (strong deceleration) to ~0.65 (acceleration)
-        damping_factor = 0.4 - 0.25 * q
+            if total_omega > 0:
+                q = 0.5 * Omega_m_eff / total_omega - 1.0
+            else:
+                q = 0.5  # Default to matter-dominated if something goes wrong
 
-        # Clamp to reasonable range
-        damping_factor = np.clip(damping_factor, 0.1, 0.7)
+            # Damping factor based on deceleration parameter
+            # q > 0 (decelerating) → more damping needed
+            # q < 0 (accelerating) → less damping needed
+            # Range: ~0.15 (strong deceleration) to ~0.65 (acceleration)
+            damping_factor = 0.4 - 0.25 * q
+
+            # Clamp to reasonable range
+            damping_factor = np.clip(damping_factor, 0.1, 0.7)
+
+        print("[ParticleSystem] Damping factor for initial:", damping_factor)
 
         particle_mass = self.total_mass / self.n_particles
 

@@ -8,6 +8,7 @@ import sys
 import os
 import argparse
 import numpy as np
+from datetime import datetime
 from scipy.integrate import odeint
 from scipy.ndimage import gaussian_filter1d
 import matplotlib.pyplot as plt
@@ -102,14 +103,8 @@ def run_simulation(output_dir, sim_params):
     H_start_hubble = H_start * const.Mpc_to_m / 1000
     print(f"H(t_start={sim_params.t_start_Gyr} Gyr) = {H_start_hubble:.1f} km/s/Mpc")
 
-    # Calculate and display deceleration parameter and damping
-    Omega_m_eff = lcdm_params.Omega_m / a_at_start**3
-    Omega_Lambda_eff = lcdm_params.Omega_Lambda
-    total_omega = Omega_m_eff + Omega_Lambda_eff
-    q = 0.5 * Omega_m_eff / total_omega - 1.0 if total_omega > 0 else 0.5
-    damping_factor = np.clip(0.4 - 0.25 * q, 0.1, 0.7)
-    print(f"Deceleration parameter q = {q:.3f}, velocity damping = {damping_factor:.3f}")
-
+    # Reset seed before External-Node simulation for reproducibility
+    np.random.seed(sim_params.seed)
     sim = CosmologicalSimulation(
         n_particles=sim_params.n_particles,
         box_size_Gpc=ext_initial_size,
@@ -117,7 +112,8 @@ def run_simulation(output_dir, sim_params):
         external_node_params=sim_params.external_params,
         t_start_Gyr=sim_params.t_start_Gyr,
         a_start=a_at_start,
-        use_dark_energy=False  # Explicitly disable dark energy for matter-only
+        use_dark_energy=False,  # Explicitly disable dark energy for matter-only
+        damping_factor=sim_params.damping_factor
     )
 
     print("\nRunning External-Node simulation...")
@@ -130,6 +126,8 @@ def run_simulation(output_dir, sim_params):
 
     # Run matter-only simulation (no external nodes, no dark energy)
     print("\nRunning Matter-only simulation...")
+    # Reset seed to ensure identical initial conditions as External-Node
+    np.random.seed(sim_params.seed)
     sim_matter = CosmologicalSimulation(
         n_particles=sim_params.n_particles,
         box_size_Gpc=ext_initial_size,
@@ -137,7 +135,8 @@ def run_simulation(output_dir, sim_params):
         external_node_params=None,
         t_start_Gyr=sim_params.t_start_Gyr,
         a_start=a_at_start,
-        use_dark_energy=False  # Explicitly disable dark energy for matter-only
+        use_dark_energy=False,  # Explicitly disable dark energy for matter-only
+        damping_factor=sim_params.damping_factor
     )
     sim_matter.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=10)
 
@@ -169,11 +168,16 @@ def run_simulation(output_dir, sim_params):
     fig.suptitle(f'Cosmology Comparison (M={sim_params.M_value}, S={sim_params.S_value}, {sim_params.n_particles}p)',
                  fontsize=16, fontweight='bold')
 
+
+    today = None
+    if (sim_params.t_start_Gyr < 13.8) and ((sim_params.t_start_Gyr + sim_params.t_duration_Gyr) > 13.8):
+        today = 13.8 - sim_params.t_start_Gyr
     ax1 = axes[0, 0]
     ax1.plot(t_lcdm, a_lcdm_normalized, 'b-', label='LCDM (with dark energy)', linewidth=2)
     ax1.plot(t_ext, a_ext, 'r--', label='External-Node', linewidth=2)
     ax1.plot(t_matter, a_matter_sim, 'g:', label='Matter-only (no dark energy)', linewidth=2)
-    ax1.axvline(x=3.0, color='gray', linestyle=':', alpha=0.5, label='Today')
+    if today:
+        ax1.axvline(x=today, color='gray', linestyle=':', alpha=0.5, label='Today')
     ax1.set_xlabel('Time [Gyr]', fontsize=11)
     ax1.set_ylabel('Scale Factor', fontsize=11)
     ax1.set_title('Cosmic Expansion', fontsize=13)
@@ -184,7 +188,8 @@ def run_simulation(output_dir, sim_params):
     ax2.plot(t_lcdm, H_lcdm_hubble, 'b-', label='LCDM', linewidth=2)
     ax2.plot(t_ext, H_ext_hubble, 'r--', label='External-Node', linewidth=2)
     ax2.plot(t_matter, H_matter_sim_hubble, 'g:', label='Matter-only', linewidth=2)
-    ax2.axvline(x=3.0, color='gray', linestyle=':', alpha=0.5)
+    if today:
+        ax2.axvline(x=today, color='gray', linestyle=':', alpha=0.5)
     ax2.set_xlabel('Time [Gyr]', fontsize=11)
     ax2.set_ylabel('Hubble Parameter [km/s/Mpc]', fontsize=11)
     ax2.set_title('Expansion Rate', fontsize=13)
@@ -199,7 +204,8 @@ def run_simulation(output_dir, sim_params):
     ax3.plot(t_ext, size_ratio_ext, 'r--', label='External-Node', linewidth=2)
     ax3.plot(t_matter, size_ratio_matter, 'g:', label='Matter-only', linewidth=2)
     ax3.axhline(1.0, color='black', linestyle='--', label='LCDM')
-    ax3.axvline(x=3.0, color='gray', linestyle=':', alpha=0.5)
+    if today:
+        ax3.axvline(x=today, color='gray', linestyle=':', alpha=0.5)
     ax3.fill_between(t_ext, 0.90, 1.10, color='blue', alpha=0.1)
     ax3.set_xlabel('Time [Gyr]', fontsize=11)
     ax3.set_ylabel('Ratio to LCDM', fontsize=11)
@@ -213,7 +219,8 @@ def run_simulation(output_dir, sim_params):
     ax4.plot(t_ext, size_ext, 'r--', label='External-Node', linewidth=2)
     ax4.plot(t_matter, size_matter_sim, 'g:', label='Matter-only', linewidth=2)
     ax4.axhline(sim_params.S_value, color='orange', linestyle='--', label=f'Nodes ({sim_params.S_value} Gpc)', linewidth=2)
-    ax4.axvline(x=3.0, color='gray', linestyle=':', alpha=0.5)
+    if today:
+        ax4.axvline(x=today, color='gray', linestyle=':', alpha=0.5)
     ax4.set_xlabel('Time [Gyr]', fontsize=11)
     ax4.set_ylabel('Universe Radius [Gpc]', fontsize=11)
     ax4.set_title('Physical Size', fontsize=13)
@@ -223,7 +230,7 @@ def run_simulation(output_dir, sim_params):
     plt.tight_layout()
     
     # Save outputs
-    plot_path = os.path.join(output_dir, 'figure_simulation_results.png')
+    plot_path = os.path.join(output_dir, f'figure_simulation_results_{datetime.now().strftime("%Y-%m-%d_%H.%M.%S")}_{sim_params.n_particles}p_{sim_params.t_start_Gyr}-{sim_params.t_start_Gyr+sim_params.t_duration_Gyr}Gyr_{sim_params.M_value}M_{sim_params.S_value}S_{sim_params.n_steps}steps_{sim_params.damping_factor}d.png')
     sim_path = os.path.join(output_dir, 'simulation.pkl')
 
     plt.savefig(plot_path, dpi=150)
@@ -291,6 +298,13 @@ def parse_arguments():
     )
 
     parser.add_argument(
+        '--damping',
+        type=float,
+        default=None,
+        help='Initial velocity damping factor (0-1). If not specified, auto-calculated.'
+    )
+
+    parser.add_argument(
         '--t-duration',
         type=float,
         default=6.0,
@@ -320,7 +334,8 @@ if __name__ == "__main__":
         seed=args.seed,
         t_start_Gyr=args.t_start,
         t_duration_Gyr=args.t_duration,
-        n_steps=args.n_steps
+        n_steps=args.n_steps,
+        damping_factor=args.damping
     )
 
     sim, sim_matter, ext_final, lcdm_final, matter_final, ext_match, matter_match = run_simulation(args.output_dir, sim_params)

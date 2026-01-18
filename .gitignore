@@ -212,3 +212,10 @@ __marimo__/
 *.pdf
 results/
 output/
+
+# Lode temporary session files
+lode/tmp/
+
+# Claude temp files
+tmpclaude-*
+.claude/settings.local.json

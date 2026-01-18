@@ -38,7 +38,7 @@ class Particle:
 class ParticleSystem:
     """Collection of particles representing the observable universe"""
     
-    def __init__(self, n_particles=1000, box_size=None, total_mass=None, a_start=1.0, use_dark_energy=True, damping_factor_override=0.91):#TODO: Pass from argument
+    def __init__(self, n_particles=1000, box_size=None, total_mass=None, a_start=1.0, use_dark_energy=True, damping_factor_override=0.91):
         """
         Initialize a system of particles
 

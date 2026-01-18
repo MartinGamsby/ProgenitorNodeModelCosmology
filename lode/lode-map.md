@@ -17,6 +17,9 @@
 - [physics/initial-conditions.md](./physics/initial-conditions.md) - Damped Hubble flow setup and rationale
 - [physics/integration.md](./physics/integration.md) - Leapfrog algorithm implementation
 
+## Numerics
+- [numerics/timestep-stability.md](./numerics/timestep-stability.md) - Timestep requirements, instability symptoms, energy monitoring
+
 ## Plans
 - [plans/](./plans/) - Future enhancements and TODOs
 

@@ -45,6 +45,14 @@ pytest tests/test_model_comparison.py -v
 
 Result: Matter-only no longer expands faster than ΛCDM. Damping=1.0 now works correctly as benchmark. See test_model_comparison.py tests.
 
+**4. Timestep requirements for numerical stability**: Leapfrog integrator requires sufficient timesteps to prevent energy injection. With too few steps, the integrator becomes unstable and spuriously adds energy to the system.
+
+Example failure case (20 Gyr simulation):
+- 150 steps (dt=0.133 Gyr): Matter-only explodes to 54.64 Gpc (~2x LCDM) due to 1600% energy drift starting around step 91
+- 500 steps (dt=0.040 Gyr): Matter-only correctly gives 27.29 Gpc (~same as LCDM) with stable energy
+
+**Minimum timestep requirement**: For matter-only simulations, need ~250-500 steps per crossing time (t_cross ≈ box_size / v_rms). Too few steps cause leapfrog to inject spurious energy when accelerations change over timestep. Rule of thumb: dt < 0.05 Gyr for typical cosmological simulations.
+
 ## Missing
 
 Integration tests (Leapfrog correctness), particle initialization (damped Hubble flow), full simulation validation.

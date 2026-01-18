@@ -124,43 +124,6 @@ class Integrator:
         a_Lambda = self.lcdm.H0**2 * self.lcdm.Omega_Lambda * positions
 
         return a_Lambda
-
-    def calculate_hubble_drag(self):
-        """
-        Calculate Hubble drag acceleration
-
-        In an expanding universe, particles experience friction-like drag:
-        a_drag = -2*H(t)*v
-
-        This is only applied for LCDM simulations with dark energy.
-        For matter-only and external-node models, the damping is baked into
-        the initial velocities only, not applied as ongoing acceleration.
-
-        Note: This returns an acceleration for use in the leapfrog integrator.
-        The drag is applied as a force, which can be numerically unstable with
-        large timesteps. For better stability, the velocity update in the
-        integrator should clamp the drag effect.
-
-        Returns:
-        --------
-        accelerations : array, shape (N, 3)
-            Hubble drag acceleration for each particle [m/s^2]
-        """
-        # Only apply Hubble drag for LCDM with dark energy
-        # For matter-only/external-nodes, damping is in initial velocities only
-        if not self.use_dark_energy:
-            return np.zeros((len(self.particles), 3))
-
-        # Get current velocities
-        velocities = self.particles.get_velocities()
-
-        # LCDM: H ≈ H₀ (roughly constant due to dark energy dominance)
-        H_current = self.lcdm.H0
-
-        # Hubble drag: a_drag = -2*H*v
-        a_drag = -2.0 * H_current * velocities
-
-        return a_drag
     
     def calculate_total_forces(self):
         """
@@ -174,15 +137,8 @@ class Integrator:
         a_internal = self.calculate_internal_forces()
         a_external = self.calculate_external_forces()
         a_dark_energy = self.calculate_dark_energy_forces()
-        a_hubble_drag = self.calculate_hubble_drag()
 
-        #print(f"a_internal max: {np.max(np.linalg.norm(a_internal, axis=1)):.2e} m/s²")
-        #print(f"a_external max: {np.max(np.linalg.norm(a_external, axis=1)):.2e} m/s²")
-        #print(f"a_dark_energy max: {np.max(np.linalg.norm(a_dark_energy, axis=1)):.2e} m/s²")
-        #print(f"a_hubble_drag max: {np.max(np.linalg.norm(a_hubble_drag, axis=1)):.2e} m/s²")
-
-
-        return a_internal + a_external + a_dark_energy + a_hubble_drag
+        return a_internal + a_external + a_dark_energy
     
     def total_energy(self):
         """
@@ -245,11 +201,7 @@ class LeapfrogIntegrator(Integrator):
         dt : float
             Timestep [seconds]
         """
-        # Calculate forces (internal + external + dark energy, NO drag)
-        a_internal = self.calculate_internal_forces()
-        a_external = self.calculate_external_forces()
-        a_dark_energy = self.calculate_dark_energy_forces()
-        a_total = a_internal + a_external + a_dark_energy
+        a_total = self.calculate_total_forces()
 
         # Kick (half step)
         self.particles.set_accelerations(a_total)
@@ -259,10 +211,7 @@ class LeapfrogIntegrator(Integrator):
         self.particles.update_positions(dt)
 
         # Kick (half step)
-        a_internal = self.calculate_internal_forces()
-        a_external = self.calculate_external_forces()
-        a_dark_energy = self.calculate_dark_energy_forces()
-        a_total = a_internal + a_external + a_dark_energy
+        a_total = self.calculate_total_forces()
 
         self.particles.set_accelerations(a_total)
         self.particles.update_velocities(dt / 2)

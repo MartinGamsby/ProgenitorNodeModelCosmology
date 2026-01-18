@@ -235,50 +235,6 @@ class HMEAGrid:
         """Get all node masses as (N,) array"""
         return np.array([node['mass'] for node in self.nodes])
     
-    def calculate_tidal_acceleration(self, position):
-        """
-        Calculate tidal acceleration at a given position due to all HMEA nodes
-        
-        From paper: a_tidal ≈ (2*G*M_ext/S^3) * R
-        
-        This is the key difference from ΛCDM!
-        
-        Parameters:
-        -----------
-        position : array-like, shape (3,)
-            Position to calculate acceleration [meters]
-            
-        Returns:
-        --------
-        acceleration : array, shape (3,)
-            Tidal acceleration vector [m/s^2]
-        """
-        const = CosmologicalConstants()
-        pos = np.array(position)
-        total_acc = np.zeros(3)
-        
-        for node in self.nodes:
-            node_pos = node['position']
-            M_ext = node['mass']
-            
-            # Vector from node to position
-            r_vec = pos - node_pos
-            r = np.linalg.norm(r_vec)
-            
-            if r < 1e-10:  # Avoid singularity
-                continue
-            
-            # Tidal force: gradient of gravitational potential
-            # F = -GM/r^2, so dF/dr ≈ 2GM/r^3 for small displacements
-            # This creates a "stretching" force proportional to distance
-            
-            # Exact tidal acceleration (not just linear approximation)
-            a_tidal = const.G * M_ext * r_vec / r**3
-            
-            total_acc += a_tidal
-        
-        return total_acc
-    
     def calculate_tidal_acceleration_batch(self, positions):
         """
         Calculate tidal acceleration for multiple positions (vectorized)
@@ -319,56 +275,3 @@ class HMEAGrid:
         return (f"HMEAGrid(n_nodes={self.n_nodes}, "
                 f"M_ext={self.params.M_ext:.2e} kg, "
                 f"S={self.params.S_Gpc:.1f} Gpc)")
-
-
-def test_structures():
-    """Test particle and grid structures"""
-    print("="*60)
-    print("TESTING PARTICLE AND GRID STRUCTURES")
-    print("="*60)
-    
-    # Create particle system
-    print("\nCreating particle system...")
-    particles = ParticleSystem(n_particles=100, box_size=1e25)
-    print(particles)
-    print(f"Total mass: {particles.total_mass:.2e} kg")
-    print(f"Kinetic energy: {particles.kinetic_energy():.2e} J")
-    
-    # Create HMEA grid
-    print("\nCreating HMEA grid...")
-    grid = HMEAGrid(n_nodes=8)
-    print(grid)
-    
-    print("\nNode positions (Gpc):")
-    const = CosmologicalConstants()
-    for i, node in enumerate(grid.nodes):
-        pos_gpc = node['position'] / const.Gpc_to_m
-        print(f"  Node {i}: ({pos_gpc[0]:6.2f}, {pos_gpc[1]:6.2f}, {pos_gpc[2]:6.2f})")
-    
-    # Test tidal acceleration
-    print("\nTesting tidal acceleration at origin...")
-    test_pos = np.array([0.0, 0.0, 0.0])
-    acc = grid.calculate_tidal_acceleration(test_pos)
-    print(f"  Acceleration: {acc} m/s^2")
-    print(f"  |a| = {np.linalg.norm(acc):.2e} m/s^2")
-    
-    # Test at offset position
-    print("\nTesting tidal acceleration at R = 10 Gpc...")
-    test_pos = np.array([10e25, 0.0, 0.0])  # 10 Gpc in x-direction
-    acc = grid.calculate_tidal_acceleration(test_pos)
-    print(f"  Acceleration: x={acc[0]:.2e}, y={acc[1]:.2e}, z={acc[2]:.2e} m/s^2")
-    print(f"  |a| = {np.linalg.norm(acc):.2e} m/s^2")
-    
-    # Compare to ΛCDM dark energy acceleration
-    # a_Lambda = H0^2 * Omega_Lambda * R
-    lcdm = LambdaCDMParameters()
-    R = np.linalg.norm(test_pos)
-    a_Lambda = lcdm.H0**2 * lcdm.Omega_Lambda * R
-    print(f"\n  ΛCDM equivalent: |a_Λ| = {a_Lambda:.2e} m/s^2")
-    print(f"  Ratio (tidal/Lambda): {np.linalg.norm(acc)/a_Lambda:.3f}")
-    
-    print("\n" + "="*60)
-
-
-if __name__ == "__main__":
-    test_structures()

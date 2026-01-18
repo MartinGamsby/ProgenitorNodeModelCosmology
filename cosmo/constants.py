@@ -204,30 +204,3 @@ class SimulationParameters:
                 f"  Time = {self.t_start_Gyr} → {self.t_end_Gyr} Gyr ({self.t_duration_Gyr} Gyr)\n"
                 f"  Steps = {self.n_steps}\n"
                 f"  Ω_Λ_eff = {self.external_params.Omega_Lambda_eff:.3f}")
-
-
-def test_parameters():
-    """Test the parameter classes"""
-    print("="*60)
-    print("TESTING COSMOLOGICAL PARAMETERS")
-    print("="*60)
-    
-    # Test ΛCDM
-    print("\n" + str(LambdaCDMParameters()))
-    
-    # Test External-Node Model
-    print("\n" + str(ExternalNodeParameters()))
-    
-    # Test required spacing calculation
-    en = ExternalNodeParameters()
-    S_required = en.calculate_required_spacing(Omega_Lambda_target=0.7, H0=70)
-    print(f"\nRequired spacing for Ω_Λ=0.7: {S_required/CosmologicalConstants.Gpc_to_m:.1f} Gpc")
-    
-    # Test simulation parameters
-    print("\n" + str(SimulationParameters()))
-    
-    print("\n" + "="*60)
-
-
-if __name__ == "__main__":
-    test_parameters()

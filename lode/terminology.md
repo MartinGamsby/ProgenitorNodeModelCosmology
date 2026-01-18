@@ -14,7 +14,9 @@
 
 **Tidal acceleration** - Force from external nodes: a = GM_ext × r / |r_node - r|³
 
-**Damping factor** - Coefficient multiplying initial Hubble flow velocities. Compensates for no ongoing Hubble drag in matter-only evolution. Currently using: 0.91.
+**Damping factor** - Coefficient multiplying initial Hubble flow velocities. Compensates for no ongoing Hubble drag in matter-only evolution. Auto-calculated from deceleration parameter (d=0.4-0.25×q, clipped to 0.1-0.7) unless explicitly overridden. Empirical best-fit: 0.91.
+
+**Deceleration parameter (q)** - Measure of expansion deceleration: q = 0.5×Ω_m(a)/[Ω_m(a)+Ω_Λ] - 1.0. Positive q means deceleration (matter-dominated), negative q means acceleration (Λ-dominated). Used to auto-calculate damping factor.
 
 **Progenitor Node** - Hypothesized source of Big Bang: a node in virialized meta-structure that destabilized, explaining isotropy without fine-tuning. (Draft theory in paper.tex)
 

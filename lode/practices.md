@@ -12,7 +12,7 @@
 
 **Initial conditions consistency**: Same seed for External-Node and Matter-only simulations ensures identical starting state for fair comparison.
 
-**Damping factor calculation**: Auto-calculated unless explicitly provided. Derived from requirement that initial expansion velocity matches ΛCDM at t_start.
+**Damping factor calculation**: Auto-calculated from deceleration parameter q (formula: d=0.4-0.25×q, clipped to 0.1-0.7) unless explicitly overridden. Override with 0.91 for best empirical ΛCDM match, or 0.0 for test isolation.
 
 **Force separation**: Keep internal gravity, external tidal, dark energy, and Hubble drag in separate methods. Aids debugging and A/B testing.
 

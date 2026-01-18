@@ -1,194 +1,146 @@
 # Data Flow
 
-## `run_simulation.py` Execution Flow
+## run_simulation.py Execution
 
 ```mermaid
 graph TD
-    A[Parse CLI Arguments] --> B[Create SimulationParameters]
-    B --> C[Solve ΛCDM Friedmann Equation]
-    C --> D[Solve Matter-Only Friedmann]
-    D --> E[Extract Initial Conditions at t_start]
+    A[Parse CLI] --> B[SimulationParameters]
+    B --> C[Solve ΛCDM Friedmann ODE]
+    C --> D[Solve Matter-only Friedmann]
+    D --> E[Extract t_start conditions]
     E --> F[Run External-Node N-body]
-    E --> G[Run Matter-Only N-body]
-    F --> H[Extract Expansion History]
-    G --> I[Extract Expansion History]
-    C --> J[ΛCDM Scale Factor a_lcdm]
-    D --> K[Matter-Only Scale Factor a_matter]
-    H --> L[External-Node Scale Factor a_ext]
-    I --> M[Matter-Only N-body Scale Factor a_matter_sim]
-    J --> N[Generate 4-Panel Plot]
+    E --> G[Run Matter-only N-body]
+    F --> H[Extract expansion history]
+    G --> I[Extract expansion history]
+    C --> J[ΛCDM analytic a_lcdm]
+    D --> K[Matter analytic a_matter]
+    H --> L[External N-body a_ext]
+    I --> M[Matter N-body a_matter_sim]
+    J --> N[4-panel plot]
     K --> N
     L --> N
     M --> N
-    N --> O[Save PNG + Pickle]
+    N --> O[Save PNG + pickle]
 ```
 
-## Key Data Transformations
+## Key Transformations
 
 ### 1. Initial Conditions (run_simulation.py:44-73)
 
-**Input**: `t_start_Gyr` (e.g., 10.8 Gyr)
+**Input**: t_start_Gyr (e.g., 10.8)
 
-**Process**:
-```python
-# Solve Friedmann equation from Big Bang to present
-a_full = odeint(friedmann_equation, a0=0.001, t_span_full, args=(H0, Ω_m, Ω_Λ))
+**Output**: a_at_start, box_size_initial
 
-# Find scale factor at t_start
-idx_start = argmin(|t_Gyr_full - t_start_Gyr|)
-a_at_start = a_full[idx_start]
+Solve Friedmann ODE from Big Bang → present. Extract scale factor at t_start. Calculate box size: `14.5 Gpc × (a_start / a_today)`.
 
-# Calculate initial box size
-lcdm_initial_size = 14.5 Gpc × (a_at_start / a_today)
-```
+Example: t=10.8 Gyr → a≈0.839 → size≈12.2 Gpc
 
-**Output**: `a_at_start`, `lcdm_initial_size` (e.g., a=0.839, size=11.59 Gpc)
+### 2. Particle Init (particles.py:73-116)
 
-### 2. Particle Initialization (particles.py:73-116)
+**Input**: box_size, n_particles, a_start, damping_override
 
-**Input**: `box_size_Gpc`, `n_particles`, `a_start`, `damping_factor`
+**Output**: ParticleSystem with N particles
 
-**Process**:
-```python
-# Random positions in cube
-positions = np.random.rand(N, 3) × box_size - box_size/2
+Random positions in box. Velocities: `v = damping×H(a)×r + v_pec` where damping auto-calculated from deceleration param q or overridden. Masses uniform: total_mass/N.
 
-# Damped Hubble flow velocities
-H_start = H_at_time(a_start)
-velocities = damping_factor × H_start × positions
+See [initial-conditions.md](../physics/initial-conditions.md) for damping details.
 
-# Uniform masses
-masses = (Ω_m × ρ_crit × box_size³) / N
-```
+### 3. HMEA Grid (particles.py:196-228)
 
-**Output**: `ParticleSystem` with N particles, initial v ≈ 0.91 × Hr
+**Input**: M_ext, S (spacing)
 
-### 3. HMEA Grid Construction (particles.py:196-228)
+**Output**: 26 HMEA nodes
 
-**Input**: `M_ext`, `S` (spacing), `irregularity=0.05`
-
-**Process**:
-```python
-# 3×3×3 lattice (center excluded) = 26 nodes
-for i,j,k in [-1,0,1]³:
-    if (i,j,k) ≠ (0,0,0):
-        base_position = [i×S, j×S, k×S]
-        perturbed_position = base_position + random(-S×0.05, S×0.05)
-        nodes.append((M_ext, perturbed_position))
-```
-
-**Output**: 26 HMEA nodes at ~24 Gpc spacing with 5% irregularity
+3×3×3 cubic lattice, center excluded. Each node at `[i,j,k]×S` with 5% positional irregularity (virialized realism).
 
 ### 4. Force Calculation (integrator.py:159-179)
 
 **Input**: Particle positions, velocities
 
-**Process**:
-```python
-a_total = (
-    calculate_internal_forces()        # O(N²) pairwise gravity
-    + calculate_external_forces()      # 26 × N tidal forces
-    + calculate_dark_energy_forces()   # H₀² Ω_Λ r (ΛCDM only)
-    + calculate_hubble_drag()          # -2Hr (ΛCDM only)
-)
+**Output**: Total accelerations
+
+```
+a_total = internal_gravity + external_tidal + dark_energy + hubble_drag
 ```
 
-**Output**: Acceleration vector for each particle [m/s²]
+- Internal: O(N²) pairwise with softening
+- External: Vectorized over 26 nodes (if use_external_nodes)
+- Dark energy: H₀²Ω_Λ×r (if use_dark_energy)
+- Hubble drag: -2H(a)×v (if use_dark_energy)
 
-### 5. Leapfrog Integration (integrator.py:229-252)
+See [force-calculations.md](../physics/force-calculations.md).
 
-**Input**: Current state (r, v), timestep dt
+### 5. Leapfrog Step (integrator.py:229-252)
 
-**Process**:
-```python
-# Kick (half)
-v += a × dt/2
+**Input**: dt, current state
 
-# Drift (full)
-r += v × dt
+**Output**: Updated positions, velocities
 
-# Kick (half)
-a = calculate_total_forces()
-v += a × dt/2
+Kick-Drift-Kick: half-step velocity kick, full-step position drift, half-step velocity kick. Symplectic, energy-conserving.
 
-t += dt
+See [integration.md](../physics/integration.md).
+
+### 6. Expansion Tracking (simulation.py:90-150)
+
+**Input**: Particle snapshots over time
+
+**Output**: Scale factor history
+
+Calculate RMS radius of particle distribution at each snapshot:
+```
+R_rms(t) = sqrt(mean(||r_i - r_cm||²))
+a(t) = R_rms(t) / R_rms(t_start)
 ```
 
-**Output**: Updated state (r', v', t+dt)
+Also compute H(t) = (da/dt) / a via finite differences.
 
-### 6. Expansion History Extraction (simulation.py:86-145)
+### 7. Comparison Plot (run_simulation.py:180-230)
 
-**Input**: List of snapshots (positions, velocities, times)
+**Input**: Three expansion histories (ΛCDM analytic, External N-body, Matter N-body)
 
-**Process**:
-```python
-for snapshot in snapshots:
-    # Center of mass
-    com = mean(positions, weighted_by=masses)
+**Output**: 4-panel figure
 
-    # RMS radius
-    displacements = positions - com
-    rms_radius = sqrt(mean(displacements²))
+- Top-left: Scale factor a(t)
+- Top-right: Hubble parameter H(t)
+- Bottom-left: Ratio External/ΛCDM (match quality)
+- Bottom-right: Physical size evolution
 
-    # Scale factor
-    a = rms_radius / initial_rms_radius
-
-    expansion_history.append({
-        'time_Gyr': t / Gyr_to_s,
-        'scale_factor': a,
-        'size': rms_radius / Gpc_to_m
-    })
-```
-
-**Output**: Time series of (t, a, size)
-
-### 7. Plot Generation (run_simulation.py:167-228)
-
-**Input**: Four time series (t_lcdm, a_lcdm), (t_ext, a_ext), (t_matter, a_matter), (t_matter_sim, a_matter_sim)
-
-**Panels**:
-1. **Scale Factor vs Time**: Direct comparison a(t)
-2. **Hubble Parameter vs Time**: H = gradient(a, t) / a
-3. **Ratio to ΛCDM**: size_ext / size_lcdm (should ≈ 1.0)
-4. **Physical Size vs Time**: size in Gpc (shows node spacing)
-
-**Output**: 4-panel matplotlib figure (14×10 inches, 150 dpi)
+Saved as PNG with timestamp + params in filename.
 
 ## Data Types
 
-| Variable | Type | Units | Typical Value |
-|----------|------|-------|---------------|
-| `a` | float | dimensionless | 0.839 → 1.045 |
-| `t` | float | seconds | 3.4e17 s (10.8 Gyr) |
-| `positions` | (N,3) array | meters | ±5.8e25 m (±5.8 Gpc) |
-| `velocities` | (N,3) array | m/s | ±6e5 m/s |
-| `masses` | (N,) array | kg | 1e53 kg each |
-| `accelerations` | (N,3) array | m/s² | 1e-10 m/s² typical |
-| `H` | float | 1/s | 2.3e-18 /s (70 km/s/Mpc) |
-| `size` | float | meters | 1.2e26 m (12 Gpc) |
+**SimulationParameters**: Unified config object holding M_value, S_value, n_particles, seed, t_start, t_duration, n_steps, damping_factor. Auto-calculates derived quantities (M_ext in kg, S in meters, external_params).
 
-## Snapshot Structure
+**ParticleSystem**: List of Particle objects with positions (m), velocities (m/s), masses (kg), accelerations (m/s²).
 
-Each snapshot dict:
-```python
-{
-    'time': float,              # seconds since Big Bang
-    'positions': (N,3) array,   # meters, current positions
-    'velocities': (N,3) array,  # m/s, current velocities
-    'accelerations': (N,3) array # m/s², current accelerations
-}
+**HMEAGrid**: List of (M_ext, position) tuples for 26 external nodes.
+
+**Expansion history**: Arrays of (time, scale_factor, hubble_param, rms_radius).
+
+## File I/O
+
+**Output files** (results/):
+- PNG: 4-panel comparison plot
+- Pickle: Full CosmologicalSimulation object (particles, history, parameters)
+
+**Filename convention**:
+```
+figure_simulation_results_YYYY-MM-DD_HH.MM.SS_300p_10.8-16.8Gyr_800M_24S_150steps_0.91d.png
 ```
 
-Snapshots saved every `save_interval` steps (default 10) → ~15 snapshots per simulation.
+Includes timestamp, particles, time range, M/S params, steps, damping.
 
-## Expansion History Structure
+## Performance Notes
 
-Each history entry dict:
-```python
-{
-    'time_Gyr': float,        # Gyr since Big Bang
-    'scale_factor': float,    # dimensionless, normalized to initial
-    'size': float,            # Gpc, RMS radius from center of mass
-    'H': float                # km/s/Mpc (optional, calculated later)
-}
-```
+**Bottleneck**: Internal force O(N²). ~2 min for 300 particles × 150 steps.
+
+**Parallelization**: External forces vectorized over 26 nodes (NumPy broadcasting).
+
+**Memory**: Minimal. Snapshots saved every save_interval steps (default 10).
+
+## References
+
+Particle init: [initial-conditions.md](../physics/initial-conditions.md)
+Forces: [force-calculations.md](../physics/force-calculations.md)
+Integration: [integration.md](../physics/integration.md)
+Module organization: [module-structure.md](./module-structure.md)

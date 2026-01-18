@@ -35,7 +35,15 @@ pytest tests/test_model_comparison.py -v
 
 **Node irregularity tolerance**: Relaxed tidal direction test tolerance from 10% to 200% to account for 5% HMEA node position irregularity.
 
-**Hubble drag numerical stability** (integrator.py:235-275): Switched from explicit drag force `a_drag = -2Hv` included in leapfrog to implicit exponential damping `v *= exp(-2H*dt)` applied after each timestep. Prevents over-damping bug where matter-only expanded faster than ΛCDM with large timesteps (few steps). See test_model_comparison.py::test_few_steps_regression.
+**Matter-only instability fixes** (multiple files):
+
+1. **Softening inconsistency** (integrator.py:83): Changed `a_vec = a_mag * (r_vec / r)` to `a_vec = a_mag * (r_vec / r_soft)`. Must use softened distance for BOTH magnitude and direction. Inconsistency created spurious force components causing runaway expansion.
+
+2. **COM velocity removal** (particles.py:118-130): After initializing particles with Hubble flow v=H×r, random positions create non-zero center-of-mass velocity. This causes bulk drift (spurious expansion). Now subtract COM velocity: `particle.vel -= com_velocity`.
+
+3. **Hubble drag disabled** (integrator.py:271-277): In proper coordinates with explicit dark energy, Hubble drag (a_drag = -2Hv) causes OVER-DAMPING. With v ≈ Hr, drag is 3x stronger than dark energy acceleration, making ΛCDM decelerate! Hubble drag only appropriate for comoving coordinates. Proper coords use dark energy acceleration alone.
+
+Result: Matter-only no longer expands faster than ΛCDM. Damping=1.0 now works correctly as benchmark. See test_model_comparison.py tests.
 
 ## Missing
 

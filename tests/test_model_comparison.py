@@ -27,7 +27,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             n_particles=10,
             box_size=10.0 * self.const.Gpc_to_m,
             total_mass=1e54,
-            damping_factor_override=0.5,  # Same damping for fair comparison
+            damping_factor_override=1.0,  # Same damping for fair comparison
             use_dark_energy=True
         )
 
@@ -36,7 +36,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             n_particles=10,
             box_size=10.0 * self.const.Gpc_to_m,
             total_mass=1e54,
-            damping_factor_override=0.5,  # Same damping
+            damping_factor_override=1.0,  # Same damping
             use_dark_energy=False
         )
 
@@ -103,7 +103,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             n_particles=10,
             box_size=10.0 * self.const.Gpc_to_m,
             total_mass=1e54,
-            damping_factor_override=0.5,
+            damping_factor_override=1.0,
             use_dark_energy=True
         )
 
@@ -120,7 +120,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             n_particles=10,
             box_size=10.0 * self.const.Gpc_to_m,
             total_mass=1e54,
-            damping_factor_override=0.5,
+            damping_factor_override=1.0,
             use_dark_energy=True
         )
 
@@ -170,7 +170,7 @@ class TestMatterVsLCDM(unittest.TestCase):
                     n_particles=10,
                     box_size=10.0 * self.const.Gpc_to_m,
                     total_mass=1e54,
-                    damping_factor_override=0.5,
+                    damping_factor_override=1.0,
                     use_dark_energy=False
                 )
                 integrator_matter = LeapfrogIntegrator(
@@ -185,7 +185,7 @@ class TestMatterVsLCDM(unittest.TestCase):
                     n_particles=10,
                     box_size=10.0 * self.const.Gpc_to_m,
                     total_mass=1e54,
-                    damping_factor_override=0.5,
+                    damping_factor_override=1.0,
                     use_dark_energy=True
                 )
                 integrator_lcdm = LeapfrogIntegrator(
@@ -224,7 +224,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             n_particles=10,
             box_size=10.0 * self.const.Gpc_to_m,
             total_mass=1e54,
-            damping_factor_override=0.5,
+            damping_factor_override=1.0,
             use_dark_energy=True
         )
 
@@ -240,7 +240,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             n_particles=10,
             box_size=10.0 * self.const.Gpc_to_m,
             total_mass=1e54,
-            damping_factor_override=0.5,
+            damping_factor_override=1.0,
             use_dark_energy=True
         )
 

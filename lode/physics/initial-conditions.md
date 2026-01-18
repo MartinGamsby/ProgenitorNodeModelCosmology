@@ -14,13 +14,22 @@ Random uniform in `[-box_size/2, +box_size/2]³`, centered at origin.
 
 ## Velocity Initialization
 
-**File**: particles.py:73-116
+**File**: particles.py:73-130
 
 `v = damping × H(a_start) × pos + v_peculiar`
+
+Then **COM velocity is removed** (particles.py:118-130):
+```python
+velocities = np.array([p.vel for p in self.particles])
+com_velocity = np.mean(velocities, axis=0)
+for particle in self.particles:
+    particle.vel -= com_velocity
+```
 
 - **v_peculiar**: Gaussian noise, σ=100 km/s (realistic galaxy peculiar velocities)
 - **H(a_start)**: Hubble parameter at simulation start from LambdaCDMParameters.H_at_time(a)
 - **damping**: See below
+- **COM removal**: CRITICAL for preventing bulk motion. With random particle positions, Hubble flow v=H×r creates non-zero COM velocity, causing spurious expansion.
 
 ## Damping Factor Calculation
 
@@ -75,13 +84,16 @@ Enables apples-to-apples comparison.
 
 | Parameter | ΛCDM | External-Node | Matter-only |
 |-----------|------|---------------|-------------|
-| Damping | auto (~0.6) | auto (~0.6) or 0.91 | auto (~0.6) or 0.91 |
-| v_init | d×Hr + v_pec | d×Hr + v_pec | d×Hr + v_pec |
-| Ongoing drag | -2Hv | None | None |
+| Damping | 1.0 benchmark | 1.0 benchmark | 1.0 benchmark |
+| v_init | d×Hr + v_pec - v_COM | d×Hr + v_pec - v_COM | d×Hr + v_pec - v_COM |
+| Ongoing drag | **NO** (proper coords) | None | None |
 | External nodes | No | 26 HMEAs | No |
 | Dark energy | H₀²Ω_Λr | No | No |
 
-Result: External-Node matches ΛCDM to 99.4% with damping=0.91 override.
+**Key changes** (fixing instability bugs):
+- Damping=1.0 is now the benchmark (full Hubble flow)
+- COM velocity removal prevents bulk drift
+- Hubble drag NOT applied in proper-coordinate ΛCDM (dark energy acceleration handles expansion)
 
 ## Diagram
 

@@ -290,7 +290,7 @@ class TestHubbleDrag(unittest.TestCase):
         )
 
         # Give particle velocity in +x direction
-        particles.particles[0].velocity = np.array([1e6, 0.0, 0.0])  # 1000 km/s
+        particles.particles[0].vel = np.array([1e6, 0.0, 0.0])  # 1000 km/s
 
         integrator = Integrator(particles, use_dark_energy=True, use_external_nodes=False)
 
@@ -310,7 +310,7 @@ class TestHubbleDrag(unittest.TestCase):
         )
 
         v = np.array([5e5, 3e5, 1e5])  # m/s
-        particles.particles[0].velocity = v
+        particles.particles[0].vel = v
 
         integrator = Integrator(particles, use_dark_energy=True, use_external_nodes=False)
 

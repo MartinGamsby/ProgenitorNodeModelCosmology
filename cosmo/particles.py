@@ -114,6 +114,17 @@ class ParticleSystem:
 
             particle = Particle(pos, vel, particle_mass, particle_id=i)
             self.particles.append(particle)
+
+        # CRITICAL: Remove center-of-mass velocity to prevent bulk motion
+        # With Hubble flow v = H*r, random particle positions create non-zero COM velocity
+        # This causes the entire system to drift, appearing as unphysical expansion
+        velocities = np.array([p.vel for p in self.particles])
+        com_velocity = np.mean(velocities, axis=0)
+
+        print(f"[ParticleSystem] Removing COM velocity: [{com_velocity[0]:.3e}, {com_velocity[1]:.3e}, {com_velocity[2]:.3e}] m/s")
+
+        for particle in self.particles:
+            particle.vel -= com_velocity
     
     def get_positions(self):
         """Get all particle positions as (N, 3) array"""

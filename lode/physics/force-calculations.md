@@ -191,7 +191,15 @@ if self.use_dark_energy:
 
 **Physical meaning**: In expanding universe, particles experience friction from cosmic expansion. Prevents runaway velocities from dark energy repulsion.
 
-**Numerical stability**: Changed from explicit force (unstable with large dt) to implicit exponential damping (stable for any dt). Prevents bug where matter-only expanded faster than ΛCDM with very few timesteps.
+**CRITICAL UPDATE**: Hubble drag is **NOT APPLIED** in proper-coordinate simulations!
+
+In proper coordinates with explicit dark energy, applying Hubble drag causes OVER-DAMPING:
+- Dark energy provides: +H²Ω_Λr acceleration (outward)
+- Hubble drag would provide: -2Hv deceleration (inward)
+- With full Hubble flow v ≈ Hr, drag is ~3x stronger than dark energy
+- Result: ΛCDM decelerates instead of accelerates!
+
+Hubble drag (a_drag = -2Hv) is only appropriate for **comoving coordinates** where background expansion is implicit. In **proper coordinates**, dark energy acceleration alone handles expansion correctly.
 
 **Typical damping** (over full timestep):
 - dt=1e15 s (0.03 Gyr): 0.5% velocity reduction

@@ -77,10 +77,11 @@ class Integrator:
                 
                 # Softened distance to prevent singularities
                 r_soft = np.sqrt(r**2 + self.softening**2)
-                
-                # Newton's law: a = GM/r^2
+
+                # Newton's law: a = GM/r^2 (with softening)
+                # CRITICAL: Use r_soft for BOTH magnitude AND direction
                 a_mag = self.const.G * masses[j] / r_soft**2
-                a_vec = a_mag * (r_vec / r)
+                a_vec = a_mag * (r_vec / r_soft)
 
                 accelerations[i] += a_vec
         
@@ -266,13 +267,13 @@ class LeapfrogIntegrator(Integrator):
         self.particles.set_accelerations(a_total)
         self.particles.update_velocities(dt / 2)
 
-        # Apply Hubble drag implicitly as exponential damping (LCDM only)
-        # This is numerically stable for any timestep
-        if self.use_dark_energy:
-            gamma = 2.0 * self.lcdm.H0
-            damping_factor = np.exp(-gamma * dt)
-            for particle in self.particles.particles:
-                particle.vel *= damping_factor
+        # NOTE: Hubble drag is NOT applied in proper-coordinate simulations!
+        # In proper coordinates with explicit dark energy, the expansion is handled
+        # by the dark energy acceleration term (a_Λ = H²Ω_Λ r).
+        # Hubble drag (a_drag = -2Hv) is only appropriate for comoving coordinates
+        # where the background expansion is implicit.
+        # Applying it here would over-damp the system since velocities include
+        # both Hubble flow AND peculiar velocities.
 
         # Update time
         self.particles.time += dt

@@ -28,61 +28,76 @@ Particles uniformly distributed in `[-box_size/2, +box_size/2]³`.
 
 ### Velocity Initialization (Key Code)
 
+**File**: particles.py:73-116
+
 ```python
-def _initialize_velocities(self, t_start_Gyr, a_start, use_dark_energy, damping_factor):
-    """
-    Initialize velocities with damped Hubble flow
-
-    For matter-dominated expansion without dark energy, we damp the
-    Hubble flow to compensate for lack of ongoing Hubble drag.
-
-    Parameters:
-    -----------
-    t_start_Gyr : float
-        Starting time [Gyr after Big Bang]
-    a_start : float
-        Scale factor at t_start
-    use_dark_energy : bool
-        Whether this is ΛCDM (True) or matter-only/External-Node (False)
-    damping_factor : float or None
-        Velocity damping coefficient. If None, auto-calculated.
-    """
+def _initialize_particles(self):
+    """Create initial particle distribution with damped Hubble flow"""
     lcdm = LambdaCDMParameters()
-    H_start = lcdm.H_at_time(a_start)
+    H_start = lcdm.H_at_time(self.a_start)
 
-    # Auto-calculate damping if not provided
-    if damping_factor is None:
-        if use_dark_energy:
-            # ΛCDM: no damping, Hubble drag term handles it
-            damping_factor = 1.0
+    if self.damping_factor is not None:
+        # Use explicit override if provided
+        damping_factor = self.damping_factor
+    else:
+        # Auto-calculate based on deceleration parameter q
+        # where Omega_m(a) = Omega_m / a^3 / [Omega_m / a^3 + Omega_Lambda]
+        Omega_m_eff = lcdm.Omega_m / self.a_start**3
+        Omega_Lambda_eff = lcdm.Omega_Lambda
+        total_omega = Omega_m_eff + Omega_Lambda_eff
+
+        if total_omega > 0:
+            q = 0.5 * Omega_m_eff / total_omega - 1.0
         else:
-            # Matter-only/External-Node: damp to compensate for no drag
-            # Empirically tuned to ~0.91
-            damping_factor = 0.91
+            q = 0.5  # Default to matter-dominated
 
-    # Hubble flow: v = damping_factor × H × r
-    velocities = damping_factor * H_start * self.positions
-    self.particles = [
-        Particle(pos, vel, mass, pid)
-        for pid, (pos, vel, mass) in enumerate(zip(self.positions, velocities, masses))
-    ]
+        # Damping factor based on deceleration parameter
+        # q > 0 (decelerating) → more damping needed
+        # q < 0 (accelerating) → less damping needed
+        damping_factor = 0.4 - 0.25 * q
+        damping_factor = np.clip(damping_factor, 0.1, 0.7)
+
+    # Hubble flow: v = damping_factor × H × r + peculiar velocity
+    for i in range(self.n_particles):
+        pos = np.random.uniform(-self.box_size/2, self.box_size/2, 3)
+        v_hubble = damping_factor * H_start * pos
+        v_peculiar = np.random.normal(0, 1e5, 3)  # ~100 km/s
+        vel = v_hubble + v_peculiar
+        particle = Particle(pos, vel, particle_mass, particle_id=i)
+        self.particles.append(particle)
 ```
 
-### Damping Factor Rationale
+### Damping Factor Auto-Calculation
 
-**ΛCDM (use_dark_energy=True)**:
-- Damping = 1.0 (no adjustment)
-- Initial velocities: v = H₀ × r
-- Ongoing Hubble drag keeps expansion on track
+**Override behavior**: When `damping_factor_override` is provided to ParticleSystem, it's used directly. Otherwise, auto-calculated from deceleration parameter q.
 
-**External-Node / Matter-only (use_dark_energy=False)**:
-- Damping ≈ 0.91 (reduced by 9%)
-- Initial velocities: v = 0.91 × H₀ × r
-- No ongoing drag, but lower initial velocity compensates
+**Deceleration parameter**:
+```
+q = 0.5 × Ω_m(a) / [Ω_m(a) + Ω_Λ] - 1.0
+```
+where Ω_m(a) = Ω_m / a³ / [Ω_m/a³ + Ω_Λ]
 
-**Why 0.91?**: Empirically tuned. With damping=1.0, External-Node overexpands by ~4%. With damping=0.91, achieves 99.4% match to ΛCDM.
+**Damping formula**:
+```
+damping = 0.4 - 0.25 × q
+damping = clip(damping, 0.1, 0.7)
+```
 
-**Physical interpretation**: In matter-only regime, expansion naturally decelerates. Starting with slightly lower velocities ensures deceleration trajectory matches ΛCDM's drag-damped trajectory.
+**Physical interpretation**:
+- q > 0 (deceleration-dominated): Needs more damping to avoid overexpansion
+- q < 0 (acceleration-dominated): Needs less damping
+- Formula empirically tuned to match ΛCDM trajectories
+
+**Typical values** (at t_start=10.8 Gyr, a≈0.839):
+- Ω_m(a) ≈ 0.508
+- Ω_Λ ≈ 0.7
+- q ≈ 0.5×0.508/1.208 - 1.0 ≈ -0.79
+- damping ≈ 0.4 - 0.25×(-0.79) ≈ 0.6
+
+**Common overrides**:
+- Test cases: damping=0.0 to isolate gravity-only
+- Parameter sweeps: damping=0.91 (empirical best-fit)
+- SimulationParameters: damping=None (auto-calculate) is default
 
 ## Scale Factor at t_start
 
@@ -192,13 +207,15 @@ sim_matter = CosmologicalSimulation(...)
 
 | Parameter | ΛCDM | External-Node | Matter-only |
 |-----------|------|---------------|-------------|
-| Damping factor | 1.0 | 0.91 | 0.91 |
-| Initial velocity | v = Hr | v = 0.91×Hr | v = 0.91×Hr |
+| Damping factor | auto (~0.6) or override | auto (~0.6) or override | auto (~0.6) or override |
+| Initial velocity | v = d×Hr + v_pec | v = d×Hr + v_pec | v = d×Hr + v_pec |
 | Ongoing drag | Yes (-2Hv) | No | No |
 | External nodes | No | Yes (26 nodes) | No |
 | Dark energy | Yes (H₀²Ω_Λr) | No | No |
 
-**Result**: All three produce similar expansion history. External-Node matches ΛCDM to 99.4% despite completely different force model.
+where d = damping factor (auto-calculated from deceleration parameter if not specified), v_pec = ~100 km/s peculiar velocity.
+
+**Result**: External-Node matches ΛCDM to 99.4% when damping≈0.91 (override). Auto-calculation gives damping≈0.6 for typical parameters.
 
 ## Diagram
 
@@ -206,16 +223,18 @@ sim_matter = CosmologicalSimulation(...)
 graph TD
     A[Solve Friedmann Equation] --> B[Get a at t_start]
     B --> C[Calculate H at t_start]
-    C --> D{use_dark_energy?}
-    D -->|Yes ΛCDM| E[damping = 1.0]
-    D -->|No matter/external| F[damping = 0.91]
-    E --> G[v = damping × H × r]
-    F --> G
-    G --> H[Initialize ParticleSystem]
-    H --> I{Mode?}
-    I -->|ΛCDM| J[Add dark energy + Hubble drag]
-    I -->|External-Node| K[Add HMEA tidal forces]
-    I -->|Matter-only| L[Only internal gravity]
+    C --> D{damping_factor_override?}
+    D -->|Provided| E[damping = override value]
+    D -->|None| F[Calculate deceleration q]
+    F --> G[damping = 0.4 - 0.25×q]
+    G --> H[Clip to 0.1-0.7 range]
+    H --> I[v = d×H×r + v_pec]
+    E --> I
+    I --> J[Initialize ParticleSystem]
+    J --> K{Mode?}
+    K -->|ΛCDM| L[Add dark energy + Hubble drag]
+    K -->|External-Node| M[Add HMEA tidal forces]
+    K -->|Matter-only| N[Only internal gravity]
 ```
 
 ## References

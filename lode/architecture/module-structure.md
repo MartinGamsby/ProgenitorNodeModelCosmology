@@ -31,9 +31,11 @@ graph TD
 - `CosmologicalConstants`: G, c, Mpc_to_m, Gpc_to_m, Gyr_to_s, M_observable, etc.
 - `LambdaCDMParameters`: H₀, Ω_m, Ω_Λ, method `H_at_time(a)`
 - `ExternalNodeParameters`: M_ext, S, Ω_Λ_eff, method `calculate_required_spacing()`
-- `SimulationParameters`: Unified config (M_value, S_value, n_particles, seeds, timesteps, damping)
+- `SimulationParameters`: Unified config (M_value, S_value, n_particles, seed, t_start_Gyr, t_duration_Gyr, n_steps, damping_factor)
 
 **Exports**: All four classes.
+
+**Key feature**: SimulationParameters auto-calculates derived quantities (M_ext, S in SI units, t_end_Gyr, external_params) in `_calculate_derived()`.
 
 ### `cosmo/particles.py`
 **Purpose**: Physical structures (particles and external nodes).
@@ -41,11 +43,13 @@ graph TD
 **Classes**:
 - `Particle`: Single entity with position, velocity, mass, acceleration, id
 - `ParticleSystem`: N particles with update methods, energy calculations
-- `HMEAGrid`: 26-node cubic lattice, vectorized tidal force calculation
+- `HMEAGrid`: 26-node cubic lattice (3×3×3-1), vectorized tidal force calculation
 
 **Key methods**:
-- `ParticleSystem.__init__()`: Sets up particles with damped Hubble flow (particles.py:73-116)
-- `HMEAGrid.calculate_tidal_acceleration_batch()`: Vectorized tidal forces (particles.py:238-272)
+- `ParticleSystem._initialize_particles()`: Sets up particles with damped Hubble flow + peculiar velocities (particles.py:73-116)
+  - Auto-calculates damping from deceleration parameter q if damping_factor_override=None
+  - Uses override if provided (e.g., 0.0 for tests, 0.91 for best-fit)
+- `HMEAGrid.calculate_tidal_acceleration_batch()`: Vectorized tidal forces across all 26 nodes
 
 **Exports**: All three classes.
 
@@ -109,12 +113,12 @@ graph TD
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `cosmo/constants.py` | ~200 | Parameter definitions |
-| `cosmo/particles.py` | ~280 | Physical structures |
-| `cosmo/integrator.py` | ~310 | Force calculations + integration |
-| `cosmo/simulation.py` | ~180 | High-level runner |
-| `run_simulation.py` | ~350 | Main comparison script |
-| `parameter_sweep.py` | ~100 | Parameter exploration |
+| `cosmo/constants.py` | 206 | Parameter definitions |
+| `cosmo/particles.py` | 277 | Physical structures |
+| `cosmo/integrator.py` | 308 | Force calculations + integration |
+| `cosmo/simulation.py` | 182 | High-level runner |
+| `run_simulation.py` | 349 | Main comparison script |
+| `parameter_sweep.py` | 101 | Parameter exploration |
 
 ## Import Pattern
 

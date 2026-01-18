@@ -46,22 +46,32 @@ lcdm_initial_size = 14.5 Gpc × (a_at_start / a_today)
 
 ### 2. Particle Initialization (particles.py:73-116)
 
-**Input**: `box_size_Gpc`, `n_particles`, `a_start`, `damping_factor`
+**Input**: `box_size_Gpc`, `n_particles`, `a_start`, `damping_factor_override`
 
 **Process**:
 ```python
 # Random positions in cube
-positions = np.random.rand(N, 3) × box_size - box_size/2
+for i in range(N):
+    pos = np.random.uniform(-box_size/2, box_size/2, 3)
 
-# Damped Hubble flow velocities
+# Auto-calculate damping if not provided
+if damping_factor_override is not None:
+    damping = damping_factor_override
+else:
+    q = 0.5 × Ω_m(a) / [Ω_m(a) + Ω_Λ] - 1.0
+    damping = clip(0.4 - 0.25×q, 0.1, 0.7)
+
+# Damped Hubble flow + peculiar velocities
 H_start = H_at_time(a_start)
-velocities = damping_factor × H_start × positions
+v_hubble = damping × H_start × pos
+v_peculiar = np.random.normal(0, 1e5, 3)  # ~100 km/s
+vel = v_hubble + v_peculiar
 
 # Uniform masses
 masses = (Ω_m × ρ_crit × box_size³) / N
 ```
 
-**Output**: `ParticleSystem` with N particles, initial v ≈ 0.91 × Hr
+**Output**: `ParticleSystem` with N particles, initial v ≈ damping × Hr + v_pec (typical damping: 0.6 auto, or 0.91 override)
 
 ### 3. HMEA Grid Construction (particles.py:196-228)
 

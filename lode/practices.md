@@ -58,6 +58,16 @@
 
 **Don't commit results**: `results/` in `.gitignore`. Only commit code and lode documentation.
 
+## Testing
+
+**Physics-first tests**: Validate fundamental equations (F=GMm/r², a=H₀²Ω_Λr) not implementation details.
+
+**Start small**: Constants → Forces → Integration → Full simulation. Build confidence incrementally.
+
+**Failing tests document expected behavior**: If test fails, check if it exposes real issue. Keep tests that document expected API or physics.
+
+**Run before expensive work**: `pytest tests/test_constants.py` before long simulations. Catches unit conversion bugs early.
+
 ## Research Context
 
 **Draft paper**: docs/paper.tex is working document, not published. Code generates data for ongoing refinement.

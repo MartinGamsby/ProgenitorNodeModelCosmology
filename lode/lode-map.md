@@ -8,6 +8,7 @@
 ## Architecture
 - [architecture/module-structure.md](./architecture/module-structure.md) - Code organization and dependencies
 - [architecture/data-flow.md](./architecture/data-flow.md) - How data flows through run_simulation.py
+- [architecture/testing.md](./architecture/testing.md) - Unit test structure, status, philosophy
 
 ## Physics
 - [physics/theoretical-framework.md](./physics/theoretical-framework.md) - External-Node Model, Progenitor Hypothesis, predictions, scope/limitations

@@ -92,16 +92,36 @@ Created diagnostic scripts in project root:
 
 These reveal the step where instability onset occurs and whether it's due to close encounters, large-scale dynamics, or timestep errors.
 
-## Implementation Notes
+## Implementation
 
-No code changes needed - this is a **user parameter choice** issue. The integrator (integrator.py) is correct. Users must choose adequate n_steps for their simulation duration.
+**Automatic validation added** (cosmo/simulation.py:91-140): The `_validate_timestep()` method checks timestep before running simulation.
 
-Potential improvements:
-1. **Adaptive timestep**: Reduce dt when accelerations change rapidly (complex to implement in leapfrog)
-2. **Timestep estimator**: Add function to recommend minimum n_steps based on initial conditions
-3. **Energy monitoring**: Warn user if energy drift exceeds threshold during run
+**Behavior**:
+- **dt > 0.05 Gyr**: ERROR - exits with detailed message, refuses to run
+- **0.04 Gyr < dt ≤ 0.05 Gyr**: WARNING - shows recommendation but allows run
+- **dt ≤ 0.04 Gyr**: Silent - proceeds normally
 
-Current approach: Document the requirement and let users adjust n_steps if they see instability.
+**Error message format**:
+```
+======================================================================
+ERROR: INSUFFICIENT TIMESTEPS FOR NUMERICAL STABILITY
+======================================================================
+Simulation duration: 20.0 Gyr
+Requested steps:     150
+Timestep (dt):       0.1333 Gyr
+
+The leapfrog integrator becomes unstable with timesteps > 0.05 Gyr.
+This causes spurious energy injection, making matter-only simulations
+expand faster than LCDM (physically impossible).
+
+MINIMUM steps required:    400 (dt < 0.050 Gyr)
+RECOMMENDED steps:         500 (dt < 0.040 Gyr)
+
+Example: For a 20 Gyr simulation, use --n-steps 500 or more
+======================================================================
+```
+
+This prevents users from accidentally running unstable simulations and getting invalid results.
 
 ## Related Files
 

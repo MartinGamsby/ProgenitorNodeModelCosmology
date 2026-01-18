@@ -86,11 +86,74 @@ class CosmologicalSimulation:
         # Simulation results
         self.snapshots = []
         self.expansion_history = []
-        
+
+    def _validate_timestep(self, t_duration_Gyr, n_steps):
+        """
+        Validate that timestep is small enough for numerical stability
+
+        The leapfrog integrator requires sufficient timesteps to prevent
+        spurious energy injection. Based on empirical testing:
+        - 150 steps over 20 Gyr (dt=0.133 Gyr): UNSTABLE (1600% energy drift)
+        - 500 steps over 20 Gyr (dt=0.040 Gyr): STABLE
+
+        Rule: dt < 0.05 Gyr for numerical stability
+        Recommended: dt < 0.04 Gyr for safety margin
+
+        Parameters:
+        -----------
+        t_duration_Gyr : float
+            Simulation duration in Gyr
+        n_steps : int
+            Number of timesteps
+
+        Raises:
+        -------
+        SystemExit : If timestep too large for stability
+        """
+        dt_Gyr = t_duration_Gyr / n_steps
+
+        # Critical threshold: dt must be < 0.05 Gyr
+        dt_critical = 0.05  # Gyr
+        dt_recommended = 0.04  # Gyr (with safety margin)
+
+        # Calculate minimum required steps
+        n_steps_minimum = int(np.ceil(t_duration_Gyr / dt_critical))
+        n_steps_recommended = int(np.ceil(t_duration_Gyr / dt_recommended))
+
+        if dt_Gyr > dt_critical:
+            print("\n" + "="*70)
+            print("ERROR: INSUFFICIENT TIMESTEPS FOR NUMERICAL STABILITY")
+            print("="*70)
+            print(f"Simulation duration: {t_duration_Gyr:.1f} Gyr")
+            print(f"Requested steps:     {n_steps}")
+            print(f"Timestep (dt):       {dt_Gyr:.4f} Gyr")
+            print()
+            print("The leapfrog integrator becomes unstable with timesteps > 0.05 Gyr.")
+            print("This causes spurious energy injection, making matter-only simulations")
+            print("expand faster than LCDM (physically impossible).")
+            print()
+            print(f"MINIMUM steps required:    {n_steps_minimum} (dt < {dt_critical:.3f} Gyr)")
+            print(f"RECOMMENDED steps:         {n_steps_recommended} (dt < {dt_recommended:.3f} Gyr)")
+            print()
+            print("Example: For a 20 Gyr simulation, use --n-steps 500 or more")
+            print("="*70)
+            import sys
+            sys.exit(1)
+
+        # Warning if close to threshold
+        elif dt_Gyr >= dt_recommended:
+            print("\n" + "!"*70)
+            print("WARNING: Timestep is close to stability threshold")
+            print("!"*70)
+            print(f"Current timestep:  {dt_Gyr:.4f} Gyr")
+            print(f"Recommended:       < {dt_recommended:.3f} Gyr")
+            print(f"For better stability, consider using {n_steps_recommended} steps or more")
+            print("!"*70 + "\n")
+
     def run(self, t_end_Gyr=13.8, n_steps=1000, save_interval=10):
         """
         Run the simulation
-        
+
         Parameters:
         -----------
         t_end_Gyr : float
@@ -99,15 +162,18 @@ class CosmologicalSimulation:
             Number of timesteps
         save_interval : int
             Save snapshot every N steps
-            
+
         Returns:
         --------
         snapshots : list
             Simulation snapshots
         """
+        # Validate timestep before running
+        self._validate_timestep(t_end_Gyr, n_steps)
+
         # Convert to seconds
         t_end = t_end_Gyr * 1e9 * 365.25 * 24 * 3600
-        
+
         print("\n" + "="*60)
         print("RUNNING COSMOLOGICAL SIMULATION")
         print("="*60)
@@ -115,7 +181,7 @@ class CosmologicalSimulation:
         print(f"Duration: {t_end_Gyr} Gyr")
         print(f"Timesteps: {n_steps}")
         print("="*60 + "\n")
-        
+
         # Run integration
         self.snapshots = self.integrator.evolve(t_end, n_steps, save_interval)
         

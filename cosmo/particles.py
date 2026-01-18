@@ -257,14 +257,14 @@ class HMEAGrid:
             node_pos = node['position']
             M_ext = node['mass']
             
-            # Vector from node to all positions
-            r_vec = positions - node_pos  # Broadcasting
+            # Vector from position to node (attractive force toward node)
+            r_vec = node_pos - positions  # Broadcasting
             r = np.linalg.norm(r_vec, axis=1, keepdims=True)
-            
+
             # Avoid singularities
             r = np.maximum(r, 1e10)
-            
-            # Tidal acceleration for all particles
+
+            # Tidal acceleration for all particles (attractive toward node)
             a_tidal = const.G * M_ext * r_vec / r**3
             
             accelerations += a_tidal

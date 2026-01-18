@@ -135,6 +135,11 @@ class Integrator:
         For matter-only and external-node models, the damping is baked into
         the initial velocities only, not applied as ongoing acceleration.
 
+        Note: This returns an acceleration for use in the leapfrog integrator.
+        The drag is applied as a force, which can be numerically unstable with
+        large timesteps. For better stability, the velocity update in the
+        integrator should clamp the drag effect.
+
         Returns:
         --------
         accelerations : array, shape (N, 3)
@@ -229,25 +234,46 @@ class LeapfrogIntegrator(Integrator):
     def step(self, dt):
         """
         Take one leapfrog timestep
-        
+
+        For LCDM mode, Hubble drag is NOT included in the force calculation
+        but instead applied as an exponential damping after the position update.
+        This prevents numerical instability with large timesteps.
+
         Parameters:
         -----------
         dt : float
             Timestep [seconds]
         """
+        # Calculate forces (internal + external + dark energy, NO drag)
+        a_internal = self.calculate_internal_forces()
+        a_external = self.calculate_external_forces()
+        a_dark_energy = self.calculate_dark_energy_forces()
+        a_total = a_internal + a_external + a_dark_energy
+
         # Kick (half step)
-        accelerations = self.calculate_total_forces()
-        self.particles.set_accelerations(accelerations)
+        self.particles.set_accelerations(a_total)
         self.particles.update_velocities(dt / 2)
-        
+
         # Drift (full step)
         self.particles.update_positions(dt)
-        
+
         # Kick (half step)
-        accelerations = self.calculate_total_forces()
-        self.particles.set_accelerations(accelerations)
+        a_internal = self.calculate_internal_forces()
+        a_external = self.calculate_external_forces()
+        a_dark_energy = self.calculate_dark_energy_forces()
+        a_total = a_internal + a_external + a_dark_energy
+
+        self.particles.set_accelerations(a_total)
         self.particles.update_velocities(dt / 2)
-        
+
+        # Apply Hubble drag implicitly as exponential damping (LCDM only)
+        # This is numerically stable for any timestep
+        if self.use_dark_energy:
+            gamma = 2.0 * self.lcdm.H0
+            damping_factor = np.exp(-gamma * dt)
+            for particle in self.particles.particles:
+                particle.vel *= damping_factor
+
         # Update time
         self.particles.time += dt
     

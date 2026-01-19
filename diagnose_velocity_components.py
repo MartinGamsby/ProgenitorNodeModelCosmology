@@ -51,7 +51,7 @@ particles = ParticleSystem(
 particles.time = t_start
 
 integrator = LeapfrogIntegrator(
-    particles, hmea_grid=None, softening=1e21,
+    particles, hmea_grid=None, softening_per_Mobs=1e24,
     use_external_nodes=False, use_dark_energy=False
 )
 

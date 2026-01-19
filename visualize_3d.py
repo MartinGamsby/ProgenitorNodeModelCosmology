@@ -66,7 +66,7 @@ def load_or_run_simulation(sim_file=None, output_dir="."):
         damping_factor=None#TODO: arg?
     )
     
-    sim.run(t_end_Gyr=6.0, n_steps=120, save_interval=5)  # More frequent snapshots
+    sim.run(t_end_Gyr=10.0, n_steps=240, save_interval=4)  # More frequent snapshots
     
     # Save for future use
     sim_file = os.path.join(output_dir, 'visualization_sim.pkl')
@@ -98,7 +98,6 @@ def get_node_positions(S_Gpc):
                 positions.append([i * S_Gpc, j * S_Gpc, k * S_Gpc])
     return np.array(positions)
 
-
 def create_3d_snapshot(sim_data, snapshot_idx, output_dir="."):
     """Create a single 3D visualization at a given time"""
     
@@ -110,12 +109,12 @@ def create_3d_snapshot(sim_data, snapshot_idx, output_dir="."):
     initial_size = sim_data['params']['initial_size']
     
     # Get particle positions (convert to Gpc)
-    const_val = 3.086e25  # Gpc to meters
-    positions = snapshot['positions'] / const_val
+    positions = snapshot['positions'] / CosmologicalConstants().Gpc_to_m
     
     # Current universe size
     scale_factor = history['scale_factor']
-    current_size = initial_size * scale_factor
+    current_size = history['size'] / CosmologicalConstants().Gpc_to_m#initial_size * scale_factor
+    current_max_size = history['max_particle_distance'] / CosmologicalConstants().Gpc_to_m
     time_Gyr = history['time_Gyr']
     
     # Get node positions
@@ -138,11 +137,16 @@ def create_3d_snapshot(sim_data, snapshot_idx, output_dir="."):
     # Draw sphere representing universe boundary
     u = np.linspace(0, 2 * np.pi, 50)
     v = np.linspace(0, np.pi, 50)
+    x_sphere = current_max_size * np.outer(np.cos(u), np.sin(v))
+    y_sphere = current_max_size * np.outer(np.sin(u), np.sin(v))
+    z_sphere = current_max_size * np.outer(np.ones(np.size(u)), np.cos(v))
+    ax.plot_surface(x_sphere, y_sphere, z_sphere, alpha=0.05, color='cyan')
+
     x_sphere = current_size * np.outer(np.cos(u), np.sin(v))
     y_sphere = current_size * np.outer(np.sin(u), np.sin(v))
     z_sphere = current_size * np.outer(np.ones(np.size(u)), np.cos(v))
-    ax.plot_surface(x_sphere, y_sphere, z_sphere, alpha=0.1, color='cyan')
-    
+    ax.plot_surface(x_sphere, y_sphere, z_sphere, alpha=0.05, color='cyan')
+
     # Draw cube representing node grid
     def draw_cube_edges(ax, size, color='orange', alpha=0.3):
         # Define cube vertices
@@ -208,7 +212,6 @@ def create_multi_panel_evolution(sim_data, output_dir="."):
     # Extract parameters
     S_Gpc = sim_data['params']['S']
     initial_size = sim_data['params']['initial_size']
-    const_val = 3.086e25
     
     # Get node positions (same for all times)
     node_positions = get_node_positions(S_Gpc)
@@ -220,9 +223,10 @@ def create_multi_panel_evolution(sim_data, output_dir="."):
         snapshot = sim_data['snapshots'][snap_idx]
         history = sim_data['expansion_history'][snap_idx]
         
-        positions = snapshot['positions'] / const_val
+        positions = snapshot['positions'] / CosmologicalConstants().Gpc_to_m
         scale_factor = history['scale_factor']
-        current_size = initial_size * scale_factor
+        current_size = history['size'] / CosmologicalConstants().Gpc_to_m#initial_size * scale_factor
+        current_max_size = history['max_particle_distance'] / CosmologicalConstants().Gpc_to_m
         time_Gyr = history['time_Gyr']
         
         # Create subplot
@@ -239,10 +243,15 @@ def create_multi_panel_evolution(sim_data, output_dir="."):
         # Universe boundary
         u = np.linspace(0, 2 * np.pi, 30)
         v = np.linspace(0, np.pi, 30)
+        x_sphere = current_max_size * np.outer(np.cos(u), np.sin(v))
+        y_sphere = current_max_size * np.outer(np.sin(u), np.sin(v))
+        z_sphere = current_max_size * np.outer(np.ones(np.size(u)), np.cos(v))
+        ax.plot_surface(x_sphere, y_sphere, z_sphere, alpha=0.05, color='cyan')
+
         x_sphere = current_size * np.outer(np.cos(u), np.sin(v))
         y_sphere = current_size * np.outer(np.sin(u), np.sin(v))
         z_sphere = current_size * np.outer(np.ones(np.size(u)), np.cos(v))
-        ax.plot_surface(x_sphere, y_sphere, z_sphere, alpha=0.1, color='cyan')
+        ax.plot_surface(x_sphere, y_sphere, z_sphere, alpha=0.05, color='cyan')
         
         # Set limits
         lim = S_Gpc * 1.1
@@ -281,7 +290,6 @@ def create_animation(sim_data, output_dir=".", fps=10):
     # Extract parameters
     S_Gpc = sim_data['params']['S']
     initial_size = sim_data['params']['initial_size']
-    const_val = 3.086e25
     
     # Get node positions
     node_positions = get_node_positions(S_Gpc)
@@ -326,9 +334,10 @@ def create_animation(sim_data, output_dir=".", fps=10):
         snapshot = sim_data['snapshots'][frame]
         history = sim_data['expansion_history'][frame]
         
-        positions = snapshot['positions'] / const_val
+        positions = snapshot['positions'] / CosmologicalConstants().Gpc_to_m
         scale_factor = history['scale_factor']
-        current_size = initial_size * scale_factor
+        current_size = history['size'] / CosmologicalConstants().Gpc_to_m#initial_size * scale_factor
+        current_max_size = history['max_particle_distance'] / CosmologicalConstants().Gpc_to_m
         time_Gyr = history['time_Gyr']
         
         # Update particles
@@ -337,12 +346,18 @@ def create_animation(sim_data, output_dir=".", fps=10):
         # Update universe boundary
         if sphere_plot is not None:
             sphere_plot.remove()
+
+        x_sphere = current_max_size * np.outer(np.cos(u), np.sin(v))
+        y_sphere = current_max_size * np.outer(np.sin(u), np.sin(v))
+        z_sphere = current_max_size * np.outer(np.ones(np.size(u)), np.cos(v))
+        sphere_plot = ax.plot_surface(x_sphere, y_sphere, z_sphere, 
+                                       alpha=0.05, color='cyan')
         
         x_sphere = current_size * np.outer(np.cos(u), np.sin(v))
         y_sphere = current_size * np.outer(np.sin(u), np.sin(v))
         z_sphere = current_size * np.outer(np.ones(np.size(u)), np.cos(v))
         sphere_plot = ax.plot_surface(x_sphere, y_sphere, z_sphere, 
-                                       alpha=0.1, color='cyan')
+                                       alpha=0.05, color='cyan')
         
         # Update title
         title.set_text(

@@ -61,7 +61,7 @@ class CosmologicalSimulation:
 
         self.particles = ParticleSystem(n_particles=n_particles,
                                        box_size=box_size,
-                                       total_mass=self.const.M_observable,
+                                       total_mass=self.const.M_observable*1.0,#TODO: As an argument (multi Mobs?)
                                        a_start=self.a_start,
                                        use_dark_energy=self.use_dark_energy,
                                        damping_factor_override=damping_factor)
@@ -75,11 +75,11 @@ class CosmologicalSimulation:
             print("Running standard matter-only (no dark energy)")
         
         # Create integrator
-        softening = 10.0 * self.const.Mpc_to_m  # 10 Mpc softening
+        softening = 1.0 * self.const.Gpc_to_m  # 1Gpc softening per Mobs
         self.integrator = LeapfrogIntegrator(
             self.particles,
             self.hmea_grid,
-            softening=softening,
+            softening_per_Mobs=softening,
             use_external_nodes=use_external_nodes,
             use_dark_energy=self.use_dark_energy
         )

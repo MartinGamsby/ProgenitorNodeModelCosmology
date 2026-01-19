@@ -18,7 +18,7 @@ from .particles import ParticleSystem, HMEAGrid
 class Integrator:
     """Base class for N-body integration"""
     
-    def __init__(self, particle_system, hmea_grid=None, softening=1e21, use_external_nodes=True, use_dark_energy=False):
+    def __init__(self, particle_system, hmea_grid=None, softening_per_Mobs=1e24, use_external_nodes=True, use_dark_energy=False):
         """
         Initialize integrator
 
@@ -40,23 +40,23 @@ class Integrator:
         """
         self.particles = particle_system
         self.hmea_grid = hmea_grid
-        self.base_softening = softening
+        self.softening_per_Mobs = softening_per_Mobs
         self.use_external_nodes = use_external_nodes
         self.use_dark_energy = use_dark_energy
         self.const = CosmologicalConstants()
 
         # Calculate adaptive softening based on particle mass
         # ε ∝ m^(1/3) makes softening scale with typical inter-particle distance
-        # For reference mass (M_observable with 50 particles): m_ref = 2e52 kg
-        m_ref = 2e52  # kg (50 particles of M_observable)
+        # For reference mass (M_observable with 100 particles): m_ref = 1e52 kg
+        m_ref = self.const.M_observable
         particle_mass = self.particles.particles[0].mass  # All particles have same mass
         mass_ratio = particle_mass / m_ref
 
-        # Scale softening with cube root of mass ratio
+        # Scale softening
         # More massive particles (fewer particles) → larger softening
-        self.softening = self.base_softening * (mass_ratio ** (1.0/3.0))
+        self.softening = self.softening_per_Mobs * mass_ratio
 
-        print(f"[Integrator] Base softening: {self.base_softening/self.const.Mpc_to_m:.2f} Mpc")
+        print(f"[Integrator] Base softening: {self.softening_per_Mobs/self.const.Mpc_to_m:.2f} Mpc")
         print(f"[Integrator] Particle mass: {particle_mass:.2e} kg")
         print(f"[Integrator] Adaptive softening: {self.softening/self.const.Mpc_to_m:.2f} Mpc (mass ratio: {mass_ratio:.2f})")
         

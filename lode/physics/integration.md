@@ -262,7 +262,7 @@ hmea_grid = HMEAGrid(M_ext=8e55, S=24.0)
 integrator = LeapfrogIntegrator(
     particle_system=particles,
     hmea_grid=hmea_grid,
-    softening=1e21,  # 1 Mpc
+    softening_per_Mobs=1e24,  # 1 Mpc
     use_external_nodes=True,
     use_dark_energy=False
 )

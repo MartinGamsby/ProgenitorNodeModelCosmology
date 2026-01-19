@@ -36,7 +36,7 @@ class TestGravitationalForces(unittest.TestCase):
         particles.particles[1].mass = m
 
         # Create integrator
-        integrator = Integrator(particles, softening=0, use_external_nodes=False, use_dark_energy=False)
+        integrator = Integrator(particles, softening_per_Mobs=0, use_external_nodes=False, use_dark_energy=False)
 
         # Calculate forces
         accelerations = integrator.calculate_internal_forces()
@@ -77,7 +77,7 @@ class TestGravitationalForces(unittest.TestCase):
         particles.particles[0].mass = m1
         particles.particles[1].mass = m2
 
-        integrator = Integrator(particles, softening=0, use_external_nodes=False, use_dark_energy=False)
+        integrator = Integrator(particles, softening_per_Mobs=0, use_external_nodes=False, use_dark_energy=False)
         accelerations = integrator.calculate_internal_forces()
 
         # Expected acceleration on particle 0: a = G*m2/r^2
@@ -104,8 +104,8 @@ class TestGravitationalForces(unittest.TestCase):
         particles.particles[0].mass = m
         particles.particles[1].mass = m
 
-        softening = 1e21  # 1 Mpc softening
-        integrator = Integrator(particles, softening=softening, use_external_nodes=False, use_dark_energy=False)
+        softening = 1e24  # 1 Gpc softening
+        integrator = Integrator(particles, softening_per_Mobs=softening, use_external_nodes=False, use_dark_energy=False)
 
         accelerations = integrator.calculate_internal_forces()
 

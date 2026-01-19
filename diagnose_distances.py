@@ -59,7 +59,7 @@ particles.time = t_start
 integrator = LeapfrogIntegrator(
     particles,
     hmea_grid=None,
-    softening=1e21,  # 1 Mpc = 3.086e22 m
+    softening_per_Mobs=1e24,  # 1 Mpc = 3.086e22 m
     use_external_nodes=False,
     use_dark_energy=False
 )

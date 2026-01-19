@@ -19,9 +19,15 @@ from cosmo.analysis import (
     normalize_to_initial_size,
     compare_expansion_histories,
     detect_runaway_particles,
-    calculate_today_marker
+    calculate_today_marker,
+    extract_expansion_history
 )
 from cosmo.visualization import generate_output_filename, format_simulation_title
+from cosmo.factories import (
+    create_external_node_simulation,
+    create_matter_only_simulation,
+    run_and_extract_results
+)
 
 
 def run_simulation(output_dir, sim_params):
@@ -87,46 +93,23 @@ def run_simulation(output_dir, sim_params):
     print(f"\nM={sim_params.M_value}, S={sim_params.S_value}, Omega_Lambda_eff={sim_params.external_params.Omega_Lambda_eff:.3f}")
     print(f"{sim_params.n_particles} particles, seed={sim_params.seed}")
 
-    # Reset seed before External-Node simulation for reproducibility
-    np.random.seed(sim_params.seed)
-    sim = CosmologicalSimulation(
-        n_particles=sim_params.n_particles,
-        box_size_Gpc=ext_initial_size,
-        use_external_nodes=True,
-        external_node_params=sim_params.external_params,
-        t_start_Gyr=sim_params.t_start_Gyr,
-        a_start=a_at_start,
-        use_dark_energy=False,
-        damping_factor=sim_params.damping_factor
-    )
-
+    # Run External-Node simulation
     print("\nRunning External-Node simulation...")
-    sim.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=10)
+    sim = create_external_node_simulation(sim_params, ext_initial_size, a_at_start)
+    ext_results = run_and_extract_results(sim, sim_params.t_duration_Gyr, sim_params.n_steps)
 
-    # Extract External-Node results
-    t_ext = np.array([h['time_Gyr'] for h in sim.expansion_history])
-    a_ext = np.array([h['scale_factor'] for h in sim.expansion_history])
-    size_ext = ext_initial_size * a_ext
+    t_ext = ext_results['t_Gyr']
+    a_ext = ext_results['a']
+    size_ext = ext_results['size_Gpc']
 
-    # Run matter-only simulation (no external nodes, no dark energy)
+    # Run matter-only simulation
     print("\nRunning Matter-only simulation...")
-    np.random.seed(sim_params.seed)
-    sim_matter = CosmologicalSimulation(
-        n_particles=sim_params.n_particles,
-        box_size_Gpc=ext_initial_size,
-        use_external_nodes=False,
-        external_node_params=None,
-        t_start_Gyr=sim_params.t_start_Gyr,
-        a_start=a_at_start,
-        use_dark_energy=False,
-        damping_factor=sim_params.damping_factor
-    )
-    sim_matter.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=10)
+    sim_matter = create_matter_only_simulation(sim_params, ext_initial_size, a_at_start)
+    matter_results = run_and_extract_results(sim_matter, sim_params.t_duration_Gyr, sim_params.n_steps)
 
-    # Extract Matter-only results
-    t_matter = np.array([h['time_Gyr'] for h in sim_matter.expansion_history])
-    a_matter_sim = np.array([h['scale_factor'] for h in sim_matter.expansion_history])
-    size_matter_sim = ext_initial_size * a_matter_sim
+    t_matter = matter_results['t_Gyr']
+    a_matter_sim = matter_results['a']
+    size_matter_sim = matter_results['size_Gpc']
 
     # Calculate match statistics
     size_ext_final = size_ext[-1]

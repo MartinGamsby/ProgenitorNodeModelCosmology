@@ -258,3 +258,23 @@ def calculate_today_marker(t_start_Gyr, t_duration_Gyr, today_Gyr=13.8):
     if t_start_Gyr < today_Gyr < t_end_Gyr:
         return today_Gyr - t_start_Gyr
     return None
+
+
+def extract_expansion_history(sim, key):
+    """
+    Extract a specific field from simulation expansion history as numpy array.
+
+    Parameters:
+    -----------
+    sim : CosmologicalSimulation
+        Simulation object with expansion_history attribute
+    key : str
+        Field to extract (e.g., 'time_Gyr', 'scale_factor', 'size')
+
+    Returns:
+    --------
+    ndarray
+        Array of values for the specified key
+    """
+    import numpy as np
+    return np.array([h[key] for h in sim.expansion_history])

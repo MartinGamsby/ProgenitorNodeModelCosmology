@@ -13,13 +13,18 @@ from cosmo.analysis import (
     calculate_initial_conditions,
     compare_expansion_histories
 )
+from cosmo.factories import (
+    create_external_node_simulation,
+    create_lcdm_simulation,
+    run_and_extract_results
+)
 
 const = CosmologicalConstants()
 
 PARTICLE_COUNT = 26  # Small for speed
-T_START_GYR = 10.8
+T_START_GYR = 3.8
 T_DURATION_GYR = 10.0
-N_STEPS = 400
+N_STEPS = 200
 
 print("="*70)
 print("PARAMETER SWEEP: Finding Best Match to ΛCDM")
@@ -32,8 +37,8 @@ A_START = initial_conditions['a_start']
 
 # Test different configurations
 configs = []
-for M in range(500, 1100, 100):
-    for S in range(20, 40, 5):
+for M in range(500, 1250+1, 250):
+    for S in range(25, 40+1, 5):
         desc = f"M={M}×M_obs, S={S}Gpc"
         configs.append((M, S, desc))
 
@@ -42,16 +47,10 @@ print(f"Running {len(configs)} configurations...")
 
 # First, run ΛCDM baseline
 print("\n1. Running ΛCDM baseline...")
-sim_lcdm = CosmologicalSimulation(
-    n_particles=PARTICLE_COUNT,
-    box_size_Gpc=BOX_SIZE,
-    use_external_nodes=False,
-    t_start_Gyr=T_START_GYR,
-    a_start=A_START
-)
-sim_lcdm.run(t_end_Gyr=T_DURATION_GYR, n_steps=N_STEPS, save_interval=10)
-a_lcdm = sim_lcdm.expansion_history[-1]['scale_factor']
-size_lcdm = sim_lcdm.expansion_history[-1]['size'] / const.Gpc_to_m
+sim_lcdm = create_lcdm_simulation(PARTICLE_COUNT, BOX_SIZE, T_START_GYR, A_START)
+lcdm_results = run_and_extract_results(sim_lcdm, T_DURATION_GYR, N_STEPS)
+a_lcdm = lcdm_results['a'][-1]
+size_lcdm = lcdm_results['size_Gpc'][-1]
 print(f"   ΛCDM final a(t) = {a_lcdm:.4f}, size = {size_lcdm:.2f} Gpc")
 
 results = []
@@ -71,18 +70,10 @@ for M_factor, S_gpc, desc in configs:
     )
 
     # Run simulation
-    sim_ext = CosmologicalSimulation(
-        n_particles=PARTICLE_COUNT,
-        box_size_Gpc=BOX_SIZE,
-        use_external_nodes=True,
-        external_node_params=sim_params.external_params,
-        t_start_Gyr=T_START_GYR,
-        a_start=A_START
-    )
-
-    sim_ext.run(t_end_Gyr=T_DURATION_GYR, n_steps=N_STEPS, save_interval=10)
-    a_ext = sim_ext.expansion_history[-1]['scale_factor']
-    size_ext = sim_ext.expansion_history[-1]['size'] / const.Gpc_to_m
+    sim_ext = create_external_node_simulation(sim_params, BOX_SIZE, A_START)
+    ext_results = run_and_extract_results(sim_ext, T_DURATION_GYR, N_STEPS)
+    a_ext = ext_results['a'][-1]
+    size_ext = ext_results['size_Gpc'][-1]
 
     # Calculate match
     match_pct = compare_expansion_histories(size_ext, size_lcdm)

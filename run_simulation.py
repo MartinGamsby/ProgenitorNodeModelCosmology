@@ -230,8 +230,15 @@ def run_simulation(output_dir, sim_params):
     plt.tight_layout()
     
     # Save outputs
-    plot_path = os.path.join(output_dir, f'figure_simulation_results_{datetime.now().strftime("%Y-%m-%d_%H.%M.%S")}_{sim_params.n_particles}p_{sim_params.t_start_Gyr}-{sim_params.t_start_Gyr+sim_params.t_duration_Gyr}Gyr_{sim_params.M_value}M_{sim_params.S_value}S_{sim_params.n_steps}steps_{sim_params.damping_factor}d.png')
-    sim_path = os.path.join(output_dir, 'simulation.pkl')
+    suffix = f"_{datetime.now().strftime("%Y-%m-%d_%H.%M.%S")}"
+    suffix += f"_{sim_params.n_particles}p"
+    suffix += f"_{sim_params.t_start_Gyr}-{sim_params.t_start_Gyr+sim_params.t_duration_Gyr}Gyr"
+    suffix += f"_{sim_params.M_value}M"
+    suffix += f"_{sim_params.S_value}S"
+    suffix += f"_{sim_params.n_steps}steps"
+    suffix += f"_{sim_params.damping_factor if sim_params.damping_factor else 'Auto'}d"
+    plot_path = os.path.join(output_dir, f'figure_simulation_results{suffix}.png')
+    sim_path = os.path.join(output_dir, f'simulation{suffix}.pkl')
 
     plt.savefig(plot_path, dpi=150)
     sim.save(sim_path)

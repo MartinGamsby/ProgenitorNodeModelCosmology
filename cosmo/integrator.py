@@ -21,7 +21,7 @@ class Integrator:
     def __init__(self, particle_system, hmea_grid=None, softening=1e21, use_external_nodes=True, use_dark_energy=False):
         """
         Initialize integrator
-        
+
         Parameters:
         -----------
         particle_system : ParticleSystem
@@ -29,7 +29,10 @@ class Integrator:
         hmea_grid : HMEAGrid, optional
             External HMEA nodes (if None, runs pure ΛCDM)
         softening : float
-            Gravitational softening length [meters]
+            Base gravitational softening length [meters]
+            Actual softening scales as: ε = softening × (m/M_observable)^(1/3)
+            This makes softening proportional to particle mass^(1/3), so heavier
+            particles (fewer particles) have larger softening for stability
         use_external_nodes : bool
             Whether to include external node tidal forces
         use_dark_energy : bool
@@ -37,10 +40,25 @@ class Integrator:
         """
         self.particles = particle_system
         self.hmea_grid = hmea_grid
-        self.softening = softening
+        self.base_softening = softening
         self.use_external_nodes = use_external_nodes
         self.use_dark_energy = use_dark_energy
         self.const = CosmologicalConstants()
+
+        # Calculate adaptive softening based on particle mass
+        # ε ∝ m^(1/3) makes softening scale with typical inter-particle distance
+        # For reference mass (M_observable with 50 particles): m_ref = 2e52 kg
+        m_ref = 2e52  # kg (50 particles of M_observable)
+        particle_mass = self.particles.particles[0].mass  # All particles have same mass
+        mass_ratio = particle_mass / m_ref
+
+        # Scale softening with cube root of mass ratio
+        # More massive particles (fewer particles) → larger softening
+        self.softening = self.base_softening * (mass_ratio ** (1.0/3.0))
+
+        print(f"[Integrator] Base softening: {self.base_softening/self.const.Mpc_to_m:.2f} Mpc")
+        print(f"[Integrator] Particle mass: {particle_mass:.2e} kg")
+        print(f"[Integrator] Adaptive softening: {self.softening/self.const.Mpc_to_m:.2f} Mpc (mass ratio: {mass_ratio:.2f})")
         
         # ΛCDM parameters for dark energy
         self.lcdm = LambdaCDMParameters()

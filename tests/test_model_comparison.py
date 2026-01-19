@@ -463,6 +463,73 @@ class TestMatterVsLCDM(unittest.TestCase):
         self.assertGreater(ratio_final, 2.0,
             f"Final: External-Node should be at least 2x larger, got {ratio_final:.2f}x")
 
+    def test_no_runaway_particles(self):
+        """Verify no particles are shot out at extreme velocities (runaway particles)"""
+        from cosmo.particles import HMEAGrid
+        from cosmo.constants import ExternalNodeParameters
+
+        # Test with 50 particles (most likely to show instability)
+        np.random.seed(42)
+        particles_matter = ParticleSystem(
+            n_particles=50,
+            box_size=10.0 * self.const.Gpc_to_m,
+            total_mass=self.const.M_observable,
+            damping_factor_override=1.0,
+            use_dark_energy=False
+        )
+
+        integrator_matter = LeapfrogIntegrator(
+            particles_matter,
+            use_external_nodes=False,
+            use_dark_energy=False
+        )
+
+        # Evolve for 20 Gyr with 500 steps
+        dt = 1.26e15  # 0.04 Gyr
+        n_steps = 500
+
+        def max_radius(positions):
+            """Maximum distance from center of mass"""
+            com = np.mean(positions, axis=0)
+            r = np.linalg.norm(positions - com, axis=1)
+            return np.max(r)
+
+        def rms_radius(positions):
+            """RMS distance from center of mass"""
+            com = np.mean(positions, axis=0)
+            r = np.linalg.norm(positions - com, axis=1)
+            return np.sqrt(np.mean(r**2))
+
+        # Track both max and RMS throughout simulation
+        for step in range(n_steps):
+            integrator_matter.step(dt)
+
+            if step > 0 and step % 100 == 0:
+                positions = particles_matter.get_positions()
+                rms = rms_radius(positions)
+                max_r = max_radius(positions)
+
+                # Runaway particle check: max should not be more than 5× RMS
+                # If max >> RMS, it means one or two particles are being shot out
+                # while the mean stays reasonable
+                ratio = max_r / rms
+                self.assertLess(ratio, 5.0,
+                    f"Step {step}: Runaway particles detected! "
+                    f"Max particle distance ({max_r/self.const.Gpc_to_m:.2f} Gpc) is "
+                    f"{ratio:.1f}× larger than RMS ({rms/self.const.Gpc_to_m:.2f} Gpc). "
+                    f"This indicates particles are being shot out at extreme velocities.")
+
+        # Final check
+        positions_final = particles_matter.get_positions()
+        rms_final = rms_radius(positions_final)
+        max_final = max_radius(positions_final)
+        ratio_final = max_final / rms_final
+
+        self.assertLess(ratio_final, 5.0,
+            f"Final: Runaway particles detected! "
+            f"Max particle distance ({max_final/self.const.Gpc_to_m:.2f} Gpc) is "
+            f"{ratio_final:.1f}× larger than RMS ({rms_final/self.const.Gpc_to_m:.2f} Gpc)")
+
 
 if __name__ == '__main__':
     unittest.main()

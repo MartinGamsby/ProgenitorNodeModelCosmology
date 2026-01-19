@@ -62,7 +62,6 @@ def run_simulation(output_dir, sim_params):
     idx_start = np.argmin(np.abs(t_Gyr_full - sim_params.t_start_Gyr))
     a_at_start = a_full[idx_start]
     idx_today = np.argmin(np.abs(t_Gyr_full - 13.8))
-
     lcdm_initial_size = 14.5 * (a_at_start / a_full[idx_today])
 
     # Extract simulation window
@@ -151,9 +150,17 @@ def run_simulation(output_dir, sim_params):
 
     print(f"\n{size_ext_final:.2f} Gpc")
     print(f"Match: {100-size_diff:.2f}%")
-    
-    max_r_gpc = np.max(np.sqrt(np.sum(sim.snapshots[-1]['positions']**2, axis=1))) / const.Gpc_to_m
-    print(f"Max particle: {max_r_gpc:.1f} Gpc")
+
+    # Get max particle distance from expansion history
+    max_particle_distance_final = sim.expansion_history[-1]['max_particle_distance'] / const.Gpc_to_m
+    print(f"Max particle: {max_particle_distance_final:.1f} Gpc")
+
+    # Check for runaway particles (max >> RMS indicates instability)
+    rms_final = size_ext_final
+    ratio = max_particle_distance_final / rms_final
+    if ratio > 5.0:
+        print(f"WARNING: Runaway particles detected! Max/RMS ratio = {ratio:.1f}× (should be < 5×)")
+        print(f"         This indicates numerical instability - particles being shot out")
     
     # Create visualization
     a_ext_smooth = gaussian_filter1d(a_ext, sigma=2)
@@ -252,7 +259,11 @@ def run_simulation(output_dir, sim_params):
     ext_vs_lcdm_diff = 100 - size_diff
     matter_vs_lcdm_diff = (1 - size_matter_sim_final / size_lcdm_final) * 100
 
-    return sim, sim_matter, size_ext_final, size_lcdm_final, size_matter_sim_final, ext_vs_lcdm_diff, matter_vs_lcdm_diff
+    # Get max particle distances
+    max_ext_final = sim.expansion_history[-1]['max_particle_distance'] / const.Gpc_to_m
+    max_matter_final = sim_matter.expansion_history[-1]['max_particle_distance'] / const.Gpc_to_m
+
+    return sim, sim_matter, size_ext_final, size_lcdm_final, size_matter_sim_final, ext_vs_lcdm_diff, matter_vs_lcdm_diff, max_ext_final, max_matter_final
 
 
 def parse_arguments():
@@ -345,12 +356,24 @@ if __name__ == "__main__":
         damping_factor=args.damping
     )
 
-    sim, sim_matter, ext_final, lcdm_final, matter_final, ext_match, matter_match = run_simulation(args.output_dir, sim_params)
+    sim, sim_matter, ext_final, lcdm_final, matter_final, ext_match, matter_match, max_ext, max_matter = run_simulation(args.output_dir, sim_params)
 
     print("\n" + "="*70)
     print("SUMMARY")
     print("="*70)
     print(f"LCDM (with dark energy):        {lcdm_final:.2f} Gpc")
     print(f"External-Node (M={sim_params.M_value}, S={sim_params.S_value}): {ext_final:.2f} Gpc  ({ext_match:+.1f}% vs LCDM)")
+    print(f"  Max particle distance: {max_ext:.1f} Gpc (ratio: {max_ext/ext_final:.2f}×)")
+
+    # Check for runaway particles in External-Node
+    if max_ext / ext_final > 5.0:
+        print(f"  WARNING: Runaway particles detected in External-Node!")
+
     print(f"Matter-only (no dark energy):   {matter_final:.2f} Gpc  ({matter_match:+.1f}% vs LCDM)")
+    print(f"  Max particle distance: {max_matter:.1f} Gpc (ratio: {max_matter/matter_final:.2f}×)")
+
+    # Check for runaway particles in Matter-only
+    if max_matter / matter_final > 5.0:
+        print(f"  WARNING: Runaway particles detected in Matter-only!")
+
     print("\nSimulation complete!")

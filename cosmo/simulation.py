@@ -195,35 +195,50 @@ class CosmologicalSimulation:
     def _calculate_expansion_history(self):
         """Calculate the scale factor a(t) from snapshots"""
         self.expansion_history = []
-        
-        initial_size = self._calculate_system_size(self.snapshots[0])
-        
+
+        rms_initial, max_initial = self._calculate_system_size(self.snapshots[0])
+
         for snapshot in self.snapshots:
             t = snapshot['time']
-            current_size = self._calculate_system_size(snapshot)
-            
+            rms_current, max_current = self._calculate_system_size(snapshot)
+
             # Scale factor a(t) = R(t) / R(t=0)
-            a = current_size / initial_size
-            
+            # Use RMS for scale factor (typical expansion)
+            a = rms_current / rms_initial
+
             self.expansion_history.append({
                 'time': t,
                 'time_Gyr': t / (1e9 * 365.25 * 24 * 3600),
                 'scale_factor': a,
-                'size': current_size,
+                'size': rms_current,
+                'max_particle_distance': max_current,
             })
     
     def _calculate_system_size(self, snapshot):
-        """Calculate characteristic size of system (RMS radius)"""
+        """
+        Calculate characteristic size of system
+
+        Returns:
+        --------
+        tuple: (rms_radius, max_radius)
+            rms_radius: RMS distance from center of mass (typical particle distance)
+            max_radius: Maximum particle distance from COM (detects runaway particles)
+        """
         positions = snapshot['positions']
-        
+
         # Center of mass
         com = np.mean(positions, axis=0)
-        
-        # RMS distance from center
+
+        # Distances from center
         r = np.linalg.norm(positions - com, axis=1)
+
+        # RMS distance (mean behavior)
         rms_radius = np.sqrt(np.mean(r**2))
-        
-        return rms_radius
+
+        # Maximum distance (catches runaway particles)
+        max_radius = np.max(r)
+
+        return rms_radius, max_radius
     
     def save(self, filename):
         """Save simulation results"""

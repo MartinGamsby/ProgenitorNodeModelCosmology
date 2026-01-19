@@ -103,8 +103,12 @@ class ParticleSystem:
         particle_mass = self.total_mass / self.n_particles
 
         for i in range(self.n_particles):
-            # Random position in box
-            pos = np.random.uniform(-self.box_size/2, self.box_size/2, 3)
+            # Random position uniformly in sphere of radius box_size/2
+            # Using rejection sampling for clarity
+            while True:
+                pos = np.random.uniform(-self.box_size/2, self.box_size/2, 3)
+                if np.linalg.norm(pos) <= self.box_size/2:
+                    break
 
             # Initial velocity: Damped Hubble flow + small peculiar velocity
             # Damping compensates for lack of ongoing Hubble drag during integration

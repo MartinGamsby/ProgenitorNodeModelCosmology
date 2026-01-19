@@ -8,9 +8,9 @@ External-Node and Matter-only models lack ongoing Hubble drag (that's a dark ene
 
 ## Position Initialization
 
-**File**: particles.py:106-107
+**File**: particles.py:106-111
 
-Random uniform in `[-box_size/2, +box_size/2]³`, centered at origin.
+Random uniform within sphere of radius `box_size/2`, centered at origin. Uses rejection sampling from cubic volume.
 
 ## Velocity Initialization
 

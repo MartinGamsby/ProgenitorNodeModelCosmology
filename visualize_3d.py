@@ -57,9 +57,13 @@ def load_or_run_simulation(sim_file=None, output_dir="."):
     
     sim = CosmologicalSimulation(
         n_particles=100,  # Fewer particles for faster viz
-        box_size_Gpc=11.59,
+        box_size_Gpc=11.602223241384177,# TODO: Compute, from run_simulation.py, put in common
         use_external_nodes=True,
-        external_node_params=params
+        external_node_params=params,
+        t_start_Gyr=10.8,        
+        a_start=0.8191197210752631,# TODO: Compute, from run_simulation.py, put in common
+        use_dark_energy=False,  # Explicitly disable dark energy for matter-only
+        damping_factor=None#TODO: arg?
     )
     
     sim.run(t_end_Gyr=6.0, n_steps=120, save_interval=5)  # More frequent snapshots

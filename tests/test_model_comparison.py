@@ -278,6 +278,200 @@ class TestMatterVsLCDM(unittest.TestCase):
                        f"Large timestep result ({rms_large:.3e}) differs too much "
                        f"from small timestep ({rms_small:.3e}): {relative_diff*100:.1f}%")
 
+    def test_external_nodes_m0_equals_matter_only(self):
+        """External-Node model with M=0 should be identical to Matter-only"""
+        from cosmo.particles import HMEAGrid
+        from cosmo.constants import ExternalNodeParameters
+
+        # Create External-Node with M=0
+        np.random.seed(42)
+        particles_ext_m0 = ParticleSystem(
+            n_particles=10,
+            box_size=10.0 * self.const.Gpc_to_m,
+            total_mass=1e54,
+            damping_factor_override=1.0,
+            use_dark_energy=False
+        )
+
+        # Create HMEA grid with M=0
+        ext_params = ExternalNodeParameters(M_ext=0)
+        hmea_grid = HMEAGrid(node_params=ext_params)
+
+        integrator_ext_m0 = LeapfrogIntegrator(
+            particles_ext_m0,
+            hmea_grid=hmea_grid,
+            use_external_nodes=True,
+            use_dark_energy=False
+        )
+
+        # Create Matter-only
+        np.random.seed(42)
+        particles_matter = ParticleSystem(
+            n_particles=10,
+            box_size=10.0 * self.const.Gpc_to_m,
+            total_mass=1e54,
+            damping_factor_override=1.0,
+            use_dark_energy=False
+        )
+
+        integrator_matter = LeapfrogIntegrator(
+            particles_matter,
+            use_external_nodes=False,
+            use_dark_energy=False
+        )
+
+        # Verify identical initial conditions
+        np.testing.assert_array_almost_equal(
+            particles_ext_m0.get_positions(),
+            particles_matter.get_positions(),
+            decimal=10
+        )
+        np.testing.assert_array_almost_equal(
+            particles_ext_m0.get_velocities(),
+            particles_matter.get_velocities(),
+            decimal=10
+        )
+
+        # Evolve with sufficient steps
+        dt = 1.26e15  # 0.04 Gyr
+        n_steps = 500
+
+        def rms_radius(positions):
+            return np.sqrt(np.mean(np.sum(positions**2, axis=1)))
+
+        # Track at checkpoints
+        checkpoints = [100, 250, 400, 499]
+        for step in range(n_steps):
+            integrator_ext_m0.step(dt)
+            integrator_matter.step(dt)
+
+            if step in checkpoints:
+                rms_ext = rms_radius(particles_ext_m0.get_positions())
+                rms_mat = rms_radius(particles_matter.get_positions())
+                rel_diff = abs(rms_ext - rms_mat) / rms_mat
+
+                self.assertLess(rel_diff, 1e-4,
+                    f"Step {step}: External M=0 ({rms_ext:.3e}) should match "
+                    f"Matter-only ({rms_mat:.3e}), diff={rel_diff*100:.4f}%")
+
+        # Final check
+        rms_ext_final = rms_radius(particles_ext_m0.get_positions())
+        rms_mat_final = rms_radius(particles_matter.get_positions())
+        rel_diff_final = abs(rms_ext_final - rms_mat_final) / rms_mat_final
+
+        self.assertLess(rel_diff_final, 1e-4,
+            f"Final: External M=0 should match Matter-only exactly, "
+            f"got {rel_diff_final*100:.4f}% difference")
+
+    def test_external_nodes_early_time_behavior(self):
+        """External-Node with M>0 should expand consistently slower than Matter-only"""
+        from cosmo.particles import HMEAGrid
+        from cosmo.constants import ExternalNodeParameters
+
+        # Create External-Node with M=500 (500x M_observable)
+        # Note: This configuration creates net deceleration (not acceleration)
+        # The external tidal forces decelerate expansion more than matter-only
+        M_observable = 1e53  # kg
+        M_ext = 500 * M_observable
+
+        np.random.seed(42)
+        particles_ext = ParticleSystem(
+            n_particles=10,
+            box_size=10.0 * self.const.Gpc_to_m,
+            total_mass=1e54,
+            damping_factor_override=1.0,
+            use_dark_energy=False
+        )
+
+        # Create HMEA grid with M=500
+        ext_params = ExternalNodeParameters(M_ext=M_ext, S=30*self.const.Gpc_to_m)
+        hmea_grid = HMEAGrid(node_params=ext_params)
+
+        integrator_ext = LeapfrogIntegrator(
+            particles_ext,
+            hmea_grid=hmea_grid,
+            use_external_nodes=True,
+            use_dark_energy=False
+        )
+
+        # Create Matter-only
+        np.random.seed(42)
+        particles_matter = ParticleSystem(
+            n_particles=10,
+            box_size=10.0 * self.const.Gpc_to_m,
+            total_mass=1e54,
+            damping_factor_override=1.0,
+            use_dark_energy=False
+        )
+
+        integrator_matter = LeapfrogIntegrator(
+            particles_matter,
+            use_external_nodes=False,
+            use_dark_energy=False
+        )
+
+        # Evolve with sufficient steps
+        dt = 1.26e15  # 0.04 Gyr
+        n_steps = 500
+
+        def rms_radius(positions):
+            return np.sqrt(np.mean(np.sum(positions**2, axis=1)))
+
+        # Track expansion at checkpoints
+        rms_ext_early = None
+        rms_mat_early = None
+        rms_ext_mid = None
+        rms_mat_mid = None
+        rms_ext_final = None
+        rms_mat_final = None
+
+        for step in range(n_steps):
+            integrator_ext.step(dt)
+            integrator_matter.step(dt)
+
+            # Early checkpoint (step 100 = 4 Gyr)
+            if step == 100:
+                rms_ext_early = rms_radius(particles_ext.get_positions())
+                rms_mat_early = rms_radius(particles_matter.get_positions())
+
+            # Mid checkpoint (step 250 = 10 Gyr)
+            if step == 250:
+                rms_ext_mid = rms_radius(particles_ext.get_positions())
+                rms_mat_mid = rms_radius(particles_matter.get_positions())
+
+            # Final checkpoint
+            if step == 499:
+                rms_ext_final = rms_radius(particles_ext.get_positions())
+                rms_mat_final = rms_radius(particles_matter.get_positions())
+
+        # External-Node should expand slower at ALL times
+        # (M=500, S=30Gpc creates net deceleration)
+        self.assertLess(rms_ext_early, rms_mat_early,
+            f"Early (4 Gyr): External-Node ({rms_ext_early:.3e}) should expand "
+            f"slower than Matter-only ({rms_mat_early:.3e})")
+
+        self.assertLess(rms_ext_mid, rms_mat_mid,
+            f"Mid (10 Gyr): External-Node ({rms_ext_mid:.3e}) should expand "
+            f"slower than Matter-only ({rms_mat_mid:.3e})")
+
+        self.assertLess(rms_ext_final, rms_mat_final,
+            f"Final (20 Gyr): External-Node ({rms_ext_final:.3e}) should expand "
+            f"slower than Matter-only ({rms_mat_final:.3e})")
+
+        # The ratio should stay relatively consistent (within ~1%)
+        ratio_early = rms_ext_early / rms_mat_early
+        ratio_final = rms_ext_final / rms_mat_final
+
+        # Verify ratio stays around 0.70-0.72 (consistent deceleration)
+        self.assertGreater(ratio_early, 0.70,
+            f"Early ratio should be > 0.70, got {ratio_early:.4f}")
+        self.assertLess(ratio_early, 0.72,
+            f"Early ratio should be < 0.72, got {ratio_early:.4f}")
+        self.assertGreater(ratio_final, 0.70,
+            f"Final ratio should be > 0.70, got {ratio_final:.4f}")
+        self.assertLess(ratio_final, 0.72,
+            f"Final ratio should be < 0.72, got {ratio_final:.4f}")
+
 
 if __name__ == '__main__':
     unittest.main()

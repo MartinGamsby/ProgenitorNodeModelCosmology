@@ -75,7 +75,7 @@ class CosmologicalSimulation:
             print("Running standard matter-only (no dark energy)")
         
         # Create integrator
-        softening = 1.0 * self.const.Mpc_to_m  # 1 Mpc softening
+        softening = 10.0 * self.const.Mpc_to_m  # 10 Mpc softening
         self.integrator = LeapfrogIntegrator(
             self.particles,
             self.hmea_grid,
@@ -196,11 +196,11 @@ class CosmologicalSimulation:
         """Calculate the scale factor a(t) from snapshots"""
         self.expansion_history = []
 
-        rms_initial, max_initial = self._calculate_system_size(self.snapshots[0])
+        rms_initial, max_initial = self.calculate_system_size(self.snapshots[0])
 
         for snapshot in self.snapshots:
             t = snapshot['time']
-            rms_current, max_current = self._calculate_system_size(snapshot)
+            rms_current, max_current = self.calculate_system_size(snapshot)
 
             # Scale factor a(t) = R(t) / R(t=0)
             # Use RMS for scale factor (typical expansion)
@@ -214,7 +214,8 @@ class CosmologicalSimulation:
                 'max_particle_distance': max_current,
             })
     
-    def _calculate_system_size(self, snapshot):
+    @staticmethod
+    def calculate_system_size(snapshot):
         """
         Calculate characteristic size of system
 

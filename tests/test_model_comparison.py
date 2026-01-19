@@ -509,11 +509,11 @@ class TestMatterVsLCDM(unittest.TestCase):
                 rms = rms_radius(positions)
                 max_r = max_radius(positions)
 
-                # Runaway particle check: max should not be more than 5× RMS
+                # Runaway particle check: max should not be more than 2× RMS
                 # If max >> RMS, it means one or two particles are being shot out
                 # while the mean stays reasonable
                 ratio = max_r / rms
-                self.assertLess(ratio, 5.0,
+                self.assertLess(ratio, 2.0,
                     f"Step {step}: Runaway particles detected! "
                     f"Max particle distance ({max_r/self.const.Gpc_to_m:.2f} Gpc) is "
                     f"{ratio:.1f}× larger than RMS ({rms/self.const.Gpc_to_m:.2f} Gpc). "
@@ -525,7 +525,7 @@ class TestMatterVsLCDM(unittest.TestCase):
         max_final = max_radius(positions_final)
         ratio_final = max_final / rms_final
 
-        self.assertLess(ratio_final, 5.0,
+        self.assertLess(ratio_final, 2.0,
             f"Final: Runaway particles detected! "
             f"Max particle distance ({max_final/self.const.Gpc_to_m:.2f} Gpc) is "
             f"{ratio_final:.1f}× larger than RMS ({rms_final/self.const.Gpc_to_m:.2f} Gpc)")

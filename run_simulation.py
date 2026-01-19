@@ -158,8 +158,8 @@ def run_simulation(output_dir, sim_params):
     # Check for runaway particles (max >> RMS indicates instability)
     rms_final = size_ext_final
     ratio = max_particle_distance_final / rms_final
-    if ratio > 5.0:
-        print(f"WARNING: Runaway particles detected! Max/RMS ratio = {ratio:.1f}× (should be < 5×)")
+    if ratio > 2.0:
+        print(f"WARNING: Runaway particles detected! Max/RMS ratio = {ratio:.1f}× (should be < 2×)")
         print(f"         This indicates numerical instability - particles being shot out")
     
     # Create visualization
@@ -366,14 +366,14 @@ if __name__ == "__main__":
     print(f"  Max particle distance: {max_ext:.1f} Gpc (ratio: {max_ext/ext_final:.2f}×)")
 
     # Check for runaway particles in External-Node
-    if max_ext / ext_final > 5.0:
+    if max_ext / ext_final > 2.0:
         print(f"  WARNING: Runaway particles detected in External-Node!")
 
     print(f"Matter-only (no dark energy):   {matter_final:.2f} Gpc  ({matter_match:+.1f}% vs LCDM)")
     print(f"  Max particle distance: {max_matter:.1f} Gpc (ratio: {max_matter/matter_final:.2f}×)")
 
     # Check for runaway particles in Matter-only
-    if max_matter / matter_final > 5.0:
+    if max_matter / matter_final > 2.0:
         print(f"  WARNING: Runaway particles detected in Matter-only!")
 
     print("\nSimulation complete!")

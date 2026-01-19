@@ -102,6 +102,9 @@ class ParticleSystem:
 
         particle_mass = self.total_mass / self.n_particles
 
+        # First, generate all positions using rejection sampling
+        # This keeps position RNG calls separate from velocity RNG calls
+        positions = []
         for i in range(self.n_particles):
             # Random position uniformly in sphere of radius box_size/2
             # Using rejection sampling for clarity
@@ -109,6 +112,12 @@ class ParticleSystem:
                 pos = np.random.uniform(-self.box_size/2, self.box_size/2, 3)
                 if np.linalg.norm(pos) <= self.box_size/2:
                     break
+            positions.append(pos)
+
+        # Now generate velocities with consistent RNG state
+        # This ensures velocity initialization is independent of rejection sampling randomness
+        for i in range(self.n_particles):
+            pos = positions[i]
 
             # Initial velocity: Damped Hubble flow + small peculiar velocity
             # Damping compensates for lack of ongoing Hubble drag during integration
@@ -118,6 +127,17 @@ class ParticleSystem:
 
             particle = Particle(pos, vel, particle_mass, particle_id=i)
             self.particles.append(particle)
+
+        # CRITICAL: Remove center-of-mass velocity to prevent bulk motion
+        # With Hubble flow v = H*r, random particle positions create non-zero COM velocity
+        # This causes the entire system to drift, appearing as unphysical expansion
+        velocities = np.array([p.vel for p in self.particles])
+        com_velocity = np.mean(velocities, axis=0)
+
+        print(f"[ParticleSystem] Removing COM velocity: [{com_velocity[0]:.3e}, {com_velocity[1]:.3e}, {com_velocity[2]:.3e}] m/s")
+
+        for particle in self.particles:
+            particle.vel -= com_velocity
     
     def get_positions(self):
         """Get all particle positions as (N, 3) array"""
@@ -261,14 +281,14 @@ class HMEAGrid:
             node_pos = node['position']
             M_ext = node['mass']
             
-            # Vector from node to all positions
-            r_vec = positions - node_pos  # Broadcasting
+            # Vector from position to node (attractive force toward node)
+            r_vec = node_pos - positions  # Broadcasting
             r = np.linalg.norm(r_vec, axis=1, keepdims=True)
-            
+
             # Avoid singularities
             r = np.maximum(r, 1e10)
-            
-            # Tidal acceleration for all particles
+
+            # Tidal acceleration for all particles (attractive toward node)
             a_tidal = const.G * M_ext * r_vec / r**3
             
             accelerations += a_tidal

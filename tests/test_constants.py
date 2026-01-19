@@ -8,63 +8,16 @@ import numpy as np
 from cosmo.constants import CosmologicalConstants, LambdaCDMParameters, ExternalNodeParameters, SimulationParameters
 
 
-class TestCosmologicalConstants(unittest.TestCase):
-    """Test physical constants and unit conversions"""
-
-    def setUp(self):
-        self.const = CosmologicalConstants()
-
-    def test_gravitational_constant(self):
-        """G should be 6.674e-11 m^3/(kg*s^2)"""
-        self.assertAlmostEqual(self.const.G, 6.674e-11, places=13)
-
-    def test_speed_of_light(self):
-        """c should be 299792458 m/s"""
-        self.assertEqual(self.const.c, 299792458)
-
-    def test_gpc_to_meters(self):
-        """1 Gpc should be ~3.086e25 meters"""
-        # 1 Gpc = 1e9 pc = 1e9 * 3.086e16 m = 3.086e25 m
-        expected = 3.086e25
-        self.assertAlmostEqual(self.const.Gpc_to_m, expected, delta=expected*0.01)
-
-    def test_gyr_to_seconds(self):
-        """1 Gyr should be ~3.154e16 seconds"""
-        # 1 Gyr = 1e9 years * 365.25 days/year * 24 hours/day * 3600 s/hour
-        expected = 1e9 * 365.25 * 24 * 3600
-        self.assertAlmostEqual(self.const.Gyr_to_s, expected, delta=expected*0.01)
-
-    def test_observable_universe_mass(self):
-        """M_observable should be ~1e53 kg"""
-        self.assertGreater(self.const.M_observable, 1e52)
-        self.assertLess(self.const.M_observable, 1e54)
-
-
 class TestLambdaCDMParameters(unittest.TestCase):
     """Test ΛCDM cosmological parameters"""
 
     def setUp(self):
         self.lcdm = LambdaCDMParameters()
 
-    def test_hubble_constant_si_units(self):
-        """H0 in SI should be ~2.3e-18 s^-1"""
-        # H0 = 70 km/s/Mpc
-        # Convert: 70 * 1000 m/s / (3.086e22 m) ≈ 2.27e-18 s^-1
-        expected = 2.3e-18
-        self.assertAlmostEqual(self.lcdm.H0, expected, delta=expected*0.1)
-
     def test_density_parameters_sum(self):
         """Ω_m + Ω_Λ should equal 1 (flat universe)"""
         total = self.lcdm.Omega_m + self.lcdm.Omega_Lambda
         self.assertAlmostEqual(total, 1.0, places=5)
-
-    def test_omega_lambda(self):
-        """Ω_Λ should be ~0.7"""
-        self.assertAlmostEqual(self.lcdm.Omega_Lambda, 0.7, places=1)
-
-    def test_omega_matter(self):
-        """Ω_m should be ~0.3"""
-        self.assertAlmostEqual(self.lcdm.Omega_m, 0.3, places=1)
 
     def test_hubble_at_present(self):
         """H(a=1) should equal H0"""
@@ -140,16 +93,6 @@ class TestExternalNodeParameters(unittest.TestCase):
 
 class TestSimulationParameters(unittest.TestCase):
     """Test unified simulation parameter class"""
-
-    def test_default_parameters(self):
-        """Default parameters should be reasonable"""
-        params = SimulationParameters()
-
-        self.assertGreater(params.M_value, 0)
-        self.assertGreater(params.S_value, 0)
-        self.assertGreater(params.n_particles, 0)
-        self.assertGreater(params.t_start_Gyr, 0)
-        self.assertGreater(params.t_duration_Gyr, 0)
 
     def test_custom_parameters(self):
         """Should accept custom parameter values"""

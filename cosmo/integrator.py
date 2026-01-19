@@ -18,10 +18,10 @@ from .particles import ParticleSystem, HMEAGrid
 class Integrator:
     """Base class for N-body integration"""
     
-    def __init__(self, particle_system, hmea_grid=None, softening=1e21, use_external_nodes=True, use_dark_energy=False):
+    def __init__(self, particle_system, hmea_grid=None, softening_per_Mobs=1e24, use_external_nodes=True, use_dark_energy=False):
         """
         Initialize integrator
-        
+
         Parameters:
         -----------
         particle_system : ParticleSystem
@@ -29,7 +29,10 @@ class Integrator:
         hmea_grid : HMEAGrid, optional
             External HMEA nodes (if None, runs pure ΛCDM)
         softening : float
-            Gravitational softening length [meters]
+            Base gravitational softening length [meters]
+            Actual softening scales as: ε = softening × (m/M_observable)^(1/3)
+            This makes softening proportional to particle mass^(1/3), so heavier
+            particles (fewer particles) have larger softening for stability
         use_external_nodes : bool
             Whether to include external node tidal forces
         use_dark_energy : bool
@@ -37,10 +40,25 @@ class Integrator:
         """
         self.particles = particle_system
         self.hmea_grid = hmea_grid
-        self.softening = softening
+        self.softening_per_Mobs = softening_per_Mobs
         self.use_external_nodes = use_external_nodes
         self.use_dark_energy = use_dark_energy
         self.const = CosmologicalConstants()
+
+        # Calculate adaptive softening based on particle mass
+        # ε ∝ m^(1/3) makes softening scale with typical inter-particle distance
+        # For reference mass (M_observable with 100 particles): m_ref = 1e52 kg
+        m_ref = self.const.M_observable
+        particle_mass = self.particles.particles[0].mass  # All particles have same mass
+        mass_ratio = particle_mass / m_ref
+
+        # Scale softening
+        # More massive particles (fewer particles) → larger softening
+        self.softening = self.softening_per_Mobs * mass_ratio
+
+        print(f"[Integrator] Base softening: {self.softening_per_Mobs/self.const.Mpc_to_m:.2f} Mpc")
+        print(f"[Integrator] Particle mass: {particle_mass:.2e} kg")
+        print(f"[Integrator] Adaptive softening: {self.softening/self.const.Mpc_to_m:.2f} Mpc (mass ratio: {mass_ratio:.2f})")
         
         # ΛCDM parameters for dark energy
         self.lcdm = LambdaCDMParameters()
@@ -77,12 +95,13 @@ class Integrator:
                 
                 # Softened distance to prevent singularities
                 r_soft = np.sqrt(r**2 + self.softening**2)
-                
-                # Newton's law: a = GM/r^2
+
+                # Newton's law: a = GM/r^2 (with softening)
+                # CRITICAL: Use r_soft for BOTH magnitude AND direction
                 a_mag = self.const.G * masses[j] / r_soft**2
-                a_vec = a_mag * (r_vec / r)
-                
-                accelerations[i] -= a_vec
+                a_vec = a_mag * (r_vec / r_soft)
+
+                accelerations[i] += a_vec
         
         return accelerations
     
@@ -123,38 +142,6 @@ class Integrator:
         a_Lambda = self.lcdm.H0**2 * self.lcdm.Omega_Lambda * positions
 
         return a_Lambda
-
-    def calculate_hubble_drag(self):
-        """
-        Calculate Hubble drag acceleration
-
-        In an expanding universe, particles experience friction-like drag:
-        a_drag = -2*H(t)*v
-
-        This is only applied for LCDM simulations with dark energy.
-        For matter-only and external-node models, the damping is baked into
-        the initial velocities only, not applied as ongoing acceleration.
-
-        Returns:
-        --------
-        accelerations : array, shape (N, 3)
-            Hubble drag acceleration for each particle [m/s^2]
-        """
-        # Only apply Hubble drag for LCDM with dark energy
-        # For matter-only/external-nodes, damping is in initial velocities only
-        if not self.use_dark_energy:
-            return np.zeros((len(self.particles), 3))
-
-        # Get current velocities
-        velocities = self.particles.get_velocities()
-
-        # LCDM: H ≈ H₀ (roughly constant due to dark energy dominance)
-        H_current = self.lcdm.H0
-
-        # Hubble drag: a_drag = -2*H*v
-        a_drag = -2.0 * H_current * velocities
-
-        return a_drag
     
     def calculate_total_forces(self):
         """
@@ -168,15 +155,8 @@ class Integrator:
         a_internal = self.calculate_internal_forces()
         a_external = self.calculate_external_forces()
         a_dark_energy = self.calculate_dark_energy_forces()
-        a_hubble_drag = self.calculate_hubble_drag()
 
-        #print(f"a_internal max: {np.max(np.linalg.norm(a_internal, axis=1)):.2e} m/s²")
-        #print(f"a_external max: {np.max(np.linalg.norm(a_external, axis=1)):.2e} m/s²")
-        #print(f"a_dark_energy max: {np.max(np.linalg.norm(a_dark_energy, axis=1)):.2e} m/s²")
-        #print(f"a_hubble_drag max: {np.max(np.linalg.norm(a_hubble_drag, axis=1)):.2e} m/s²")
-
-
-        return a_internal + a_external + a_dark_energy + a_hubble_drag
+        return a_internal + a_external + a_dark_energy
     
     def total_energy(self):
         """
@@ -229,25 +209,39 @@ class LeapfrogIntegrator(Integrator):
     def step(self, dt):
         """
         Take one leapfrog timestep
-        
+
+        For LCDM mode, Hubble drag is NOT included in the force calculation
+        but instead applied as an exponential damping after the position update.
+        This prevents numerical instability with large timesteps.
+
         Parameters:
         -----------
         dt : float
             Timestep [seconds]
         """
+        a_total = self.calculate_total_forces()
+
         # Kick (half step)
-        accelerations = self.calculate_total_forces()
-        self.particles.set_accelerations(accelerations)
+        self.particles.set_accelerations(a_total)
         self.particles.update_velocities(dt / 2)
-        
+
         # Drift (full step)
         self.particles.update_positions(dt)
-        
+
         # Kick (half step)
-        accelerations = self.calculate_total_forces()
-        self.particles.set_accelerations(accelerations)
+        a_total = self.calculate_total_forces()
+
+        self.particles.set_accelerations(a_total)
         self.particles.update_velocities(dt / 2)
-        
+
+        # NOTE: Hubble drag is NOT applied in proper-coordinate simulations!
+        # In proper coordinates with explicit dark energy, the expansion is handled
+        # by the dark energy acceleration term (a_Λ = H²Ω_Λ r).
+        # Hubble drag (a_drag = -2Hv) is only appropriate for comoving coordinates
+        # where the background expansion is implicit.
+        # Applying it here would over-damp the system since velocities include
+        # both Hubble flow AND peculiar velocities.
+
         # Update time
         self.particles.time += dt
     

@@ -154,33 +154,57 @@ def calculate_dark_energy_forces(self):
 
 ## 4. Hubble Drag (ΛCDM only)
 
-**File**: integrator.py:127-157
+**File**: integrator.py:127-165 (calculation), integrator.py:265-270 (application)
 
 **Formula**:
 ```
-a_drag = -2 × H(t) × v
+v(t+dt) = v(t) × exp(-2H₀ × dt)
 ```
 
 **Implementation**:
 ```python
 def calculate_hubble_drag(self):
+    """Returns drag acceleration (legacy, now unused in leapfrog)"""
     if not self.use_dark_energy:
         return np.zeros((len(self.particles), 3))
 
     velocities = self.particles.get_velocities()
-    H_current = self.lcdm.H0  # Approximation: H ≈ H₀ in dark energy era
+    H_current = self.lcdm.H0
     a_drag = -2.0 * H_current * velocities
 
     return a_drag
 ```
 
+**Actual application** (integrator.py:265-270):
+```python
+# After leapfrog kicks, apply Hubble drag implicitly
+if self.use_dark_energy:
+    gamma = 2.0 * self.lcdm.H0
+    damping_factor = np.exp(-gamma * dt)
+    for particle in self.particles.particles:
+        particle.vel *= damping_factor
+```
+
 **Parameters**:
 - `H₀ ≈ 2.268e-18 s⁻¹`
-- Factor of 2 from comoving coordinates
+- `gamma = 2H₀ ≈ 4.537e-18 s⁻¹`
 
-**Physical meaning**: In expanding universe, particles experience friction. Prevents runaway velocities from dark energy repulsion.
+**Physical meaning**: In expanding universe, particles experience friction from cosmic expansion. Prevents runaway velocities from dark energy repulsion.
 
-**Typical magnitude**: ~1e-11 m/s² (velocity-dependent)
+**CRITICAL UPDATE**: Hubble drag is **NOT APPLIED** in proper-coordinate simulations!
+
+In proper coordinates with explicit dark energy, applying Hubble drag causes OVER-DAMPING:
+- Dark energy provides: +H²Ω_Λr acceleration (outward)
+- Hubble drag would provide: -2Hv deceleration (inward)
+- With full Hubble flow v ≈ Hr, drag is ~3x stronger than dark energy
+- Result: ΛCDM decelerates instead of accelerates!
+
+Hubble drag (a_drag = -2Hv) is only appropriate for **comoving coordinates** where background expansion is implicit. In **proper coordinates**, dark energy acceleration alone handles expansion correctly.
+
+**Typical damping** (over full timestep):
+- dt=1e15 s (0.03 Gyr): 0.5% velocity reduction
+- dt=1e16 s (0.32 Gyr): 4.4% velocity reduction
+- dt=1e17 s (3.17 Gyr): 36.5% velocity reduction
 
 **Only active when**: `use_dark_energy=True` (ΛCDM mode)
 

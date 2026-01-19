@@ -102,6 +102,9 @@ class ParticleSystem:
 
         particle_mass = self.total_mass / self.n_particles
 
+        # First, generate all positions using rejection sampling
+        # This keeps position RNG calls separate from velocity RNG calls
+        positions = []
         for i in range(self.n_particles):
             # Random position uniformly in sphere of radius box_size/2
             # Using rejection sampling for clarity
@@ -109,6 +112,12 @@ class ParticleSystem:
                 pos = np.random.uniform(-self.box_size/2, self.box_size/2, 3)
                 if np.linalg.norm(pos) <= self.box_size/2:
                     break
+            positions.append(pos)
+
+        # Now generate velocities with consistent RNG state
+        # This ensures velocity initialization is independent of rejection sampling randomness
+        for i in range(self.n_particles):
+            pos = positions[i]
 
             # Initial velocity: Damped Hubble flow + small peculiar velocity
             # Damping compensates for lack of ongoing Hubble drag during integration

@@ -58,6 +58,7 @@ class CosmologicalSimulation:
 
         # Initialize particle system
         print(f"Initializing {n_particles} particles in {box_size_Gpc} Gpc box...")
+
         self.particles = ParticleSystem(n_particles=n_particles,
                                        box_size=box_size,
                                        total_mass=self.const.M_observable,

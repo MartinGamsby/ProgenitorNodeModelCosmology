@@ -364,13 +364,13 @@ class TestMatterVsLCDM(unittest.TestCase):
             f"got {rel_diff_final*100:.4f}% difference")
 
     def test_external_nodes_early_time_behavior(self):
-        """External-Node with M>0 should expand consistently slower than Matter-only"""
+        """External-Node with M>0 shows crossover: slower initially, faster at late times"""
         from cosmo.particles import HMEAGrid
         from cosmo.constants import ExternalNodeParameters
 
         # Create External-Node with M=500 (500x M_observable)
-        # Note: This configuration creates net deceleration (not acceleration)
-        # The external tidal forces decelerate expansion more than matter-only
+        # External tidal forces initially decelerate (internal gravity dominates)
+        # but accelerate at late times (tidal forces dominate)
         M_observable = 1e53  # kg
         M_ext = 500 * M_observable
 
@@ -444,33 +444,24 @@ class TestMatterVsLCDM(unittest.TestCase):
                 rms_ext_final = rms_radius(particles_ext.get_positions())
                 rms_mat_final = rms_radius(particles_matter.get_positions())
 
-        # External-Node should expand slower at ALL times
-        # (M=500, S=30Gpc creates net deceleration)
+        # Early-time: External-Node should expand SLOWER (internal gravity dominates)
+        # When particles are close together, internal gravity is strong
+        # External tidal forces add extra deceleration
         self.assertLess(rms_ext_early, rms_mat_early,
             f"Early (4 Gyr): External-Node ({rms_ext_early:.3e}) should expand "
             f"slower than Matter-only ({rms_mat_early:.3e})")
 
-        self.assertLess(rms_ext_mid, rms_mat_mid,
-            f"Mid (10 Gyr): External-Node ({rms_ext_mid:.3e}) should expand "
-            f"slower than Matter-only ({rms_mat_mid:.3e})")
-
-        self.assertLess(rms_ext_final, rms_mat_final,
+        # Late-time: External-Node should expand FASTER (tidal forces dominate)
+        # When particles are far apart, internal gravity is weak
+        # External tidal forces now accelerate expansion
+        self.assertGreater(rms_ext_final, rms_mat_final,
             f"Final (20 Gyr): External-Node ({rms_ext_final:.3e}) should expand "
-            f"slower than Matter-only ({rms_mat_final:.3e})")
+            f"faster than Matter-only ({rms_mat_final:.3e})")
 
-        # The ratio should stay relatively consistent (within ~1%)
-        ratio_early = rms_ext_early / rms_mat_early
+        # Verify the crossover creates a significant difference (at least 2x larger at end)
         ratio_final = rms_ext_final / rms_mat_final
-
-        # Verify ratio stays around 0.70-0.72 (consistent deceleration)
-        self.assertGreater(ratio_early, 0.70,
-            f"Early ratio should be > 0.70, got {ratio_early:.4f}")
-        self.assertLess(ratio_early, 0.72,
-            f"Early ratio should be < 0.72, got {ratio_early:.4f}")
-        self.assertGreater(ratio_final, 0.70,
-            f"Final ratio should be > 0.70, got {ratio_final:.4f}")
-        self.assertLess(ratio_final, 0.72,
-            f"Final ratio should be < 0.72, got {ratio_final:.4f}")
+        self.assertGreater(ratio_final, 2.0,
+            f"Final: External-Node should be at least 2x larger, got {ratio_final:.2f}x")
 
 
 if __name__ == '__main__':

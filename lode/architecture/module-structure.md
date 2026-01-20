@@ -8,8 +8,11 @@ graph TD
     particles[particles.py<br/>Particle, ParticleSystem, HMEAGrid]
     integrator[integrator.py<br/>Integrator, LeapfrogIntegrator]
     simulation[simulation.py<br/>CosmologicalSimulation]
+    analysis[analysis.py<br/>Shared analysis utilities]
+    viz[visualization.py<br/>Shared plotting utilities]
     run[run_simulation.py<br/>Main entry point]
     sweep[parameter_sweep.py<br/>Grid search]
+    viz3d[visualize_3d.py<br/>3D visualizations]
 
     particles --> constants
     integrator --> constants
@@ -17,9 +20,19 @@ graph TD
     simulation --> constants
     simulation --> particles
     simulation --> integrator
+    analysis --> constants
+    viz --> constants
     run --> simulation
     run --> constants
-    sweep --> run
+    run --> analysis
+    run --> viz
+    sweep --> simulation
+    sweep --> constants
+    sweep --> analysis
+    viz3d --> simulation
+    viz3d --> constants
+    viz3d --> analysis
+    viz3d --> viz
 ```
 
 ## Module Responsibilities
@@ -88,6 +101,37 @@ graph TD
 
 **Exports**: `CosmologicalSimulation`.
 
+### `cosmo/analysis.py`
+**Purpose**: Shared analysis utilities for cosmological calculations.
+
+**Functions**:
+- `friedmann_equation(a, t, H0, Omega_m, Omega_Lambda)`: ODE for scale factor evolution
+- `solve_friedmann_equation(t_start, t_end, Omega_Lambda, n_points)`: Solve ΛCDM/matter-only evolution
+- `calculate_initial_conditions(t_start, reference_size)`: Compute a_start, box_size from t_start
+- `normalize_to_initial_size(a_array, initial_size)`: Convert scale factors to physical sizes
+- `compare_expansion_histories(size_ext, size_lcdm)`: Calculate match percentage
+- `detect_runaway_particles(max_distance, rms_size, threshold)`: Detect numerical instability
+- `calculate_today_marker(t_start, t_duration, today)`: Position of "today" in simulation time
+
+**Used by**: `run_simulation.py`, `parameter_sweep.py`, `visualize_3d.py`
+
+**Exports**: All functions listed above.
+
+### `cosmo/visualization.py`
+**Purpose**: Shared visualization utilities for plots and 3D graphics.
+
+**Functions**:
+- `get_node_positions(S_Gpc)`: Calculate 26 HMEA node positions in 3×3×3 grid
+- `draw_universe_sphere(ax, radius, alpha, color, resolution)`: Draw sphere on 3D axes
+- `draw_cube_edges(ax, half_size, color, alpha, linewidth)`: Draw cube outline
+- `setup_3d_axes(ax, lim, title, elev, azim)`: Configure 3D plot axes
+- `generate_output_filename(base_name, sim_params, extension, output_dir, include_timestamp)`: Standardized filenames with parameters
+- `format_simulation_title(sim_params, include_particles)`: Standardized plot titles
+
+**Used by**: `run_simulation.py`, `visualize_3d.py`
+
+**Exports**: All functions listed above.
+
 ### `run_simulation.py`
 **Purpose**: Main script orchestrating full comparison workflow.
 
@@ -96,18 +140,27 @@ graph TD
 - `parse_arguments()`: CLI with argparse
 
 **Workflow**:
-1. Solve Friedmann equation for ΛCDM and Matter-only (scipy.odeint)
-2. Run External-Node N-body simulation
-3. Run Matter-only N-body simulation
-4. Compare all three, generate plot
-5. Save PNG + pickle
+1. Calculate initial conditions using `analysis.calculate_initial_conditions()`
+2. Solve Friedmann equation for ΛCDM and Matter-only using `analysis.solve_friedmann_equation()`
+3. Run External-Node N-body simulation
+4. Run Matter-only N-body simulation
+5. Compare using `analysis.compare_expansion_histories()`, detect runaways with `analysis.detect_runaway_particles()`
+6. Generate plot using `visualization.format_simulation_title()`
+7. Save using `visualization.generate_output_filename()`
 
 **Entry point**: `if __name__ == "__main__"`
 
 ### `parameter_sweep.py`
 **Purpose**: Grid search over M and S parameter space.
 
-**Function**: Calls `run_simulation()` in nested loops, aggregates match percentages.
+**Workflow**:
+1. Calculate initial conditions once using `analysis.calculate_initial_conditions()`
+2. Run ΛCDM baseline simulation
+3. Test multiple (M, S) configurations
+4. Compare each using `analysis.compare_expansion_histories()`
+5. Sort results by best match, save best configuration
+
+**No longer calls**: `run_simulation()` - now uses shared utilities directly for efficiency.
 
 ## File Locations
 
@@ -117,8 +170,11 @@ graph TD
 | `cosmo/particles.py` | 277 | Physical structures |
 | `cosmo/integrator.py` | 308 | Force calculations + integration |
 | `cosmo/simulation.py` | 182 | High-level runner |
-| `run_simulation.py` | 349 | Main comparison script |
-| `parameter_sweep.py` | 101 | Parameter exploration |
+| `cosmo/analysis.py` | 226 | Shared analysis utilities (NEW) |
+| `cosmo/visualization.py` | 187 | Shared plotting utilities (NEW) |
+| `run_simulation.py` | 353 | Main comparison script (refactored) |
+| `parameter_sweep.py` | 130 | Parameter exploration (refactored) |
+| `visualize_3d.py` | 379 | 3D visualization (refactored) |
 
 ## Import Pattern
 

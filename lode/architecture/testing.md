@@ -12,13 +12,19 @@ Tests in `tests/`. Physics-first: validate equations (F=GMm/r², a=H₀²Ω_Λr)
 
 **test_model_comparison.py**: Matter-only vs ΛCDM expansion behavior. Tests that ΛCDM expands faster than matter-only, even with very few timesteps. Includes regression test for Hubble drag bug. All 4 tests (7 subtests) passing.
 
+**test_analysis.py**: Shared analysis utilities (Friedmann solver, initial conditions, comparisons, runaway detection). All 22 tests passing.
+
+**test_visualization.py**: Shared visualization utilities (node positions, filename generation, title formatting). All 16 tests passing.
+
 ## Running
 
 ```bash
-pytest tests/ -v  # All 37 tests (40 subtests)
-pytest tests/test_constants.py -v
-pytest tests/test_forces.py -v
-pytest tests/test_model_comparison.py -v
+pytest tests/ -v  # All 71 tests (73 subtests)
+pytest tests/test_constants.py -v  # 21 tests
+pytest tests/test_forces.py -v  # 12 tests
+pytest tests/test_model_comparison.py -v  # 4 tests (7 subtests)
+pytest tests/test_analysis.py -v  # 22 tests
+pytest tests/test_visualization.py -v  # 16 tests
 ```
 
 ## Key Fixes Applied

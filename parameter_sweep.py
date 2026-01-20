@@ -6,96 +6,124 @@ Test multiple External-Node configurations
 
 import numpy as np
 import pickle
-from cosmo.constants import CosmologicalConstants, ExternalNodeParameters
+import os
+from cosmo.constants import CosmologicalConstants, SimulationParameters
 from cosmo.simulation import CosmologicalSimulation
+from cosmo.analysis import (
+    calculate_initial_conditions,
+    compare_expansion_histories
+)
+from cosmo.factories import run_and_extract_results
 
 const = CosmologicalConstants()
 
-PARTICLE_COUNT = 50  # Small for speed
-BOX_SIZE = 11.59
+PARTICLE_COUNT = 26  # Small for speed
+T_START_GYR = 3.8
+T_DURATION_GYR = 10.0
+N_STEPS = 200
 
 print("="*70)
 print("PARAMETER SWEEP: Finding Best Match to ΛCDM")
 print("="*70)
 
-# First, run ΛCDM baseline
-print("\n1. Running ΛCDM baseline...")
-sim_lcdm = CosmologicalSimulation(
-    n_particles=PARTICLE_COUNT,
-    box_size_Gpc=BOX_SIZE,
-    use_external_nodes=False
-)
-sim_lcdm.run(t_end_Gyr=10.0, n_steps=100, save_interval=10)
-a_lcdm = sim_lcdm.expansion_history[-1]['scale_factor']
-print(f"   ΛCDM final a(t) = {a_lcdm:.4f}")
+# Calculate initial conditions once (reused for all configs)
+initial_conditions = calculate_initial_conditions(T_START_GYR)
+BOX_SIZE = initial_conditions['box_size_Gpc']
+A_START = initial_conditions['a_start']
 
 # Test different configurations
-configs = [
-    (700, 22, "Lighter/Closer"),
-    (750, 23, "Slightly lighter"),
-    (800, 24, "Current"),
-    (850, 25, "Slightly heavier"),
-    (900, 26, "Heavier/Farther"),
-]
+configs = []
+Mlist = range(25, 1250+1, 50)
+Slist = range(20, 40+1, 2)
+nbConfigs = len(Mlist)*len(Slist)
+
+print(f"Running {nbConfigs} configurations...")
+
+
+# First, run ΛCDM baseline
+print("\n1. Running ΛCDM baseline...")
+# Create sim_params for LCDM
+lcdm_params = SimulationParameters(n_particles=PARTICLE_COUNT, seed=42,
+                                    t_start_Gyr=T_START_GYR, t_duration_Gyr=T_DURATION_GYR, n_steps=N_STEPS)
+sim_lcdm = CosmologicalSimulation(lcdm_params, BOX_SIZE, A_START,
+                                   use_external_nodes=False, use_dark_energy=True)
+lcdm_results = run_and_extract_results(sim_lcdm, T_DURATION_GYR, N_STEPS)
+a_lcdm = lcdm_results['a'][-1]
+size_lcdm = lcdm_results['size_Gpc'][-1]
+print(f"   ΛCDM final a(t) = {a_lcdm:.4f}, size = {size_lcdm:.2f} Gpc")
 
 results = []
 
-for M_factor, S_gpc, desc in configs:
-    print(f"\n2. Testing {desc}: M={M_factor}×M_obs, S={S_gpc:.1f}Gpc")
-    
-    M = M_factor * const.M_observable
-    S = S_gpc * const.Gpc_to_m
-    params = ExternalNodeParameters(M_ext=M, S=S)
-    
-    # Run simulation
-    sim_ext = CosmologicalSimulation(
+
+def sim(M_factor, S_gpc, desc):
+    print(f"\n2. Testing {desc}: M={M_factor}×M_obs, S={S_gpc:.1f}Gp ({len(results)+1}/{nbConfigs})")
+
+    # Create simulation parameters
+    sim_params = SimulationParameters(
+        M_value=M_factor,
+        S_value=S_gpc,
         n_particles=PARTICLE_COUNT,
-        box_size_Gpc=BOX_SIZE,
-        use_external_nodes=True,
-        external_node_params=params
+        seed=42,
+        t_start_Gyr=T_START_GYR,
+        t_duration_Gyr=T_DURATION_GYR,
+        n_steps=N_STEPS
     )
-    
-    sim_ext.run(t_end_Gyr=10.0, n_steps=100, save_interval=10)
-    a_ext = sim_ext.expansion_history[-1]['scale_factor']
-    
-    ratio = a_ext / a_lcdm
-    diff_percent = abs(ratio - 1.0) * 100
-    
-    print(f"   External-Node final a(t) = {a_ext:.4f}")
-    print(f"   Ratio (Ext/ΛCDM) = {ratio:.4f} ({diff_percent:.1f}% diff)")
-    
-    results.append({
+
+    # Run simulation
+    sim_ext = CosmologicalSimulation(sim_params, BOX_SIZE, A_START,
+                                      use_external_nodes=True, use_dark_energy=False)
+    ext_results = run_and_extract_results(sim_ext, T_DURATION_GYR, N_STEPS)
+    a_ext = ext_results['a'][-1]
+    size_ext = ext_results['size_Gpc'][-1]
+
+    # Calculate match
+    match_pct = compare_expansion_histories(size_ext, size_lcdm)
+    diff_pct = 100 - match_pct
+
+    print(f"   External-Node final a(t) = {a_ext:.4f}, size = {size_ext:.2f} Gpc")
+    print(f"   Match: {match_pct:.2f}% ({diff_pct:.1f}% diff)")
+
+    return {
         'M_factor': M_factor,
         'S_gpc': S_gpc,
         'desc': desc,
         'a_ext': a_ext,
-        'ratio': ratio,
-        'diff_percent': diff_percent,
-        'params': params
-    })
+        'size_ext': size_ext,
+        'match_pct': match_pct,
+        'diff_pct': diff_pct,
+        'params': sim_params.external_params
+    }
+
+# All configurations
+for M in Mlist:
+    for S in Slist:
+        desc = f"M={M}×M_obs, S={S}Gpc"
+        results.append(sim(M, S, desc))
 
 print("\n" + "="*70)
+
 print("RESULTS SUMMARY")
 print("="*70)
 
-# Sort by closest match
-results.sort(key=lambda x: x['diff_percent'])
+# Sort by best match
+results.sort(key=lambda x: x['diff_pct'])
 
-print(f"\n{'Config':<20} {'M×M_obs':<10} {'S[Gpc]':<10} {'Ratio':<10} {'Diff%':<10}")
+print(f"\n{'Config':<20} {'M×M_obs':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10}")
 print("-" * 70)
 
 for r in results:
     print(f"{r['desc']:<20} {r['M_factor']:<10} {r['S_gpc']:<10.1f} "
-          f"{r['ratio']:<10.4f} {r['diff_percent']:<10.2f}")
+          f"{r['match_pct']:<10.2f} {r['diff_pct']:<10.2f}")
 
 best = results[0]
-print(f"\n BEST MATCH: {best['desc']}")
+print(f"\n★ BEST MATCH: {best['desc']}")
 print(f"   M = {best['M_factor']} × M_obs")
 print(f"   S = {best['S_gpc']:.1f} Gpc")
-print(f"   Match: {100-best['diff_percent']:.1f}%")
+print(f"   Match: {best['match_pct']:.1f}%")
 
 # Save best configuration
+os.makedirs('./results', exist_ok=True)
 with open('./results/best_config.pkl', 'wb') as f:
     pickle.dump(best, f)
 
-print(f"\n Saved best configuration to best_config.pkl")
+print(f"\n✓ Saved best configuration to results/best_config.pkl")

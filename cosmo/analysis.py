@@ -182,6 +182,10 @@ def compare_expansion_histories(size_ext, size_lcdm):
     """
     Calculate match percentage between two expansion histories.
 
+    Compares full expansion curves by computing average percentage difference
+    across all timesteps. This ensures we match the entire evolution, not just
+    the final state.
+
     Parameters:
     -----------
     size_ext : float or ndarray
@@ -191,11 +195,20 @@ def compare_expansion_histories(size_ext, size_lcdm):
 
     Returns:
     --------
-    float or ndarray
-        Match percentage (100% = perfect match)
+    float
+        Match percentage (100% = perfect match, based on mean deviation across all timesteps)
     """
-    diff = np.abs(size_ext - size_lcdm) / size_lcdm * 100
-    return 100 - diff
+    # If arrays, compare full curve
+    if isinstance(size_ext, np.ndarray) and isinstance(size_lcdm, np.ndarray):
+        # Calculate percentage difference at each timestep
+        diff_pct = np.abs(size_ext - size_lcdm) / size_lcdm * 100
+        # Average across all timesteps
+        mean_diff_pct = np.mean(diff_pct)
+        return 100 - mean_diff_pct
+    else:
+        # Scalar comparison (backward compatibility)
+        diff = np.abs(size_ext - size_lcdm) / size_lcdm * 100
+        return 100 - diff
 
 
 def detect_runaway_particles(max_distance_Gpc, rms_size_Gpc, threshold=2.0):

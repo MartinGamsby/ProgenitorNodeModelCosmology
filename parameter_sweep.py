@@ -64,8 +64,9 @@ sim_lcdm = CosmologicalSimulation(lcdm_params, BOX_SIZE, A_START,
                                    use_external_nodes=False, use_dark_energy=True)
 lcdm_results = run_and_extract_results(sim_lcdm, T_DURATION_GYR, N_STEPS)
 a_lcdm = lcdm_results['a'][-1]
-size_lcdm = lcdm_results['size_Gpc'][-1]
-print(f"   ΛCDM final a(t) = {a_lcdm:.4f}, size = {size_lcdm:.2f} Gpc")
+size_lcdm_final = lcdm_results['size_Gpc'][-1]
+size_lcdm_curve = lcdm_results['size_Gpc']  # Full expansion history
+print(f"   ΛCDM final a(t) = {a_lcdm:.4f}, size = {size_lcdm_final:.2f} Gpc")
 
 results = []
 sim_count = 0  # Track total simulations
@@ -92,21 +93,22 @@ def sim(M_factor, S_gpc, desc):
                                       use_external_nodes=True, use_dark_energy=False)
     ext_results = run_and_extract_results(sim_ext, T_DURATION_GYR, N_STEPS)
     a_ext = ext_results['a'][-1]
-    size_ext = ext_results['size_Gpc'][-1]
+    size_ext_final = ext_results['size_Gpc'][-1]
+    size_ext_curve = ext_results['size_Gpc']  # Full expansion history
 
-    # Calculate match
-    match_pct = compare_expansion_histories(size_ext, size_lcdm)
+    # Calculate match using full curve comparison
+    match_pct = compare_expansion_histories(size_ext_curve, size_lcdm_curve)
     diff_pct = 100 - match_pct
 
-    print(f"   External-Node final a(t) = {a_ext:.4f}, size = {size_ext:.2f} Gpc")
-    print(f"   Match: {match_pct:.2f}% ({diff_pct:.1f}% diff)")
+    print(f"   External-Node final a(t) = {a_ext:.4f}, size = {size_ext_final:.2f} Gpc")
+    print(f"   Match: {match_pct:.2f}% (avg diff across all timesteps: {diff_pct:.2f}%)")
 
     return {
         'M_factor': M_factor,
         'S_gpc': S_gpc,
         'desc': desc,
         'a_ext': a_ext,
-        'size_ext': size_ext,
+        'size_ext': size_ext_final,
         'match_pct': match_pct,
         'diff_pct': diff_pct,
         'params': sim_params.external_params

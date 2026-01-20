@@ -13,11 +13,7 @@ from cosmo.analysis import (
     calculate_initial_conditions,
     compare_expansion_histories
 )
-from cosmo.factories import (
-    create_external_node_simulation,
-    create_lcdm_simulation,
-    run_and_extract_results
-)
+from cosmo.factories import run_and_extract_results
 
 const = CosmologicalConstants()
 
@@ -47,7 +43,11 @@ print(f"Running {len(configs)} configurations...")
 
 # First, run ΛCDM baseline
 print("\n1. Running ΛCDM baseline...")
-sim_lcdm = create_lcdm_simulation(PARTICLE_COUNT, BOX_SIZE, T_START_GYR, A_START)
+# Create sim_params for LCDM
+lcdm_params = SimulationParameters(n_particles=PARTICLE_COUNT, seed=42,
+                                    t_start_Gyr=T_START_GYR, t_duration_Gyr=T_DURATION_GYR, n_steps=N_STEPS)
+sim_lcdm = CosmologicalSimulation(lcdm_params, BOX_SIZE, A_START,
+                                   use_external_nodes=False, use_dark_energy=True)
 lcdm_results = run_and_extract_results(sim_lcdm, T_DURATION_GYR, N_STEPS)
 a_lcdm = lcdm_results['a'][-1]
 size_lcdm = lcdm_results['size_Gpc'][-1]
@@ -70,7 +70,8 @@ for M_factor, S_gpc, desc in configs:
     )
 
     # Run simulation
-    sim_ext = create_external_node_simulation(sim_params, BOX_SIZE, A_START)
+    sim_ext = CosmologicalSimulation(sim_params, BOX_SIZE, A_START,
+                                      use_external_nodes=True, use_dark_energy=False)
     ext_results = run_and_extract_results(sim_ext, T_DURATION_GYR, N_STEPS)
     a_ext = ext_results['a'][-1]
     size_ext = ext_results['size_Gpc'][-1]

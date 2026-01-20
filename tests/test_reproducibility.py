@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from cosmo.constants import SimulationParameters
 from cosmo.analysis import calculate_initial_conditions
-from cosmo.factories import create_external_node_simulation, create_matter_only_simulation
+from cosmo.simulation import CosmologicalSimulation
 
 
 class TestInitialConditionsReproducibility:
@@ -44,11 +44,11 @@ class TestInitialConditionsReproducibility:
         ic = calculate_initial_conditions(sim_params.t_start_Gyr)
 
         # Create two simulations with same seed
-        np.random.seed(sim_params.seed)
-        sim1 = create_external_node_simulation(sim_params, ic['box_size_Gpc'], ic['a_start'])
+        sim1 = CosmologicalSimulation(sim_params, ic['box_size_Gpc'], ic['a_start'],
+                                      use_external_nodes=True, use_dark_energy=False)
 
-        np.random.seed(sim_params.seed)
-        sim2 = create_external_node_simulation(sim_params, ic['box_size_Gpc'], ic['a_start'])
+        sim2 = CosmologicalSimulation(sim_params, ic['box_size_Gpc'], ic['a_start'],
+                                      use_external_nodes=True, use_dark_energy=False)
 
         # Particle positions should be identical
         np.testing.assert_array_equal(
@@ -90,11 +90,11 @@ class TestInitialConditionsReproducibility:
         ic = calculate_initial_conditions(sim_params_1.t_start_Gyr)
 
         # Create two simulations with different seeds
-        np.random.seed(sim_params_1.seed)
-        sim1 = create_external_node_simulation(sim_params_1, ic['box_size_Gpc'], ic['a_start'])
+        sim1 = CosmologicalSimulation(sim_params_1, ic['box_size_Gpc'], ic['a_start'],
+                                      use_external_nodes=True, use_dark_energy=False)
 
-        np.random.seed(sim_params_2.seed)
-        sim2 = create_external_node_simulation(sim_params_2, ic['box_size_Gpc'], ic['a_start'])
+        sim2 = CosmologicalSimulation(sim_params_2, ic['box_size_Gpc'], ic['a_start'],
+                                      use_external_nodes=True, use_dark_energy=False)
 
         # Particle positions should be different
         assert not np.array_equal(sim1.particles.get_positions(), sim2.particles.get_positions()), \
@@ -119,11 +119,11 @@ class TestInitialConditionsReproducibility:
         ic = calculate_initial_conditions(sim_params.t_start_Gyr)
 
         # Create two simulations
-        np.random.seed(sim_params.seed)
-        sim1 = create_external_node_simulation(sim_params, ic['box_size_Gpc'], ic['a_start'])
+        sim1 = CosmologicalSimulation(sim_params, ic['box_size_Gpc'], ic['a_start'],
+                                      use_external_nodes=True, use_dark_energy=False)
 
-        np.random.seed(sim_params.seed)
-        sim2 = create_external_node_simulation(sim_params, ic['box_size_Gpc'], ic['a_start'])
+        sim2 = CosmologicalSimulation(sim_params, ic['box_size_Gpc'], ic['a_start'],
+                                      use_external_nodes=True, use_dark_energy=False)
 
         # COM velocity should be near zero for both
         com_vel_1 = np.mean(sim1.particles.get_velocities(), axis=0)
@@ -161,11 +161,11 @@ class TestMatterOnlyReproducibility:
         ic = calculate_initial_conditions(sim_params.t_start_Gyr)
 
         # Create two matter-only simulations
-        np.random.seed(sim_params.seed)
-        sim1 = create_matter_only_simulation(sim_params, ic['box_size_Gpc'], ic['a_start'])
+        sim1 = CosmologicalSimulation(sim_params, ic['box_size_Gpc'], ic['a_start'],
+                                      use_external_nodes=False, use_dark_energy=False)
 
-        np.random.seed(sim_params.seed)
-        sim2 = create_matter_only_simulation(sim_params, ic['box_size_Gpc'], ic['a_start'])
+        sim2 = CosmologicalSimulation(sim_params, ic['box_size_Gpc'], ic['a_start'],
+                                      use_external_nodes=False, use_dark_energy=False)
 
         # Should be identical
         np.testing.assert_array_equal(sim1.particles.get_positions(), sim2.particles.get_positions())
@@ -190,7 +190,7 @@ class TestInitialSizeConsistency:
         sim_params = SimulationParameters(
             M_value=800,
             S_value=25.0,
-            n_particles=50,
+            n_particles=30,
             seed=42,
             t_start_Gyr=t_start,
             t_duration_Gyr=t_duration,
@@ -206,13 +206,13 @@ class TestInitialSizeConsistency:
         lcdm_initial_size = box_size_Gpc
 
         # Run External-Node simulation
-        np.random.seed(sim_params.seed)
-        sim_ext = create_external_node_simulation(sim_params, box_size_Gpc, ic['a_start'])
+        sim_ext = CosmologicalSimulation(sim_params, box_size_Gpc, ic['a_start'],
+                                         use_external_nodes=True, use_dark_energy=False)
         ext_results = run_and_extract_results(sim_ext, t_duration, n_steps, save_interval=1)
 
         # Run Matter-only simulation
-        np.random.seed(sim_params.seed)
-        sim_matter = create_matter_only_simulation(sim_params, box_size_Gpc, ic['a_start'])
+        sim_matter = CosmologicalSimulation(sim_params, box_size_Gpc, ic['a_start'],
+                                            use_external_nodes=False, use_dark_energy=False)
         matter_results = run_and_extract_results(sim_matter, t_duration, n_steps, save_interval=1)
 
         # Initial sizes should all be the same

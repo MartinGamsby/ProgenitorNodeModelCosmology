@@ -27,11 +27,7 @@ from cosmo.visualization import (
     format_simulation_title,
     create_comparison_plot
 )
-from cosmo.factories import (
-    create_external_node_simulation,
-    create_matter_only_simulation,
-    run_and_extract_results
-)
+from cosmo.factories import run_and_extract_results
 
 
 def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start):
@@ -122,12 +118,14 @@ def run_nbody_simulations(sim_params, box_size, a_start):
 
     # Run External-Node simulation
     print("\nRunning External-Node simulation...")
-    sim_ext = create_external_node_simulation(sim_params, box_size, a_start)
+    sim_ext = CosmologicalSimulation(sim_params, box_size, a_start,
+                                     use_external_nodes=True, use_dark_energy=False)
     ext_results = run_and_extract_results(sim_ext, sim_params.t_duration_Gyr, sim_params.n_steps)
 
     # Run matter-only simulation
     print("\nRunning Matter-only simulation...")
-    sim_matter = create_matter_only_simulation(sim_params, box_size, a_start)
+    sim_matter = CosmologicalSimulation(sim_params, box_size, a_start,
+                                        use_external_nodes=False, use_dark_energy=False)
     matter_results = run_and_extract_results(sim_matter, sim_params.t_duration_Gyr, sim_params.n_steps)
 
     return {

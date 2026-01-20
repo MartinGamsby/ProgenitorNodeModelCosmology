@@ -47,6 +47,7 @@ class CosmologicalSimulation:
         self.use_external_nodes = use_external_nodes
         self.t_start_Gyr = t_start_Gyr
         self.a_start = a_start if a_start is not None else 1.0
+        self.box_size_Gpc = box_size_Gpc  # Store initial box size for consistent size calculation
 
         # Default: use dark energy only if not using external nodes
         if use_dark_energy is None:
@@ -206,11 +207,16 @@ class CosmologicalSimulation:
             # Use RMS for scale factor (typical expansion)
             a = rms_current / rms_initial
 
+            # Physical size: consistent with ΛCDM (a * box_size_initial)
+            # This ensures all models start from the same physical size
+            size_Gpc = a * self.box_size_Gpc
+
             self.expansion_history.append({
                 'time': t,
                 'time_Gyr': t / (1e9 * 365.25 * 24 * 3600),
                 'scale_factor': a,
-                'size': rms_current,
+                'size': max_current*2,
+                'size_a': size_Gpc* self.const.Gpc_to_m,
                 'max_particle_distance': max_current,
             })
     

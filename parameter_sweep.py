@@ -17,10 +17,18 @@ from cosmo.factories import run_and_extract_results
 
 const = CosmologicalConstants()
 
-PARTICLE_COUNT = 26  # Small for speed
-T_START_GYR = 3.8
-T_DURATION_GYR = 10.0
-N_STEPS = 200
+QUICK_SEARCH = False
+# Quick quick, to test the search
+if QUICK_SEARCH:
+    PARTICLE_COUNT = 20
+    T_START_GYR = 10.0
+    T_DURATION_GYR = 3.8
+    N_STEPS = 76
+else:
+    PARTICLE_COUNT = 100
+    T_START_GYR = 3.8
+    T_DURATION_GYR = 10.0
+    N_STEPS = 250
 
 print("="*70)
 print("PARAMETER SWEEP: Finding Best Match to ΛCDM")
@@ -33,10 +41,10 @@ A_START = initial_conditions['a_start']
 
 # Test different configurations
 configs = []
-SMin_gpc = 10   # Min box size to test
-SMax_gpc = 1000  # Max box size to test
+SMin_gpc = 15   # Min box size to test
+SMax_gpc = 100  # Max box size to test
 
-Mlist = [i for i in range(5, 2500, 250)]
+Mlist = [i for i in range(1000, 0, -25)]
 Slist = [i for i in range(SMin_gpc, SMax_gpc+1, 1)]
 nbConfigs_bruteforce = len(Mlist)*len(Slist)
 
@@ -104,10 +112,17 @@ def sim(M_factor, S_gpc, desc):
         'params': sim_params.external_params
     }
 
-def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc):
+def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc, S_hint=None, hint_window=50):
     """
     Ternary search for optimal S given fixed M.
     Assumes unimodal (bell curve) match quality.
+
+    Args:
+        M_factor: Mass factor to test
+        S_min: Minimum S value
+        S_max: Maximum S value
+        S_hint: Previous best S (warm start)
+        hint_window: Search within ±hint_window of S_hint first
 
     Returns: (best_S, best_match_pct, best_result_dict)
     """
@@ -122,8 +137,14 @@ def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc):
             evaluated[S_val] = result
         return evaluated[S_val]['match_pct']
 
-    begin = S_min
-    end = S_max
+    # Warm start: if we have a hint, search locally first
+    if S_hint is not None:
+        begin = max(S_min, S_hint - hint_window)
+        end = min(S_max, S_hint + hint_window)
+        print(f"   Warm start: searching [{begin}, {end}] around S={S_hint}")
+    else:
+        begin = S_min
+        end = S_max
 
     while end - begin > 3:
         # Ternary search: divide range into thirds
@@ -150,14 +171,29 @@ def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc):
 
 
 # Ternary search for each M
+prev_best_S = None
 for M in Mlist:
     print(f"\n{'='*70}")
     print(f"Searching optimal S for M={M}×M_obs")
     print(f"{'='*70}")
-    S_best, match_pct, result = ternary_search_S(M)
+    S_best, match_pct, result = ternary_search_S(M, S_hint=prev_best_S)
     results.append(result)
     print(f"\n   → Best S for M={M}: S={S_best:.1f} Gpc, match={match_pct:.2f}%")
+    prev_best_S = S_best  # Use as hint for next M
 
+print("\n" + "="*70)
+
+print("RESULTS BY MASS")
+print("="*70)
+
+# Sort by best match
+results.reverse() # Original order was descending M
+
+print(f"\n{'Config':<20} {'M×M_obs':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10}")
+print("-" * 70)
+for r in results:
+    print(f"{r['desc']:<20} {r['M_factor']:<10} {r['S_gpc']:<10.1f} "
+          f"{r['match_pct']:<10.2f} {r['diff_pct']:<10.2f}")
 print("\n" + "="*70)
 
 print("RESULTS SUMMARY")
@@ -168,11 +204,9 @@ results.sort(key=lambda x: x['diff_pct'])
 
 print(f"\n{'Config':<20} {'M×M_obs':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10}")
 print("-" * 70)
-
 for r in results:
     print(f"{r['desc']:<20} {r['M_factor']:<10} {r['S_gpc']:<10.1f} "
           f"{r['match_pct']:<10.2f} {r['diff_pct']:<10.2f}")
-
 best = results[0]
 print(f"\n★ BEST MATCH: {best['desc']}")
 print(f"   M = {best['M_factor']} × M_obs")

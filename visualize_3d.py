@@ -58,7 +58,7 @@ def load_or_run_simulation(sim_file=None, output_dir="."):
     sim_params = SimulationParameters(
         M_value=800,
         S_value=24.0,
-        n_particles=100,
+        n_particles=40,#100,
         seed=42,
         t_start_Gyr=10.8,
         t_duration_Gyr=10.0,
@@ -133,8 +133,8 @@ def create_3d_snapshot(sim_data, snapshot_idx, output_dir="."):
                label=f'External Nodes (26)')
 
     # Draw spheres representing universe boundaries
-    draw_universe_sphere(ax, current_max_size/2.0)
-    draw_universe_sphere(ax, current_size/2.0)
+    draw_universe_sphere(ax, current_max_size)
+    draw_universe_sphere(ax, current_size/2)
 
     # Draw cube representing node grid
     draw_cube_edges(ax, S_Gpc)
@@ -196,8 +196,8 @@ def create_multi_panel_evolution(sim_data, output_dir="."):
                    c='red', s=100, marker='*', alpha=0.8, edgecolors='darkred')
 
         # Universe boundaries
-        draw_universe_sphere(ax, current_max_size/2.0, resolution=30)
-        draw_universe_sphere(ax, current_size/2.0, resolution=30)
+        draw_universe_sphere(ax, current_max_size, resolution=30)
+        draw_universe_sphere(ax, current_size/2, resolution=30)
 
         # Setup axes
         title = f't = {time_Gyr:.1f} Gyr\nR = {current_size:.1f} Gpc'
@@ -278,8 +278,8 @@ def create_animation(sim_data, output_dir=".", fps=10):
         if sphere_plot is not None:
             sphere_plot.remove()
 
-        sphere_plot = draw_universe_sphere(ax, current_max_size/2.0)
-        draw_universe_sphere(ax, current_size/2.0)
+        sphere_plot = draw_universe_sphere(ax, current_max_size)
+        draw_universe_sphere(ax, current_size/2)
 
         # Update title
         title.set_text(

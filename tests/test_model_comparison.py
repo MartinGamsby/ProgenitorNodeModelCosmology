@@ -471,7 +471,7 @@ class TestMatterVsLCDM(unittest.TestCase):
         # Test with 40 particles (most likely to show instability)
         np.random.seed(42)
         particles_matter = ParticleSystem(
-            n_particles=40,
+            n_particles=50,#40,
             box_size=10.0 * self.const.Gpc_to_m,
             total_mass=self.const.M_observable,
             damping_factor_override=1.0,

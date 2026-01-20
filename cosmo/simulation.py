@@ -211,7 +211,7 @@ class CosmologicalSimulation:
                 'time': t,
                 'time_Gyr': t / (1e9 * 365.25 * 24 * 3600),
                 'scale_factor': a,
-                'size': max_current*2,#
+                'size': rms_current*2,
                 'size_a': size_Gpc* self.const.Gpc_to_m,
                 'max_particle_distance': max_current,
             })

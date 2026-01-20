@@ -33,11 +33,18 @@ A_START = initial_conditions['a_start']
 
 # Test different configurations
 configs = []
-Mlist = range(25, 1250+1, 50)
-Slist = range(20, 40+1, 2)
-nbConfigs = len(Mlist)*len(Slist)
+SMin_gpc = 10   # Min box size to test
+SMax_gpc = 1000  # Max box size to test
 
-print(f"Running {nbConfigs} configurations...")
+Mlist = [i for i in range(5, 2500, 250)]
+Slist = [i for i in range(SMin_gpc, SMax_gpc+1, 1)]
+nbConfigs_bruteforce = len(Mlist)*len(Slist)
+
+
+print(f"Using ternary search on S for each M value...")
+print(f"M values to test: {len(Mlist)}")
+print(f"S range: [{SMin_gpc}, {SMax_gpc}]")
+print(f"(Brute force would test {nbConfigs_bruteforce} configurations)")
 
 
 # First, run ΛCDM baseline
@@ -53,10 +60,13 @@ size_lcdm = lcdm_results['size_Gpc'][-1]
 print(f"   ΛCDM final a(t) = {a_lcdm:.4f}, size = {size_lcdm:.2f} Gpc")
 
 results = []
+sim_count = 0  # Track total simulations
 
 
 def sim(M_factor, S_gpc, desc):
-    print(f"\n2. Testing {desc}: M={M_factor}×M_obs, S={S_gpc:.1f}Gp ({len(results)+1}/{nbConfigs})")
+    global sim_count
+    sim_count += 1
+    print(f"\n2. Testing {desc}: M={M_factor}×M_obs, S={S_gpc:.1f}Gpc (sim #{sim_count})")
 
     # Create simulation parameters
     sim_params = SimulationParameters(
@@ -94,11 +104,59 @@ def sim(M_factor, S_gpc, desc):
         'params': sim_params.external_params
     }
 
-# All configurations
+def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc):
+    """
+    Ternary search for optimal S given fixed M.
+    Assumes unimodal (bell curve) match quality.
+
+    Returns: (best_S, best_match_pct, best_result_dict)
+    """
+    # Track all evaluated results to return the best
+    evaluated = {}
+
+    def evaluate_S(S_val):
+        """Evaluate and cache simulation result for given S"""
+        S_val = round(S_val)  # Round to integer
+        if S_val not in evaluated:
+            result = sim(M_factor, S_val, f"M={M_factor}, S={S_val}")
+            evaluated[S_val] = result
+        return evaluated[S_val]['match_pct']
+
+    begin = S_min
+    end = S_max
+
+    while end - begin > 3:
+        # Ternary search: divide range into thirds
+        low = (begin * 2 + end) // 3
+        high = (begin + end * 2) // 3
+
+        if evaluate_S(low) > evaluate_S(high):
+            # Maximum is in [begin, high)
+            end = high - 1
+        else:
+            # Maximum is in (low, end]
+            begin = low + 1
+
+    # Exhaustively check remaining small range
+    for S_val in range(begin, end + 1):
+        evaluate_S(S_val)
+
+    # Find best result from all evaluations
+    best_S = max(evaluated.keys(), key=lambda s: evaluated[s]['match_pct'])
+    best_result = evaluated[best_S]
+    best_match = best_result['match_pct']
+
+    return best_S, best_match, best_result
+
+
+# Ternary search for each M
 for M in Mlist:
-    for S in Slist:
-        desc = f"M={M}×M_obs, S={S}Gpc"
-        results.append(sim(M, S, desc))
+    print(f"\n{'='*70}")
+    print(f"Searching optimal S for M={M}×M_obs")
+    print(f"{'='*70}")
+    S_best, match_pct, result = ternary_search_S(M)
+    results.append(result)
+    print(f"\n   → Best S for M={M}: S={S_best:.1f} Gpc, match={match_pct:.2f}%")
 
 print("\n" + "="*70)
 
@@ -120,6 +178,13 @@ print(f"\n★ BEST MATCH: {best['desc']}")
 print(f"   M = {best['M_factor']} × M_obs")
 print(f"   S = {best['S_gpc']:.1f} Gpc")
 print(f"   Match: {best['match_pct']:.1f}%")
+
+print(f"\n{'='*70}")
+print(f"EFFICIENCY SUMMARY")
+print(f"{'='*70}")
+print(f"Total simulations run: {sim_count}")
+print(f"Brute force would require: {nbConfigs_bruteforce}")
+print(f"Speedup: {nbConfigs_bruteforce/sim_count:.1f}×")
 
 # Save best configuration
 os.makedirs('./results', exist_ok=True)

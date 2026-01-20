@@ -33,12 +33,11 @@ A_START = initial_conditions['a_start']
 
 # Test different configurations
 configs = []
-for M in range(500, 1250+1, 250):
-    for S in range(25, 40+1, 5):
-        desc = f"M={M}×M_obs, S={S}Gpc"
-        configs.append((M, S, desc))
+Mlist = range(25, 1250+1, 50)
+Slist = range(20, 40+1, 2)
+nbConfigs = len(Mlist)*len(Slist)
 
-print(f"Running {len(configs)} configurations...")
+print(f"Running {nbConfigs} configurations...")
 
 
 # First, run ΛCDM baseline
@@ -55,8 +54,9 @@ print(f"   ΛCDM final a(t) = {a_lcdm:.4f}, size = {size_lcdm:.2f} Gpc")
 
 results = []
 
-for M_factor, S_gpc, desc in configs:
-    print(f"\n2. Testing {desc}: M={M_factor}×M_obs, S={S_gpc:.1f}Gp ({len(results)+1}/{len(configs)})")
+
+def sim(M_factor, S_gpc, desc):
+    print(f"\n2. Testing {desc}: M={M_factor}×M_obs, S={S_gpc:.1f}Gp ({len(results)+1}/{nbConfigs})")
 
     # Create simulation parameters
     sim_params = SimulationParameters(
@@ -83,7 +83,7 @@ for M_factor, S_gpc, desc in configs:
     print(f"   External-Node final a(t) = {a_ext:.4f}, size = {size_ext:.2f} Gpc")
     print(f"   Match: {match_pct:.2f}% ({diff_pct:.1f}% diff)")
 
-    results.append({
+    return {
         'M_factor': M_factor,
         'S_gpc': S_gpc,
         'desc': desc,
@@ -92,9 +92,16 @@ for M_factor, S_gpc, desc in configs:
         'match_pct': match_pct,
         'diff_pct': diff_pct,
         'params': sim_params.external_params
-    })
+    }
+
+# All configurations
+for M in Mlist:
+    for S in Slist:
+        desc = f"M={M}×M_obs, S={S}Gpc"
+        results.append(sim(M, S, desc))
 
 print("\n" + "="*70)
+
 print("RESULTS SUMMARY")
 print("="*70)
 

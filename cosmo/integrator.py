@@ -70,39 +70,48 @@ class Integrator:
     def calculate_internal_forces(self):
         """
         Calculate gravitational forces between particles (internal gravity)
-        Uses direct N-body summation with softening
-        
+        Uses vectorized N-body summation with softening for optimal performance
+
         Returns:
         --------
         accelerations : array, shape (N, 3)
             Acceleration for each particle [m/s^2]
         """
         N = len(self.particles)
-        positions = self.particles.get_positions()
-        masses = self.particles.get_masses()
-        
-        accelerations = np.zeros((N, 3))
-        
-        # Direct pairwise summation (O(N^2) - slow but accurate)
-        for i in range(N):
-            for j in range(N):
-                if i == j:
-                    continue
-                
-                # Vector from i to j
-                r_vec = positions[j] - positions[i]
-                r = np.linalg.norm(r_vec)
-                
-                # Softened distance to prevent singularities
-                r_soft = np.sqrt(r**2 + self.softening**2)
+        positions = self.particles.get_positions()  # Shape: (N, 3)
+        masses = self.particles.get_masses()        # Shape: (N,)
 
-                # Newton's law: a = GM/r^2 (with softening)
-                # CRITICAL: Use r_soft for BOTH magnitude AND direction
-                a_mag = self.const.G * masses[j] / r_soft**2
-                a_vec = a_mag * (r_vec / r_soft)
+        # Vectorized computation using NumPy broadcasting
+        # positions[:, np.newaxis, :] has shape (N, 1, 3)
+        # positions[np.newaxis, :, :] has shape (1, N, 3)
+        # Broadcasting gives shape (N, N, 3) for all pairwise vectors
+        r_vec = positions[np.newaxis, :, :] - positions[:, np.newaxis, :]  # Shape: (N, N, 3)
 
-                accelerations[i] += a_vec
-        
+        # Distance between all pairs: sqrt(dx^2 + dy^2 + dz^2)
+        r = np.sqrt(np.sum(r_vec**2, axis=2))  # Shape: (N, N)
+
+        # Softened distance to prevent singularities
+        r_soft = np.sqrt(r**2 + self.softening**2)  # Shape: (N, N)
+
+        # Avoid division by zero on diagonal (self-interaction)
+        # Set diagonal to large value to make acceleration zero
+        np.fill_diagonal(r_soft, np.inf)
+
+        # Newton's law: a = GM/r_soft^2
+        # masses[np.newaxis, :] broadcasts to shape (1, N)
+        # Result has shape (N, N) - acceleration magnitude from each j on each i
+        a_mag = self.const.G * masses[np.newaxis, :] / r_soft**2  # Shape: (N, N)
+
+        # Acceleration vectors: a_vec = a_mag * (r_vec / r_soft)
+        # Need to expand dimensions for broadcasting
+        # a_mag[:, :, np.newaxis] has shape (N, N, 1)
+        # r_soft[:, :, np.newaxis] has shape (N, N, 1)
+        # Result has shape (N, N, 3)
+        a_vec = a_mag[:, :, np.newaxis] * (r_vec / r_soft[:, :, np.newaxis])  # Shape: (N, N, 3)
+
+        # Sum over all j (axis=1) to get total acceleration on each i
+        accelerations = np.sum(a_vec, axis=1)  # Shape: (N, 3)
+
         return accelerations
     
     def calculate_external_forces(self):
@@ -177,26 +186,36 @@ class Integrator:
     
     def potential_energy(self):
         """
-        Calculate gravitational potential energy
-        
+        Calculate gravitational potential energy using vectorized operations
+
         Returns:
         --------
         PE : float
             Potential energy [J]
         """
         N = len(self.particles)
-        positions = self.particles.get_positions()
-        masses = self.particles.get_masses()
-        
-        PE = 0.0
-        for i in range(N):
-            for j in range(i+1, N):  # Avoid double counting
-                r_vec = positions[j] - positions[i]
-                r = np.linalg.norm(r_vec)
-                r_soft = np.sqrt(r**2 + self.softening**2)
-                
-                PE -= self.const.G * masses[i] * masses[j] / r_soft
-        
+        positions = self.particles.get_positions()  # Shape: (N, 3)
+        masses = self.particles.get_masses()        # Shape: (N,)
+
+        # Vectorized pairwise distance calculation
+        r_vec = positions[np.newaxis, :, :] - positions[:, np.newaxis, :]  # Shape: (N, N, 3)
+        r = np.sqrt(np.sum(r_vec**2, axis=2))  # Shape: (N, N)
+        r_soft = np.sqrt(r**2 + self.softening**2)  # Shape: (N, N)
+
+        # Pairwise potential energy: -G * m_i * m_j / r_soft
+        # Use outer product for masses: masses[:, np.newaxis] * masses[np.newaxis, :]
+        mass_products = masses[:, np.newaxis] * masses[np.newaxis, :]  # Shape: (N, N)
+
+        # Avoid division by zero on diagonal
+        np.fill_diagonal(r_soft, np.inf)
+
+        # Calculate all pairwise potentials
+        PE_matrix = -self.const.G * mass_products / r_soft  # Shape: (N, N)
+
+        # Sum upper triangle only to avoid double counting
+        # Use np.triu with k=1 to get upper triangle excluding diagonal
+        PE = np.sum(np.triu(PE_matrix, k=1))
+
         return PE
 
 

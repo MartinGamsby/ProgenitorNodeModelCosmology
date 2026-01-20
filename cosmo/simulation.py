@@ -35,14 +35,13 @@ class CosmologicalSimulation:
             Whether to include dark energy acceleration.
             If None, defaults to (not use_external_nodes)
         """
-        # Set random seed for reproducibility
-        np.random.seed(sim_params.seed)
-
         self.const = CosmologicalConstants()
         self.use_external_nodes = use_external_nodes
         self.t_start_Gyr = sim_params.t_start_Gyr
         self.a_start = a_start
         self.box_size_Gpc = box_size_Gpc  # Store initial box size for consistent size calculation
+        self.seed = sim_params.seed
+        np.random.seed(self.seed)
 
         # Default: use dark energy only if not using external nodes
         if use_dark_energy is None:
@@ -165,6 +164,8 @@ class CosmologicalSimulation:
         snapshots : list
             Simulation snapshots
         """
+        # Set random seed for reproducibility
+        np.random.seed(self.seed)
         # Validate timestep before running
         self._validate_timestep(t_end_Gyr, n_steps)
 
@@ -210,37 +211,15 @@ class CosmologicalSimulation:
                 'time': t,
                 'time_Gyr': t / (1e9 * 365.25 * 24 * 3600),
                 'scale_factor': a,
-                'size': max_current*2,
+                'size': max_current*2,#
                 'size_a': size_Gpc* self.const.Gpc_to_m,
                 'max_particle_distance': max_current,
             })
     
     @staticmethod
     def calculate_system_size(snapshot):
-        """
-        Calculate characteristic size of system
-
-        Returns:
-        --------
-        tuple: (rms_radius, max_radius)
-            rms_radius: RMS distance from center of mass (typical particle distance)
-            max_radius: Maximum particle distance from COM (detects runaway particles)
-        """
         positions = snapshot['positions']
-
-        # Center of mass
-        com = np.mean(positions, axis=0)
-
-        # Distances from center
-        r = np.linalg.norm(positions - com, axis=1)
-
-        # RMS distance (mean behavior)
-        rms_radius = np.sqrt(np.mean(r**2))
-
-        # Maximum distance (catches runaway particles)
-        max_radius = np.max(r)
-
-        return rms_radius, max_radius
+        return ParticleSystem.calculate_system_size(positions)
     
     def save(self, filename):
         """Save simulation results"""

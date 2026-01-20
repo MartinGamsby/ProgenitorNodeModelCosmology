@@ -7,9 +7,10 @@ identical initial conditions and deterministic evolution.
 
 import numpy as np
 import pytest
-from cosmo.constants import SimulationParameters
+from cosmo.constants import SimulationParameters, CosmologicalConstants
 from cosmo.analysis import calculate_initial_conditions
 from cosmo.simulation import CosmologicalSimulation
+from cosmo.particles import ParticleSystem
 
 
 class TestInitialConditionsReproducibility:
@@ -175,6 +176,28 @@ class TestMatterOnlyReproducibility:
 class TestInitialSizeConsistency:
     """Test that all models start from the same physical size."""
 
+    def test_particle_system_start_at_same_physical_size(self):
+        box_size = 10.0 # Gpc
+        particles = ParticleSystem(n_particles=10,
+                                       box_size=box_size,
+                                       total_mass=CosmologicalConstants().M_observable,
+                                       a_start=1.0,
+                                       use_dark_energy=False,
+                                       damping_factor_override=1.0)
+        # Initial physical size should equal box size at a=1
+        initial_positions = particles.get_positions()        
+        assert np.all(initial_positions <= box_size), \
+            "Initial particle positions should be within the box size"
+        # box_size should be identical to calculate_system_size()
+        rms_current, max_current = particles.calculate_system_size(initial_positions)
+        np.testing.assert_allclose(
+            max_current*2,
+            box_size,
+            rtol=1e-5,
+            err_msg="Initial physical size should match box size"
+        )
+
+
     def test_all_models_start_at_same_physical_size(self):
         """
         Test that ΛCDM, External-Node, and Matter-only all start at the same
@@ -190,7 +213,7 @@ class TestInitialSizeConsistency:
         sim_params = SimulationParameters(
             M_value=800,
             S_value=25.0,
-            n_particles=30,
+            n_particles=10,
             seed=42,
             t_start_Gyr=t_start,
             t_duration_Gyr=t_duration,

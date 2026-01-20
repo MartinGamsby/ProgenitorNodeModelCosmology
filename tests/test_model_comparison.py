@@ -468,10 +468,10 @@ class TestMatterVsLCDM(unittest.TestCase):
         from cosmo.particles import HMEAGrid
         from cosmo.constants import ExternalNodeParameters
 
-        # Test with 30 particles (most likely to show instability)
+        # Test with 40 particles (most likely to show instability)
         np.random.seed(42)
         particles_matter = ParticleSystem(
-            n_particles=30,
+            n_particles=40,
             box_size=10.0 * self.const.Gpc_to_m,
             total_mass=self.const.M_observable,
             damping_factor_override=1.0,

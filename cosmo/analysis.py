@@ -134,7 +134,7 @@ def calculate_initial_conditions(t_start_Gyr, reference_size_today_Gpc=14.5):
     lcdm = LambdaCDMParameters()
 
     # Solve ΛCDM to get scale factor
-    solution = solve_friedmann_equation(0.0, t_start_Gyr + 1.0, n_points=400)
+    solution = solve_friedmann_equation(0.0, t_start_Gyr, n_points=400)
 
     # Find scale factor at t_start
     idx_start = np.argmin(np.abs(solution['_t_Gyr_full'] - t_start_Gyr))

@@ -188,6 +188,33 @@ class ParticleSystem:
             v2 = np.sum(particle.vel**2)
             KE += 0.5 * particle.mass * v2
         return KE
+
+    @staticmethod
+    def calculate_system_size(positions):
+        """
+        Calculate characteristic size of system
+
+        Returns:
+        --------
+        tuple: (rms_radius, max_radius)
+            rms_radius: RMS distance from center of mass (typical particle distance)
+            max_radius: Maximum particle distance from COM (detects runaway particles)
+        """
+
+        # Center of mass
+        com = np.mean(positions, axis=0)
+
+        # Distances from center
+        r = np.linalg.norm(positions - com, axis=1)
+
+        # RMS distance (mean behavior)
+        rms_radius = np.sqrt(np.mean(r**2))
+
+        # Maximum distance (catches runaway particles)
+        max_radius = np.max(r)
+
+        return rms_radius, max_radius
+    
     
     def __len__(self):
         return self.n_particles

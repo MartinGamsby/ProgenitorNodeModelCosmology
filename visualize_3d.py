@@ -53,7 +53,6 @@ def load_or_run_simulation(sim_file=None, output_dir="."):
         sys.exit(1)
 
     print("Running quick simulation (100 particles)...")
-    np.random.seed(42)
 
     # Calculate initial conditions using shared function
     sim_params = SimulationParameters(
@@ -70,14 +69,11 @@ def load_or_run_simulation(sim_file=None, output_dir="."):
     initial_conditions = calculate_initial_conditions(sim_params.t_start_Gyr)
 
     sim = CosmologicalSimulation(
-        n_particles=sim_params.n_particles,
+        sim_params=sim_params,
         box_size_Gpc=initial_conditions['box_size_Gpc'],
-        use_external_nodes=True,
-        external_node_params=sim_params.external_params,
-        t_start_Gyr=sim_params.t_start_Gyr,
         a_start=initial_conditions['a_start'],
-        use_dark_energy=False,
-        damping_factor=sim_params.damping_factor
+        use_external_nodes=True,
+        use_dark_energy=False
     )
 
     sim.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=4)
@@ -137,8 +133,8 @@ def create_3d_snapshot(sim_data, snapshot_idx, output_dir="."):
                label=f'External Nodes (26)')
 
     # Draw spheres representing universe boundaries
-    draw_universe_sphere(ax, current_max_size)
-    draw_universe_sphere(ax, current_size)
+    draw_universe_sphere(ax, current_max_size/2.0)
+    draw_universe_sphere(ax, current_size/2.0)
 
     # Draw cube representing node grid
     draw_cube_edges(ax, S_Gpc)
@@ -200,8 +196,8 @@ def create_multi_panel_evolution(sim_data, output_dir="."):
                    c='red', s=100, marker='*', alpha=0.8, edgecolors='darkred')
 
         # Universe boundaries
-        draw_universe_sphere(ax, current_max_size, resolution=30)
-        draw_universe_sphere(ax, current_size, resolution=30)
+        draw_universe_sphere(ax, current_max_size/2.0, resolution=30)
+        draw_universe_sphere(ax, current_size/2.0, resolution=30)
 
         # Setup axes
         title = f't = {time_Gyr:.1f} Gyr\nR = {current_size:.1f} Gpc'
@@ -282,8 +278,8 @@ def create_animation(sim_data, output_dir=".", fps=10):
         if sphere_plot is not None:
             sphere_plot.remove()
 
-        sphere_plot = draw_universe_sphere(ax, current_max_size)
-        draw_universe_sphere(ax, current_size)
+        sphere_plot = draw_universe_sphere(ax, current_max_size/2.0)
+        draw_universe_sphere(ax, current_size/2.0)
 
         # Update title
         title.set_text(

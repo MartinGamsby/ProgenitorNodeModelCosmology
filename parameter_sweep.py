@@ -18,17 +18,19 @@ from cosmo.factories import run_and_extract_results
 const = CosmologicalConstants()
 
 QUICK_SEARCH = False
+
+T_START_GYR = 3.8
+T_DURATION_GYR = 10.0
+DAMPING_FACTOR = 0.92
+
 # Quick quick, to test the search
 if QUICK_SEARCH:
-    PARTICLE_COUNT = 20
-    T_START_GYR = 10.0
-    T_DURATION_GYR = 3.8
-    N_STEPS = 76
+    PARTICLE_COUNT = 20#140
+    N_STEPS = 500
 else:
-    PARTICLE_COUNT = 100
-    T_START_GYR = 3.8
-    T_DURATION_GYR = 10.0
-    N_STEPS = 250
+    PARTICLE_COUNT = 140
+    N_STEPS = 550
+
 
 print("="*70)
 print("PARAMETER SWEEP: Finding Best Match to ΛCDM")
@@ -41,10 +43,16 @@ A_START = initial_conditions['a_start']
 
 # Test different configurations
 configs = []
-SMin_gpc = 15   # Min box size to test
-SMax_gpc = 100  # Max box size to test
 
-Mlist = [i for i in range(1000, 0, -25)]
+if QUICK_SEARCH:    
+    SMin_gpc = 30   # Min box size to test
+    SMax_gpc = 50   # Max box size to test
+    #Mlist = [i for i in range(1000, 0, -100)]
+    Mlist = [800]
+else:
+    SMin_gpc = 20   # Min box size to test
+    SMax_gpc = 75   # Max box size to test
+    Mlist = [i for i in range(1000, 0, -50)]
 Slist = [i for i in range(SMin_gpc, SMax_gpc+1, 1)]
 nbConfigs_bruteforce = len(Mlist)*len(Slist)
 
@@ -62,7 +70,7 @@ lcdm_params = SimulationParameters(n_particles=PARTICLE_COUNT, seed=42,
                                     t_start_Gyr=T_START_GYR, t_duration_Gyr=T_DURATION_GYR, n_steps=N_STEPS)
 sim_lcdm = CosmologicalSimulation(lcdm_params, BOX_SIZE, A_START,
                                    use_external_nodes=False, use_dark_energy=True)
-lcdm_results = run_and_extract_results(sim_lcdm, T_DURATION_GYR, N_STEPS)
+lcdm_results = run_and_extract_results(sim_lcdm, T_DURATION_GYR, N_STEPS)# THIS IS DIFFERENT THAN RUN_SIMULATION.PY!!!!
 a_lcdm = lcdm_results['a'][-1]
 size_lcdm_final = lcdm_results['size_Gpc'][-1]
 size_lcdm_curve = lcdm_results['size_Gpc']  # Full expansion history
@@ -85,7 +93,8 @@ def sim(M_factor, S_gpc, desc):
         seed=42,
         t_start_Gyr=T_START_GYR,
         t_duration_Gyr=T_DURATION_GYR,
-        n_steps=N_STEPS
+        n_steps=N_STEPS,
+        damping_factor=DAMPING_FACTOR
     )
 
     # Run simulation
@@ -97,7 +106,11 @@ def sim(M_factor, S_gpc, desc):
     size_ext_curve = ext_results['size_Gpc']  # Full expansion history
 
     # Calculate match using full curve comparison
-    match_pct = compare_expansion_histories(size_ext_curve, size_lcdm_curve)
+    #match_pct = compare_expansion_histories(size_ext_curve, size_lcdm_curve)
+    match_end_pct = compare_expansion_histories(size_ext_final, size_lcdm_final)
+    #match_pct = (match_pct+match_end_pct)/2
+    match_pct=match_end_pct# TODO: Not this...
+    #diff_pct = 100 - (match_pct+match_end_pct)/2
     diff_pct = 100 - match_pct
 
     print(f"   External-Node final a(t) = {a_ext:.4f}, size = {size_ext_final:.2f} Gpc")
@@ -136,6 +149,7 @@ def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc, S_hint=None, hint
         S_val = round(S_val)  # Round to integer
         if S_val not in evaluated:
             result = sim(M_factor, S_val, f"M={M_factor}, S={S_val}")
+            results.append(result)
             evaluated[S_val] = result
         return evaluated[S_val]['match_pct']
 
@@ -174,12 +188,18 @@ def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc, S_hint=None, hint
 
 # Ternary search for each M
 prev_best_S = None
+
+
+#for M in Mlist:
+#    for S in Slist:
+#        desc = f"M={M}×M_obs, S={S}Gpc"
+#        results.append(sim(M, S, desc))
 for M in Mlist:
     print(f"\n{'='*70}")
     print(f"Searching optimal S for M={M}×M_obs")
     print(f"{'='*70}")
     S_best, match_pct, result = ternary_search_S(M, S_hint=prev_best_S)
-    results.append(result)
+    #results.append(result)
     print(f"\n   → Best S for M={M}: S={S_best:.1f} Gpc, match={match_pct:.2f}%")
     prev_best_S = S_best  # Use as hint for next M
 

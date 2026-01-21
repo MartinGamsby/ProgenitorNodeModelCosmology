@@ -11,7 +11,8 @@ from cosmo.constants import CosmologicalConstants, SimulationParameters
 from cosmo.simulation import CosmologicalSimulation
 from cosmo.analysis import (
     calculate_initial_conditions,
-    compare_expansion_histories
+    compare_expansion_histories,
+    solve_friedmann_equation
 )
 from cosmo.factories import run_and_extract_results
 
@@ -63,17 +64,18 @@ print(f"S range: [{SMin_gpc}, {SMax_gpc}]")
 print(f"(Brute force would test {nbConfigs_bruteforce} configurations)")
 
 
-# First, run ΛCDM baseline
-print("\n1. Running ΛCDM baseline...")
-# Create sim_params for LCDM
-lcdm_params = SimulationParameters(n_particles=PARTICLE_COUNT, seed=42,
-                                    t_start_Gyr=T_START_GYR, t_duration_Gyr=T_DURATION_GYR, n_steps=N_STEPS)
-sim_lcdm = CosmologicalSimulation(lcdm_params, BOX_SIZE, A_START,
-                                   use_external_nodes=False, use_dark_energy=True)
-lcdm_results = run_and_extract_results(sim_lcdm, T_DURATION_GYR, N_STEPS)# THIS IS DIFFERENT THAN RUN_SIMULATION.PY!!!!
-a_lcdm = lcdm_results['a'][-1]
-size_lcdm_final = lcdm_results['size_Gpc'][-1]
-size_lcdm_curve = lcdm_results['size_Gpc']  # Full expansion history
+# First, solve ΛCDM baseline (analytic solution, not N-body simulation)
+print("\n1. Computing ΛCDM baseline...")
+lcdm_solution = solve_friedmann_equation(
+    T_START_GYR,
+    T_START_GYR + T_DURATION_GYR,
+    Omega_Lambda=None  # Use default LCDM value (0.7)
+)
+# Extract expansion history
+a_lcdm_array = lcdm_solution['a']
+size_lcdm_curve = BOX_SIZE * (a_lcdm_array / A_START)  # Scale from initial box size
+a_lcdm = a_lcdm_array[-1]
+size_lcdm_final = size_lcdm_curve[-1]
 print(f"   ΛCDM final a(t) = {a_lcdm:.4f}, size = {size_lcdm_final:.2f} Gpc")
 
 results = []
@@ -106,10 +108,9 @@ def sim(M_factor, S_gpc, desc):
     size_ext_curve = ext_results['size_Gpc']  # Full expansion history
 
     # Calculate match using full curve comparison
-    #match_pct = compare_expansion_histories(size_ext_curve, size_lcdm_curve)
-    match_end_pct = compare_expansion_histories(size_ext_final, size_lcdm_final)
+    match_pct = compare_expansion_histories(size_ext_curve, size_lcdm_curve)
+    #match_end_pct = compare_expansion_histories(size_ext_final, size_lcdm_final)
     #match_pct = (match_pct+match_end_pct)/2
-    match_pct=match_end_pct# TODO: Not this...
     #diff_pct = 100 - (match_pct+match_end_pct)/2
     diff_pct = 100 - match_pct
 

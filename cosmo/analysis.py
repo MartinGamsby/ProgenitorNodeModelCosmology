@@ -133,8 +133,10 @@ def calculate_initial_conditions(t_start_Gyr, reference_size_today_Gpc=14.5):
     const = CosmologicalConstants()
     lcdm = LambdaCDMParameters()
 
-    # Solve ΛCDM to get scale factor
-    solution = solve_friedmann_equation(0.0, t_start_Gyr, n_points=400)
+    # Solve ΛCDM to get scale factors at both t_start and t_today=13.8 Gyr
+    # Must solve to at least 13.8 Gyr to get accurate a_today
+    t_end_solve = max(t_start_Gyr, 13.8) + 1.0  # Add buffer
+    solution = solve_friedmann_equation(0.0, t_end_solve, n_points=400)
 
     # Find scale factor at t_start
     idx_start = np.argmin(np.abs(solution['_t_Gyr_full'] - t_start_Gyr))

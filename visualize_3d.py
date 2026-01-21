@@ -58,9 +58,9 @@ def load_or_run_simulation(sim_file=None, output_dir="."):
 
     # Calculate initial conditions using shared function
     sim_params = SimulationParameters(
-        M_value=1000,
-        S_value=30.0,
-        n_particles=200,
+        M_value=2584,
+        S_value=41.0,
+        n_particles=140,
         seed=42,
         t_start_Gyr=START_TIME,
         t_duration_Gyr=10.0*4/3,
@@ -78,7 +78,7 @@ def load_or_run_simulation(sim_file=None, output_dir="."):
         use_dark_energy=False
     )
 
-    sim.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=20)
+    sim.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=50)
 
     # Save for future use
     sim_file = os.path.join(output_dir, 'visualization_sim.pkl')
@@ -224,7 +224,7 @@ def create_multi_panel_evolution(sim_data, output_dir="."):
     return filename
 
 
-def create_animation(sim_data, output_dir=".", fps=10):
+def create_animation(sim_data, output_dir=".", fps=5):
     """Create animated GIF of universe expansion"""
 
     print("Creating animation...")

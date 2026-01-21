@@ -293,8 +293,10 @@ class LeapfrogIntegrator(Integrator):
         
         # Initial snapshot
         snapshots.append(self._save_snapshot())
-        
-        for step in tqdm(range(n_steps)):
+
+        n_particles = self.particles.n_particles
+        for step in tqdm(range(n_steps), mininterval=.5 if n_particles > 200 else (0.25 if n_particles > 100 else 0.1),
+                         desc="Integrating", unit="step"):
             self.step(dt)
             
             # Save snapshot

@@ -38,6 +38,8 @@ except ImportError:
     print("Note: Simulation modules not found. Provide a .pkl file to visualize.")
 
 
+START_TIME = 3.8  # Gyr
+
 def load_or_run_simulation(sim_file=None, output_dir="."):
     """Load existing simulation or run a quick one"""
 
@@ -56,14 +58,14 @@ def load_or_run_simulation(sim_file=None, output_dir="."):
 
     # Calculate initial conditions using shared function
     sim_params = SimulationParameters(
-        M_value=800,
-        S_value=24.0,
-        n_particles=40,#100,
+        M_value=1000,
+        S_value=30.0,
+        n_particles=200,
         seed=42,
-        t_start_Gyr=10.8,
-        t_duration_Gyr=10.0,
-        n_steps=240,
-        damping_factor=None
+        t_start_Gyr=START_TIME,
+        t_duration_Gyr=10.0*4/3,
+        n_steps=1000,
+        damping_factor=0.9
     )
 
     initial_conditions = calculate_initial_conditions(sim_params.t_start_Gyr)
@@ -76,7 +78,7 @@ def load_or_run_simulation(sim_file=None, output_dir="."):
         use_dark_energy=False
     )
 
-    sim.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=4)
+    sim.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=20)
 
     # Save for future use
     sim_file = os.path.join(output_dir, 'visualization_sim.pkl')
@@ -140,7 +142,7 @@ def create_3d_snapshot(sim_data, snapshot_idx, output_dir="."):
     draw_cube_edges(ax, S_Gpc)
 
     # Setup axes and labels
-    title = (f'External-Node Cosmology (t = {time_Gyr:.2f} Gyr)\n'
+    title = (f'External-Node Cosmology (t = {(time_Gyr+START_TIME):.2f} Gyr)\n'
              f'Universe Radius: {current_size:.1f} Gpc | Node Distance: {S_Gpc:.0f} Gpc')
     setup_3d_axes(ax, S_Gpc * 1.2, title=title)
 
@@ -149,7 +151,7 @@ def create_3d_snapshot(sim_data, snapshot_idx, output_dir="."):
     plt.tight_layout()
 
     # Save
-    filename = os.path.join(output_dir, f'3d_snapshot_t{time_Gyr:.1f}Gyr.png')
+    filename = os.path.join(output_dir, f'3d_snapshot_t{(time_Gyr+START_TIME):.1f}Gyr.png')
     plt.savefig(filename, dpi=150, bbox_inches='tight')
     plt.close()
 
@@ -200,7 +202,7 @@ def create_multi_panel_evolution(sim_data, output_dir="."):
         draw_universe_sphere(ax, current_size/2, resolution=30)
 
         # Setup axes
-        title = f't = {time_Gyr:.1f} Gyr\nR = {current_size:.1f} Gpc'
+        title = f't = {(time_Gyr+START_TIME):.1f} Gyr\nR = {current_size:.1f} Gpc'
         setup_3d_axes(ax, S_Gpc * 1.1, title=title)
 
         ax.set_xlabel('X [Gpc]', fontsize=9)
@@ -209,7 +211,7 @@ def create_multi_panel_evolution(sim_data, output_dir="."):
         ax.set_title(title, fontsize=11, fontweight='bold')
         ax.set_box_aspect([1,1,1])
 
-    fig.suptitle('Universe Expansion Over 6 Billion Years',
+    fig.suptitle(f'Universe Expansion Over {sim_data["expansion_history"][-1]["time_Gyr"]:.1f} Billion Years',
                  fontsize=16, fontweight='bold')
     plt.tight_layout()
 
@@ -283,7 +285,7 @@ def create_animation(sim_data, output_dir=".", fps=10):
 
         # Update title
         title.set_text(
-            f'External-Node Cosmology: t = {time_Gyr:.2f} Gyr\n'
+            f'External-Node Cosmology: t = {(time_Gyr+START_TIME):.2f} Gyr\n'
             f'Universe Radius: {current_size:.1f} Gpc | Nodes at {S_Gpc:.0f} Gpc'
         )
 
@@ -334,7 +336,7 @@ def main():
     sim_data = load_or_run_simulation(sim_file, output_dir)
 
     print(f"\nSimulation has {len(sim_data['snapshots'])} snapshots")
-    print(f"Time range: 0 to {sim_data['expansion_history'][-1]['time_Gyr']:.1f} Gyr")
+    print(f"Time range: {START_TIME} to {(sim_data['expansion_history'][-1]['time_Gyr']+START_TIME):.1f} Gyr")
 
     # Create visualizations
     print("\n" + "="*70)

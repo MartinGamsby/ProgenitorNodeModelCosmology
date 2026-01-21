@@ -53,7 +53,13 @@ if QUICK_SEARCH:
 else:
     SMin_gpc = 20   # Min box size to test
     SMax_gpc = 75   # Max box size to test
-    Mlist = [i for i in range(1000, 0, -50)]
+    #Mlist = [i for i in range(3000, 100, -100)]
+    Mlist = []
+    # from high to low, start at 10000 and reduce by 20% until 10
+    M_value = 10000
+    while M_value >= 100:
+        Mlist.append(M_value)
+        M_value = int(M_value * 0.8)
 Slist = [i for i in range(SMin_gpc, SMax_gpc+1, 1)]
 nbConfigs_bruteforce = len(Mlist)*len(Slist)
 
@@ -72,10 +78,11 @@ lcdm_solution = solve_friedmann_equation(
     Omega_Lambda=None  # Use default LCDM value (0.7)
 )
 # Extract expansion history
+t_lcdm = lcdm_solution['t_Gyr'] - T_START_GYR  # Offset to start at 0
 a_lcdm_array = lcdm_solution['a']
-size_lcdm_curve = BOX_SIZE * (a_lcdm_array / A_START)  # Scale from initial box size
+size_lcdm_full = BOX_SIZE * (a_lcdm_array / A_START)  # Full resolution curve
 a_lcdm = a_lcdm_array[-1]
-size_lcdm_final = size_lcdm_curve[-1]
+size_lcdm_final = size_lcdm_full[-1]
 print(f"   ΛCDM final a(t) = {a_lcdm:.4f}, size = {size_lcdm_final:.2f} Gpc")
 
 results = []
@@ -106,11 +113,15 @@ def sim(M_factor, S_gpc, desc):
     a_ext = ext_results['a'][-1]
     size_ext_final = ext_results['size_Gpc'][-1]
     size_ext_curve = ext_results['size_Gpc']  # Full expansion history
+    t_ext = ext_results['t_Gyr']  # Time points from simulation
+
+    # Interpolate LCDM curve to match External-Node time points
+    size_lcdm_curve = np.interp(t_ext, t_lcdm, size_lcdm_full)
 
     # Calculate match using full curve comparison
     match_pct = compare_expansion_histories(size_ext_curve, size_lcdm_curve)
-    #match_end_pct = compare_expansion_histories(size_ext_final, size_lcdm_final)
-    #match_pct = (match_pct+match_end_pct)/2
+    match_end_pct = compare_expansion_histories(size_ext_final, size_lcdm_final)
+    match_pct = (match_pct+match_end_pct)/2
     #diff_pct = 100 - (match_pct+match_end_pct)/2
     diff_pct = 100 - match_pct
 
@@ -128,7 +139,7 @@ def sim(M_factor, S_gpc, desc):
         'params': sim_params.external_params
     }
 
-def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc, S_hint=None, hint_window=50):
+def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc, S_hint=None, hint_window=10):
     """
     Ternary search for optimal S given fixed M.
     Assumes unimodal (bell curve) match quality.
@@ -150,7 +161,7 @@ def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc, S_hint=None, hint
         S_val = round(S_val)  # Round to integer
         if S_val not in evaluated:
             result = sim(M_factor, S_val, f"M={M_factor}, S={S_val}")
-            results.append(result)
+            #results.append(result)
             evaluated[S_val] = result
         return evaluated[S_val]['match_pct']
 
@@ -199,8 +210,9 @@ for M in Mlist:
     print(f"\n{'='*70}")
     print(f"Searching optimal S for M={M}×M_obs")
     print(f"{'='*70}")
-    S_best, match_pct, result = ternary_search_S(M, S_hint=prev_best_S)
-    #results.append(result)
+    S_best, match_pct, result = ternary_search_S(M, S_hint=prev_best_S, 
+                                                 S_max=prev_best_S if prev_best_S else SMax_gpc)# Going from high mass to low mass, it needs to be lower
+    results.append(result)
     print(f"\n   → Best S for M={M}: S={S_best:.1f} Gpc, match={match_pct:.2f}%")
     prev_best_S = S_best  # Use as hint for next M
 

@@ -19,6 +19,7 @@
 
 ## Numerics
 - [numerics/timestep-stability.md](./numerics/timestep-stability.md) - Timestep requirements, instability symptoms, energy monitoring
+- [numerics/lcdm-baseline.md](./numerics/lcdm-baseline.md) - ΛCDM baseline computation standardization, reference values, bug fixes
 
 ## Plans
 - [plans/](./plans/) - Future enhancements and TODOs

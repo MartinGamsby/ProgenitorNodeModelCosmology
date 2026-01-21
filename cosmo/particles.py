@@ -202,9 +202,10 @@ class ParticleSystem:
 
         Returns:
         --------
-        tuple: (rms_radius, max_radius)
+        tuple: (rms_radius, max_radius, com)
             rms_radius: RMS distance from center of mass (typical particle distance)
             max_radius: Maximum particle distance from COM (detects runaway particles)
+            com: Center of mass position (shows universe center can drift)
         """
 
         # Center of mass
@@ -219,7 +220,7 @@ class ParticleSystem:
         # Maximum distance (catches runaway particles)
         max_radius = np.max(r)
 
-        return rms_radius, max_radius
+        return rms_radius, max_radius, com
     
     
     def __len__(self):

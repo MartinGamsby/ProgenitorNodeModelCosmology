@@ -39,7 +39,7 @@ def get_node_positions(S_Gpc):
     return np.array(positions)
 
 
-def draw_universe_sphere(ax, radius_Gpc, alpha=0.05, color='cyan', resolution=30):
+def draw_universe_sphere(ax, radius_Gpc, center_Gpc=None, alpha=0.05, color='cyan', resolution=30):
     """
     Draw sphere representing universe boundary on 3D axes.
 
@@ -49,6 +49,8 @@ def draw_universe_sphere(ax, radius_Gpc, alpha=0.05, color='cyan', resolution=30
         3D axes to draw on
     radius_Gpc : float
         Sphere radius [Gpc]
+    center_Gpc : array-like, shape (3,), optional
+        Center of sphere [Gpc]. If None, centered at origin.
     alpha : float
         Transparency (0=invisible, 1=opaque)
     color : str
@@ -67,6 +69,11 @@ def draw_universe_sphere(ax, radius_Gpc, alpha=0.05, color='cyan', resolution=30
     x_sphere = radius_Gpc * np.outer(np.cos(u), np.sin(v))
     y_sphere = radius_Gpc * np.outer(np.sin(u), np.sin(v))
     z_sphere = radius_Gpc * np.outer(np.ones(np.size(u)), np.cos(v))
+
+    if center_Gpc is not None:
+        x_sphere += center_Gpc[0]
+        y_sphere += center_Gpc[1]
+        z_sphere += center_Gpc[2]
 
     return ax.plot_surface(x_sphere, y_sphere, z_sphere,
                           alpha=alpha, color=color)

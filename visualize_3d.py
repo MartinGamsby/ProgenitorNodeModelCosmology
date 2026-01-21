@@ -116,6 +116,7 @@ def create_3d_snapshot(sim_data, snapshot_idx, output_dir="."):
     current_size = history['size'] / const.Gpc_to_m
     current_max_size = history['max_particle_distance'] / const.Gpc_to_m
     time_Gyr = history['time_Gyr']
+    com_Gpc = history['com'] / const.Gpc_to_m
 
     # Get node positions
     node_positions = get_node_positions(S_Gpc)
@@ -134,9 +135,9 @@ def create_3d_snapshot(sim_data, snapshot_idx, output_dir="."):
                edgecolors='darkred', linewidth=1.5,
                label=f'External Nodes (26)')
 
-    # Draw spheres representing universe boundaries
-    draw_universe_sphere(ax, current_max_size)
-    draw_universe_sphere(ax, current_size/2)
+    # Draw spheres representing universe boundaries centered on COM
+    draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc)
+    draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc)
 
     # Draw cube representing node grid
     draw_cube_edges(ax, S_Gpc)
@@ -185,6 +186,7 @@ def create_multi_panel_evolution(sim_data, output_dir="."):
         current_size = history['size'] / const.Gpc_to_m
         current_max_size = history['max_particle_distance'] / const.Gpc_to_m
         time_Gyr = history['time_Gyr']
+        com_Gpc = history['com'] / const.Gpc_to_m
 
         # Create subplot
         ax = fig.add_subplot(2, 3, panel_idx + 1, projection='3d')
@@ -197,9 +199,9 @@ def create_multi_panel_evolution(sim_data, output_dir="."):
         ax.scatter(node_positions[:, 0], node_positions[:, 1], node_positions[:, 2],
                    c='red', s=100, marker='*', alpha=0.8, edgecolors='darkred')
 
-        # Universe boundaries
-        draw_universe_sphere(ax, current_max_size, resolution=30)
-        draw_universe_sphere(ax, current_size/2, resolution=30)
+        # Universe boundaries centered on COM
+        draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc, resolution=30)
+        draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc, resolution=30)
 
         # Setup axes
         title = f't = {(time_Gyr+START_TIME):.1f} Gyr\nR = {current_size:.1f} Gpc'
@@ -272,16 +274,17 @@ def create_animation(sim_data, output_dir=".", fps=5):
         current_size = history['size'] / const.Gpc_to_m
         current_max_size = history['max_particle_distance'] / const.Gpc_to_m
         time_Gyr = history['time_Gyr']
+        com_Gpc = history['com'] / const.Gpc_to_m
 
         # Update particles
         particles_plot._offsets3d = (positions[:, 0], positions[:, 1], positions[:, 2])
 
-        # Update universe boundaries
+        # Update universe boundaries centered on COM
         if sphere_plot is not None:
             sphere_plot.remove()
 
-        sphere_plot = draw_universe_sphere(ax, current_max_size)
-        draw_universe_sphere(ax, current_size/2)
+        sphere_plot = draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc)
+        draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc)
 
         # Update title
         title.set_text(

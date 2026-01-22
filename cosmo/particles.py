@@ -134,6 +134,16 @@ class ParticleSystem:
             particle = Particle(pos, vel, particle_mass, particle_id=i)
             self.particles.append(particle)
 
+        # CRITICAL: Center the system at origin
+        # Random particle distribution creates non-zero COM position
+        positions_arr = np.array([p.pos for p in self.particles])
+        com_position = np.mean(positions_arr, axis=0)
+
+        print(f"[ParticleSystem] Centering COM position: [{com_position[0]:.3e}, {com_position[1]:.3e}, {com_position[2]:.3e}] m")
+
+        for particle in self.particles:
+            particle.pos -= com_position
+
         # CRITICAL: Remove center-of-mass velocity to prevent bulk motion
         # With Hubble flow v = H*r, random particle positions create non-zero COM velocity
         # This causes the entire system to drift, appearing as unphysical expansion
@@ -142,6 +152,7 @@ class ParticleSystem:
 
         print(f"[ParticleSystem] Removing COM velocity: [{com_velocity[0]:.3e}, {com_velocity[1]:.3e}, {com_velocity[2]:.3e}] m/s")
 
+        # TODO?
         for particle in self.particles:
             particle.vel -= com_velocity
     

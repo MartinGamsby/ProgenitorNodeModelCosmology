@@ -58,8 +58,8 @@ def load_or_run_simulation(sim_file=None, output_dir="."):
 
     # Calculate initial conditions using shared function
     sim_params = SimulationParameters(
-        M_value=2584,
-        S_value=41.0,
+        M_value=100,#2584,
+        S_value=30,#41.0,
         n_particles=140,
         seed=42,
         t_start_Gyr=START_TIME,
@@ -136,8 +136,10 @@ def create_3d_snapshot(sim_data, snapshot_idx, output_dir="."):
                label=f'External Nodes (26)')
 
     # Draw spheres representing universe boundaries centered on COM
-    draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc)
-    draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc)
+    # Outer sphere: max particle distance (shows extent including outliers)
+    draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc, alpha=0.03, color='red')
+    # Inner sphere: RMS-based radius (shows typical particle distribution)
+    draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc, alpha=0.08, color='cyan')
 
     # Draw cube representing node grid
     draw_cube_edges(ax, S_Gpc)
@@ -156,7 +158,7 @@ def create_3d_snapshot(sim_data, snapshot_idx, output_dir="."):
     plt.savefig(filename, dpi=150, bbox_inches='tight')
     plt.close()
 
-    print(f"✓ Saved {filename}")
+    print(f"OK Saved {filename}")
 
     return filename
 
@@ -200,8 +202,9 @@ def create_multi_panel_evolution(sim_data, output_dir="."):
                    c='red', s=100, marker='*', alpha=0.8, edgecolors='darkred')
 
         # Universe boundaries centered on COM
-        draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc, resolution=30)
-        draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc, resolution=30)
+        # Outer: max distance, Inner: RMS radius
+        draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc, alpha=0.03, color='red', resolution=30)
+        draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc, alpha=0.08, color='cyan', resolution=30)
 
         # Setup axes
         title = f't = {(time_Gyr+START_TIME):.1f} Gyr\nR = {current_size:.1f} Gpc'
@@ -221,7 +224,7 @@ def create_multi_panel_evolution(sim_data, output_dir="."):
     plt.savefig(filename, dpi=150, bbox_inches='tight')
     plt.close()
 
-    print(f"✓ Saved {filename}")
+    print(f"OK Saved {filename}")
 
     return filename
 
@@ -283,8 +286,9 @@ def create_animation(sim_data, output_dir=".", fps=5):
         if sphere_plot is not None:
             sphere_plot.remove()
 
-        sphere_plot = draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc)
-        draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc)
+        # Draw both spheres (max and RMS)
+        draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc, alpha=0.03, color='red')
+        sphere_plot = draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc, alpha=0.08, color='cyan')
 
         # Update title
         title.set_text(
@@ -308,71 +312,394 @@ def create_animation(sim_data, output_dir=".", fps=5):
     anim.save(filename, writer=writer)
     plt.close()
 
-    print(f"✓ Saved {filename}")
+    print(f"OK Saved {filename}")
     print(f"  {n_frames} frames at {fps} fps = {n_frames/fps:.1f} seconds")
 
     return filename
+
+
+def run_comparison_simulations(output_dir="."):
+    """
+    Run three simulations for comparison:
+    1. External-Node Model (tidal forces, no dark energy)
+    2. Matter-Only (gravity only, no dark energy)
+    3. ΛCDM equivalent (to show expected size evolution)
+
+    Returns dict with all three simulation results
+    """
+    if not HAS_SIM:
+        print("ERROR: Cannot run simulations without source modules")
+        sys.exit(1)
+
+    print("Running three comparison simulations...")
+    print("This will take a few moments...\n")
+
+    # Shared parameters
+    sim_params = SimulationParameters(
+        M_value=2584,
+        S_value=41.0,
+        n_particles=140,
+        seed=42,
+        t_start_Gyr=START_TIME,
+        t_duration_Gyr=10.0*4/3,
+        n_steps=1000,
+        damping_factor=0.9
+    )
+
+    initial_conditions = calculate_initial_conditions(sim_params.t_start_Gyr)
+
+    # 1. External-Node Model
+    print("1/3: Running External-Node simulation...")
+    sim_ext = CosmologicalSimulation(
+        sim_params=sim_params,
+        box_size_Gpc=initial_conditions['box_size_Gpc'],
+        a_start=initial_conditions['a_start'],
+        use_external_nodes=True,
+        use_dark_energy=False
+    )
+    sim_ext.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=50)
+
+    # 2. Matter-Only
+    print("2/3: Running Matter-Only simulation...")
+    sim_matter = CosmologicalSimulation(
+        sim_params=sim_params,
+        box_size_Gpc=initial_conditions['box_size_Gpc'],
+        a_start=initial_conditions['a_start'],
+        use_external_nodes=False,
+        use_dark_energy=False
+    )
+    sim_matter.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=50)
+
+    # 3. ΛCDM reference (compute expected sizes from theory)
+    print("3/3: Computing ΛCDM reference evolution...")
+    from cosmo.analysis import solve_friedmann_equation
+
+    # Solve Friedmann equation to get ΛCDM evolution
+    t_start_Gyr = sim_params.t_start_Gyr
+    t_end_Gyr = t_start_Gyr + sim_params.t_duration_Gyr
+    lcdm_solution = solve_friedmann_equation(t_start_Gyr, t_end_Gyr, n_points=1000)
+
+    # Create ΛCDM size evolution to match External-Node snapshots
+    lcdm_history = []
+    for snap in sim_ext.snapshots:
+        t_seconds = snap['time']
+        t_Gyr = t_seconds / (1e9 * 365.25 * 24 * 3600)
+
+        # Interpolate scale factor at this time
+        a_lcdm = np.interp(t_Gyr, lcdm_solution['t_Gyr'], lcdm_solution['a'])
+
+        # Physical size in ΛCDM: a(t) * initial_box_size
+        size_lcdm_Gpc = a_lcdm * initial_conditions['box_size_Gpc']
+
+        lcdm_history.append({
+            'time': t_seconds,
+            'time_Gyr': t_Gyr,
+            'scale_factor': a_lcdm,
+            'size': size_lcdm_Gpc * CosmologicalConstants().Gpc_to_m * 2,  # diameter in meters
+            'com': np.zeros(3),  # ΛCDM doesn't drift
+            'max_particle_distance': size_lcdm_Gpc * CosmologicalConstants().Gpc_to_m,  # Use RMS as max for ΛCDM
+        })
+
+    print("OK All three simulations complete!\n")
+
+    # Package results
+    const = CosmologicalConstants()
+    comparison_data = {
+        'external_node': {
+            'name': 'External-Node',
+            'snapshots': sim_ext.snapshots,
+            'expansion_history': sim_ext.expansion_history,
+            'color': 'red',
+            'linestyle': '--'
+        },
+        'matter_only': {
+            'name': 'Matter-Only',
+            'snapshots': sim_matter.snapshots,
+            'expansion_history': sim_matter.expansion_history,
+            'color': 'green',
+            'linestyle': ':'
+        },
+        'lcdm': {
+            'name': 'ΛCDM',
+            'snapshots': sim_matter.snapshots,  # Use Matter-Only particles for visualization
+            'expansion_history': lcdm_history,
+            'color': 'blue',
+            'linestyle': '-'
+        },
+        'params': {
+            'M_ext': sim_params.M_value * const.M_observable,
+            'S': sim_params.S_value,
+            'initial_size': initial_conditions['box_size_Gpc']
+        }
+    }
+
+    return comparison_data
+
+
+def create_comparison_multipanel(comparison_data, output_dir="."):
+    """Create 3-way comparison showing External-Node, Matter-Only, and ΛCDM side-by-side"""
+
+    # Select 6 evenly spaced snapshots
+    n_snapshots = len(comparison_data['external_node']['snapshots'])
+    indices = np.linspace(0, n_snapshots-1, 6, dtype=int)
+
+    const = CosmologicalConstants()
+    S_Gpc = comparison_data['params']['S']
+    node_positions = get_node_positions(S_Gpc)
+
+    # Create figure with 6 rows (times) × 3 columns (models)
+    fig = plt.figure(figsize=(18, 24))
+
+    model_names = ['external_node', 'matter_only', 'lcdm']
+
+    for row_idx, snap_idx in enumerate(indices):
+        for col_idx, model_name in enumerate(model_names):
+            model_data = comparison_data[model_name]
+            snapshot = model_data['snapshots'][snap_idx]
+            history = model_data['expansion_history'][snap_idx]
+
+            positions = snapshot['positions'] / const.Gpc_to_m
+            current_size = history['size'] / const.Gpc_to_m
+            current_max_size = history['max_particle_distance'] / const.Gpc_to_m
+            time_Gyr = history['time_Gyr']
+            com_Gpc = history['com'] / const.Gpc_to_m
+
+            # Create subplot
+            ax = fig.add_subplot(6, 3, row_idx * 3 + col_idx + 1, projection='3d')
+
+            # Plot particles
+            ax.scatter(positions[:, 0], positions[:, 1], positions[:, 2],
+                      c=model_data['color'], s=10, alpha=0.5)
+
+            # Plot nodes (only for external-node model)
+            if model_name == 'external_node':
+                ax.scatter(node_positions[:, 0], node_positions[:, 1], node_positions[:, 2],
+                          c='orange', s=100, marker='*', alpha=0.8, edgecolors='darkorange')
+
+            # Universe boundaries centered on COM
+            if model_name == 'lcdm':
+                # ΛCDM: only show theoretical size (no max, particles just follow)
+                draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc,
+                                   alpha=0.1, color=model_data['color'], resolution=20)
+            else:
+                # External-Node and Matter-Only: show both max and RMS
+                draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc,
+                                   alpha=0.05, color='red', resolution=20)
+                draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc,
+                                   alpha=0.1, color=model_data['color'], resolution=20)
+
+            # Setup axes
+            title = f'{model_data["name"]}\nt = {(time_Gyr+START_TIME):.1f} Gyr, R = {current_size:.1f} Gpc'
+            setup_3d_axes(ax, S_Gpc * 1.1, title=title)
+
+            ax.set_xlabel('X [Gpc]', fontsize=8)
+            ax.set_ylabel('Y [Gpc]', fontsize=8)
+            ax.set_zlabel('Z [Gpc]', fontsize=8)
+            ax.set_title(title, fontsize=10, fontweight='bold')
+            ax.set_box_aspect([1,1,1])
+
+    fig.suptitle(f'3-Way Comparison: External-Node vs Matter-Only vs ΛCDM\n'
+                f'M={comparison_data["params"]["M_ext"]/const.M_observable:.0f}×M_obs, '
+                f'S={S_Gpc:.0f} Gpc',
+                fontsize=14, fontweight='bold')
+    plt.tight_layout()
+
+    filename = os.path.join(output_dir, '3d_comparison_multipanel.png')
+    plt.savefig(filename, dpi=150, bbox_inches='tight')
+    plt.close()
+
+    print(f"OK Saved {filename}")
+    return filename
+
+
+def create_comparison_animations(comparison_data, output_dir=".", fps=10):
+    """Create three separate animations for External-Node, Matter-Only, and ΛCDM"""
+
+    const = CosmologicalConstants()
+    S_Gpc = comparison_data['params']['S']
+    node_positions = get_node_positions(S_Gpc)
+
+    model_names = ['external_node', 'matter_only', 'lcdm']
+    filenames = []
+
+    for model_name in model_names:
+        model_data = comparison_data[model_name]
+        print(f"Creating {model_data['name']} animation...")
+
+        # Create figure
+        fig = plt.figure(figsize=(12, 10))
+        ax = fig.add_subplot(111, projection='3d')
+        setup_3d_axes(ax, S_Gpc * 1.2)
+
+        # Initialize plots
+        particles_plot = ax.scatter([], [], [], c=model_data['color'], s=20, alpha=0.6)
+
+        # Plot nodes for external-node model
+        if model_name == 'external_node':
+            ax.scatter(node_positions[:, 0], node_positions[:, 1], node_positions[:, 2],
+                      c='orange', s=200, marker='*', alpha=0.8,
+                      edgecolors='darkorange', linewidth=1.5,
+                      label='External Nodes')
+
+        title = ax.text2D(0.5, 0.95, '', transform=ax.transAxes,
+                         ha='center', fontsize=13, fontweight='bold')
+
+        sphere_plot = None
+
+        def init():
+            particles_plot._offsets3d = ([], [], [])
+            return particles_plot, title
+
+        def update(frame):
+            nonlocal sphere_plot
+
+            snapshot = model_data['snapshots'][frame]
+            history = model_data['expansion_history'][frame]
+
+            positions = snapshot['positions'] / const.Gpc_to_m
+            current_size = history['size'] / const.Gpc_to_m
+            current_max_size = history['max_particle_distance'] / const.Gpc_to_m
+            time_Gyr = history['time_Gyr']
+            com_Gpc = history['com'] / const.Gpc_to_m
+
+            # Update particles
+            particles_plot._offsets3d = (positions[:, 0], positions[:, 1], positions[:, 2])
+
+            # Update universe boundaries
+            if sphere_plot is not None:
+                sphere_plot.remove()
+
+            if model_name == 'lcdm':
+                # ΛCDM: only theoretical size
+                sphere_plot = draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc,
+                                                  alpha=0.1, color=model_data['color'])
+            else:
+                # External-Node and Matter-Only: both max and RMS
+                draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc,
+                                   alpha=0.05, color='red')
+                sphere_plot = draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc,
+                                                  alpha=0.1, color=model_data['color'])
+
+            # Update title
+            title_text = f'{model_data["name"]} Model: t = {(time_Gyr+START_TIME):.2f} Gyr\n'
+            title_text += f'Universe Radius: {current_size:.1f} Gpc'
+            if model_name == 'external_node':
+                title_text += f' | Nodes at {S_Gpc:.0f} Gpc'
+            title.set_text(title_text)
+
+            # Rotate view
+            ax.view_init(elev=20, azim=45 + frame * 2)
+
+            return particles_plot, title
+
+        # Create animation
+        n_frames = len(model_data['snapshots'])
+        anim = FuncAnimation(fig, update, init_func=init, frames=n_frames,
+                           interval=1000//fps, blit=False)
+
+        # Save
+        filename = os.path.join(output_dir, f'3d_animation_{model_name}.gif')
+        writer = PillowWriter(fps=fps)
+        anim.save(filename, writer=writer)
+        plt.close()
+
+        print(f"OK Saved {filename}")
+        filenames.append(filename)
+
+    return filenames
 
 
 def main():
     """Main visualization function"""
 
     # Parse arguments
-    if len(sys.argv) > 1:
-        sim_file = sys.argv[1]
-    else:
+    # Usage: python visualize_3d.py [sim_file] [output_dir]
+    # Or:    python visualize_3d.py --compare [output_dir]
+    if len(sys.argv) > 1 and sys.argv[1] == '--compare':
+        # Comparison mode
+        compare_mode = True
         sim_file = None
-
-    if len(sys.argv) > 2:
-        output_dir = sys.argv[2]
+        output_dir = sys.argv[2] if len(sys.argv) > 2 else "."
     else:
-        output_dir = "."
+        # Single simulation mode
+        compare_mode = False
+        sim_file = sys.argv[1] if len(sys.argv) > 1 else None
+        output_dir = sys.argv[2] if len(sys.argv) > 2 else "."
 
     os.makedirs(output_dir, exist_ok=True)
 
     print("="*70)
-    print("3D VISUALIZATION OF EXTERNAL-NODE COSMOLOGY")
+    if compare_mode:
+        print("3D COMPARISON: EXTERNAL-NODE vs MATTER-ONLY vs ΛCDM")
+    else:
+        print("3D VISUALIZATION OF EXTERNAL-NODE COSMOLOGY")
     print("="*70)
     print(f"Output directory: {os.path.abspath(output_dir)}\n")
 
-    # Load or run simulation
-    sim_data = load_or_run_simulation(sim_file, output_dir)
+    if compare_mode:
+        # Run all three simulations and create comparisons
+        comparison_data = run_comparison_simulations(output_dir)
 
-    print(f"\nSimulation has {len(sim_data['snapshots'])} snapshots")
-    print(f"Time range: {START_TIME} to {(sim_data['expansion_history'][-1]['time_Gyr']+START_TIME):.1f} Gyr")
+        print("\n" + "="*70)
+        print("CREATING COMPARISON VISUALIZATIONS")
+        print("="*70)
 
-    # Create visualizations
-    print("\n" + "="*70)
-    print("CREATING VISUALIZATIONS")
-    print("="*70)
+        print("\n1. Three-way comparison multipanel...")
+        create_comparison_multipanel(comparison_data, output_dir)
 
-    # 1. Multi-panel evolution
-    print("\n1. Multi-panel evolution figure...")
-    create_multi_panel_evolution(sim_data, output_dir)
+        print("\n2. Creating separate animations for each model...")
+        create_comparison_animations(comparison_data, output_dir, fps=10)
 
-    # 2. Key snapshots
-    print("\n2. Creating key snapshots...")
-    n_snapshots = len(sim_data['snapshots'])
-    for idx in [0, n_snapshots//4, n_snapshots//2, 3*n_snapshots//4, n_snapshots-1]:
-        create_3d_snapshot(sim_data, idx, output_dir)
+        print("\n" + "="*70)
+        print("*** COMPARISON COMPLETE!")
+        print("="*70)
+        print(f"\nAll files saved to: {os.path.abspath(output_dir)}")
+        print("\nGenerated files:")
+        print("  - 3d_comparison_multipanel.png     (3-way side-by-side comparison)")
+        print("  - 3d_animation_external_node.gif   (External-Node animation)")
+        print("  - 3d_animation_matter_only.gif     (Matter-Only animation)")
+        print("  - 3d_animation_lcdm.gif             (ΛCDM animation)")
 
-    # 3. Animation
-    print("\n3. Creating animation (this may take a minute)...")
-    create_animation(sim_data, output_dir, fps=10)
+    else:
+        # Single simulation mode
+        sim_data = load_or_run_simulation(sim_file, output_dir)
 
-    print("\n" + "="*70)
-    print("✨ VISUALIZATION COMPLETE!")
-    print("="*70)
-    print(f"\nAll files saved to: {os.path.abspath(output_dir)}")
-    print("\nGenerated files:")
-    print("  - 3d_evolution_multipanel.png  (6-panel overview)")
-    print("  - 3d_snapshot_t*.png           (individual snapshots)")
-    print("  - 3d_animation.gif             (animated expansion)")
+        print(f"\nSimulation has {len(sim_data['snapshots'])} snapshots")
+        print(f"Time range: {START_TIME} to {(sim_data['expansion_history'][-1]['time_Gyr']+START_TIME):.1f} Gyr")
 
-    print("\nTips:")
-    print("  - View the GIF in a browser or image viewer")
-    print("  - Use multipanel for presentations")
-    print("  - Individual snapshots show detail at specific times")
+        # Create visualizations
+        print("\n" + "="*70)
+        print("CREATING VISUALIZATIONS")
+        print("="*70)
+
+        # 1. Multi-panel evolution
+        print("\n1. Multi-panel evolution figure...")
+        create_multi_panel_evolution(sim_data, output_dir)
+
+        # 2. Key snapshots
+        print("\n2. Creating key snapshots...")
+        n_snapshots = len(sim_data['snapshots'])
+        for idx in [0, n_snapshots//4, n_snapshots//2, 3*n_snapshots//4, n_snapshots-1]:
+            create_3d_snapshot(sim_data, idx, output_dir)
+
+        # 3. Animation
+        print("\n3. Creating animation (this may take a minute)...")
+        create_animation(sim_data, output_dir, fps=10)
+
+        print("\n" + "="*70)
+        print("*** VISUALIZATION COMPLETE!")
+        print("="*70)
+        print(f"\nAll files saved to: {os.path.abspath(output_dir)}")
+        print("\nGenerated files:")
+        print("  - 3d_evolution_multipanel.png  (6-panel overview)")
+        print("  - 3d_snapshot_t*.png           (individual snapshots)")
+        print("  - 3d_animation.gif             (animated expansion)")
+
+        print("\nTips:")
+        print("  - View the GIF in a browser or image viewer")
+        print("  - Use multipanel for presentations")
+        print("  - Individual snapshots show detail at specific times")
+        print("  - Run with --compare flag for 3-way model comparison")
 
 
 if __name__ == "__main__":

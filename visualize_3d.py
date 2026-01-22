@@ -386,11 +386,12 @@ def run_comparison_simulations(output_dir="."):
     lcdm_history = []
     for snap in sim_ext.snapshots:
         t_seconds = snap['time']
-        t_Gyr = t_seconds / (1e9 * 365.25 * 24 * 3600)
+        t_Gyr_offset = t_seconds / (1e9 * 365.25 * 24 * 3600)  # Simulation time (starts at 0)
+        t_Gyr_absolute = t_start_Gyr + t_Gyr_offset  # Absolute cosmic time
 
         # Interpolate scale factor at this time using full arrays
         # (windowed arrays may not cover full simulation time range)
-        a_lcdm = np.interp(t_Gyr, lcdm_solution['_t_Gyr_full'], lcdm_solution['_a_full'])
+        a_lcdm = np.interp(t_Gyr_absolute, lcdm_solution['_t_Gyr_full'], lcdm_solution['_a_full'])
 
         # Physical size in ΛCDM: relative expansion from start
         # size = (a(t) / a_start) * initial_box_size
@@ -400,9 +401,9 @@ def run_comparison_simulations(output_dir="."):
 
         lcdm_history.append({
             'time': t_seconds,
-            'time_Gyr': t_Gyr,
+            'time_Gyr': t_Gyr_absolute,
             'scale_factor': a_relative,  # Store relative scale factor to match simulations
-            'size': size_lcdm_Gpc * CosmologicalConstants().Gpc_to_m * 2,  # diameter in meters
+            'size': size_lcdm_Gpc * CosmologicalConstants().Gpc_to_m,  # radius in meters
             'com': np.zeros(3),  # ΛCDM doesn't drift
             'max_particle_distance': size_lcdm_Gpc * CosmologicalConstants().Gpc_to_m,  # Use RMS as max for ΛCDM
         })

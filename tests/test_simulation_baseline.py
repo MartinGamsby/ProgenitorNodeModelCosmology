@@ -437,5 +437,47 @@ class TestLCDMBaselineHelper(unittest.TestCase):
             msg=f"ΛCDM should grow significantly over 3 Gyr. "
                 f"Got {growth_ratio*100:.1f}% growth (expected >10%)")
 
+    def test_lcdm_baseline_time_conversion_from_simulation_time(self):
+        """Test correct conversion from simulation time (starting at 0) to absolute cosmic time"""
+        # This catches the bug in visualize_3d.py where snap['time'] (simulation seconds)
+        # was converted to Gyr without adding t_start_Gyr, resulting in t=0 instead of t=3.8
+
+        t_start_Gyr = 3.8
+        t_end_Gyr = 13.8
+
+        initial_conditions = calculate_initial_conditions(t_start_Gyr)
+        box_size_start_Gpc = initial_conditions['box_size_Gpc']
+        a_start = initial_conditions['a_start']
+
+        solution = solve_friedmann_equation(t_start_Gyr, t_end_Gyr, n_points=100)
+
+        # Simulate first snapshot at t_sim=0 (simulation time)
+        t_seconds_sim = 0.0  # First snapshot in simulation
+        t_Gyr_offset = t_seconds_sim / (1e9 * 365.25 * 24 * 3600)  # Convert to Gyr
+
+        # WRONG: Use t_Gyr_offset directly (gives t=0 Gyr)
+        a_lcdm_wrong = np.interp(t_Gyr_offset, solution['_t_Gyr_full'], solution['_a_full'])
+        size_wrong = (a_lcdm_wrong / a_start) * box_size_start_Gpc
+
+        # CORRECT: Add t_start_Gyr to get absolute cosmic time (gives t=3.8 Gyr)
+        t_Gyr_absolute = t_start_Gyr + t_Gyr_offset
+        a_lcdm_correct = np.interp(t_Gyr_absolute, solution['_t_Gyr_full'], solution['_a_full'])
+        size_correct = (a_lcdm_correct / a_start) * box_size_start_Gpc
+
+        # Correct method should give initial box size
+        self.assertAlmostEqual(size_correct, box_size_start_Gpc, delta=0.1,
+            msg=f"At first snapshot (t_sim=0), ΛCDM should match initial box size. "
+                f"Got {size_correct:.3f} Gpc vs {box_size_start_Gpc:.3f} Gpc")
+
+        # Wrong method gives nearly zero (way too small)
+        self.assertLess(size_wrong, 0.1,
+            msg=f"Wrong time conversion (using t=0 instead of t={t_start_Gyr}) "
+                f"should give tiny size. Got {size_wrong:.3f} Gpc")
+
+        # Sizes should differ dramatically
+        self.assertGreater(size_correct / size_wrong, 100,
+            msg=f"Correct size ({size_correct:.3f} Gpc) should be >>100× larger than "
+                f"wrong size ({size_wrong:.3f} Gpc)")
+
 if __name__ == '__main__':
     unittest.main()

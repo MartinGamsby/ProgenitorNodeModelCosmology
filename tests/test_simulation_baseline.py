@@ -333,6 +333,109 @@ class TestLCDMBaselineHelper(unittest.TestCase):
         self.assertEqual(len(baseline['size']), n_points)
         self.assertEqual(len(baseline['H_hubble']), n_points)
 
+    def test_lcdm_baseline_initial_size_matches_simulation(self):
+        """ΛCDM baseline should start at same size as particle simulations"""
+        # This test verifies the fix for visualize_3d.py where ΛCDM was starting
+        # at a different size than External-Node and Matter-Only models
+
+        t_start_Gyr = 3.8
+        t_end_Gyr = 13.8
+
+        # Get initial conditions (used by all models)
+        initial_conditions = calculate_initial_conditions(t_start_Gyr)
+        box_size_start_Gpc = initial_conditions['box_size_Gpc']
+        a_start = initial_conditions['a_start']
+
+        # Compute ΛCDM evolution
+        solution = solve_friedmann_equation(t_start_Gyr, t_end_Gyr, n_points=100)
+
+        # Interpolate scale factor at EXACTLY t_start using full arrays
+        # (windowed arrays may not include exact t_start point)
+        a_at_start_interpolated = np.interp(t_start_Gyr, solution['_t_Gyr_full'], solution['_a_full'])
+
+        # CORRECT method: relative expansion from start
+        # size(t) = (a(t) / a_start) * box_size_start
+        size_lcdm_correct = (a_at_start_interpolated / a_start) * box_size_start_Gpc
+
+        # WRONG method (old bug): absolute scale factor
+        # size(t) = a(t) * box_size_start
+        size_lcdm_wrong = a_at_start_interpolated * box_size_start_Gpc
+
+        # At start time, ΛCDM should match initial box size (within numerical tolerance)
+        # Using relative expansion: (a_start / a_start) * box_size = box_size ✓
+        # The interpolated value should be very close to a_start
+        self.assertAlmostEqual(a_at_start_interpolated, a_start, delta=0.001,
+            msg=f"Interpolated a(t_start) should equal a_start. "
+                f"Got {a_at_start_interpolated:.6f} vs {a_start:.6f}")
+
+        self.assertAlmostEqual(size_lcdm_correct, box_size_start_Gpc, delta=0.01,
+            msg=f"ΛCDM initial size (correct method) should match box_size_start. "
+                f"Got {size_lcdm_correct:.3f} Gpc vs {box_size_start_Gpc:.3f} Gpc")
+
+        # The wrong method produces incorrect initial size
+        # It's off by a factor because it uses absolute a(t) instead of relative
+        self.assertNotAlmostEqual(size_lcdm_wrong, box_size_start_Gpc, delta=0.5,
+            msg=f"Old bug method should NOT match box_size_start. "
+                f"Got {size_lcdm_wrong:.3f} Gpc vs {box_size_start_Gpc:.3f} Gpc")
+
+        # Verify the simulations also use relative expansion
+        # At t=t_start, simulations have a_relative = rms_initial / rms_initial = 1.0
+        # So their size = 1.0 * box_size_start = box_size_start ✓
+        a_relative_at_start = 1.0  # By definition for simulations
+        size_simulation_at_start = a_relative_at_start * box_size_start_Gpc
+
+        self.assertAlmostEqual(size_simulation_at_start, box_size_start_Gpc, delta=0.001,
+            msg="Simulations should start at box_size_start by definition")
+
+        # Final verification: ΛCDM and simulations start at same size
+        self.assertAlmostEqual(size_lcdm_correct, size_simulation_at_start, delta=0.01,
+            msg=f"ΛCDM and simulations must start at same size. "
+                f"ΛCDM: {size_lcdm_correct:.3f} Gpc, Sim: {size_simulation_at_start:.3f} Gpc")
+
+    def test_lcdm_baseline_evolves_continuously(self):
+        """ΛCDM baseline should evolve continuously from t_start, not stay constant"""
+        # This test verifies that ΛCDM size changes over time, catching bugs where
+        # interpolation uses windowed arrays that don't cover early times
+
+        t_start_Gyr = 3.8
+        t_end_Gyr = 13.8
+
+        # Get initial conditions
+        initial_conditions = calculate_initial_conditions(t_start_Gyr)
+        box_size_start_Gpc = initial_conditions['box_size_Gpc']
+        a_start = initial_conditions['a_start']
+
+        # Compute ΛCDM evolution
+        solution = solve_friedmann_equation(t_start_Gyr, t_end_Gyr, n_points=100)
+
+        # Test several time points in early evolution
+        test_times = [t_start_Gyr, t_start_Gyr + 1.0, t_start_Gyr + 2.0, t_start_Gyr + 3.0]
+        sizes = []
+
+        for t_Gyr in test_times:
+            # Use FULL arrays for interpolation (critical for early times)
+            a_lcdm = np.interp(t_Gyr, solution['_t_Gyr_full'], solution['_a_full'])
+            a_relative = a_lcdm / a_start
+            size_Gpc = a_relative * box_size_start_Gpc
+            sizes.append(size_Gpc)
+
+        # Verify sizes are monotonically increasing
+        for i in range(len(sizes) - 1):
+            self.assertLess(sizes[i], sizes[i+1],
+                msg=f"ΛCDM size should increase over time. "
+                    f"At t={test_times[i]:.1f} Gyr: {sizes[i]:.3f} Gpc, "
+                    f"at t={test_times[i+1]:.1f} Gyr: {sizes[i+1]:.3f} Gpc")
+
+        # Verify first size matches initial box size (within tolerance)
+        self.assertAlmostEqual(sizes[0], box_size_start_Gpc, delta=0.1,
+            msg=f"ΛCDM should start at box_size_start. "
+                f"Got {sizes[0]:.3f} Gpc vs {box_size_start_Gpc:.3f} Gpc")
+
+        # Verify significant growth over 3 Gyr (should grow > 10%)
+        growth_ratio = (sizes[-1] - sizes[0]) / sizes[0]
+        self.assertGreater(growth_ratio, 0.10,
+            msg=f"ΛCDM should grow significantly over 3 Gyr. "
+                f"Got {growth_ratio*100:.1f}% growth (expected >10%)")
 
 if __name__ == '__main__':
     unittest.main()

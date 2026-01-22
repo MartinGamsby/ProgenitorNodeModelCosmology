@@ -58,14 +58,14 @@ def load_or_run_simulation(sim_file=None, output_dir="."):
 
     # Calculate initial conditions using shared function
     sim_params = SimulationParameters(
-        M_value=100,#2584,
-        S_value=30,#41.0,
+        M_value=987,
+        S_value=24,
         n_particles=140,
         seed=42,
         t_start_Gyr=START_TIME,
         t_duration_Gyr=10.0*4/3,
         n_steps=1000,
-        damping_factor=0.9
+        damping_factor=0.92
     )
 
     initial_conditions = calculate_initial_conditions(sim_params.t_start_Gyr)
@@ -379,22 +379,29 @@ def run_comparison_simulations(output_dir="."):
     t_end_Gyr = t_start_Gyr + sim_params.t_duration_Gyr
     lcdm_solution = solve_friedmann_equation(t_start_Gyr, t_end_Gyr, n_points=1000)
 
+    # Get initial scale factor to compute relative expansion
+    a_start = initial_conditions['a_start']
+
     # Create ΛCDM size evolution to match External-Node snapshots
     lcdm_history = []
     for snap in sim_ext.snapshots:
         t_seconds = snap['time']
         t_Gyr = t_seconds / (1e9 * 365.25 * 24 * 3600)
 
-        # Interpolate scale factor at this time
-        a_lcdm = np.interp(t_Gyr, lcdm_solution['t_Gyr'], lcdm_solution['a'])
+        # Interpolate scale factor at this time using full arrays
+        # (windowed arrays may not cover full simulation time range)
+        a_lcdm = np.interp(t_Gyr, lcdm_solution['_t_Gyr_full'], lcdm_solution['_a_full'])
 
-        # Physical size in ΛCDM: a(t) * initial_box_size
-        size_lcdm_Gpc = a_lcdm * initial_conditions['box_size_Gpc']
+        # Physical size in ΛCDM: relative expansion from start
+        # size = (a(t) / a_start) * initial_box_size
+        # This matches how simulations compute: a_relative = rms_current / rms_initial
+        a_relative = a_lcdm / a_start
+        size_lcdm_Gpc = a_relative * initial_conditions['box_size_Gpc']
 
         lcdm_history.append({
             'time': t_seconds,
             'time_Gyr': t_Gyr,
-            'scale_factor': a_lcdm,
+            'scale_factor': a_relative,  # Store relative scale factor to match simulations
             'size': size_lcdm_Gpc * CosmologicalConstants().Gpc_to_m * 2,  # diameter in meters
             'com': np.zeros(3),  # ΛCDM doesn't drift
             'max_particle_distance': size_lcdm_Gpc * CosmologicalConstants().Gpc_to_m,  # Use RMS as max for ΛCDM

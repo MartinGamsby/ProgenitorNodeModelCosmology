@@ -42,8 +42,8 @@ START_TIME = 3.8  # Gyr
 
 # Calculate initial conditions using shared function
 sim_params = SimulationParameters(
-    M_value=987,
-    S_value=24,
+    M_value=644,
+    S_value=21,
     n_particles=140,
     seed=42,
     t_start_Gyr=START_TIME,
@@ -320,7 +320,9 @@ def create_animation(sim_data, output_dir=".", fps=5):
 
 def generate_sphere_positions(radius_m, n_points=100, seed=42):
     """
-    Generate uniformly distributed points on a sphere surface.
+    Generate randomly distributed points on a sphere surface.
+
+    Uses random spherical coordinates with uniform distribution.
 
     Parameters:
     -----------
@@ -338,17 +340,19 @@ def generate_sphere_positions(radius_m, n_points=100, seed=42):
     """
     rng = np.random.RandomState(seed)
 
-    # Generate points using Fibonacci sphere algorithm for uniform distribution
-    indices = np.arange(n_points)
-    phi = np.pi * (3.0 - np.sqrt(5.0))  # Golden angle in radians
+    # Generate uniformly distributed points on sphere using spherical coordinates
+    # For uniform distribution on sphere surface:
+    # - theta (azimuthal angle) uniform in [0, 2π)
+    # - phi (polar angle) distributed as arccos(uniform(-1, 1))
 
-    # Spherical coordinates
-    theta = phi * indices
-    y = 1 - (indices / float(n_points - 1)) * 2  # y goes from 1 to -1
-    r = np.sqrt(1 - y * y)  # radius at y
+    theta = rng.uniform(0, 2 * np.pi, n_points)  # Azimuthal angle
+    u = rng.uniform(-1, 1, n_points)  # For uniform distribution on sphere
+    phi = np.arccos(u)  # Polar angle
 
-    x = np.cos(theta) * r
-    z = np.sin(theta) * r
+    # Convert spherical to Cartesian coordinates
+    x = np.sin(phi) * np.cos(theta)
+    y = np.sin(phi) * np.sin(theta)
+    z = np.cos(phi)
 
     # Scale to desired radius and stack into (n_points, 3) array
     positions = np.column_stack([x, y, z]) * radius_m

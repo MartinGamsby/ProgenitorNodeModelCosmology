@@ -46,11 +46,14 @@ def run_and_extract_results(sim, t_duration_Gyr, n_steps, save_interval=10):
     t_Gyr = extract_expansion_history(sim, 'time_Gyr')
     a = extract_expansion_history(sim, 'scale_factor')
     size_m = extract_expansion_history(sim, 'size')
+    max_radius_m = extract_expansion_history(sim, 'max_particle_distance')
     size_Gpc = size_m / const.Gpc_to_m
+    max_radius_Gpc = max_radius_m / const.Gpc_to_m
 
     return {
         't_Gyr': t_Gyr,
         'a': a,
         'size_Gpc': size_Gpc,
+        'max_radius_Gpc': max_radius_Gpc,
         'sim': sim
     }

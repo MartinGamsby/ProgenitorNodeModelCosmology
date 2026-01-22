@@ -40,6 +40,18 @@ except ImportError:
 
 START_TIME = 3.8  # Gyr
 
+# Calculate initial conditions using shared function
+sim_params = SimulationParameters(
+    M_value=987,
+    S_value=24,
+    n_particles=140,
+    seed=42,
+    t_start_Gyr=START_TIME,
+    t_duration_Gyr=10.0*5/4,
+    n_steps=1000,
+    damping_factor=0.92
+)
+
 def load_or_run_simulation(sim_file=None, output_dir="."):
     """Load existing simulation or run a quick one"""
 
@@ -55,18 +67,6 @@ def load_or_run_simulation(sim_file=None, output_dir="."):
         sys.exit(1)
 
     print("Running quick simulation (100 particles)...")
-
-    # Calculate initial conditions using shared function
-    sim_params = SimulationParameters(
-        M_value=987,
-        S_value=24,
-        n_particles=140,
-        seed=42,
-        t_start_Gyr=START_TIME,
-        t_duration_Gyr=10.0*4/3,
-        n_steps=1000,
-        damping_factor=0.92
-    )
 
     initial_conditions = calculate_initial_conditions(sim_params.t_start_Gyr)
 
@@ -318,6 +318,44 @@ def create_animation(sim_data, output_dir=".", fps=5):
     return filename
 
 
+def generate_sphere_positions(radius_m, n_points=100, seed=42):
+    """
+    Generate uniformly distributed points on a sphere surface.
+
+    Parameters:
+    -----------
+    radius_m : float
+        Sphere radius in meters
+    n_points : int
+        Number of points to generate on sphere surface
+    seed : int
+        Random seed for reproducibility
+
+    Returns:
+    --------
+    ndarray
+        Array of shape (n_points, 3) with 3D positions in meters
+    """
+    rng = np.random.RandomState(seed)
+
+    # Generate points using Fibonacci sphere algorithm for uniform distribution
+    indices = np.arange(n_points)
+    phi = np.pi * (3.0 - np.sqrt(5.0))  # Golden angle in radians
+
+    # Spherical coordinates
+    theta = phi * indices
+    y = 1 - (indices / float(n_points - 1)) * 2  # y goes from 1 to -1
+    r = np.sqrt(1 - y * y)  # radius at y
+
+    x = np.cos(theta) * r
+    z = np.sin(theta) * r
+
+    # Scale to desired radius and stack into (n_points, 3) array
+    positions = np.column_stack([x, y, z]) * radius_m
+
+    return positions
+
+
 def run_comparison_simulations(output_dir="."):
     """
     Run three simulations for comparison:
@@ -333,18 +371,6 @@ def run_comparison_simulations(output_dir="."):
 
     print("Running three comparison simulations...")
     print("This will take a few moments...\n")
-
-    # Shared parameters
-    sim_params = SimulationParameters(
-        M_value=2584,
-        S_value=41.0,
-        n_particles=140,
-        seed=42,
-        t_start_Gyr=START_TIME,
-        t_duration_Gyr=10.0*4/3,
-        n_steps=1000,
-        damping_factor=0.9
-    )
 
     initial_conditions = calculate_initial_conditions(sim_params.t_start_Gyr)
 
@@ -382,8 +408,11 @@ def run_comparison_simulations(output_dir="."):
     # Get initial scale factor to compute relative expansion
     a_start = initial_conditions['a_start']
 
-    # Create ΛCDM size evolution to match External-Node snapshots
+    # Create ΛCDM size evolution and snapshots to match External-Node snapshots
     lcdm_history = []
+    lcdm_snapshots = []
+    const = CosmologicalConstants()
+
     for snap in sim_ext.snapshots:
         t_seconds = snap['time']
         t_Gyr_offset = t_seconds / (1e9 * 365.25 * 24 * 3600)  # Simulation time (starts at 0)
@@ -398,20 +427,34 @@ def run_comparison_simulations(output_dir="."):
         # This matches how simulations compute: a_relative = rms_current / rms_initial
         a_relative = a_lcdm / a_start
         size_lcdm_Gpc = a_relative * initial_conditions['box_size_Gpc']
+        radius_m = size_lcdm_Gpc * const.Gpc_to_m  # RMS radius in meters
+
+        # Generate sphere positions for this snapshot
+
+        sphere_positions = generate_sphere_positions(radius_m/2, n_points=10)
+        for i in range(3, 7):
+            sphere_positions = np.concatenate((sphere_positions, generate_sphere_positions(radius_m/i, n_points=10-i, seed=i)))
 
         lcdm_history.append({
             'time': t_seconds,
-            'time_Gyr': t_Gyr_absolute,
+            'time_Gyr': t_Gyr_offset,#t_Gyr_absolute,
             'scale_factor': a_relative,  # Store relative scale factor to match simulations
-            'size': size_lcdm_Gpc * CosmologicalConstants().Gpc_to_m,  # radius in meters
+            'size': radius_m,  # Size stored as radius to match simulation convention
             'com': np.zeros(3),  # ΛCDM doesn't drift
-            'max_particle_distance': size_lcdm_Gpc * CosmologicalConstants().Gpc_to_m,  # Use RMS as max for ΛCDM
+            'max_particle_distance': radius_m*2*1.5,  # *2 for diameter, *1.5 for "max distance", simulating an expansion out of the mean
+        })
+
+        # Create snapshot with sphere positions
+        lcdm_snapshots.append({
+            'time': t_seconds,
+            'positions': sphere_positions,
+            'velocities': np.zeros_like(sphere_positions),  # ΛCDM doesn't have particle velocities
+            'accelerations': np.zeros_like(sphere_positions),  # ΛCDM doesn't have accelerations
         })
 
     print("OK All three simulations complete!\n")
 
     # Package results
-    const = CosmologicalConstants()
     comparison_data = {
         'external_node': {
             'name': 'External-Node',
@@ -429,7 +472,7 @@ def run_comparison_simulations(output_dir="."):
         },
         'lcdm': {
             'name': 'ΛCDM',
-            'snapshots': sim_matter.snapshots,  # Use Matter-Only particles for visualization
+            'snapshots': lcdm_snapshots,  # Generated sphere positions
             'expansion_history': lcdm_history,
             'color': 'blue',
             'linestyle': '-'

@@ -55,7 +55,13 @@ else:
     SMax_gpc = 75   # Max box size to test
     #Mlist = [i for i in range(3000, 100, -100)]
     # Fibonacci sequence
-    Mlist = [1, 2, 3, 5, 8 ,13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 6765, 10946]    
+    #Mlist = [1, 2, 3, 5, 8 ,13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 6765, 10946]    
+    # Go from 5 and down 20% per step
+    Mlist = []
+    M = 10
+    while M < 10000:
+        Mlist.append(M)
+        M = int(M * 1.2)
     Mlist.reverse()
 Slist = [i for i in range(SMin_gpc, SMax_gpc+1, 1)]
 nbConfigs_bruteforce = len(Mlist)*len(Slist)
@@ -85,8 +91,7 @@ print(f"   ΛCDM final a(t) = {a_lcdm:.4f}, size = {size_lcdm_final:.2f} Gpc")
 results = []
 sim_count = 0  # Track total simulations
 
-
-def sim(M_factor, S_gpc, desc):
+def sim(M_factor, S_gpc, desc, seed):
     global sim_count
     sim_count += 1
     print(f"\n2. Testing {desc}: M={M_factor}×M_obs, S={S_gpc:.1f}Gpc (sim #{sim_count})")
@@ -96,7 +101,7 @@ def sim(M_factor, S_gpc, desc):
         M_value=M_factor,
         S_value=S_gpc,
         n_particles=PARTICLE_COUNT,
-        seed=42,
+        seed=seed,
         t_start_Gyr=T_START_GYR,
         t_duration_Gyr=T_DURATION_GYR,
         n_steps=N_STEPS,
@@ -110,6 +115,7 @@ def sim(M_factor, S_gpc, desc):
     a_ext = ext_results['a'][-1]
     size_ext_final = ext_results['size_Gpc'][-1]
     size_ext_curve = ext_results['size_Gpc']  # Full expansion history
+    size_max_final = ext_results['max_radius_Gpc'][-1]
     t_ext = ext_results['t_Gyr']  # Time points from simulation
 
     # Interpolate LCDM curve to match External-Node time points
@@ -118,7 +124,8 @@ def sim(M_factor, S_gpc, desc):
     # Calculate match using full curve comparison
     match_curve_pct = compare_expansion_histories(size_ext_curve, size_lcdm_curve)
     match_end_pct = compare_expansion_histories(size_ext_final, size_lcdm_final)
-    match_avg_pct = (match_curve_pct*2+match_end_pct)/3
+    match_max_pct = compare_expansion_histories(size_max_final, size_lcdm_final)# TODO: Higher than size_lcdm_final? ~1.5?
+    match_avg_pct = (match_curve_pct + match_end_pct + match_max_pct)/3
     diff_pct = 100 - match_avg_pct
 
     print(f"   External-Node final a(t) = {a_ext:.4f}, size = {size_ext_final:.2f} Gpc")
@@ -133,9 +140,18 @@ def sim(M_factor, S_gpc, desc):
         'match_curve_pct': match_curve_pct,
         'match_avg_pct': match_avg_pct,
         'match_end_pct': match_end_pct,
+        'match_max_pct': match_max_pct,
         'diff_pct': diff_pct,
         'params': sim_params.external_params
     }
+
+def sim_check(M_factor, S_gpc, desc):
+    # Take the worst of 2 seeds to avoid lucky runs
+    result1 = sim(M_factor, S_gpc, desc, seed=42)
+    result2 = sim(M_factor, S_gpc, desc, seed=123)
+    if result1['match_avg_pct'] < result2['match_avg_pct']:
+        return result1
+    return result2    
 
 def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc, S_hint=None, hint_window=10):
     """
@@ -158,7 +174,7 @@ def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc, S_hint=None, hint
         """Evaluate and cache simulation result for given S"""
         S_val = round(S_val)  # Round to integer
         if S_val not in evaluated:
-            result = sim(M_factor, S_val, f"M={M_factor}, S={S_val}")
+            result = sim_check(M_factor, S_val, f"M={M_factor}, S={S_val}")
             #results.append(result)
             evaluated[S_val] = result
         return evaluated[S_val]['match_avg_pct']
@@ -203,7 +219,7 @@ prev_best_S = None
 #for M in Mlist:
 #    for S in Slist:
 #        desc = f"M={M}×M_obs, S={S}Gpc"
-#        results.append(sim(M, S, desc))
+#        results.append(sim_check(M, S, desc))
 for M in Mlist:
     print(f"\n{'='*70}")
     print(f"Searching optimal S for M={M}×M_obs")
@@ -223,11 +239,11 @@ print("="*70)
 # Sort by best match
 results.reverse() # Original order was descending M
 
-print(f"\n{'Config':<20} {'M×M_obs':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10}  {'End%':<10} ")
+print(f"\n{'Config':<20} {'M×M_obs':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'End%':<10} {'Radius%':<10} ")
 print("-" * 70)
 for r in results:
     print(f"{r['desc']:<20} {r['M_factor']:<10} {r['S_gpc']:<10.1f} "
-          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f}")
+          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_max_pct']:<10.2f}")
 print("\n" + "="*70)
 
 print("RESULTS SUMMARY")
@@ -236,11 +252,11 @@ print("="*70)
 # Sort by best match
 results.sort(key=lambda x: x['diff_pct'])
 
-print(f"\n{'Config':<20} {'M×M_obs':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10}  {'End%':<10} ")
+print(f"\n{'Config':<20} {'M×M_obs':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'End%':<10} {'Radius%':<10} ")
 print("-" * 70)
 for r in results:
     print(f"{r['desc']:<20} {r['M_factor']:<10} {r['S_gpc']:<10.1f} "
-          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f}")
+          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_max_pct']:<10.2f}")
 best = results[0]
 print(f"\n★ BEST MATCH: {best['desc']}")
 print(f"   M = {best['M_factor']} × M_obs")

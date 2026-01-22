@@ -120,10 +120,21 @@ class ParticleSystem:
                     break
             positions.append(pos)
 
-        # Now generate velocities with consistent RNG state
+        # CRITICAL: Center positions FIRST before calculating velocities
+        # Random particle distribution creates non-zero COM position
+        # We must center BEFORE velocity calculation so v_hubble = H*r uses centered positions
+        positions_arr = np.array(positions)
+        com_position = np.mean(positions_arr, axis=0)
+
+        print(f"[ParticleSystem] Centering COM position: [{com_position[0]:.3e}, {com_position[1]:.3e}, {com_position[2]:.3e}] m")
+
+        # Center the positions array
+        centered_positions = positions_arr - com_position
+
+        # Now generate velocities using CENTERED positions
         # This ensures velocity initialization is independent of rejection sampling randomness
         for i in range(self.n_particles):
-            pos = positions[i]
+            pos = centered_positions[i]  # Use centered position!
 
             # Initial velocity: Damped Hubble flow + small peculiar velocity
             # Damping compensates for lack of ongoing Hubble drag during integration
@@ -142,6 +153,7 @@ class ParticleSystem:
 
         print(f"[ParticleSystem] Removing COM velocity: [{com_velocity[0]:.3e}, {com_velocity[1]:.3e}, {com_velocity[2]:.3e}] m/s")
 
+        # TODO?
         for particle in self.particles:
             particle.vel -= com_velocity
     
@@ -202,9 +214,10 @@ class ParticleSystem:
 
         Returns:
         --------
-        tuple: (rms_radius, max_radius)
+        tuple: (rms_radius, max_radius, com)
             rms_radius: RMS distance from center of mass (typical particle distance)
             max_radius: Maximum particle distance from COM (detects runaway particles)
+            com: Center of mass position (shows universe center can drift)
         """
 
         # Center of mass
@@ -219,7 +232,7 @@ class ParticleSystem:
         # Maximum distance (catches runaway particles)
         max_radius = np.max(r)
 
-        return rms_radius, max_radius
+        return rms_radius, max_radius, com
     
     
     def __len__(self):
@@ -253,12 +266,15 @@ class HMEAGrid:
     def _create_grid(self):
         """
         Create a 3x3x3 grid of HMEA nodes surrounding our universe
-        
+
         Our observable universe is at the center (0,0,0) - no node there.
         26 nodes surround us in a cubic lattice with spacing S.
+
+        Grid is perfectly symmetric to ensure tidal forces cancel at origin.
+        Any drift indicates either numerical issues or particle asymmetry.
         """
         S = self.params.S
-        
+
         # 3x3x3 grid positions: -1, 0, +1 in each direction
         # Skip (0,0,0) - that's our universe
         node_id = 0
@@ -268,14 +284,10 @@ class HMEAGrid:
                     # Skip center - that's us!
                     if i == 0 and j == 0 and k == 0:
                         continue
-                    
-                    # Position with spacing S
+
+                    # Position with spacing S (perfectly symmetric)
                     pos = np.array([i, j, k], dtype=float) * S
-                    
-                    # Add small irregularity (virialized structure)
-                    irregularity = np.random.normal(0, 0.05, 3)  # 5% perturbation
-                    pos += irregularity * S
-                    
+
                     node = {
                         'id': node_id,
                         'position': pos,

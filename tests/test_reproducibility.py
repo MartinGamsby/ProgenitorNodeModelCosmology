@@ -187,7 +187,7 @@ class TestInitialSizeConsistency:
         # Initial RMS radius should equal box_size/2
         # Particles are distributed in a sphere scaled so RMS radius = box_size/2
         initial_positions = particles.get_positions()
-        rms_current, max_current = particles.calculate_system_size(initial_positions)
+        rms_current, max_current, _ = particles.calculate_system_size(initial_positions)
 
         # The key invariant: RMS radius should match box_size/2
         # This ensures all simulations start at the same physical size

@@ -193,11 +193,11 @@ class CosmologicalSimulation:
         """Calculate the scale factor a(t) from snapshots"""
         self.expansion_history = []
 
-        rms_initial, max_initial = self.calculate_system_size(self.snapshots[0])
+        rms_initial, max_initial, _ = self.calculate_system_size(self.snapshots[0])
 
         for snapshot in self.snapshots:
             t = snapshot['time']
-            rms_current, max_current = self.calculate_system_size(snapshot)
+            rms_current, max_current, com = self.calculate_system_size(snapshot)
 
             # Scale factor a(t) = R(t) / R(t=0)
             # Use RMS for scale factor (typical expansion)
@@ -214,6 +214,7 @@ class CosmologicalSimulation:
                 'size': rms_current*2,
                 'size_a': size_Gpc* self.const.Gpc_to_m,
                 'max_particle_distance': max_current,
+                'com': com,
             })
     
     @staticmethod

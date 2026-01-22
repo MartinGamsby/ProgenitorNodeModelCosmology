@@ -293,3 +293,66 @@ def extract_expansion_history(sim, key):
     """
     import numpy as np
     return np.array([h[key] for h in sim.expansion_history])
+
+
+def check_com_drift_quality(expansion_history, drift_threshold=0.5):
+    """
+    Detect excessive center-of-mass drift as simulation quality metric.
+
+    Large COM drift indicates asymmetric tidal forces from external nodes,
+    suggesting problematic simulation parameters (M_ext too large and/or
+    S too small). The drift is physically valid but indicates the system
+    is being pulled strongly toward external nodes.
+
+    Parameters:
+    -----------
+    expansion_history : list of dict
+        Simulation history with 'com' (3D vector) and 'size' keys
+    drift_threshold : float
+        Ratio threshold for excessive drift (default: 0.5)
+        Drift > threshold × final_rms indicates problematic parameters
+
+    Returns:
+    --------
+    dict with keys:
+        'com_drift_Gpc' : float
+            Total COM displacement from initial position [Gpc]
+        'final_rms_Gpc' : float
+            Final RMS radius of particle distribution [Gpc]
+        'drift_to_size_ratio' : float
+            Ratio of COM drift to final RMS size
+        'is_excessive' : bool
+            True if drift exceeds threshold
+        'threshold' : float
+            Threshold used for detection
+    """
+    # Extract COM positions over time (stored as 3D vectors in meters)
+    com_positions = np.array([h['com'] for h in expansion_history])
+
+    # Calculate total drift from initial to final position
+    initial_com = com_positions[0]
+    final_com = com_positions[-1]
+    com_drift_m = np.linalg.norm(final_com - initial_com)
+
+    # Convert to Gpc
+    const = CosmologicalConstants()
+    com_drift_Gpc = com_drift_m / const.Gpc_to_m
+
+    # Get final RMS size (stored in meters, diameter = 2*RMS)
+    final_size_m = expansion_history[-1]['size']
+    final_rms_m = final_size_m / 2.0
+    final_rms_Gpc = final_rms_m / const.Gpc_to_m
+
+    # Calculate ratio
+    drift_to_size_ratio = com_drift_Gpc / final_rms_Gpc
+
+    # Detect excessive drift
+    is_excessive = drift_to_size_ratio > drift_threshold
+
+    return {
+        'com_drift_Gpc': com_drift_Gpc,
+        'final_rms_Gpc': final_rms_Gpc,
+        'drift_to_size_ratio': drift_to_size_ratio,
+        'is_excessive': is_excessive,
+        'threshold': drift_threshold
+    }

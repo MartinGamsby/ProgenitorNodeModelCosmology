@@ -120,10 +120,21 @@ class ParticleSystem:
                     break
             positions.append(pos)
 
-        # Now generate velocities with consistent RNG state
+        # CRITICAL: Center positions FIRST before calculating velocities
+        # Random particle distribution creates non-zero COM position
+        # We must center BEFORE velocity calculation so v_hubble = H*r uses centered positions
+        positions_arr = np.array(positions)
+        com_position = np.mean(positions_arr, axis=0)
+
+        print(f"[ParticleSystem] Centering COM position: [{com_position[0]:.3e}, {com_position[1]:.3e}, {com_position[2]:.3e}] m")
+
+        # Center the positions array
+        centered_positions = positions_arr - com_position
+
+        # Now generate velocities using CENTERED positions
         # This ensures velocity initialization is independent of rejection sampling randomness
         for i in range(self.n_particles):
-            pos = positions[i]
+            pos = centered_positions[i]  # Use centered position!
 
             # Initial velocity: Damped Hubble flow + small peculiar velocity
             # Damping compensates for lack of ongoing Hubble drag during integration
@@ -133,16 +144,6 @@ class ParticleSystem:
 
             particle = Particle(pos, vel, particle_mass, particle_id=i)
             self.particles.append(particle)
-
-        # CRITICAL: Center the system at origin
-        # Random particle distribution creates non-zero COM position
-        positions_arr = np.array([p.pos for p in self.particles])
-        com_position = np.mean(positions_arr, axis=0)
-
-        print(f"[ParticleSystem] Centering COM position: [{com_position[0]:.3e}, {com_position[1]:.3e}, {com_position[2]:.3e}] m")
-
-        for particle in self.particles:
-            particle.pos -= com_position
 
         # CRITICAL: Remove center-of-mass velocity to prevent bulk motion
         # With Hubble flow v = H*r, random particle positions create non-zero COM velocity
@@ -265,12 +266,15 @@ class HMEAGrid:
     def _create_grid(self):
         """
         Create a 3x3x3 grid of HMEA nodes surrounding our universe
-        
+
         Our observable universe is at the center (0,0,0) - no node there.
         26 nodes surround us in a cubic lattice with spacing S.
+
+        Grid is perfectly symmetric to ensure tidal forces cancel at origin.
+        Any drift indicates either numerical issues or particle asymmetry.
         """
         S = self.params.S
-        
+
         # 3x3x3 grid positions: -1, 0, +1 in each direction
         # Skip (0,0,0) - that's our universe
         node_id = 0
@@ -280,14 +284,10 @@ class HMEAGrid:
                     # Skip center - that's us!
                     if i == 0 and j == 0 and k == 0:
                         continue
-                    
-                    # Position with spacing S
+
+                    # Position with spacing S (perfectly symmetric)
                     pos = np.array([i, j, k], dtype=float) * S
-                    
-                    # Add small irregularity (virialized structure)
-                    irregularity = np.random.normal(0, 0.05, 3)  # 5% perturbation
-                    pos += irregularity * S
-                    
+
                     node = {
                         'id': node_id,
                         'position': pos,

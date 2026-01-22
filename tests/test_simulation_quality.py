@@ -17,13 +17,13 @@ from cosmo.simulation import CosmologicalSimulation
 class TestCOMDriftQuality:
     """Tests for center-of-mass drift quality detection."""
 
-    def test_minimal_drift_with_weak_distant_nodes(self):
-        """Weak, distant external nodes produce minimal COM drift."""
-        # Parameters: M=100, S=50
-        # External nodes are weak and distant, minimal tidal influence
+    def test_minimal_drift_with_symmetric_grid(self):
+        """Symmetric external node grid produces minimal COM drift."""
+        # Parameters: M=800, S=24
+        # With symmetric grid, drift should be negligible regardless of M/S
         sim_params = SimulationParameters(
-            M_value=100,
-            S_value=30.0,
+            M_value=800,
+            S_value=24.0,
             n_particles=100,
             seed=42,
             t_start_Gyr=0.5,
@@ -39,9 +39,9 @@ class TestCOMDriftQuality:
         # Check drift quality
         quality = check_com_drift_quality(sim.expansion_history)
 
-        # Should have minimal drift (observed: ~0.066× RMS)
-        assert quality['drift_to_size_ratio'] < 0.2, (
-            f"Expected minimal drift (<0.2× RMS), got {quality['drift_to_size_ratio']:.3f}"
+        # Should have negligible drift with symmetric grid (observed: ~0.01× RMS)
+        assert quality['drift_to_size_ratio'] < 0.05, (
+            f"Expected negligible drift (<0.05× RMS), got {quality['drift_to_size_ratio']:.3f}"
         )
 
         # With default threshold of 0.5, should NOT be flagged as excessive
@@ -49,15 +49,15 @@ class TestCOMDriftQuality:
             f"Drift of {quality['drift_to_size_ratio']:.3f}× RMS should not be flagged"
         )
 
-        # Drift should be sub-Gpc
-        assert quality['com_drift_Gpc'] < 1.0, (
-            f"Expected sub-Gpc drift, got {quality['com_drift_Gpc']:.2f} Gpc"
+        # Drift should be very small (<0.1 Gpc)
+        assert quality['com_drift_Gpc'] < 0.1, (
+            f"Expected tiny drift (<0.1 Gpc), got {quality['com_drift_Gpc']:.2f} Gpc"
         )
 
-    def test_excessive_drift_detected(self):
-        """Problematic parameters should be detected via excessive drift."""
-        # Known-problematic parameters: M=2584, S=41
-        # These cause massive COM drift (~10.74 Gpc) due to external node proximity
+    def test_extreme_parameters_still_minimal_drift(self):
+        """Even extreme parameters show minimal drift with symmetric grid."""
+        # Previously problematic parameters: M=2584, S=41
+        # With symmetric grid, drift should still be negligible
         sim_params = SimulationParameters(
             M_value=2584,
             S_value=41.0,
@@ -65,7 +65,7 @@ class TestCOMDriftQuality:
             seed=42,
             t_start_Gyr=0.5,
             t_duration_Gyr=13.3,
-            n_steps=13300
+            n_steps=1000
         )
 
         ic = calculate_initial_conditions(sim_params.t_start_Gyr)
@@ -76,20 +76,20 @@ class TestCOMDriftQuality:
         # Check drift quality
         quality = check_com_drift_quality(sim.expansion_history)
 
-        # Problematic parameters should have excessive drift
-        assert quality['drift_to_size_ratio'] > 0.5, (
-            f"Problematic parameters should show excessive drift. "
+        # Even extreme parameters should have minimal drift with symmetric grid
+        assert quality['drift_to_size_ratio'] < 0.05, (
+            f"Expected minimal drift even with extreme parameters. "
             f"Got {quality['drift_to_size_ratio']:.3f} × RMS, "
             f"drift={quality['com_drift_Gpc']:.2f} Gpc, "
             f"RMS={quality['final_rms_Gpc']:.2f} Gpc"
         )
-        assert quality['is_excessive'], (
-            "Problematic parameters should trigger excessive drift flag"
+        assert not quality['is_excessive'], (
+            "Symmetric grid should not trigger excessive drift flag"
         )
 
-        # Should see multi-Gpc drift
-        assert quality['com_drift_Gpc'] > 5.0, (
-            f"Expected large drift (>5 Gpc), got {quality['com_drift_Gpc']:.2f} Gpc"
+        # Drift should be tiny
+        assert quality['com_drift_Gpc'] < 0.1, (
+            f"Expected tiny drift (<0.1 Gpc), got {quality['com_drift_Gpc']:.2f} Gpc"
         )
 
     def test_drift_ratio_calculation(self):

@@ -73,17 +73,15 @@ def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start):
 
     print(f"LCDM: {lcdm_initial_size:.3f} -> {diameter_lcdm_Gpc[-1]:.2f} Gpc")
 
-    # Solve matter-only evolution
+    # Solve matter-only evolution (uses same time grid as LCDM)
     matter_solution = solve_friedmann_equation(
         sim_params.t_start_Gyr,
         sim_params.t_end_Gyr,
         Omega_Lambda=0.0
     )
-    t_matter = matter_solution['t_Gyr'] - sim_params.t_start_Gyr
     a_matter = matter_solution['a']
 
-    # Apply same fixes as LCDM
-    t_matter[0] = 0.0
+    # Apply same fix: force a_matter[0] = a_start for exact alignment
     a_matter[0] = a_start
 
     # Normalize using the EXACT a_start
@@ -100,7 +98,7 @@ def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start):
             'H_hubble': H_lcdm_hubble
         },
         'matter': {
-            't': t_matter,  # Matter baseline has its own time array (also starts at 0.0)
+            't': t_lcdm,  # Use same time array as LCDM (same grid, both fixed at t[0]=0)
             'a': a_matter,
             'diameter_m': diameter_matter_Gpc,  # Diameter in Gpc (matches N-body convention)
             'H_hubble': H_matter_hubble

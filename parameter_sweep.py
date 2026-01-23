@@ -7,16 +7,27 @@ Test multiple External-Node configurations
 import numpy as np
 import pickle
 import os
+from enum import Enum
 from cosmo.constants import CosmologicalConstants, SimulationParameters
 from cosmo.simulation import CosmologicalSimulation
 from cosmo.analysis import (
     calculate_initial_conditions,
     compare_expansion_histories,
-    solve_friedmann_equation
+    solve_friedmann_equation,
+    solve_friedmann_at_times
 )
 from cosmo.factories import run_and_extract_results
 
 const = CosmologicalConstants()
+
+# Search method enum
+class SearchMethod(Enum):
+    BRUTE_FORCE = 1
+    TERNARY_SEARCH = 2
+    LINEAR_SEARCH = 3
+
+#SEARCH_METHOD = SearchMethod.TERNARY_SEARCH
+SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
 
 QUICK_SEARCH = False
 
@@ -46,20 +57,17 @@ A_START = initial_conditions['a_start']
 configs = []
 
 if QUICK_SEARCH:    
-    SMin_gpc = 30   # Min box size to test
-    SMax_gpc = 50   # Max box size to test
+    SMin_gpc = 12   # Min box size to test
+    SMax_gpc = 120   # Max box size to test
     #Mlist = [i for i in range(1000, 0, -100)]
-    Mlist = [800]
+    Mlist = [10000, 1000, 500, 250, 125, 60, 30]
 else:
-    SMin_gpc = 1   # Min box size to test
-    SMax_gpc = 75   # Max box size to test
-    #Mlist = [i for i in range(3000, 100, -100)]
-    # Fibonacci sequence
-    #Mlist = [1, 2, 3, 5, 8 ,13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 6765, 10946]    
+    SMin_gpc = 10   # Min box size to test
+    SMax_gpc = 100   # Max box size to test
     # Go from 5 and down 20% per step
     Mlist = []
     M = 10
-    while M < 10000:
+    while M < 100000:
         Mlist.append(M)
         M = int(M * 1.2)
     Mlist.reverse()
@@ -86,6 +94,12 @@ a_lcdm_array = lcdm_solution['a']
 size_lcdm_full = BOX_SIZE * (a_lcdm_array / A_START)  # Full resolution curve
 a_lcdm = a_lcdm_array[-1]
 size_lcdm_final = size_lcdm_full[-1]
+
+# Scale box_size so that the RMS radius matches the target
+# For a uniform sphere of radius R, RMS radius = R * sqrt(3/5) ≈ 0.775*R
+# We want RMS = size_lcdm_Gpc, so R_sphere = size_lcdm_Gpc / 0.775
+# This means we need to use a sphere of radius: size_lcdm_Gpc/2 / sqrt(3/5)
+radius_lcdm_max = size_lcdm_final / 2 / np.sqrt(3/5)
 print(f"   ΛCDM final a(t) = {a_lcdm:.4f}, size = {size_lcdm_final:.2f} Gpc")
 
 results = []
@@ -113,9 +127,9 @@ def sim(M_factor, S_gpc, desc, seed):
                                       use_external_nodes=True, use_dark_energy=False)
     ext_results = run_and_extract_results(sim_ext, T_DURATION_GYR, N_STEPS)
     a_ext = ext_results['a'][-1]
-    size_ext_final = ext_results['size_Gpc'][-1]
-    size_ext_curve = ext_results['size_Gpc']  # Full expansion history
-    size_max_final = ext_results['max_radius_Gpc'][-1]
+    size_ext_final = ext_results['diameter_Gpc'][-1]
+    size_ext_curve = ext_results['diameter_Gpc']  # Full expansion history
+    radius_max_final = ext_results['max_radius_Gpc'][-1]
     t_ext = ext_results['t_Gyr']  # Time points from simulation
 
     # Interpolate LCDM curve to match External-Node time points
@@ -124,7 +138,7 @@ def sim(M_factor, S_gpc, desc, seed):
     # Calculate match using full curve comparison
     match_curve_pct = compare_expansion_histories(size_ext_curve, size_lcdm_curve)
     match_end_pct = compare_expansion_histories(size_ext_final, size_lcdm_final)
-    match_max_pct = compare_expansion_histories(size_max_final, size_lcdm_final)# TODO: Higher than size_lcdm_final? ~1.5?
+    match_max_pct = compare_expansion_histories(radius_max_final, radius_lcdm_max)
     match_avg_pct = (match_curve_pct + match_end_pct + match_max_pct)/3
     diff_pct = 100 - match_avg_pct
 
@@ -175,7 +189,7 @@ def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc, S_hint=None, hint
         S_val = round(S_val)  # Round to integer
         if S_val not in evaluated:
             result = sim_check(M_factor, S_val, f"M={M_factor}, S={S_val}")
-            #results.append(result)
+            results.append(result)
             evaluated[S_val] = result
         return evaluated[S_val]['match_avg_pct']
 
@@ -215,21 +229,73 @@ def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc, S_hint=None, hint
 # Ternary search for each M
 prev_best_S = None
 
+if SEARCH_METHOD == SearchMethod.BRUTE_FORCE:
+    for M in Mlist:
+        for S in Slist:
+            desc = f"M={M}×M_obs, S={S}Gpc"
+            results.append(sim_check(M, S, desc))
+elif SEARCH_METHOD == SearchMethod.TERNARY_SEARCH:
+    for M in Mlist:
+        print(f"\n{'='*70}")
+        print(f"Searching optimal S for M={M}×M_obs")
+        print(f"{'='*70}")
+        S_best, match_avg_pct, result = ternary_search_S(M, S_hint=prev_best_S, 
+                                                    S_max=prev_best_S if prev_best_S else SMax_gpc,
+                                                    hint_window=prev_best_S//4 if prev_best_S else SMax_gpc//4)  # Going from high mass to low mass, it needs to be lower
+        #results.append(result)
+        print(f"\n   → Best S for M={M}: S={S_best:.1f} Gpc, match={match_avg_pct:.2f}%")
+        prev_best_S = S_best  # Use as hint for next M
+        if S_best == SMin_gpc or S_best == SMax_gpc:
+            print("   ⚠️  Warning: Best S is at search boundary. Consider expanding S range for better results.")
+            if S_best == SMin_gpc:
+                break  # No point in going to lower M if S is already at minimum
+elif SEARCH_METHOD == SearchMethod.LINEAR_SEARCH:
+    for M in Mlist:
+        print(f"\n{'='*70}")
+        print(f"Linear search for M={M}×M_obs")
+        print(f"{'='*70}")
 
-#for M in Mlist:
-#    for S in Slist:
-#        desc = f"M={M}×M_obs, S={S}Gpc"
-#        results.append(sim_check(M, S, desc))
-for M in Mlist:
-    print(f"\n{'='*70}")
-    print(f"Searching optimal S for M={M}×M_obs")
-    print(f"{'='*70}")
-    S_best, match_avg_pct, result = ternary_search_S(M, S_hint=prev_best_S, 
-                                                 S_max=prev_best_S if prev_best_S else SMax_gpc,
-                                                 hint_window=prev_best_S//4 if prev_best_S else SMax_gpc//4)  # Going from high mass to low mass, it needs to be lower
-    results.append(result)
-    print(f"\n   → Best S for M={M}: S={S_best:.1f} Gpc, match={match_avg_pct:.2f}%")
-    prev_best_S = S_best  # Use as hint for next M
+        S_min = SMin_gpc
+        S_max = prev_best_S+1 if prev_best_S else SMax_gpc
+
+        current_evaluated = []
+        S_list = range(S_max, S_min - 1, -1) 
+        i = 0
+        while i < len(S_list):
+            S = S_list[i]
+            desc = f"M={M}, S={S}"
+            result = sim_check(M, S, desc)
+            results.append(result)
+            print(f"S={S}, M={M}, Match={result['match_avg_pct']}")
+
+            if result['match_avg_pct'] <= 0:
+                print("\tMatch below 0%, stopping search for this M.")
+                break
+
+            if current_evaluated:
+                if current_evaluated[-1][1]['match_avg_pct'] > result['match_avg_pct']*1.005:
+                    print("\tMatch decreasing > 0.5%, stopping search for this M.")
+                    break
+                # if almost equal 0, skip one S
+                diff = result['match_avg_pct'] - current_evaluated[-1][1]['match_avg_pct']
+                print(f"\tMATCH CHANGE: {diff:.4f}%")
+                if S > 50:  # Only skip if we have room to skip
+                    if abs(diff) < 0.002:
+                        print("\tMatch change < 0.002%, skipping S/10 S.")
+                        i += int(S/10)
+                    elif diff > 0 and diff < 0.01:
+                        print("\tMatch change < 0.01%, skipping 2 S.")
+                        i += 2
+                    elif diff > 0 and diff < 0.02:
+                        print("\tMatch change < 0.02%, skipping 1 S.")
+                        i += 1
+            current_evaluated.append((S, result))
+            i += 1
+            
+        # Find best result from current evaluations
+        prev_best_S, best_result = max(current_evaluated, key=lambda x: x[1]['match_avg_pct'])
+        if prev_best_S == SMin_gpc:
+            continue  # No point in going to lower M if S is already at minimum
 
 print("\n" + "="*70)
 

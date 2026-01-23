@@ -43,22 +43,8 @@ class LambdaCDMParameters:
         self.t_universe = 13.8e9  # years
         self.t_universe_s = self.t_universe * 365.25 * 24 * 3600  # seconds
         
-    def H_at_time(self, a):
-        """
-        Calculate Hubble parameter at scale factor a
-
-        H(a) = H₀ √(Ω_m a⁻³ + Ω_Λ)
-
-        Parameters:
-        -----------
-        a : float
-            Scale factor (a=1 at present day)
-
-        Returns:
-        --------
-        H : float
-            Hubble parameter [s^-1]
-        """
+    def H_at_time(self, a: float) -> float:
+        """Calculate Hubble parameter: H(a) = H₀ √(Ω_m a⁻³ + Ω_Λ)"""
         import numpy as np
         return self.H0_si * np.sqrt(self.Omega_m / a**3 + self.Omega_Lambda)
 
@@ -73,17 +59,8 @@ class LambdaCDMParameters:
 class ExternalNodeParameters:
     """External-Node Model parameters from the paper"""
     
-    def __init__(self, M_ext_kg=None, S=None):
-        """
-        Initialize External-Node parameters
-
-        Parameters:
-        -----------
-        M_ext_kg : float, optional
-            Mass of each HMEA node [kg]. Default: 5e55 kg (~500 x M_observable_kg)
-        S : float, optional
-            Grid spacing between nodes [meters]. Default: 31.6 Gpc (tuned to match Ω_Λ=0.7)
-        """
+    def __init__(self, M_ext_kg: float = None, S: float = None):
+        """Initialize External-Node parameters (M_ext_kg in kg, S in meters)."""
         # Default values - S is tuned to give Ω_Λ_eff ≈ 0.7 with M_ext_kg = 5e55
         self.M_ext_kg = M_ext_kg if M_ext_kg is not None else 5e55  # kg
         self.S = S if S is not None else 31.6 * CosmologicalConstants.Gpc_to_m  # meters
@@ -91,8 +68,8 @@ class ExternalNodeParameters:
         # Calculate derived parameters
         self._calculate_derived()
         
-    def _calculate_derived(self):
-        """Calculate derived quantities"""
+    def _calculate_derived(self) -> None:
+        """Calculate derived quantities."""
         const = CosmologicalConstants()
         
         # Effective dark energy from tidal acceleration
@@ -108,26 +85,18 @@ class ExternalNodeParameters:
         # Mass ratio to observable universe
         self.M_ratio = self.M_ext_kg / const.M_observable_kg
         
-    def set_grid_spacing(self, S_Gpc):
-        """Set grid spacing in Gigaparsecs"""
+    def set_grid_spacing(self, S_Gpc: float) -> None:
+        """Set grid spacing in Gigaparsecs."""
         self.S = S_Gpc * CosmologicalConstants.Gpc_to_m
         self._calculate_derived()
         
-    def set_node_mass(self, M_ext_kg):
-        """Set HMEA mass in kg"""
+    def set_node_mass(self, M_ext_kg: float) -> None:
+        """Set HMEA mass in kg."""
         self.M_ext_kg = M_ext_kg
         self._calculate_derived()
         
-    def calculate_required_spacing(self, Omega_Lambda_target=0.7, H0=70):
-        """
-        Calculate required grid spacing to match observed dark energy
-        From paper: S ≈ (G*M_ext_kg / (H0^2 * Omega_Lambda))^(1/3)
-
-        Returns:
-        --------
-        S : float
-            Required spacing in meters
-        """
+    def calculate_required_spacing(self, Omega_Lambda_target: float = 0.7, H0: float = 70) -> float:
+        """Calculate required grid spacing: S ≈ (G*M_ext_kg / (H0² * Ω_Λ))^(1/3)"""
         const = CosmologicalConstants()
         H0_si = H0 * 1000 / const.Mpc_to_m  # Convert to s^-1
 
@@ -145,30 +114,9 @@ class ExternalNodeParameters:
 class SimulationParameters:
     """Parameters for running cosmological simulations"""
 
-    def __init__(self, M_value=800, S_value=24.0, n_particles=300, seed=42,
-                 t_start_Gyr=10.8, t_duration_Gyr=6.0, n_steps=150, damping_factor=None):
-        """
-        Initialize simulation parameters
-
-        Parameters:
-        -----------
-        M_value : float, optional
-            External mass parameter (in units of observable mass). Default: 800
-        S_value : float, optional
-            Node separation distance (in Gpc). Default: 24.0
-        n_particles : int, optional
-            Number of simulation particles. Default: 300
-        seed : int, optional
-            Random seed for reproducibility. Default: 42
-        t_start_Gyr : float, optional
-            Simulation start time since Big Bang (in Gyr). Default: 10.8
-        t_duration_Gyr : float, optional
-            Simulation duration (in Gyr). Default: 6.0
-        n_steps : int, optional
-            Number of simulation timesteps. Default: 150
-        damping_factor : float, optional
-            Initial velocity damping factor (0-1). If None, auto-calculated.
-        """
+    def __init__(self, M_value: float = 800, S_value: float = 24.0, n_particles: int = 300, seed: int = 42,
+                 t_start_Gyr: float = 10.8, t_duration_Gyr: float = 6.0, n_steps: int = 150, damping_factor: float = None):
+        """Initialize simulation parameters."""
         self.M_value = M_value
         self.S_value = S_value
         self.n_particles = n_particles
@@ -181,8 +129,8 @@ class SimulationParameters:
         # Calculate derived quantities
         self._calculate_derived()
 
-    def _calculate_derived(self):
-        """Calculate derived quantities"""
+    def _calculate_derived(self) -> None:
+        """Calculate derived quantities."""
         const = CosmologicalConstants()
 
         # Convert to physical units

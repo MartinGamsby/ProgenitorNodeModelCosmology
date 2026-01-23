@@ -8,6 +8,45 @@
 
 **Reproducibility**: Always set `np.random.seed(sim_params.seed)` before particle initialization.
 
+## Docstring Style
+
+Functions use concise docstrings relying on type hints and explicit variable naming.
+
+**Pattern**:
+- One-line summary describing WHAT/WHY, not parameter lists
+- Type hints for all parameters and returns
+- Unit suffixes in variable names (_m, _s, _Gyr, _kg, _si, _mps2)
+- Brief notes for edge cases, physics context, or gotchas
+- NO Parameters/Returns sections (redundant with type hints + naming)
+
+**Preserve detailed docs only for**:
+- Empirical data (e.g., stability thresholds)
+- Non-obvious physics (formulas, derivations)
+- Complex algorithms (e.g., leapfrog staggering)
+
+**Example**:
+```python
+def calculate_hubble_rate(a: float, Omega_m: float, Omega_Lambda: float) -> float:
+    """Hubble parameter H(a) = H0 * sqrt(Ω_m/a³ + Ω_Λ)"""
+    return H0_si * np.sqrt(Omega_m / a**3 + Omega_Lambda)
+```
+
+**Special case - validation functions**:
+```python
+def _validate_timestep(self, t_duration_Gyr: float, n_steps: int) -> None:
+    """
+    Validate timestep for leapfrog numerical stability.
+
+    Empirical testing shows dt < 0.05 Gyr required for stability:
+    - 150 steps over 20 Gyr (dt=0.133 Gyr): UNSTABLE (1600% energy drift)
+    - 500 steps over 20 Gyr (dt=0.040 Gyr): STABLE
+
+    Recommended: dt < 0.04 Gyr for safety margin.
+
+    Raises SystemExit if timestep too large.
+    """
+```
+
 ## Physics Implementation
 
 **Initial conditions consistency**: Same seed for External-Node and Matter-only simulations ensures identical starting state for fair comparison.

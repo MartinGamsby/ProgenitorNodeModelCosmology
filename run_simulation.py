@@ -32,23 +32,6 @@ def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start, save_interval=10
     Solve analytic ΛCDM and matter-only evolution at N-body simulation times.
 
     Uses exact time alignment with N-body snapshots to eliminate interpolation artifacts.
-
-    Parameters:
-    -----------
-    sim_params : SimulationParameters
-        Simulation configuration
-    lcdm_initial_size : float
-        Initial box size [Gpc]
-    a_start : float
-        Initial scale factor (for consistent normalization)
-    save_interval : int
-        Save interval used in N-body simulation (default: 10)
-
-    Returns:
-    --------
-    dict with keys:
-        'lcdm': dict with t, a, diameter_m, H arrays for ΛCDM
-        'matter': dict with t, a, diameter_m, H arrays for matter-only
     """
     lcdm_params = LambdaCDMParameters()
 
@@ -102,21 +85,6 @@ def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start, save_interval=10
 def run_nbody_simulations(sim_params, box_size, a_start):
     """
     Run External-Node and Matter-only N-body simulations.
-
-    Parameters:
-    -----------
-    sim_params : SimulationParameters
-        Simulation configuration
-    box_size : float
-        Initial box size [Gpc]
-    a_start : float
-        Initial scale factor
-
-    Returns:
-    --------
-    dict with keys:
-        'ext': dict with sim, t, a, diameter_m arrays for External-Node
-        'matter': dict with sim, t, a, diameter_m arrays for Matter-only
     """
     print(f"\nM={sim_params.M_value}, S={sim_params.S_value}, Omega_Lambda_eff={sim_params.external_params.Omega_Lambda_eff:.3f}")
     print(f"{sim_params.n_particles} particles, seed={sim_params.seed}")
@@ -152,26 +120,6 @@ def run_nbody_simulations(sim_params, box_size, a_start):
 def calculate_hubble_parameters(t_ext, a_ext, t_matter, a_matter_sim, smooth_sigma=0.0):
     """
     Calculate Hubble parameters from scale factors.
-
-    Parameters:
-    -----------
-    t_ext : ndarray
-        External-Node time array [Gyr]
-    a_ext : ndarray
-        External-Node scale factor array
-    t_matter : ndarray
-        Matter-only time array [Gyr]
-    a_matter_sim : ndarray
-        Matter-only scale factor array
-    smooth_sigma : float
-        Gaussian smoothing sigma (default: 0.0 = no smoothing).
-        Use 1-2 to reduce numerical noise in derivatives.
-
-    Returns:
-    --------
-    dict with keys:
-        'H_ext_hubble': Hubble parameter for External-Node [km/s/Mpc]
-        'H_matter_hubble': Hubble parameter for Matter-only [km/s/Mpc]
     """
     const = CosmologicalConstants()
 
@@ -221,25 +169,6 @@ def print_results_summary(sim_params, size_ext_final, size_lcdm_final, size_matt
                          ext_match, matter_match, max_ext_final, max_matter_final):
     """
     Print summary of simulation results.
-
-    Parameters:
-    -----------
-    sim_params : SimulationParameters
-        Simulation configuration
-    size_ext_final : float
-        Final External-Node size [Gpc]
-    size_lcdm_final : float
-        Final ΛCDM size [Gpc]
-    size_matter_final : float
-        Final Matter-only size [Gpc]
-    ext_match : float
-        External-Node match percentage
-    matter_match : float
-        Matter-only match percentage
-    max_ext_final : float
-        Max External-Node particle distance [Gpc]
-    max_matter_final : float
-        Max Matter-only particle distance [Gpc]
     """
     print(f"\n{size_ext_final:.2f} Gpc")
     print(f"Match: {ext_match:.2f}%")
@@ -254,19 +183,6 @@ def print_results_summary(sim_params, size_ext_final, size_lcdm_final, size_matt
 
 def run_simulation(output_dir, sim_params):
     """Run cosmological simulation with specified parameters
-
-    Parameters:
-    -----------
-    output_dir : str
-        Directory to save output files
-    sim_params : SimulationParameters
-        Simulation configuration parameters
-
-    Returns:
-    --------
-    tuple
-        (sim_ext, sim_matter, size_ext_final, size_lcdm_final, size_matter_final,
-         ext_match, matter_match, max_ext_final, max_matter_final)
     """
     # Setup
     os.makedirs(output_dir, exist_ok=True)

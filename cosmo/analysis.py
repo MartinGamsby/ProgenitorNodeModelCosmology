@@ -8,34 +8,17 @@ Shared functions for:
 - Detecting numerical instabilities
 """
 
+from typing import Optional, Dict
 import numpy as np
 from scipy.integrate import odeint
 from .constants import CosmologicalConstants, LambdaCDMParameters
 
 
-def friedmann_equation(a, t, H0_si, Omega_m, Omega_Lambda):
+def friedmann_equation(a: float, t: float, H0_si: float, Omega_m: float, Omega_Lambda: float) -> float:
     """
-    Friedmann equation for cosmic scale factor evolution.
+    Friedmann equation: da/dt = H(a) * a where H(a) = H0_si * sqrt(Ω_m/a³ + Ω_Λ)
 
-    da/dt = H(a) * a where H(a) = H0_si * sqrt(Ω_m/a³ + Ω_Λ)
-
-    Parameters:
-    -----------
-    a : float
-        Scale factor
-    t : float
-        Time (not used, required by odeint signature)
-    H0_si : float
-        Hubble constant [1/s]
-    Omega_m : float
-        Matter density parameter
-    Omega_Lambda : float
-        Dark energy density parameter
-
-    Returns:
-    --------
-    float
-        da/dt
+    Note: t parameter unused but required by odeint signature.
     """
     if a <= 0:
         return 1e-10
@@ -43,7 +26,7 @@ def friedmann_equation(a, t, H0_si, Omega_m, Omega_Lambda):
     return H_si * a
 
 
-def solve_friedmann_at_times(t_array_Gyr, Omega_Lambda=None):
+def solve_friedmann_at_times(t_array_Gyr: np.ndarray, Omega_Lambda: Optional[float] = None) -> Dict[str, np.ndarray]:
     """
     Solve Friedmann equation at specific time points.
 
@@ -51,22 +34,7 @@ def solve_friedmann_at_times(t_array_Gyr, Omega_Lambda=None):
     the analytic solution at the exact same times as simulation snapshots.
     This eliminates the need to force t[0]=0 or interpolate misaligned grids.
 
-    Parameters:
-    -----------
-    t_array_Gyr : ndarray
-        Array of times since Big Bang [Gyr] at which to evaluate solution
-    Omega_Lambda : float or None
-        Dark energy density. If None, uses ΛCDM value. Set to 0.0 for matter-only.
-
-    Returns:
-    --------
-    dict with keys:
-        't_Gyr' : ndarray
-            Time array [Gyr] (same as input)
-        'a' : ndarray
-            Scale factor array
-        'H_hubble' : ndarray
-            Hubble parameter [km/s/Mpc]
+    If Omega_Lambda is None, uses ΛCDM value. Set to 0.0 for matter-only.
     """
     const = CosmologicalConstants()
     lcdm = LambdaCDMParameters()
@@ -101,32 +69,13 @@ def solve_friedmann_at_times(t_array_Gyr, Omega_Lambda=None):
     }
 
 
-def solve_friedmann_equation(t_start_Gyr, t_end_Gyr, Omega_Lambda=None, n_points=400):
+def solve_friedmann_equation(t_start_Gyr: float, t_end_Gyr: float, Omega_Lambda: Optional[float] = None, n_points: int = 400) -> Dict[str, np.ndarray]:
     """
     Solve Friedmann equation for ΛCDM or matter-only cosmology.
 
-    NOTE: For exact alignment with N-body simulations, use solve_friedmann_at_times() instead.
+    Note: For exact alignment with N-body simulations, use solve_friedmann_at_times() instead.
 
-    Parameters:
-    -----------
-    t_start_Gyr : float
-        Start time since Big Bang [Gyr]
-    t_end_Gyr : float
-        End time since Big Bang [Gyr]
-    Omega_Lambda : float or None
-        Dark energy density. If None, uses ΛCDM value. Set to 0.0 for matter-only.
-    n_points : int
-        Number of time points to solve for
-
-    Returns:
-    --------
-    dict with keys:
-        't_Gyr' : ndarray
-            Time array [Gyr]
-        'a' : ndarray
-            Scale factor array
-        'H_hubble' : ndarray
-            Hubble parameter [km/s/Mpc]
+    If Omega_Lambda is None, uses ΛCDM value. Set to 0.0 for matter-only.
     """
     const = CosmologicalConstants()
     lcdm = LambdaCDMParameters()
@@ -166,29 +115,12 @@ def solve_friedmann_equation(t_start_Gyr, t_end_Gyr, Omega_Lambda=None, n_points
     }
 
 
-def calculate_initial_conditions(t_start_Gyr, reference_size_today_Gpc=14.5):
+def calculate_initial_conditions(t_start_Gyr: float, reference_size_today_Gpc: float = 14.5) -> Dict[str, float]:
     """
     Calculate initial scale factor and box size at given start time.
 
     Uses ΛCDM cosmology to determine scale factor at t_start,
     then computes box size by scaling from present-day reference.
-
-    Parameters:
-    -----------
-    t_start_Gyr : float
-        Start time since Big Bang [Gyr]
-    reference_size_today_Gpc : float
-        RMS radius of observable universe today [Gpc]
-
-    Returns:
-    --------
-    dict with keys:
-        'a_start' : float
-            Scale factor at t_start
-        'box_size_Gpc' : float
-            Initial box size [Gpc]
-        'H_start_hubble' : float
-            Hubble parameter at t_start [km/s/Mpc]
     """
     const = CosmologicalConstants()
     lcdm = LambdaCDMParameters()
@@ -220,27 +152,13 @@ def calculate_initial_conditions(t_start_Gyr, reference_size_today_Gpc=14.5):
     }
 
 
-def normalize_to_initial_size(a_array, initial_size_Gpc):
-    """
-    Convert scale factor array to physical size array.
-
-    Parameters:
-    -----------
-    a_array : ndarray
-        Scale factor evolution (normalized to a[0])
-    initial_size_Gpc : float
-        Initial box size [Gpc]
-
-    Returns:
-    --------
-    ndarray
-        Physical size evolution [Gpc]
-    """
+def normalize_to_initial_size(a_array: np.ndarray, initial_size_Gpc: float) -> np.ndarray:
+    """Convert scale factor array to physical size array in Gpc."""
     a_normalized = a_array / a_array[0]
     return initial_size_Gpc * a_normalized
 
 
-def compare_expansion_histories(size_ext, size_lcdm, return_array=False):
+def compare_expansion_histories(size_ext, size_lcdm, return_array: bool = False):
     """
     Calculate match percentage between two expansion histories.
 
@@ -248,21 +166,8 @@ def compare_expansion_histories(size_ext, size_lcdm, return_array=False):
     across all timesteps. This ensures we match the entire evolution, not just
     the final state.
 
-    Parameters:
-    -----------
-    size_ext : float or ndarray
-        External-Node final size or size history [Gpc]
-    size_lcdm : float or ndarray
-        ΛCDM final size or size history [Gpc]
-    return_array : bool, optional
-        If True and inputs are arrays, return per-timestep match array.
-        If False (default), return scalar averaged match.
-
-    Returns:
-    --------
-    float or ndarray
-        If return_array=True and inputs are arrays: array of match percentages
-        Otherwise: scalar match percentage (100% = perfect match)
+    If return_array=True and inputs are arrays, returns per-timestep match array.
+    Otherwise returns scalar averaged match percentage (100% = perfect match).
     """
     # If arrays, compare full curve
     if isinstance(size_ext, np.ndarray) and isinstance(size_lcdm, np.ndarray):
@@ -280,31 +185,12 @@ def compare_expansion_histories(size_ext, size_lcdm, return_array=False):
         return 100 - diff
 
 
-def detect_runaway_particles(max_distance_Gpc, rms_size_Gpc, threshold=2.0):
+def detect_runaway_particles(max_distance_Gpc: float, rms_size_Gpc: float, threshold: float = 2.0) -> Dict[str, float]:
     """
     Detect runaway particles indicating numerical instability.
 
     When max particle distance >> RMS size, it indicates particles
     being "shot out" due to leapfrog instability or force errors.
-
-    Parameters:
-    -----------
-    max_distance_Gpc : float
-        Maximum particle distance from center [Gpc]
-    rms_size_Gpc : float
-        RMS radius of particle distribution [Gpc]
-    threshold : float
-        Ratio threshold for detection (default: 2.0)
-
-    Returns:
-    --------
-    dict with keys:
-        'detected' : bool
-            True if runaway particles detected
-        'ratio' : float
-            Max/RMS ratio
-        'threshold' : float
-            Detection threshold used
     """
     ratio = max_distance_Gpc / rms_size_Gpc
     detected = ratio > threshold
@@ -316,24 +202,12 @@ def detect_runaway_particles(max_distance_Gpc, rms_size_Gpc, threshold=2.0):
     }
 
 
-def calculate_today_marker(t_start_Gyr, t_duration_Gyr, today_Gyr=13.8):
+def calculate_today_marker(t_start_Gyr: float, t_duration_Gyr: float, today_Gyr: float = 13.8) -> Optional[float]:
     """
     Calculate position of "today" marker in simulation time coordinates.
 
-    Parameters:
-    -----------
-    t_start_Gyr : float
-        Simulation start time since Big Bang [Gyr]
-    t_duration_Gyr : float
-        Simulation duration [Gyr]
-    today_Gyr : float
-        Age of universe today [Gyr]
-
-    Returns:
-    --------
-    float or None
-        Time coordinate for "today" in simulation frame [Gyr],
-        or None if today is outside simulation window
+    Returns time coordinate for "today" in simulation frame, or None if
+    today is outside simulation window.
     """
     t_end_Gyr = t_start_Gyr + t_duration_Gyr
 
@@ -342,27 +216,13 @@ def calculate_today_marker(t_start_Gyr, t_duration_Gyr, today_Gyr=13.8):
     return None
 
 
-def extract_expansion_history(sim, key):
-    """
-    Extract a specific field from simulation expansion history as numpy array.
-
-    Parameters:
-    -----------
-    sim : CosmologicalSimulation
-        Simulation object with expansion_history attribute
-    key : str
-        Field to extract (e.g., 'time_Gyr', 'scale_factor', 'size')
-
-    Returns:
-    --------
-    ndarray
-        Array of values for the specified key
-    """
+def extract_expansion_history(sim, key: str) -> np.ndarray:
+    """Extract a specific field from simulation expansion history as numpy array."""
     import numpy as np
     return np.array([h[key] for h in sim.expansion_history])
 
 
-def check_com_drift_quality(expansion_history, drift_threshold=0.5):
+def check_com_drift_quality(expansion_history: list, drift_threshold: float = 0.5) -> Dict[str, float]:
     """
     Detect excessive center-of-mass drift as simulation quality metric.
 
@@ -371,27 +231,7 @@ def check_com_drift_quality(expansion_history, drift_threshold=0.5):
     S too small). The drift is physically valid but indicates the system
     is being pulled strongly toward external nodes.
 
-    Parameters:
-    -----------
-    expansion_history : list of dict
-        Simulation history with 'com' (3D vector) and 'size' keys
-    drift_threshold : float
-        Ratio threshold for excessive drift (default: 0.5)
-        Drift > threshold × final_rms indicates problematic parameters
-
-    Returns:
-    --------
-    dict with keys:
-        'com_drift_Gpc' : float
-            Total COM displacement from initial position [Gpc]
-        'final_rms_Gpc' : float
-            Final RMS radius of particle distribution [Gpc]
-        'drift_to_size_ratio' : float
-            Ratio of COM drift to final RMS size
-        'is_excessive' : bool
-            True if drift exceeds threshold
-        'threshold' : float
-            Threshold used for detection
+    Drift > threshold × final_rms indicates problematic parameters.
     """
     # Extract COM positions over time (stored as 3D vectors in meters)
     com_positions = np.array([h['com'] for h in expansion_history])

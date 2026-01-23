@@ -3,6 +3,7 @@ N-Body Integrator
 Handles force calculation and time evolution of the particle system
 """
 
+from typing import Optional, List, Dict
 import numpy as np
 try:
     from tqdm import tqdm
@@ -18,25 +19,14 @@ from .particles import ParticleSystem, HMEAGrid
 class Integrator:
     """Base class for N-body integration"""
     
-    def __init__(self, particle_system: ParticleSystem, hmea_grid: HMEAGrid=None, softening_per_Mobs_m=1e24, use_external_nodes=True, use_dark_energy=False):
+    def __init__(self, particle_system: ParticleSystem, hmea_grid: Optional[HMEAGrid] = None,
+                 softening_per_Mobs_m: float = 1e24, use_external_nodes: bool = True, use_dark_energy: bool = False):
         """
-        Initialize integrator
+        Initialize integrator.
 
-        Parameters:
-        -----------
-        particle_system : ParticleSystem
-            The particle system to evolve
-        hmea_grid : HMEAGrid, optional
-            External HMEA nodes (if None, runs pure ΛCDM)
-        softening_per_Mobs_m : float
-            Base gravitational softening length [meters]
-            Actual softening scales as: ε = softening_per_Mobs_m × (m/M_observable_kg)^(1/3)
-            This makes softening proportional to particle mass^(1/3), so heavier
-            particles (fewer particles) have larger softening for stability
-        use_external_nodes : bool
-            Whether to include external node tidal forces
-        use_dark_energy : bool
-            Whether to include ΛCDM dark energy acceleration (for ΛCDM model)
+        Softening scales as: ε = softening_per_Mobs_m × (m/M_observable_kg)^(1/3)
+        This makes softening proportional to particle mass^(1/3), so heavier
+        particles (fewer particles) have larger softening for stability.
         """
         self.particles = particle_system
         self.hmea_grid = hmea_grid
@@ -78,15 +68,11 @@ class Integrator:
         self.time_history = []
         self.energy_history = []
         
-    def calculate_internal_forces(self):
+    def calculate_internal_forces(self) -> np.ndarray:
         """
-        Calculate gravitational forces between particles (internal gravity)
-        Uses vectorized N-body summation with softening for optimal performance
+        Calculate gravitational forces between particles using vectorized N-body summation.
 
-        Returns:
-        --------
-        accelerations : array, shape (N, 3)
-            Acceleration for each particle [m/s^2]
+        Returns accelerations array with shape (N, 3) in m/s².
         """
         N = len(self.particles)
         positions = self.particles.get_positions()  # Shape: (N, 3)
@@ -125,14 +111,11 @@ class Integrator:
 
         return accelerations
     
-    def calculate_external_forces(self):
+    def calculate_external_forces(self) -> np.ndarray:
         """
-        Calculate tidal forces from external HMEA nodes
-        
-        Returns:
-        --------
-        accelerations : array, shape (N, 3)
-            Tidal acceleration for each particle [m/s^2]
+        Calculate tidal forces from external HMEA nodes.
+
+        Returns accelerations array with shape (N, 3) in m/s².
         """
         if not self.use_external_nodes or self.hmea_grid is None:
             return np.zeros((len(self.particles), 3))
@@ -140,16 +123,11 @@ class Integrator:
         positions = self.particles.get_positions()
         return self.hmea_grid.calculate_tidal_acceleration_batch(positions)
     
-    def calculate_dark_energy_forces(self):
+    def calculate_dark_energy_forces(self) -> np.ndarray:
         """
-        Calculate dark energy acceleration (ΛCDM model)
+        Calculate dark energy acceleration: a_Λ = H₀² Ω_Λ R
 
-        Dark energy acceleration: a_Λ = H₀² Ω_Λ R
-
-        Returns:
-        --------
-        accelerations : array, shape (N, 3)
-            Dark energy acceleration for each particle [m/s^2]
+        Returns accelerations array with shape (N, 3) in m/s².
         """
         if not self.use_dark_energy:
             return np.zeros((len(self.particles), 3))
@@ -163,14 +141,11 @@ class Integrator:
 
         return a_Lambda
     
-    def calculate_total_forces(self):
+    def calculate_total_forces(self) -> np.ndarray:
         """
-        Calculate total forces (internal + external/dark energy + Hubble drag)
+        Calculate total forces (internal + external + dark energy).
 
-        Returns:
-        --------
-        accelerations : array, shape (N, 3)
-            Total acceleration for each particle [m/s^2]
+        Returns accelerations array with shape (N, 3) in m/s².
         """
         a_internal_mps2 = self.calculate_internal_forces()
         a_external_mps2 = self.calculate_external_forces()
@@ -178,15 +153,8 @@ class Integrator:
 
         return a_internal_mps2 + a_external_mps2 + a_dark_energy_mps2
     
-    def total_energy(self):
-        """
-        Calculate total energy (kinetic + potential)
-        
-        Returns:
-        --------
-        E_total : float
-            Total energy [J]
-        """
+    def total_energy(self) -> float:
+        """Calculate total energy (kinetic + potential) in Joules."""
         # Kinetic energy
         KE = self.particles.kinetic_energy()
         
@@ -195,15 +163,8 @@ class Integrator:
         
         return KE + PE
     
-    def potential_energy(self):
-        """
-        Calculate gravitational potential energy using vectorized operations
-
-        Returns:
-        --------
-        PE : float
-            Potential energy [J]
-        """
+    def potential_energy(self) -> float:
+        """Calculate gravitational potential energy using vectorized operations in Joules."""
         N = len(self.particles)
         positions = self.particles.get_positions()  # Shape: (N, 3)
         masses_kg = self.particles.get_masses()        # Shape: (N,)
@@ -236,18 +197,13 @@ class LeapfrogIntegrator(Integrator):
     Second-order symplectic integrator, conserves energy well
     """
     
-    def step(self, dt_s):
+    def step(self, dt_s: float) -> None:
         """
-        Take one leapfrog timestep
+        Take one leapfrog timestep.
 
-        For LCDM mode, Hubble drag is NOT included in the force calculation
-        but instead applied as an exponential damping after the position update.
-        This prevents numerical instability with large timesteps.
-
-        Parameters:
-        -----------
-        dt_s : float
-            Timestep [seconds]
+        Note: Hubble drag is NOT applied in proper-coordinate simulations.
+        In proper coordinates with explicit dark energy, expansion is handled
+        by the dark energy acceleration term (a_Λ = H²Ω_Λ r).
         """
         a_total = self.calculate_total_forces()
 
@@ -275,24 +231,8 @@ class LeapfrogIntegrator(Integrator):
         # Update time
         self.particles.time += dt_s
     
-    def evolve(self, t_end_s, n_steps, save_interval=10):
-        """
-        Evolve system from current time to t_end_s
-
-        Parameters:
-        -----------
-        t_end_s : float
-            Final time [seconds]
-        n_steps : int
-            Number of timesteps
-        save_interval : int
-            Save snapshot every N steps
-
-        Returns:
-        --------
-        snapshots : list of dict
-            Saved snapshots containing time, positions, velocities
-        """
+    def evolve(self, t_end_s: float, n_steps: int, save_interval: int = 10) -> List[Dict]:
+        """Evolve system from current time to t_end_s, saving snapshots every N steps."""
         dt_s = (t_end_s - self.particles.time) / n_steps
 
         snapshots = []
@@ -323,8 +263,8 @@ class LeapfrogIntegrator(Integrator):
 
         return snapshots
     
-    def _save_snapshot(self):
-        """Save current state"""
+    def _save_snapshot(self) -> Dict:
+        """Save current state."""
         return {
             'time_s': self.particles.time,
             'positions': self.particles.get_positions().copy(),

@@ -3,6 +3,7 @@ Particle and Grid Structures
 Represents galaxies/clusters as particles and HMEA nodes as boundary conditions
 """
 
+from typing import Optional, Tuple
 import numpy as np
 from .constants import CosmologicalConstants, ExternalNodeParameters, LambdaCDMParameters
 
@@ -10,21 +11,8 @@ from .constants import CosmologicalConstants, ExternalNodeParameters, LambdaCDMP
 class Particle:
     """Represents a single galaxy cluster or tracer particle"""
     
-    def __init__(self, position, velocity, mass_kg, particle_id=0):
-        """
-        Initialize a particle
-
-        Parameters:
-        -----------
-        position : array-like, shape (3,)
-            Position vector [x, y, z] in meters
-        velocity : array-like, shape (3,)
-            Velocity vector [vx, vy, vz] in m/s
-        mass_kg : float
-            Mass in kg
-        particle_id : int
-            Unique identifier
-        """
+    def __init__(self, position, velocity, mass_kg: float, particle_id: int = 0):
+        """Initialize a particle with position/velocity in meters and m/s."""
         self.pos = np.array(position, dtype=np.float64)
         self.vel = np.array(velocity, dtype=np.float64)
         self.mass_kg = float(mass_kg)
@@ -38,23 +26,10 @@ class Particle:
 class ParticleSystem:
     """Collection of particles representing the observable universe"""
     
-    def __init__(self, n_particles=1000, box_size_m=None, total_mass_kg=None, a_start=1.0, use_dark_energy=True, damping_factor_override=0.91):
-        """
-        Initialize a system of particles
-
-        Parameters:
-        -----------
-        n_particles : int
-            Number of particles (galaxy clusters)
-        box_size_m : float
-            Size of simulation box [meters]
-        total_mass_kg : float
-            Total mass to distribute among particles [kg]
-        a_start : float
-            Scale factor at simulation start time (a=1 at present day)
-        use_dark_energy : bool
-            Whether dark energy will be used in the simulation (affects initial velocities)
-        """
+    def __init__(self, n_particles: int = 1000, box_size_m: Optional[float] = None,
+                 total_mass_kg: Optional[float] = None, a_start: float = 1.0,
+                 use_dark_energy: bool = True, damping_factor_override: float = 0.91):
+        """Initialize particle system with damped Hubble flow initial conditions."""
         const = CosmologicalConstants()
 
         self.n_particles = n_particles
@@ -70,8 +45,8 @@ class ParticleSystem:
         # Initialize particles
         self._initialize_particles()
         
-    def _initialize_particles(self):
-        """Create initial particle distribution with Hubble flow"""
+    def _initialize_particles(self) -> None:
+        """Create initial particle distribution with Hubble flow."""
         lcdm = LambdaCDMParameters()
 
         H_start = lcdm.H_at_time(self.a_start)
@@ -180,39 +155,39 @@ class ParticleSystem:
         for particle in self.particles:
             particle.vel -= com_velocity
     
-    def get_positions(self):
-        """Get all particle positions as (N, 3) array"""
+    def get_positions(self) -> np.ndarray:
+        """Get all particle positions as (N, 3) array."""
         return np.array([p.pos for p in self.particles])
-    
-    def get_velocities(self):
-        """Get all particle velocities as (N, 3) array"""
+
+    def get_velocities(self) -> np.ndarray:
+        """Get all particle velocities as (N, 3) array."""
         return np.array([p.vel for p in self.particles])
-    
-    def get_masses(self):
-        """Get all particle masses as (N,) array"""
+
+    def get_masses(self) -> np.ndarray:
+        """Get all particle masses as (N,) array."""
         return np.array([p.mass_kg for p in self.particles])
-    
-    def get_accelerations(self):
-        """Get all particle accelerations as (N, 3) array"""
+
+    def get_accelerations(self) -> np.ndarray:
+        """Get all particle accelerations as (N, 3) array."""
         return np.array([p.acc for p in self.particles])
-    
-    def set_accelerations(self, accelerations):
-        """Set accelerations for all particles"""
+
+    def set_accelerations(self, accelerations: np.ndarray) -> None:
+        """Set accelerations for all particles."""
         for i, particle in enumerate(self.particles):
             particle.acc = accelerations[i]
-    
-    def update_positions(self, dt_s):
-        """Update positions using current velocities"""
+
+    def update_positions(self, dt_s: float) -> None:
+        """Update positions using current velocities."""
         for particle in self.particles:
             particle.pos += particle.vel * dt_s
 
-    def update_velocities(self, dt_s):
-        """Update velocities using current accelerations"""
+    def update_velocities(self, dt_s: float) -> None:
+        """Update velocities using current accelerations."""
         for particle in self.particles:
             particle.vel += particle.acc * dt_s
-    
-    def apply_periodic_boundaries(self):
-        """Apply periodic boundary conditions"""
+
+    def apply_periodic_boundaries(self) -> None:
+        """Apply periodic boundary conditions."""
         for particle in self.particles:
             # Wrap positions back into box
             particle.pos = np.where(particle.pos > self.box_size_m/2, 
@@ -222,8 +197,8 @@ class ParticleSystem:
                                    particle.pos + self.box_size_m, 
                                    particle.pos)
     
-    def kinetic_energy(self):
-        """Calculate total kinetic energy"""
+    def kinetic_energy(self) -> float:
+        """Calculate total kinetic energy in Joules."""
         KE = 0.0
         for particle in self.particles:
             v2 = np.sum(particle.vel**2)
@@ -231,16 +206,11 @@ class ParticleSystem:
         return KE
 
     @staticmethod
-    def calculate_system_size(positions):
+    def calculate_system_size(positions: np.ndarray) -> Tuple[float, float, np.ndarray]:
         """
-        Calculate characteristic size of system
+        Calculate characteristic size of system.
 
-        Returns:
-        --------
-        tuple: (rms_radius_m, max_radius_m, com)
-            rms_radius_m: RMS distance from center of mass [meters]
-            max_radius_m: Maximum particle distance from COM [meters]
-            com: Center of mass position (shows universe center can drift)
+        Returns (rms_radius_m, max_radius_m, com) where com shows universe center drift.
         """
 
         # Center of mass
@@ -268,17 +238,8 @@ class ParticleSystem:
 class HMEAGrid:
     """Represents the external HMEA nodes as boundary conditions"""
     
-    def __init__(self, node_params=None, n_nodes=8):
-        """
-        Initialize HMEA grid
-        
-        Parameters:
-        -----------
-        node_params : ExternalNodeParameters
-            Parameters for the HMEA nodes
-        n_nodes : int
-            Number of nodes (typically 6-8 for 3D grid)
-        """
+    def __init__(self, node_params: Optional[ExternalNodeParameters] = None, n_nodes: int = 8):
+        """Initialize HMEA grid (typically 26 nodes in 3x3x3-1 cubic lattice)."""
         self.params = node_params if node_params is not None else ExternalNodeParameters()
         self.n_nodes = n_nodes
         self.nodes = []
@@ -286,12 +247,9 @@ class HMEAGrid:
         # Create grid topology
         self._create_grid()
         
-    def _create_grid(self):
+    def _create_grid(self) -> None:
         """
-        Create a 3x3x3 grid of HMEA nodes surrounding our universe
-
-        Our observable universe is at the center (0,0,0) - no node there.
-        26 nodes surround us in a cubic lattice with spacing S.
+        Create 3x3x3 grid of HMEA nodes (26 total, excluding center).
 
         Grid is perfectly symmetric to ensure tidal forces cancel at origin.
         Any drift indicates either numerical issues or particle asymmetry.
@@ -319,27 +277,19 @@ class HMEAGrid:
                     self.nodes.append(node)
                     node_id += 1
     
-    def get_positions(self):
-        """Get all node positions as (N, 3) array"""
+    def get_positions(self) -> np.ndarray:
+        """Get all node positions as (N, 3) array."""
         return np.array([node['position'] for node in self.nodes])
-    
-    def get_masses(self):
-        """Get all node masses as (N,) array"""
+
+    def get_masses(self) -> np.ndarray:
+        """Get all node masses as (N,) array."""
         return np.array([node['mass'] for node in self.nodes])
-    
-    def calculate_tidal_acceleration_batch(self, positions):
+
+    def calculate_tidal_acceleration_batch(self, positions: np.ndarray) -> np.ndarray:
         """
-        Calculate tidal acceleration for multiple positions (vectorized)
-        
-        Parameters:
-        -----------
-        positions : array, shape (N, 3)
-            Array of positions [meters]
-            
-        Returns:
-        --------
-        accelerations : array, shape (N, 3)
-            Tidal acceleration vectors [m/s^2]
+        Calculate tidal acceleration for multiple positions (vectorized).
+
+        Returns accelerations array with shape (N, 3) in m/s².
         """
         const = CosmologicalConstants()
         N = len(positions)

@@ -26,22 +26,15 @@ class SearchMethod(Enum):
     TERNARY_SEARCH = 2
     LINEAR_SEARCH = 3
 
-#SEARCH_METHOD = SearchMethod.TERNARY_SEARCH
+# Configuration defaults
 SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
-
 QUICK_SEARCH = False
-
 T_START_GYR = 3.8
 T_DURATION_GYR = 10.0
 DAMPING_FACTOR = 0.92
-
-# Quick quick, to test the search
-if QUICK_SEARCH:
-    PARTICLE_COUNT = 20#140
-    N_STEPS = 500
-else:
-    PARTICLE_COUNT = 140
-    N_STEPS = 550
+PARTICLE_COUNT = 20 if QUICK_SEARCH else 140
+N_STEPS = 500 if QUICK_SEARCH else 550
+SAVE_INTERVAL = 10  # Must match value used in sim() function
 
 
 print("="*70)
@@ -83,11 +76,16 @@ print(f"(Brute force would test {nbConfigs_bruteforce} configurations)")
 
 # First, solve ΛCDM baseline (analytic solution, not N-body simulation)
 print("\n1. Computing ΛCDM baseline...")
-lcdm_solution = solve_friedmann_equation(
-    T_START_GYR,
-    T_START_GYR + T_DURATION_GYR,
-    Omega_Lambda=None  # Use default LCDM value (0.7)
-)
+
+# Compute time array matching N-body snapshot times
+# N-body saves initial snapshot + every SAVE_INTERVAL steps
+snapshot_steps = np.arange(0, N_STEPS + 1, SAVE_INTERVAL)
+t_relative_Gyr = (snapshot_steps / N_STEPS) * T_DURATION_GYR
+t_absolute_Gyr = T_START_GYR + t_relative_Gyr
+
+# Solve ΛCDM at exact N-body snapshot times
+lcdm_solution = solve_friedmann_at_times(t_absolute_Gyr, Omega_Lambda=None)
+
 # Extract expansion history
 t_lcdm = lcdm_solution['t_Gyr'] - T_START_GYR  # Offset to start at 0
 a_lcdm_array = lcdm_solution['a']
@@ -125,15 +123,15 @@ def sim(M_factor, S_gpc, desc, seed):
     # Run simulation
     sim_ext = CosmologicalSimulation(sim_params, BOX_SIZE, A_START,
                                       use_external_nodes=True, use_dark_energy=False)
-    ext_results = run_and_extract_results(sim_ext, T_DURATION_GYR, N_STEPS)
+    ext_results = run_and_extract_results(sim_ext, T_DURATION_GYR, N_STEPS, save_interval=SAVE_INTERVAL)
     a_ext = ext_results['a'][-1]
     size_ext_final = ext_results['diameter_Gpc'][-1]
     size_ext_curve = ext_results['diameter_Gpc']  # Full expansion history
     radius_max_final = ext_results['max_radius_Gpc'][-1]
     t_ext = ext_results['t_Gyr']  # Time points from simulation
 
-    # Interpolate LCDM curve to match External-Node time points
-    size_lcdm_curve = np.interp(t_ext, t_lcdm, size_lcdm_full)
+    # LCDM curve should now match N-body time points exactly (no interpolation needed)
+    size_lcdm_curve = size_lcdm_full
 
     # Calculate match using full curve comparison
     match_curve_pct = compare_expansion_histories(size_ext_curve, size_lcdm_curve)

@@ -402,29 +402,33 @@ def run_comparison_simulations(output_dir="."):
 
     # 3. ΛCDM reference (compute expected sizes from theory)
     print("3/3: Computing ΛCDM reference evolution...")
-    from cosmo.analysis import solve_friedmann_equation
-
-    # Solve Friedmann equation to get ΛCDM evolution
-    t_start_Gyr = sim_params.t_start_Gyr
-    t_end_Gyr = t_start_Gyr + sim_params.t_duration_Gyr
-    lcdm_solution = solve_friedmann_equation(t_start_Gyr, t_end_Gyr, n_points=1000)
+    from cosmo.analysis import solve_friedmann_at_times
 
     # Get initial scale factor to compute relative expansion
     a_start = initial_conditions['a_start']
+
+    # Compute time array matching N-body snapshot times (save_interval=50)
+    save_interval = 50
+    t_start_Gyr = sim_params.t_start_Gyr
+    snapshot_steps = np.arange(0, sim_params.n_steps + 1, save_interval)
+    t_relative_Gyr = (snapshot_steps / sim_params.n_steps) * sim_params.t_duration_Gyr
+    t_absolute_Gyr = t_start_Gyr + t_relative_Gyr
+
+    # Solve ΛCDM at exact N-body snapshot times
+    lcdm_solution = solve_friedmann_at_times(t_absolute_Gyr)
 
     # Create ΛCDM size evolution and snapshots to match External-Node snapshots
     lcdm_history = []
     lcdm_snapshots = []
     const = CosmologicalConstants()
 
-    for snap in sim_ext.snapshots:
+    for i, snap in enumerate(sim_ext.snapshots):
         t_seconds = snap['time_s']
         t_Gyr_offset = t_seconds / (1e9 * 365.25 * 24 * 3600)  # Simulation time (starts at 0)
         t_Gyr_absolute = t_start_Gyr + t_Gyr_offset  # Absolute cosmic time
 
-        # Interpolate scale factor at this time using full arrays
-        # (windowed arrays may not cover full simulation time range)
-        a_lcdm = np.interp(t_Gyr_absolute, lcdm_solution['_t_Gyr_full'], lcdm_solution['_a_full'])
+        # Use exact scale factor from pre-computed solution (no interpolation needed)
+        a_lcdm = lcdm_solution['a'][i]
 
         # Physical size in ΛCDM: relative expansion from start
         # size = (a(t) / a_start) * initial_box_size

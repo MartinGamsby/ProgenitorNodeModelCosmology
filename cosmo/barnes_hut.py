@@ -298,13 +298,89 @@ class BarnesHutTree:
         """
         Calculate gravitational accelerations on all particles.
 
+        Vectorized batch processing for better performance.
+
         Returns:
             Accelerations array, shape (N, 3) in m/s²
         """
         N = len(self.positions_m)
         accelerations_mps2 = np.zeros((N, 3))
 
-        for i in range(N):
-            accelerations_mps2[i] = self.calculate_acceleration(i)
+        # Use vectorized batch calculation
+        self._calculate_batch_forces(
+            self.root,
+            self.positions_m,
+            np.arange(N),
+            accelerations_mps2
+        )
 
         return accelerations_mps2
+
+    def _calculate_batch_forces(
+        self,
+        node: OctreeNode,
+        particle_positions: np.ndarray,
+        particle_indices: np.ndarray,
+        accelerations: np.ndarray
+    ) -> None:
+        """
+        Vectorized force calculation for multiple particles at once.
+
+        Args:
+            node: Current octree node
+            particle_positions: Positions of particles (N, 3)
+            particle_indices: Indices of particles being processed
+            accelerations: Accumulator for accelerations (modified in-place)
+        """
+        if node.is_empty() or len(particle_indices) == 0:
+            return
+
+        # Filter out self-interaction for leaf nodes
+        if node.is_leaf():
+            mask = particle_indices != node.particle_idx
+            if not np.any(mask):
+                return
+            particle_positions = particle_positions[mask]
+            particle_indices = particle_indices[mask]
+
+        # Vectorized: calculate distances for all particles at once
+        # r_vec: (N, 3) - vectors from each particle to node COM
+        r_vec_m = node.center_of_mass_m - particle_positions  # (N, 3)
+        r_m = np.linalg.norm(r_vec_m, axis=1)  # (N,)
+
+        # Check opening angle criterion for each particle
+        if node.is_leaf():
+            # Leaf node: use COM for all particles
+            use_com_mask = np.ones(len(particle_indices), dtype=bool)
+        else:
+            # Internal node: check theta criterion
+            use_com_mask = (node.size_m / r_m) < self.theta  # (N,)
+
+        # Process particles that pass theta criterion (use COM approximation)
+        if np.any(use_com_mask):
+            com_indices = particle_indices[use_com_mask]
+            com_r_vec = r_vec_m[use_com_mask]  # (M, 3)
+            com_r = r_m[use_com_mask]  # (M,)
+
+            # Vectorized force calculation
+            r_soft = np.sqrt(com_r**2 + self.softening_m**2)  # (M,)
+            a_mag = self.const.G * node.total_mass_kg / r_soft**2  # (M,)
+
+            # Broadcast to 3D: (M,) -> (M, 1) for multiplication with (M, 3)
+            a_vec = a_mag[:, np.newaxis] * (com_r_vec / r_soft[:, np.newaxis])  # (M, 3)
+
+            # Accumulate into accelerations array
+            accelerations[com_indices] += a_vec
+
+        # Recurse for particles that need refinement
+        if not node.is_leaf() and np.any(~use_com_mask):
+            recurse_positions = particle_positions[~use_com_mask]
+            recurse_indices = particle_indices[~use_com_mask]
+
+            for child in node.children:
+                self._calculate_batch_forces(
+                    child,
+                    recurse_positions,
+                    recurse_indices,
+                    accelerations
+                )

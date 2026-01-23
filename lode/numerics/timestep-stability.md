@@ -7,7 +7,7 @@ Leapfrog integrator (kick-drift-kick) is symplectic and conserves energy well **
 ## Failure Mode Observed
 
 **Configuration**: 20 Gyr simulation, 50 particles, damping=0.9, 150 steps
-- Timestep: dt = 0.133 Gyr = 4.21e15 s
+- Timestep: dt_s = 0.133 Gyr = 4.21e15 s
 - Crossing time: t_cross ≈ 15.5 Gyr
 - Steps per crossing time: 116 (marginally stable)
 
@@ -43,7 +43,7 @@ The instability manifests when particles reach configurations where local dynami
 ## Solution: More Timesteps
 
 **Same configuration with 500 steps instead of 150**:
-- Timestep: dt = 0.040 Gyr = 1.26e15 s (3.3x smaller)
+- Timestep: dt_s = 0.040 Gyr = 1.26e15 s (3.3x smaller)
 - Steps per crossing time: 387 (well-resolved)
 
 **Result**: Matter-only = 27.29 Gpc (+1.6% vs LCDM) ✓ Correct behavior!
@@ -61,7 +61,7 @@ For N-body cosmology:
 
 **Recommended**:
 - Minimum 250-500 steps per crossing time
-- For 20 Gyr simulations: dt < 0.05 Gyr
+- For 20 Gyr simulations: dt_s < 0.05 Gyr
 - For safety: Always use n_steps ≥ 500 for production runs
 
 **Warning signs of insufficient timesteps**:
@@ -97,9 +97,9 @@ These reveal the step where instability onset occurs and whether it's due to clo
 **Automatic validation added** (cosmo/simulation.py:91-140): The `_validate_timestep()` method checks timestep before running simulation.
 
 **Behavior**:
-- **dt > 0.05 Gyr**: ERROR - exits with detailed message, refuses to run
-- **0.04 Gyr < dt ≤ 0.05 Gyr**: WARNING - shows recommendation but allows run
-- **dt ≤ 0.04 Gyr**: Silent - proceeds normally
+- **dt_s > 0.05 Gyr**: ERROR - exits with detailed message, refuses to run
+- **0.04 Gyr < dt_s ≤ 0.05 Gyr**: WARNING - shows recommendation but allows run
+- **dt_s ≤ 0.04 Gyr**: Silent - proceeds normally
 
 **Error message format**:
 ```
@@ -133,13 +133,13 @@ This prevents users from accidentally running unstable simulations and getting i
 
 ```python
 # Base adaptive softening: ε ∝ m^(1/3)
-self.softening = self.softening_per_Mobs * (mass_ratio ** (1.0/3.0))
+self.softening_m = self.softening_per_Mobs * (mass_ratio ** (1.0/3.0))
 
 # Additional boost for small-N systems
 if len(self.particles) < 100:
     boost_factor = sqrt(100 / N)  # N=50 → 1.41x, N=25 → 2x, N=10 → 3.16x
     boost_factor = max(1.0, min(5.0, boost_factor))  # Clamp to [1.0, 5.0]
-    self.softening *= boost_factor
+    self.softening_m *= boost_factor
 ```
 
 **Rationale**:

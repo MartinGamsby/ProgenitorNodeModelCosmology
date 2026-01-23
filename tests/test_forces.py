@@ -21,8 +21,8 @@ class TestGravitationalForces(unittest.TestCase):
         # Create simple 2-particle system
         particles = ParticleSystem(
             n_particles=2,
-            box_size=1.0 * self.const.Gpc_to_m,
-            total_mass=2e53,
+            box_size_m=1.0 * self.const.Gpc_to_m,
+            total_mass_kg=2e53,
             damping_factor_override=0.0
         )
 
@@ -36,7 +36,7 @@ class TestGravitationalForces(unittest.TestCase):
         particles.particles[1].mass = m
 
         # Create integrator
-        integrator = Integrator(particles, softening_per_Mobs=0, use_external_nodes=False, use_dark_energy=False)
+        integrator = Integrator(particles, softening_per_Mobs_m=0, use_external_nodes=False, use_dark_energy=False)
 
         # Calculate forces
         accelerations = integrator.calculate_internal_forces()
@@ -62,8 +62,8 @@ class TestGravitationalForces(unittest.TestCase):
         """F = GMm/r^2 for two particles"""
         particles = ParticleSystem(
             n_particles=2,
-            box_size=1.0 * self.const.Gpc_to_m,
-            total_mass=3e53,
+            box_size_m=1.0 * self.const.Gpc_to_m,
+            total_mass_kg=3e53,
             damping_factor_override=0.0
         )
 
@@ -77,7 +77,7 @@ class TestGravitationalForces(unittest.TestCase):
         particles.particles[0].mass = m1
         particles.particles[1].mass = m2
 
-        integrator = Integrator(particles, softening_per_Mobs=0, use_external_nodes=False, use_dark_energy=False)
+        integrator = Integrator(particles, softening_per_Mobs_m=0, use_external_nodes=False, use_dark_energy=False)
         accelerations = integrator.calculate_internal_forces()
 
         # Expected acceleration on particle 0: a = G*m2/r^2
@@ -91,8 +91,8 @@ class TestGravitationalForces(unittest.TestCase):
         """Softening should prevent infinite force at r=0"""
         particles = ParticleSystem(
             n_particles=2,
-            box_size=1.0 * self.const.Gpc_to_m,
-            total_mass=2e53,
+            box_size_m=1.0 * self.const.Gpc_to_m,
+            total_mass_kg=2e53,
             damping_factor_override=0.0
         )
 
@@ -105,7 +105,7 @@ class TestGravitationalForces(unittest.TestCase):
         particles.particles[1].mass = m
 
         softening = 1e24  # 1 Gpc softening
-        integrator = Integrator(particles, softening_per_Mobs=softening, use_external_nodes=False, use_dark_energy=False)
+        integrator = Integrator(particles, softening_per_Mobs_m=softening, use_external_nodes=False, use_dark_energy=False)
 
         accelerations = integrator.calculate_internal_forces()
 
@@ -130,7 +130,7 @@ class TestTidalForces(unittest.TestCase):
         M_ext = 1e56
         S = 30 * self.const.Gpc_to_m
 
-        node_params = ExternalNodeParameters(M_ext=M_ext, S=S)
+        node_params = ExternalNodeParameters(M_ext_kg=M_ext, S=S)
         grid = HMEAGrid(node_params=node_params)
 
         # Keep only one node at +x (find closest to target position)
@@ -155,7 +155,7 @@ class TestTidalForces(unittest.TestCase):
         M_ext = 1e56
         S = 30 * self.const.Gpc_to_m
 
-        node_params = ExternalNodeParameters(M_ext=M_ext, S=S)
+        node_params = ExternalNodeParameters(M_ext_kg=M_ext, S=S)
         grid = HMEAGrid(node_params=node_params)
 
         # Keep only one node at +x
@@ -187,7 +187,7 @@ class TestTidalForces(unittest.TestCase):
         S = 30 * self.const.Gpc_to_m
 
         # Create symmetric 3x3x3 grid
-        node_params = ExternalNodeParameters(M_ext=M_ext, S=S)
+        node_params = ExternalNodeParameters(M_ext_kg=M_ext, S=S)
         np.random.seed(42)  # Fixed seed for reproducibility
         grid = HMEAGrid(node_params=node_params)
 
@@ -216,7 +216,7 @@ class TestDarkEnergyForces(unittest.TestCase):
         """Dark energy should push particles radially outward"""
         particles = ParticleSystem(
             n_particles=1,
-            box_size=10.0 * self.const.Gpc_to_m,
+            box_size_m=10.0 * self.const.Gpc_to_m,
             damping_factor_override=0.0
         )
 
@@ -240,7 +240,7 @@ class TestDarkEnergyForces(unittest.TestCase):
         """a_Λ = H0^2 * Omega_Lambda * R"""
         particles = ParticleSystem(
             n_particles=1,
-            box_size=10.0 * self.const.Gpc_to_m,
+            box_size_m=10.0 * self.const.Gpc_to_m,
             damping_factor_override=0.0
         )
 
@@ -252,7 +252,7 @@ class TestDarkEnergyForces(unittest.TestCase):
         acceleration = integrator.calculate_dark_energy_forces()
 
         # Expected: H0^2 * Omega_Lambda * R
-        expected = self.lcdm.H0**2 * self.lcdm.Omega_Lambda * R
+        expected = self.lcdm.H0_si**2 * self.lcdm.Omega_Lambda * R
 
         actual = np.linalg.norm(acceleration[0])
 
@@ -262,7 +262,7 @@ class TestDarkEnergyForces(unittest.TestCase):
         """use_dark_energy=False should return zero acceleration"""
         particles = ParticleSystem(
             n_particles=1,
-            box_size=10.0 * self.const.Gpc_to_m,
+            box_size_m=10.0 * self.const.Gpc_to_m,
             damping_factor_override=0.0
         )
         particles.particles[0].pos = np.array([1e25, 0.0, 0.0])

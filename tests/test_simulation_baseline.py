@@ -324,7 +324,7 @@ class TestLCDMBaselineHelper(unittest.TestCase):
         self.assertLess(baseline['t'][0], 0.1,
             msg=f"Time should start near 0, got {baseline['t'][0]:.3f}")
 
-        # Verify final size is ~14.5 Gpc
+        # Verify final diameter is ~14.5 Gpc
         self.assertAlmostEqual(baseline['size'][-1], 14.5, delta=0.3)
 
         # Verify all arrays have same length
@@ -439,7 +439,7 @@ class TestLCDMBaselineHelper(unittest.TestCase):
 
     def test_lcdm_baseline_time_conversion_from_simulation_time(self):
         """Test correct conversion from simulation time (starting at 0) to absolute cosmic time"""
-        # This catches the bug in visualize_3d.py where snap['time'] (simulation seconds)
+        # This catches the bug in visualize_3d.py where snap['time_s'] (simulation seconds)
         # was converted to Gyr without adding t_start_Gyr, resulting in t=0 instead of t=3.8
 
         t_start_Gyr = 3.8

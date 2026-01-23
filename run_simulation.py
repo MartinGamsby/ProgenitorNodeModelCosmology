@@ -46,8 +46,8 @@ def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start):
     Returns:
     --------
     dict with keys:
-        'lcdm': dict with t, a, size, H arrays for ΛCDM
-        'matter': dict with t, a, size, H arrays for matter-only
+        'lcdm': dict with t, a, diameter_m, H arrays for ΛCDM
+        'matter': dict with t, a, diameter_m, H arrays for matter-only
     """
     lcdm_params = LambdaCDMParameters()
 
@@ -82,13 +82,13 @@ def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start):
         'lcdm': {
             't': t_lcdm,
             'a': a_lcdm,
-            'size': size_lcdm,
+            'diameter_m': size_lcdm,
             'H_hubble': H_lcdm_hubble
         },
         'matter': {
             't': t_lcdm,  # Use same time array for consistency
             'a': a_matter,
-            'size': size_matter,
+            'diameter_m': size_matter,
             'H_hubble': H_matter_hubble
         }
     }
@@ -110,8 +110,8 @@ def run_nbody_simulations(sim_params, box_size, a_start):
     Returns:
     --------
     dict with keys:
-        'ext': dict with sim, t, a, size arrays for External-Node
-        'matter': dict with sim, t, a, size arrays for Matter-only
+        'ext': dict with sim, t, a, diameter_m arrays for External-Node
+        'matter': dict with sim, t, a, diameter_m arrays for Matter-only
     """
     print(f"\nM={sim_params.M_value}, S={sim_params.S_value}, Omega_Lambda_eff={sim_params.external_params.Omega_Lambda_eff:.3f}")
     print(f"{sim_params.n_particles} particles, seed={sim_params.seed}")
@@ -133,13 +133,13 @@ def run_nbody_simulations(sim_params, box_size, a_start):
             'sim': ext_results['sim'],
             't': ext_results['t_Gyr'],
             'a': ext_results['a'],
-            'size': ext_results['size_Gpc']
+            'diameter_m': ext_results['diameter_Gpc']
         },
         'matter': {
             'sim': matter_results['sim'],
             't': matter_results['t_Gyr'],
             'a': matter_results['a'],
-            'size': matter_results['size_Gpc']
+            'diameter_m': matter_results['diameter_Gpc']
         }
     }
 
@@ -256,9 +256,9 @@ def run_simulation(output_dir, sim_params):
     nbody = run_nbody_simulations(sim_params, box_size, a_at_start)
 
     # Calculate match statistics
-    size_ext_final = nbody['ext']['size'][-1]
-    size_lcdm_final = baseline['lcdm']['size'][-1]
-    size_matter_final = nbody['matter']['size'][-1]
+    size_ext_final = nbody['ext']['diameter_m'][-1]
+    size_lcdm_final = baseline['lcdm']['diameter_m'][-1]
+    size_matter_final = nbody['matter']['diameter_m'][-1]
 
     ext_match = compare_expansion_histories(size_ext_final, size_lcdm_final)
     matter_match = compare_expansion_histories(size_matter_final, size_lcdm_final)
@@ -282,9 +282,9 @@ def run_simulation(output_dir, sim_params):
     today = calculate_today_marker(sim_params.t_start_Gyr, sim_params.t_duration_Gyr)
     fig = create_comparison_plot(
         sim_params,
-        baseline['lcdm']['t'], baseline['lcdm']['a'], baseline['lcdm']['size'], baseline['lcdm']['H_hubble'],
-        nbody['ext']['t'], nbody['ext']['a'], nbody['ext']['size'], hubble['H_ext_hubble'],
-        nbody['matter']['t'], nbody['matter']['a'], nbody['matter']['size'], hubble['H_matter_hubble'],
+        baseline['lcdm']['t'], baseline['lcdm']['a'], baseline['lcdm']['diameter_m'], baseline['lcdm']['H_hubble'],
+        nbody['ext']['t'], nbody['ext']['a'], nbody['ext']['diameter_m'], hubble['H_ext_hubble'],
+        nbody['matter']['t'], nbody['matter']['a'], nbody['matter']['diameter_m'], hubble['H_matter_hubble'],
         today=today
     )
 

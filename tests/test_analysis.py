@@ -31,7 +31,7 @@ class TestFriedmannEquation(unittest.TestCase):
         a = 1.0
         t = 0.0
 
-        result = friedmann_equation(a, t, lcdm.H0, lcdm.Omega_m, lcdm.Omega_Lambda)
+        result = friedmann_equation(a, t, lcdm.H0_si, lcdm.Omega_m, lcdm.Omega_Lambda)
 
         # Should be positive (universe expanding)
         self.assertGreater(result, 0)
@@ -42,7 +42,7 @@ class TestFriedmannEquation(unittest.TestCase):
         a = 0.0
         t = 0.0
 
-        result = friedmann_equation(a, t, lcdm.H0, lcdm.Omega_m, lcdm.Omega_Lambda)
+        result = friedmann_equation(a, t, lcdm.H0_si, lcdm.Omega_m, lcdm.Omega_Lambda)
 
         # Should return small positive value, not divide by zero
         self.assertGreater(result, 0)
@@ -54,8 +54,8 @@ class TestFriedmannEquation(unittest.TestCase):
         a = 1.0  # Today
         t = 0.0
 
-        da_dt_lcdm = friedmann_equation(a, t, lcdm.H0, lcdm.Omega_m, lcdm.Omega_Lambda)
-        da_dt_matter = friedmann_equation(a, t, lcdm.H0, lcdm.Omega_m, 0.0)
+        da_dt_lcdm = friedmann_equation(a, t, lcdm.H0_si, lcdm.Omega_m, lcdm.Omega_Lambda)
+        da_dt_matter = friedmann_equation(a, t, lcdm.H0_si, lcdm.Omega_m, 0.0)
 
         # ΛCDM should expand faster (dark energy accelerates)
         self.assertGreater(da_dt_lcdm, da_dt_matter)

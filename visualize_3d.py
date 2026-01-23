@@ -113,7 +113,7 @@ def create_3d_snapshot(sim_data, snapshot_idx, output_dir="."):
     positions = snapshot['positions'] / const.Gpc_to_m
 
     # Current universe size
-    current_size = history['size'] / const.Gpc_to_m
+    current_size = history['diameter_m'] / const.Gpc_to_m
     current_max_size = history['max_particle_distance'] / const.Gpc_to_m
     time_Gyr = history['time_Gyr']
     com_Gpc = history['com'] / const.Gpc_to_m
@@ -185,7 +185,7 @@ def create_multi_panel_evolution(sim_data, output_dir="."):
         history = sim_data['expansion_history'][snap_idx]
 
         positions = snapshot['positions'] / const.Gpc_to_m
-        current_size = history['size'] / const.Gpc_to_m
+        current_size = history['diameter_m'] / const.Gpc_to_m
         current_max_size = history['max_particle_distance'] / const.Gpc_to_m
         time_Gyr = history['time_Gyr']
         com_Gpc = history['com'] / const.Gpc_to_m
@@ -274,7 +274,7 @@ def create_animation(sim_data, output_dir=".", fps=5):
         history = sim_data['expansion_history'][frame]
 
         positions = snapshot['positions'] / const.Gpc_to_m
-        current_size = history['size'] / const.Gpc_to_m
+        current_size = history['diameter_m'] / const.Gpc_to_m
         current_max_size = history['max_particle_distance'] / const.Gpc_to_m
         time_Gyr = history['time_Gyr']
         com_Gpc = history['com'] / const.Gpc_to_m
@@ -418,7 +418,7 @@ def run_comparison_simulations(output_dir="."):
     const = CosmologicalConstants()
 
     for snap in sim_ext.snapshots:
-        t_seconds = snap['time']
+        t_seconds = snap['time_s']
         t_Gyr_offset = t_seconds / (1e9 * 365.25 * 24 * 3600)  # Simulation time (starts at 0)
         t_Gyr_absolute = t_start_Gyr + t_Gyr_offset  # Absolute cosmic time
 
@@ -521,7 +521,7 @@ def create_comparison_multipanel(comparison_data, output_dir="."):
             history = model_data['expansion_history'][snap_idx]
 
             positions = snapshot['positions'] / const.Gpc_to_m
-            current_size = history['size'] / const.Gpc_to_m
+            current_size = history['diameter_m'] / const.Gpc_to_m
             current_max_size = history['max_particle_distance'] / const.Gpc_to_m
             time_Gyr = history['time_Gyr']
             com_Gpc = history['com'] / const.Gpc_to_m
@@ -614,7 +614,7 @@ def create_comparison_animations(comparison_data, output_dir=".", fps=10):
             history = model_data['expansion_history'][frame]
 
             positions = snapshot['positions'] / const.Gpc_to_m
-            current_size = history['size'] / const.Gpc_to_m
+            current_size = history['diameter_m'] / const.Gpc_to_m
             current_max_size = history['max_particle_distance'] / const.Gpc_to_m
             time_Gyr = history['time_Gyr']
             com_Gpc = history['com'] / const.Gpc_to_m

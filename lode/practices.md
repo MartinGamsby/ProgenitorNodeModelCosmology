@@ -4,7 +4,7 @@
 
 **Module separation**: `constants.py` (parameters) → `particles.py` (structures) → `integrator.py` (physics) → `simulation.py` (orchestration). Clear dependency hierarchy.
 
-**SI units everywhere**: All internal calculations use meters, seconds, kilograms. Convert only at I/O boundaries.
+**SI units everywhere**: All internal calculations use meters, seconds, kilograms. Convert only at I/O boundaries. Variable names use explicit unit suffixes (_m, _s, _kg, _si, _mps2) for clarity. See [practices/unit-conventions.md](./practices/unit-conventions.md).
 
 **Reproducibility**: Always set `np.random.seed(sim_params.seed)` before particle initialization.
 

@@ -25,8 +25,8 @@ class TestMatterVsLCDM(unittest.TestCase):
         np.random.seed(42)
         particles_lcdm = ParticleSystem(
             n_particles=10,
-            box_size=10.0 * self.const.Gpc_to_m,
-            total_mass=1e54,
+            box_size_m=10.0 * self.const.Gpc_to_m,
+            total_mass_kg=1e54,
             damping_factor_override=1.0,  # Same damping for fair comparison
             use_dark_energy=True
         )
@@ -34,8 +34,8 @@ class TestMatterVsLCDM(unittest.TestCase):
         np.random.seed(42)  # Same seed for identical initial conditions
         particles_matter = ParticleSystem(
             n_particles=10,
-            box_size=10.0 * self.const.Gpc_to_m,
-            total_mass=1e54,
+            box_size_m=10.0 * self.const.Gpc_to_m,
+            total_mass_kg=1e54,
             damping_factor_override=1.0,  # Same damping
             use_dark_energy=False
         )
@@ -101,8 +101,8 @@ class TestMatterVsLCDM(unittest.TestCase):
         np.random.seed(42)
         particles_with_drag = ParticleSystem(
             n_particles=10,
-            box_size=10.0 * self.const.Gpc_to_m,
-            total_mass=1e54,
+            box_size_m=10.0 * self.const.Gpc_to_m,
+            total_mass_kg=1e54,
             damping_factor_override=1.0,
             use_dark_energy=True
         )
@@ -118,8 +118,8 @@ class TestMatterVsLCDM(unittest.TestCase):
         np.random.seed(42)
         particles_no_drag = ParticleSystem(
             n_particles=10,
-            box_size=10.0 * self.const.Gpc_to_m,
-            total_mass=1e54,
+            box_size_m=10.0 * self.const.Gpc_to_m,
+            total_mass_kg=1e54,
             damping_factor_override=1.0,
             use_dark_energy=True
         )
@@ -168,8 +168,8 @@ class TestMatterVsLCDM(unittest.TestCase):
                 np.random.seed(42)
                 particles_matter = ParticleSystem(
                     n_particles=10,
-                    box_size=10.0 * self.const.Gpc_to_m,
-                    total_mass=1e54,
+                    box_size_m=10.0 * self.const.Gpc_to_m,
+                    total_mass_kg=1e54,
                     damping_factor_override=1.0,
                     use_dark_energy=False
                 )
@@ -183,8 +183,8 @@ class TestMatterVsLCDM(unittest.TestCase):
                 np.random.seed(42)
                 particles_lcdm = ParticleSystem(
                     n_particles=10,
-                    box_size=10.0 * self.const.Gpc_to_m,
-                    total_mass=1e54,
+                    box_size_m=10.0 * self.const.Gpc_to_m,
+                    total_mass_kg=1e54,
                     damping_factor_override=1.0,
                     use_dark_energy=True
                 )
@@ -222,8 +222,8 @@ class TestMatterVsLCDM(unittest.TestCase):
         np.random.seed(42)
         particles_large_dt = ParticleSystem(
             n_particles=10,
-            box_size=10.0 * self.const.Gpc_to_m,
-            total_mass=1e54,
+            box_size_m=10.0 * self.const.Gpc_to_m,
+            total_mass_kg=1e54,
             damping_factor_override=1.0,
             use_dark_energy=True
         )
@@ -238,8 +238,8 @@ class TestMatterVsLCDM(unittest.TestCase):
         np.random.seed(42)
         particles_small_dt = ParticleSystem(
             n_particles=10,
-            box_size=10.0 * self.const.Gpc_to_m,
-            total_mass=1e54,
+            box_size_m=10.0 * self.const.Gpc_to_m,
+            total_mass_kg=1e54,
             damping_factor_override=1.0,
             use_dark_energy=True
         )
@@ -287,14 +287,14 @@ class TestMatterVsLCDM(unittest.TestCase):
         np.random.seed(42)
         particles_ext_m0 = ParticleSystem(
             n_particles=10,
-            box_size=10.0 * self.const.Gpc_to_m,
-            total_mass=1e54,
+            box_size_m=10.0 * self.const.Gpc_to_m,
+            total_mass_kg=1e54,
             damping_factor_override=1.0,
             use_dark_energy=False
         )
 
         # Create HMEA grid with M=0
-        ext_params = ExternalNodeParameters(M_ext=0)
+        ext_params = ExternalNodeParameters(M_ext_kg=0)
         hmea_grid = HMEAGrid(node_params=ext_params)
 
         integrator_ext_m0 = LeapfrogIntegrator(
@@ -308,8 +308,8 @@ class TestMatterVsLCDM(unittest.TestCase):
         np.random.seed(42)
         particles_matter = ParticleSystem(
             n_particles=10,
-            box_size=10.0 * self.const.Gpc_to_m,
-            total_mass=1e54,
+            box_size_m=10.0 * self.const.Gpc_to_m,
+            total_mass_kg=1e54,
             damping_factor_override=1.0,
             use_dark_energy=False
         )
@@ -377,14 +377,14 @@ class TestMatterVsLCDM(unittest.TestCase):
         np.random.seed(42)
         particles_ext = ParticleSystem(
             n_particles=10,
-            box_size=10.0 * self.const.Gpc_to_m,
-            total_mass=1e54,
+            box_size_m=10.0 * self.const.Gpc_to_m,
+            total_mass_kg=1e54,
             damping_factor_override=1.0,
             use_dark_energy=False
         )
 
         # Create HMEA grid with M=500
-        ext_params = ExternalNodeParameters(M_ext=M_ext, S=30*self.const.Gpc_to_m)
+        ext_params = ExternalNodeParameters(M_ext_kg=M_ext, S=30*self.const.Gpc_to_m)
         hmea_grid = HMEAGrid(node_params=ext_params)
 
         integrator_ext = LeapfrogIntegrator(
@@ -398,8 +398,8 @@ class TestMatterVsLCDM(unittest.TestCase):
         np.random.seed(42)
         particles_matter = ParticleSystem(
             n_particles=10,
-            box_size=10.0 * self.const.Gpc_to_m,
-            total_mass=1e54,
+            box_size_m=10.0 * self.const.Gpc_to_m,
+            total_mass_kg=1e54,
             damping_factor_override=1.0,
             use_dark_energy=False
         )
@@ -480,8 +480,8 @@ class TestMatterVsLCDM(unittest.TestCase):
         np.random.seed(42)
         particles_matter = ParticleSystem(
             n_particles=50,#40,
-            box_size=10.0 * self.const.Gpc_to_m,
-            total_mass=self.const.M_observable,
+            box_size_m=10.0 * self.const.Gpc_to_m,
+            total_mass_kg=self.const.M_observable_kg,
             damping_factor_override=1.0,
             use_dark_energy=False
         )

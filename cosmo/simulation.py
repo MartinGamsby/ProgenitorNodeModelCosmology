@@ -49,14 +49,14 @@ class CosmologicalSimulation:
         self.use_dark_energy = use_dark_energy
 
         # Convert box size to meters
-        box_size = box_size_Gpc * self.const.Gpc_to_m
+        box_size_m = box_size_Gpc * self.const.Gpc_to_m
 
         # Initialize particle system
         print(f"Initializing {sim_params.n_particles} particles in {box_size_Gpc} Gpc box...")
 
         self.particles = ParticleSystem(n_particles=sim_params.n_particles,
-                                       box_size=box_size,
-                                       total_mass=self.const.M_observable*1,#TODO: As an argument (multi Mobs?)
+                                       box_size_m=box_size_m,
+                                       total_mass_kg=self.const.M_observable_kg*1,#TODO: As an argument (multi Mobs?)
                                        a_start=self.a_start,
                                        use_dark_energy=self.use_dark_energy,
                                        damping_factor_override=sim_params.damping_factor)
@@ -70,11 +70,11 @@ class CosmologicalSimulation:
             print("Running standard matter-only (no dark energy)")
 
         # Create integrator
-        softening = 1.0 * self.const.Gpc_to_m  # 1Gpc softening per Mobs
+        softening_m = 1.0 * self.const.Gpc_to_m  # 1Gpc softening per Mobs
         self.integrator = LeapfrogIntegrator(
             self.particles,
             self.hmea_grid,
-            softening_per_Mobs=softening,
+            softening_per_Mobs_m=softening_m,
             use_external_nodes=use_external_nodes,
             use_dark_energy=self.use_dark_energy
         )
@@ -196,7 +196,7 @@ class CosmologicalSimulation:
         rms_initial, max_initial, _ = self.calculate_system_size(self.snapshots[0])
 
         for snapshot in self.snapshots:
-            t = snapshot['time']
+            t = snapshot['time_s']
             rms_current, max_current, com = self.calculate_system_size(snapshot)
 
             # Scale factor a(t) = R(t) / R(t=0)
@@ -207,11 +207,12 @@ class CosmologicalSimulation:
             # This ensures all models start from the same physical size
             size_Gpc = a * self.box_size_Gpc
 
+            # diameter_m = 2 × rms_radius_m
             self.expansion_history.append({
                 'time': t,
                 'time_Gyr': t / (1e9 * 365.25 * 24 * 3600),
                 'scale_factor': a,
-                'size': rms_current*2,
+                'diameter_m': rms_current*2,
                 'size_a': size_Gpc* self.const.Gpc_to_m,
                 'max_particle_distance': max_current,
                 'com': com,

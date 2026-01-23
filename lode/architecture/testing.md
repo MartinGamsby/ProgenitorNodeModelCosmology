@@ -18,10 +18,18 @@ Tests in `tests/`. Physics-first: validate equations (F=GMm/r², a=H₀²Ω_Λr)
 
 **test_simulation_baseline.py**: LCDM analytic expansion validation. Tests that `solve_friedmann_equation()` produces expected sizes at key times (t=3.8→13.8 Gyr reaches 14.5 Gpc). Validates scale factor monotonic increase, cosmic acceleration, and LCDM vs matter-only comparison. Provides reference baseline used by `run_simulation.py` and `parameter_sweep.py`. All 8 tests passing.
 
+**test_units_validation.py**: Unit naming convention enforcement. Validates that physical quantities use explicit unit suffixes (_m, _s, _kg, _si, _mps2). Tests conversion constants (GPC_TO_METERS, GYR_TO_SECONDS), factory function signatures, and expansion history keys. Ensures consistency across codebase.
+
+**test_radius_diameter_semantics.py**: Radius vs diameter correctness. Critical test that expansion_history['diameter_m'] stores DIAMETER (2×RMS), not radius. Validates compute_rms_radius returns radius, expansion metrics convert properly, and all comparisons use consistent semantics. Prevents factor-of-2 errors.
+
+**test_integrator.py**: Leapfrog integration mechanics. Tests kick-drift-kick algorithm, position/velocity updates, energy conservation, and force calculation pipeline. Validates softening length computation, timestep application, and integrator state consistency.
+
+**test_factories.py**: Factory function validation. Tests create_default_external_node_model, create_default_lcdm_model, and create_matter_only_model. Validates parameter passing, unit conversions, and default value handling. Ensures factories produce valid simulation configurations.
+
 ## Running
 
 ```bash
-pytest tests/ -v  # All 88 tests
+pytest tests/ -v  # All 110 tests
 pytest tests/test_constants.py -v  # 21 tests
 pytest tests/test_forces.py -v  # 12 tests
 pytest tests/test_model_comparison.py -v  # 7 tests
@@ -30,6 +38,10 @@ pytest tests/test_visualization.py -v  # 16 tests
 pytest tests/test_simulation_baseline.py -v  # 11 tests
 pytest tests/test_reproducibility.py -v  # 6 tests
 pytest tests/test_simulation_quality.py -v  # 5 tests
+pytest tests/test_units_validation.py -v  # Unit naming conventions
+pytest tests/test_radius_diameter_semantics.py -v  # Radius vs diameter
+pytest tests/test_integrator.py -v  # Leapfrog mechanics
+pytest tests/test_factories.py -v  # Factory functions
 ```
 
 ## Key Fixes Applied

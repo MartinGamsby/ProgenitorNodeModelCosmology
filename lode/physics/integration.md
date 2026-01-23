@@ -15,7 +15,7 @@
 ### Single Timestep
 
 ```python
-def step(self, dt):
+def step(self, dt_s):
     """
     Leapfrog: Kick-Drift-Kick
 
@@ -27,34 +27,34 @@ def step(self, dt):
     # Kick (half step)
     accelerations = self.calculate_total_forces()
     self.particles.set_accelerations(accelerations)
-    self.particles.update_velocities(dt / 2)
+    self.particles.update_velocities(dt_s / 2)
 
     # Drift (full step)
-    self.particles.update_positions(dt)
+    self.particles.update_positions(dt_s)
 
     # Kick (half step)
     accelerations = self.calculate_total_forces()
     self.particles.set_accelerations(accelerations)
-    self.particles.update_velocities(dt / 2)
+    self.particles.update_velocities(dt_s / 2)
 
     # Update time
-    self.particles.time += dt
+    self.particles.time += dt_s
 ```
 
 ### Velocity Update
 
 ```python
-def update_velocities(self, dt):
+def update_velocities(self, dt_s):
     for particle in self.particles:
-        particle.velocity += particle.acceleration * dt
+        particle.velocity += particle.acceleration * dt_s
 ```
 
 ### Position Update
 
 ```python
-def update_positions(self, dt):
+def update_positions(self, dt_s):
     for particle in self.particles:
-        particle.position += particle.velocity * dt
+        particle.position += particle.velocity * dt_s
 ```
 
 ## Properties
@@ -75,13 +75,13 @@ def update_positions(self, dt):
 **File**: integrator.py:254-298
 
 ```python
-def evolve(self, t_end, n_steps, save_interval=10):
+def evolve(self, t_end_s, n_steps, save_interval=10):
     """
     Evolve from current time to t_end
 
     Parameters:
     -----------
-    t_end : float
+    t_end_s : float
         Final time [seconds]
     n_steps : int
         Number of timesteps
@@ -91,15 +91,15 @@ def evolve(self, t_end, n_steps, save_interval=10):
     Returns:
     --------
     snapshots : list of dict
-        Saved snapshots (time, positions, velocities, accelerations)
+        Saved snapshots (time_s, positions, velocities, accelerations)
     """
-    dt = (t_end - self.particles.time) / n_steps
+    dt_s = (t_end_s - self.particles.time) / n_steps
 
     snapshots = []
     snapshots.append(self._save_snapshot())  # Initial state
 
     for step in tqdm(range(n_steps)):
-        self.step(dt)
+        self.step(dt_s)
 
         if (step + 1) % save_interval == 0:
             snapshots.append(self._save_snapshot())
@@ -273,7 +273,7 @@ snapshots = integrator.evolve(t_end, n_steps=150, save_interval=10)
 
 # Analyze results
 for snap in snapshots:
-    t_Gyr = snap['time'] / (1e9 * 365.25 * 24 * 3600)
+    t_Gyr = snap['time_s'] / (1e9 * 365.25 * 24 * 3600)
     positions = snap['positions']
     # ... analyze expansion
 ```

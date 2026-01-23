@@ -13,11 +13,11 @@ from scipy.integrate import odeint
 from .constants import CosmologicalConstants, LambdaCDMParameters
 
 
-def friedmann_equation(a, t, H0, Omega_m, Omega_Lambda):
+def friedmann_equation(a, t, H0_si, Omega_m, Omega_Lambda):
     """
     Friedmann equation for cosmic scale factor evolution.
 
-    da/dt = H(a) * a where H(a) = H0 * sqrt(Ω_m/a³ + Ω_Λ)
+    da/dt = H(a) * a where H(a) = H0_si * sqrt(Ω_m/a³ + Ω_Λ)
 
     Parameters:
     -----------
@@ -25,7 +25,7 @@ def friedmann_equation(a, t, H0, Omega_m, Omega_Lambda):
         Scale factor
     t : float
         Time (not used, required by odeint signature)
-    H0 : float
+    H0_si : float
         Hubble constant [1/s]
     Omega_m : float
         Matter density parameter
@@ -39,8 +39,8 @@ def friedmann_equation(a, t, H0, Omega_m, Omega_Lambda):
     """
     if a <= 0:
         return 1e-10
-    H = H0 * np.sqrt(Omega_m / a**3 + Omega_Lambda)
-    return H * a
+    H_si = H0_si * np.sqrt(Omega_m / a**3 + Omega_Lambda)
+    return H_si * a
 
 
 def solve_friedmann_equation(t_start_Gyr, t_end_Gyr, Omega_Lambda=None, n_points=400):
@@ -81,7 +81,7 @@ def solve_friedmann_equation(t_start_Gyr, t_end_Gyr, Omega_Lambda=None, n_points
 
     a_solution = odeint(
         friedmann_equation, a0, t_span,
-        args=(lcdm.H0, lcdm.Omega_m, Omega_Lambda)
+        args=(lcdm.H0_si, lcdm.Omega_m, Omega_Lambda)
     )
     a_solution = a_solution.flatten()
 
@@ -94,8 +94,8 @@ def solve_friedmann_equation(t_start_Gyr, t_end_Gyr, Omega_Lambda=None, n_points
     a = a_solution[mask]
 
     # Calculate Hubble parameter
-    H_raw = lcdm.H0 * np.sqrt(lcdm.Omega_m / a**3 + Omega_Lambda)
-    H_hubble = H_raw * const.Mpc_to_m / 1000  # Convert to km/s/Mpc
+    H_si = lcdm.H0_si * np.sqrt(lcdm.Omega_m / a**3 + Omega_Lambda)
+    H_hubble = H_si * const.Mpc_to_m / 1000  # Convert to km/s/Mpc
 
     return {
         't_Gyr': t_Gyr,
@@ -307,7 +307,7 @@ def check_com_drift_quality(expansion_history, drift_threshold=0.5):
     Detect excessive center-of-mass drift as simulation quality metric.
 
     Large COM drift indicates asymmetric tidal forces from external nodes,
-    suggesting problematic simulation parameters (M_ext too large and/or
+    suggesting problematic simulation parameters (M_ext_kg too large and/or
     S too small). The drift is physically valid but indicates the system
     is being pulled strongly toward external nodes.
 
@@ -346,8 +346,8 @@ def check_com_drift_quality(expansion_history, drift_threshold=0.5):
     com_drift_Gpc = com_drift_m / const.Gpc_to_m
 
     # Get final RMS size (stored in meters, diameter = 2*RMS)
-    final_size_m = expansion_history[-1]['size']
-    final_rms_m = final_size_m / 2.0
+    final_diameter_m = expansion_history[-1]['diameter_m']
+    final_rms_m = final_diameter_m / 2.0
     final_rms_Gpc = final_rms_m / const.Gpc_to_m
 
     # Calculate ratio

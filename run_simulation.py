@@ -153,9 +153,9 @@ def run_nbody_simulations(sim_params, box_size, a_start):
     }
 
 
-def calculate_hubble_parameters(t_ext, a_ext, t_matter, a_matter_sim):
+def calculate_hubble_parameters(t_ext, a_ext, t_matter, a_matter_sim, smooth_sigma=0.0):
     """
-    Calculate Hubble parameters from smoothed scale factors.
+    Calculate Hubble parameters from scale factors.
 
     Parameters:
     -----------
@@ -167,6 +167,9 @@ def calculate_hubble_parameters(t_ext, a_ext, t_matter, a_matter_sim):
         Matter-only time array [Gyr]
     a_matter_sim : ndarray
         Matter-only scale factor array
+    smooth_sigma : float
+        Gaussian smoothing sigma (default: 0.0 = no smoothing).
+        Use 1-2 to reduce numerical noise in derivatives.
 
     Returns:
     --------
@@ -176,8 +179,15 @@ def calculate_hubble_parameters(t_ext, a_ext, t_matter, a_matter_sim):
     """
     const = CosmologicalConstants()
 
+    # Optional smoothing (default: no smoothing per user request)
+    if smooth_sigma > 0:
+        a_ext_smooth = gaussian_filter1d(a_ext, sigma=smooth_sigma)
+        a_matter_sim_smooth = gaussian_filter1d(a_matter_sim, sigma=smooth_sigma)
+    else:
+        a_ext_smooth = a_ext
+        a_matter_sim_smooth = a_matter_sim
+
     # External-Node Hubble parameter
-    a_ext_smooth = gaussian_filter1d(a_ext, sigma=2)
     H_ext = np.gradient(a_ext_smooth, t_ext * 1e9 * 365.25 * 24 * 3600) / a_ext_smooth
     H_ext_hubble = H_ext * const.Mpc_to_m / 1000
 
@@ -194,7 +204,6 @@ def calculate_hubble_parameters(t_ext, a_ext, t_matter, a_matter_sim):
         H_ext_hubble[-1] = (3*a_ext_smooth[-1] - 4*a_ext_smooth[-2] + a_ext_smooth[-3]) / (2*dt_n * a_ext_smooth[-1]) * const.Mpc_to_m / 1000
 
     # Matter-only Hubble parameter
-    a_matter_sim_smooth = gaussian_filter1d(a_matter_sim, sigma=2)
     H_matter_sim = np.gradient(a_matter_sim_smooth, t_matter * 1e9 * 365.25 * 24 * 3600) / a_matter_sim_smooth
     H_matter_sim_hubble = H_matter_sim * const.Mpc_to_m / 1000
 
@@ -301,10 +310,11 @@ def run_simulation(output_dir, sim_params):
         ext_match, matter_match, max_ext_final, max_matter_final
     )
 
-    # Calculate Hubble parameters for plotting
+    # Calculate Hubble parameters for plotting (no smoothing by default per user request)
     hubble = calculate_hubble_parameters(
         nbody['ext']['t'], nbody['ext']['a'],
-        nbody['matter']['t'], nbody['matter']['a']
+        nbody['matter']['t'], nbody['matter']['a'],
+        smooth_sigma=0.0
     )
 
     # Create visualization

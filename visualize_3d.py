@@ -431,21 +431,28 @@ def run_comparison_simulations(output_dir="."):
         # This matches how simulations compute: a_relative = rms_current / rms_initial
         a_relative = a_lcdm / a_start
         size_lcdm_Gpc = a_relative * initial_conditions['box_size_Gpc']
-        radius_m = size_lcdm_Gpc * const.Gpc_to_m  # RMS radius in meters
+
+        size_m = size_lcdm_Gpc * const.Gpc_to_m  # RMS radius in meters
+        # Scale box_size so that the RMS radius matches the target
+        # For a uniform sphere of radius R, RMS radius = R * sqrt(3/5) ≈ 0.775*R
+        # We want RMS = size_lcdm_Gpc, so R_sphere = size_lcdm_Gpc / 0.775
+        # This means we need to use a sphere of radius: size_lcdm_Gpc/2 / sqrt(3/5)
+        radius_max = size_m / 2 / np.sqrt(3/5)
 
         # Generate sphere positions for this snapshot
 
-        sphere_positions = generate_sphere_positions(radius_m/2, n_points=10)
-        for i in range(3, 7):
-            sphere_positions = np.concatenate((sphere_positions, generate_sphere_positions(radius_m/i, n_points=10-i, seed=i)))
+        sphere_positions = generate_sphere_positions(radius_max, n_points=100)
+        #for i in range(50, 90, 10):
+        #    pc = int(i/100)
+        #    sphere_positions = np.concatenate((sphere_positions, generate_sphere_positions(radius_max*pc, n_points=30*pc, seed=i)))
 
         lcdm_history.append({
             'time': t_seconds,
             'time_Gyr': t_Gyr_offset,#t_Gyr_absolute,
             'scale_factor': a_relative,  # Store relative scale factor to match simulations
-            'size': radius_m,  # Size stored as radius to match simulation convention
+            'size': size_m,  # Size stored as radius to match simulation convention
             'com': np.zeros(3),  # ΛCDM doesn't drift
-            'max_particle_distance': radius_m*2*1.5,  # *2 for diameter, *1.5 for "max distance", simulating an expansion out of the mean
+            'max_particle_distance': radius_max,
         })
 
         # Create snapshot with sphere positions
@@ -532,16 +539,11 @@ def create_comparison_multipanel(comparison_data, output_dir="."):
                           c='orange', s=100, marker='*', alpha=0.8, edgecolors='darkorange')
 
             # Universe boundaries centered on COM
-            if model_name == 'lcdm':
-                # ΛCDM: only show theoretical size (no max, particles just follow)
-                draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc,
-                                   alpha=0.1, color=model_data['color'], resolution=20)
-            else:
-                # External-Node and Matter-Only: show both max and RMS
-                draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc,
-                                   alpha=0.05, color='red', resolution=20)
-                draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc,
-                                   alpha=0.1, color=model_data['color'], resolution=20)
+            # External-Node and Matter-Only: show both max and RMS
+            draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc,
+                                alpha=0.05, color='red', resolution=20)
+            draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc,
+                                alpha=0.1, color=model_data['color'], resolution=20)
 
             # Setup axes
             title = f'{model_data["name"]}\nt = {(time_Gyr+START_TIME):.1f} Gyr, R = {current_size:.1f} Gpc'
@@ -624,16 +626,11 @@ def create_comparison_animations(comparison_data, output_dir=".", fps=10):
             if sphere_plot is not None:
                 sphere_plot.remove()
 
-            if model_name == 'lcdm':
-                # ΛCDM: only theoretical size
-                sphere_plot = draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc,
-                                                  alpha=0.1, color=model_data['color'])
-            else:
-                # External-Node and Matter-Only: both max and RMS
-                draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc,
-                                   alpha=0.05, color='red')
-                sphere_plot = draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc,
-                                                  alpha=0.1, color=model_data['color'])
+            # External-Node and Matter-Only: both max and RMS
+            draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc,
+                                alpha=0.05, color='red')
+            sphere_plot = draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc,
+                                                alpha=0.1, color=model_data['color'])
 
             # Update title
             title_text = f'{model_data["name"]} Model: t = {(time_Gyr+START_TIME):.2f} Gyr\n'

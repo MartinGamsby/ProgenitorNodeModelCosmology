@@ -159,7 +159,7 @@ class Integrator:
 
         # Dark energy acceleration: a_Λ = H₀² Ω_Λ R (pointing outward)
         # This is the repulsive "push" from vacuum energy
-        a_Lambda = self.lcdm.H0**2 * self.lcdm.Omega_Lambda * positions
+        a_Lambda = self.lcdm.H0_si**2 * self.lcdm.Omega_Lambda * positions
 
         return a_Lambda
     

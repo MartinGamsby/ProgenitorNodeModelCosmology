@@ -252,7 +252,7 @@ class TestDarkEnergyForces(unittest.TestCase):
         acceleration = integrator.calculate_dark_energy_forces()
 
         # Expected: H0^2 * Omega_Lambda * R
-        expected = self.lcdm.H0**2 * self.lcdm.Omega_Lambda * R
+        expected = self.lcdm.H0_si**2 * self.lcdm.Omega_Lambda * R
 
         actual = np.linalg.norm(acceleration[0])
 

@@ -77,7 +77,7 @@ class TestUnitsValidation(unittest.TestCase):
 
         # Verify it's proportional to position (a_Lambda = H0²*Omega_Lambda*r)
         positions = particles.get_positions()
-        expected_factor = lcdm.H0**2 * lcdm.Omega_Lambda
+        expected_factor = lcdm.H0_si**2 * lcdm.Omega_Lambda
 
         # Check one particle
         r_m = np.linalg.norm(positions[0])
@@ -150,7 +150,7 @@ class TestUnitsValidation(unittest.TestCase):
         # Calculate expected Hubble velocity for a known distance
         from cosmo.constants import LambdaCDMParameters
         lcdm = LambdaCDMParameters()
-        H_start_si = lcdm.H0  # s^-1 (should be ~2.27e-18 s^-1)
+        H_start_si = lcdm.H0_si  # s^-1 (should be ~2.27e-18 s^-1)
         r_m = 1e25  # 10 Gpc in meters
         expected_v_mps = H_start_si * r_m  # m/s
 

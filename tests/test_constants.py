@@ -22,19 +22,19 @@ class TestLambdaCDMParameters(unittest.TestCase):
     def test_hubble_at_present(self):
         """H(a=1) should equal H0"""
         H_present = self.lcdm.H_at_time(1.0)
-        self.assertAlmostEqual(H_present, self.lcdm.H0, places=15)
+        self.assertAlmostEqual(H_present, self.lcdm.H0_si, places=15)
 
     def test_hubble_at_early_time(self):
         """H(a=0.5) should be larger than H0 (matter dominated)"""
         H_early = self.lcdm.H_at_time(0.5)
-        self.assertGreater(H_early, self.lcdm.H0)
+        self.assertGreater(H_early, self.lcdm.H0_si)
 
     def test_hubble_at_future(self):
         """H(a=2) should approach H0*sqrt(Omega_Lambda) for late times"""
         H_future = self.lcdm.H_at_time(2.0)
         # At very late times, H → H0 * sqrt(Omega_Lambda)
         # At a=2, still some matter contribution, so H > H0*sqrt(Omega_Lambda)
-        H_limit = self.lcdm.H0 * np.sqrt(self.lcdm.Omega_Lambda)
+        H_limit = self.lcdm.H0_si * np.sqrt(self.lcdm.Omega_Lambda)
         self.assertGreater(H_future, H_limit * 0.9)
 
 
@@ -62,7 +62,7 @@ class TestExternalNodeParameters(unittest.TestCase):
         lcdm = LambdaCDMParameters()
 
         # Manual calculation
-        expected = self.const.G * params.M_ext_kg / (params.S**3 * lcdm.H0**2)
+        expected = self.const.G * params.M_ext_kg / (params.S**3 * lcdm.H0_si**2)
 
         self.assertAlmostEqual(params.Omega_Lambda_eff, expected, places=5)
 
@@ -86,7 +86,7 @@ class TestExternalNodeParameters(unittest.TestCase):
 
         # Verify: G*M/(S^3*H0^2) = 0.7
         lcdm = LambdaCDMParameters()
-        Omega_check = self.const.G * params.M_ext_kg / (S_required**3 * lcdm.H0**2)
+        Omega_check = self.const.G * params.M_ext_kg / (S_required**3 * lcdm.H0_si**2)
 
         self.assertAlmostEqual(Omega_check, 0.7, places=3)
 

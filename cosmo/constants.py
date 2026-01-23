@@ -32,7 +32,7 @@ class LambdaCDMParameters:
     def __init__(self):
         # Hubble constant
         self.H0_km_s_Mpc = 70.0  # km/s/Mpc
-        self.H0 = self.H0_km_s_Mpc * 1000 / CosmologicalConstants.Mpc_to_m  # s^-1
+        self.H0_si = self.H0_km_s_Mpc * 1000 / CosmologicalConstants.Mpc_to_m  # s^-1
         
         # Density parameters (present day)
         self.Omega_Lambda = 0.7  # Dark energy
@@ -60,7 +60,7 @@ class LambdaCDMParameters:
             Hubble parameter [s^-1]
         """
         import numpy as np
-        return self.H0 * np.sqrt(self.Omega_m / a**3 + self.Omega_Lambda)
+        return self.H0_si * np.sqrt(self.Omega_m / a**3 + self.Omega_Lambda)
 
     def __str__(self):
         return (f"ΛCDM Parameters:\n"

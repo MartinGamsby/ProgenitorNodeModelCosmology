@@ -13,11 +13,11 @@ from scipy.integrate import odeint
 from .constants import CosmologicalConstants, LambdaCDMParameters
 
 
-def friedmann_equation(a, t, H0, Omega_m, Omega_Lambda):
+def friedmann_equation(a, t, H0_si, Omega_m, Omega_Lambda):
     """
     Friedmann equation for cosmic scale factor evolution.
 
-    da/dt = H(a) * a where H(a) = H0 * sqrt(Ω_m/a³ + Ω_Λ)
+    da/dt = H(a) * a where H(a) = H0_si * sqrt(Ω_m/a³ + Ω_Λ)
 
     Parameters:
     -----------
@@ -25,7 +25,7 @@ def friedmann_equation(a, t, H0, Omega_m, Omega_Lambda):
         Scale factor
     t : float
         Time (not used, required by odeint signature)
-    H0 : float
+    H0_si : float
         Hubble constant [1/s]
     Omega_m : float
         Matter density parameter
@@ -39,8 +39,8 @@ def friedmann_equation(a, t, H0, Omega_m, Omega_Lambda):
     """
     if a <= 0:
         return 1e-10
-    H = H0 * np.sqrt(Omega_m / a**3 + Omega_Lambda)
-    return H * a
+    H_si = H0_si * np.sqrt(Omega_m / a**3 + Omega_Lambda)
+    return H_si * a
 
 
 def solve_friedmann_equation(t_start_Gyr, t_end_Gyr, Omega_Lambda=None, n_points=400):
@@ -81,7 +81,7 @@ def solve_friedmann_equation(t_start_Gyr, t_end_Gyr, Omega_Lambda=None, n_points
 
     a_solution = odeint(
         friedmann_equation, a0, t_span,
-        args=(lcdm.H0, lcdm.Omega_m, Omega_Lambda)
+        args=(lcdm.H0_si, lcdm.Omega_m, Omega_Lambda)
     )
     a_solution = a_solution.flatten()
 
@@ -94,8 +94,8 @@ def solve_friedmann_equation(t_start_Gyr, t_end_Gyr, Omega_Lambda=None, n_points
     a = a_solution[mask]
 
     # Calculate Hubble parameter
-    H_raw = lcdm.H0 * np.sqrt(lcdm.Omega_m / a**3 + Omega_Lambda)
-    H_hubble = H_raw * const.Mpc_to_m / 1000  # Convert to km/s/Mpc
+    H_si = lcdm.H0_si * np.sqrt(lcdm.Omega_m / a**3 + Omega_Lambda)
+    H_hubble = H_si * const.Mpc_to_m / 1000  # Convert to km/s/Mpc
 
     return {
         't_Gyr': t_Gyr,

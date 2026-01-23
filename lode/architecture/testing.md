@@ -26,6 +26,25 @@ Tests in `tests/`. Physics-first: validate equations (F=GMm/r², a=H₀²Ω_Λr)
 
 **test_factories.py**: Factory function validation. Tests create_default_external_node_model, create_default_lcdm_model, and create_matter_only_model. Validates parameter passing, unit conversions, and default value handling. Ensures factories produce valid simulation configurations.
 
+**test_early_time_behavior.py**: Physics constraint enforcement. 6 tests validating:
+1. **Initial size exact match**: All models start with identical RMS radius (no random variation from particle placement)
+2. **Early-time matching**: Progenitor models within 1% of ΛCDM in first ~1 Gyr before divergence
+3. **Matter-only never exceeds ΛCDM**: At EVERY timestep, size_matter ≤ size_lcdm (physics constraint: only gravity, no acceleration)
+4. **External-nodes early-time constraint**: External-nodes shouldn't exceed ΛCDM in first ~1 Gyr (tidal forces ∝ r, small at early times)
+5. **No velocity overshoot**: First 5 steps show monotonic deceleration for matter-only
+6. **Leapfrog staggering**: Energy evolution smooth from step 0 (no initialization spike)
+
+These tests enforce critical correctness requirements. Failure indicates numerical artifacts or physics violations.
+
+**test_friedmann_at_times.py**: Time-aligned ΛCDM baseline. 9 tests validating solve_friedmann_at_times:
+- Exact time alignment: output times exactly match input (critical for eliminating interpolation artifacts)
+- Scale factor increases monotonically, Hubble parameter positive
+- Matter-only slower than ΛCDM at late times (dark energy acceleration)
+- Consistency with solve_friedmann_equation at matching times
+- Handles single time point, matches N-body snapshot timing exactly
+
+Ensures ΛCDM baseline computed at exact N-body snapshot times, eliminating "bump" pattern from grid misalignment.
+
 ## Running
 
 ```bash

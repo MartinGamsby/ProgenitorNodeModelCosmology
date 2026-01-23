@@ -70,9 +70,43 @@ def update_positions(self, dt_s):
 
 **Explicit**: No matrix inversion or iteration needed
 
+## Leapfrog Velocity Staggering
+
+**Critical implementation detail**: Leapfrog expects velocities staggered by dt/2 from positions.
+
+**Problem with synchronized initial conditions**:
+1. Initial conditions set (r,v) synchronized at t=0 with v = damping × H × r
+2. Leapfrog expects v at t=-dt/2, r at t=0
+3. Without correction, first half-kick ADDS to already-high Hubble velocities → overshoot
+4. This creates "initial bump" in expansion curves (first ~1 Gyr too fast)
+
+**Solution: Pre-kick before evolution loop** (integrator.py:296):
+
+```python
+# Pre-kick: Initialize leapfrog staggering
+# Initial conditions provide synchronized (r,v) at t=0
+# Leapfrog requires v at t=-dt/2 for proper KDK evolution
+# Apply negative half-kick to align with leapfrog convention
+a_initial = self.calculate_total_forces()
+self.particles.set_accelerations(a_initial)
+self.particles.update_velocities(-dt_s / 2)
+```
+
+**Why it works**:
+- Initial conditions: v(t=0) from LCDM Hubble flow
+- Pre-kick: v(t=-dt/2) = v(0) - a(0)×dt/2
+- First step kick: v(t=0) = v(-dt/2) + a(0)×dt/2 ← recovers original v
+- Proper staggering maintained throughout evolution
+
+**Evidence of fix**:
+- Matter-only NEVER exceeds ΛCDM at any timestep (physics constraint satisfied)
+- Early-time (<1 Gyr) expansion matches ΛCDM within 1% before divergence
+- Relative expansion starts exactly at 1.0 (no "bump" pattern)
+- See tests/test_early_time_behavior.py for enforcement
+
 ## Full Evolution
 
-**File**: integrator.py:254-298
+**File**: integrator.py:254-308
 
 ```python
 def evolve(self, t_end_s, n_steps, save_interval=10):
@@ -94,6 +128,11 @@ def evolve(self, t_end_s, n_steps, save_interval=10):
         Saved snapshots (time_s, positions, velocities, accelerations)
     """
     dt_s = (t_end_s - self.particles.time) / n_steps
+
+    # Pre-kick: Initialize leapfrog velocity staggering (CRITICAL!)
+    a_initial = self.calculate_total_forces()
+    self.particles.set_accelerations(a_initial)
+    self.particles.update_velocities(-dt_s / 2)
 
     snapshots = []
     snapshots.append(self._save_snapshot())  # Initial state

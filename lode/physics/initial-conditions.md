@@ -8,9 +8,28 @@ External-Node and Matter-only models lack ongoing Hubble drag (that's a dark ene
 
 ## Position Initialization
 
-**File**: particles.py:106-111
+**File**: particles.py:106-156
 
 Random uniform within sphere of radius `box_size/2`, centered at origin. Uses rejection sampling from cubic volume.
+
+**CRITICAL: RMS Radius Normalization** (particles.py:134-156)
+
+After centering, positions are scaled to ensure **exact** target RMS radius:
+
+```python
+# After centering positions
+current_rms = np.sqrt(np.mean(np.sum(centered_positions**2, axis=1)))
+target_rms = self.box_size_m / 2  # RMS should be half box size
+scale_factor = target_rms / current_rms
+centered_positions *= scale_factor
+```
+
+**Why essential**: Random rejection sampling creates ~0.1-1% RMS variation even with same seed. Without normalization:
+- Matter-only starts 1% larger than ΛCDM → appears to "exceed ΛCDM" initially
+- This is **initialization artifact**, not physics
+- Violates "never exceed ΛCDM" physics constraint for matter-only
+
+**Result**: All models (ΛCDM, matter-only, external-nodes) start with **identical** initial size. Any deviation is real physics, not random initialization.
 
 ## Velocity Initialization
 
@@ -62,6 +81,33 @@ box_size_initial = 14.5 Gpc × (a_start / a_today)
 ```
 
 Example: t_start=10.8 Gyr → a≈0.839 → box_size≈12.2 Gpc
+
+## ΛCDM Baseline Time Alignment
+
+**File**: run_simulation.py:34-100, analysis.py:45-100
+
+**Problem**: Original approach used solve_friedmann_equation with 400-point grid that didn't align with N-body snapshot times, causing:
+- t_lcdm[0] ≈ 0.0028 instead of exactly 0.0
+- a_lcdm[0] differed from a_start by ~0.3%
+- Created "bump" pattern in relative expansion: 0.997, 0.9996, 0.9996...
+
+**Solution**: solve_friedmann_at_times evaluates at **exact** N-body snapshot times:
+
+```python
+# Compute time array matching N-body snapshots
+snapshot_steps = np.arange(0, n_steps + 1, save_interval)
+t_relative_Gyr = (snapshot_steps / n_steps) * t_duration_Gyr
+t_absolute_Gyr = t_start_Gyr + t_relative_Gyr
+
+# Solve ΛCDM at exact N-body snapshot times
+lcdm_solution = solve_friedmann_at_times(t_absolute_Gyr)
+```
+
+**Result**:
+- t[0] = 0.0 exactly
+- a[0] = a_start exactly
+- Relative expansion starts at exactly 1.0
+- No interpolation artifacts
 
 ## Mass Initialization
 

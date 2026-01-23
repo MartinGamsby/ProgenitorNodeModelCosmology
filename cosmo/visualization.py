@@ -314,6 +314,7 @@ def create_comparison_plot(
     size_ratio_ext = size_ext / size_lcdm_interp
     size_matter_interp = np.interp(t_matter, t_lcdm, size_lcdm)
     size_ratio_matter = size_matter_sim / size_matter_interp
+
     ax3.plot(t_ext, size_ratio_ext, 'r--', label='External-Node', linewidth=2)
     ax3.plot(t_matter, size_ratio_matter, 'g:', label='Matter-only', linewidth=2)
     ax3.axhline(1.0, color='black', linestyle='--', label='LCDM')

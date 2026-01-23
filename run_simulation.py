@@ -14,25 +14,24 @@ import matplotlib.pyplot as plt
 from cosmo.constants import CosmologicalConstants, LambdaCDMParameters, SimulationParameters
 from cosmo.simulation import CosmologicalSimulation
 from cosmo.analysis import (
-    solve_friedmann_equation,
+    solve_friedmann_at_times,
     calculate_initial_conditions,
-    normalize_to_initial_size,
     compare_expansion_histories,
     detect_runaway_particles,
-    calculate_today_marker,
-    extract_expansion_history
+    calculate_today_marker
 )
 from cosmo.visualization import (
     generate_output_filename,
-    format_simulation_title,
     create_comparison_plot
 )
 from cosmo.factories import run_and_extract_results
 
 
-def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start):
+def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start, save_interval=10):
     """
-    Solve analytic ΛCDM and matter-only evolution.
+    Solve analytic ΛCDM and matter-only evolution at N-body simulation times.
+
+    Uses exact time alignment with N-body snapshots to eliminate interpolation artifacts.
 
     Parameters:
     -----------
@@ -42,6 +41,8 @@ def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start):
         Initial box size [Gpc]
     a_start : float
         Initial scale factor (for consistent normalization)
+    save_interval : int
+        Save interval used in N-body simulation (default: 10)
 
     Returns:
     --------
@@ -51,44 +52,48 @@ def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start):
     """
     lcdm_params = LambdaCDMParameters()
 
-    # Solve ΛCDM evolution
-    lcdm_solution = solve_friedmann_equation(
-        sim_params.t_start_Gyr,
-        sim_params.t_end_Gyr,
-        Omega_Lambda=lcdm_params.Omega_Lambda
-    )
-    t_lcdm = lcdm_solution['t_Gyr'] - sim_params.t_start_Gyr
+    # Compute time array matching N-body snapshots
+    # N-body saves initial snapshot + every save_interval steps
+    n_snapshots = (sim_params.n_steps // save_interval) + 1  # +1 for initial snapshot
+
+    # Time points: 0, dt*save_interval, 2*dt*save_interval, ..., t_duration
+    # This matches exactly what the N-body simulation records
+    snapshot_steps = np.arange(0, sim_params.n_steps + 1, save_interval)
+    t_relative_Gyr = (snapshot_steps / sim_params.n_steps) * sim_params.t_duration_Gyr
+    t_absolute_Gyr = sim_params.t_start_Gyr + t_relative_Gyr
+
+    # Solve ΛCDM at exact N-body snapshot times
+    lcdm_solution = solve_friedmann_at_times(t_absolute_Gyr, Omega_Lambda=lcdm_params.Omega_Lambda)
     a_lcdm = lcdm_solution['a']
-    # Normalize using the EXACT a_start for consistency with N-body sims
-    size_lcdm = lcdm_initial_size * (a_lcdm / a_start)
     H_lcdm_hubble = lcdm_solution['H_hubble']
 
-    print(f"LCDM: {lcdm_initial_size:.3f} -> {size_lcdm[-1]:.2f} Gpc")
-
-    # Solve matter-only evolution
-    matter_solution = solve_friedmann_equation(
-        sim_params.t_start_Gyr,
-        sim_params.t_end_Gyr,
-        Omega_Lambda=0.0
-    )
-    a_matter = matter_solution['a']
     # Normalize using the EXACT a_start for consistency with N-body sims
-    size_matter = lcdm_initial_size * (a_matter / a_start)
+    # NOTE: lcdm_initial_size = box_size (diameter), matching N-body convention
+    diameter_lcdm_Gpc = lcdm_initial_size * (a_lcdm / a_start)
+
+    print(f"LCDM: {lcdm_initial_size:.3f} -> {diameter_lcdm_Gpc[-1]:.2f} Gpc")
+
+    # Solve matter-only at same time points
+    matter_solution = solve_friedmann_at_times(t_absolute_Gyr, Omega_Lambda=0.0)
+    a_matter = matter_solution['a']
     H_matter_hubble = matter_solution['H_hubble']
 
-    print(f"Matter-only: {lcdm_initial_size:.3f} -> {size_matter[-1]:.2f} Gpc")
+    # Normalize using the EXACT a_start
+    diameter_matter_Gpc = lcdm_initial_size * (a_matter / a_start)
+
+    print(f"Matter-only: {lcdm_initial_size:.3f} -> {diameter_matter_Gpc[-1]:.2f} Gpc")
 
     return {
         'lcdm': {
-            't': t_lcdm,
+            't': t_relative_Gyr,  # Time relative to simulation start (starts at exactly 0.0)
             'a': a_lcdm,
-            'diameter_m': size_lcdm,
+            'diameter_m': diameter_lcdm_Gpc,  # Diameter in Gpc (matches N-body convention)
             'H_hubble': H_lcdm_hubble
         },
         'matter': {
-            't': t_lcdm,  # Use same time array for consistency
+            't': t_relative_Gyr,  # Same time array (exact alignment with N-body)
             'a': a_matter,
-            'diameter_m': size_matter,
+            'diameter_m': diameter_matter_Gpc,  # Diameter in Gpc (matches N-body convention)
             'H_hubble': H_matter_hubble
         }
     }
@@ -144,9 +149,9 @@ def run_nbody_simulations(sim_params, box_size, a_start):
     }
 
 
-def calculate_hubble_parameters(t_ext, a_ext, t_matter, a_matter_sim):
+def calculate_hubble_parameters(t_ext, a_ext, t_matter, a_matter_sim, smooth_sigma=0.0):
     """
-    Calculate Hubble parameters from smoothed scale factors.
+    Calculate Hubble parameters from scale factors.
 
     Parameters:
     -----------
@@ -158,6 +163,9 @@ def calculate_hubble_parameters(t_ext, a_ext, t_matter, a_matter_sim):
         Matter-only time array [Gyr]
     a_matter_sim : ndarray
         Matter-only scale factor array
+    smooth_sigma : float
+        Gaussian smoothing sigma (default: 0.0 = no smoothing).
+        Use 1-2 to reduce numerical noise in derivatives.
 
     Returns:
     --------
@@ -167,15 +175,41 @@ def calculate_hubble_parameters(t_ext, a_ext, t_matter, a_matter_sim):
     """
     const = CosmologicalConstants()
 
+    # Optional smoothing (default: no smoothing per user request)
+    if smooth_sigma > 0:
+        a_ext_smooth = gaussian_filter1d(a_ext, sigma=smooth_sigma)
+        a_matter_sim_smooth = gaussian_filter1d(a_matter_sim, sigma=smooth_sigma)
+    else:
+        a_ext_smooth = a_ext
+        a_matter_sim_smooth = a_matter_sim
+
     # External-Node Hubble parameter
-    a_ext_smooth = gaussian_filter1d(a_ext, sigma=2)
     H_ext = np.gradient(a_ext_smooth, t_ext * 1e9 * 365.25 * 24 * 3600) / a_ext_smooth
     H_ext_hubble = H_ext * const.Mpc_to_m / 1000
 
+    # Fix boundary points: np.gradient uses forward/backward differences at edges
+    # which are less accurate. Replace first and last points with NaN to exclude them
+    # from plots, or use second-order accurate formulas
+    if len(H_ext_hubble) > 2:
+        # Second-order forward difference for first point: f'(0) ≈ (-3f(0) + 4f(1) - f(2)) / (2h)
+        dt_0 = (t_ext[1] - t_ext[0]) * 1e9 * 365.25 * 24 * 3600
+        H_ext_hubble[0] = (-3*a_ext_smooth[0] + 4*a_ext_smooth[1] - a_ext_smooth[2]) / (2*dt_0 * a_ext_smooth[0]) * const.Mpc_to_m / 1000
+
+        # Second-order backward difference for last point: f'(n) ≈ (3f(n) - 4f(n-1) + f(n-2)) / (2h)
+        dt_n = (t_ext[-1] - t_ext[-2]) * 1e9 * 365.25 * 24 * 3600
+        H_ext_hubble[-1] = (3*a_ext_smooth[-1] - 4*a_ext_smooth[-2] + a_ext_smooth[-3]) / (2*dt_n * a_ext_smooth[-1]) * const.Mpc_to_m / 1000
+
     # Matter-only Hubble parameter
-    a_matter_sim_smooth = gaussian_filter1d(a_matter_sim, sigma=2)
     H_matter_sim = np.gradient(a_matter_sim_smooth, t_matter * 1e9 * 365.25 * 24 * 3600) / a_matter_sim_smooth
     H_matter_sim_hubble = H_matter_sim * const.Mpc_to_m / 1000
+
+    # Fix boundary points for matter-only as well
+    if len(H_matter_sim_hubble) > 2:
+        dt_0 = (t_matter[1] - t_matter[0]) * 1e9 * 365.25 * 24 * 3600
+        H_matter_sim_hubble[0] = (-3*a_matter_sim_smooth[0] + 4*a_matter_sim_smooth[1] - a_matter_sim_smooth[2]) / (2*dt_0 * a_matter_sim_smooth[0]) * const.Mpc_to_m / 1000
+
+        dt_n = (t_matter[-1] - t_matter[-2]) * 1e9 * 365.25 * 24 * 3600
+        H_matter_sim_hubble[-1] = (3*a_matter_sim_smooth[-1] - 4*a_matter_sim_smooth[-2] + a_matter_sim_smooth[-3]) / (2*dt_n * a_matter_sim_smooth[-1]) * const.Mpc_to_m / 1000
 
     return {
         'H_ext_hubble': H_ext_hubble,
@@ -272,10 +306,11 @@ def run_simulation(output_dir, sim_params):
         ext_match, matter_match, max_ext_final, max_matter_final
     )
 
-    # Calculate Hubble parameters for plotting
+    # Calculate Hubble parameters for plotting (no smoothing by default per user request)
     hubble = calculate_hubble_parameters(
         nbody['ext']['t'], nbody['ext']['a'],
-        nbody['matter']['t'], nbody['matter']['a']
+        nbody['matter']['t'], nbody['matter']['a'],
+        smooth_sigma=0.0
     )
 
     # Create visualization

@@ -123,9 +123,40 @@ Example: For a 20 Gyr simulation, use --n-steps 500 or more
 
 This prevents users from accidentally running unstable simulations and getting invalid results.
 
+## Softening Length for Small-N Systems
+
+**Problem**: With small particle counts (N < 100), particles have larger individual masses, leading to stronger gravitational forces and higher risk of close encounters that cause numerical instability.
+
+**Solution**: Adaptive softening boost applied for N < 100 systems.
+
+**Implementation** (cosmo/integrator.py:48-68):
+
+```python
+# Base adaptive softening: ε ∝ m^(1/3)
+self.softening = self.softening_per_Mobs * (mass_ratio ** (1.0/3.0))
+
+# Additional boost for small-N systems
+if len(self.particles) < 100:
+    boost_factor = sqrt(100 / N)  # N=50 → 1.41x, N=25 → 2x, N=10 → 3.16x
+    boost_factor = max(1.0, min(5.0, boost_factor))  # Clamp to [1.0, 5.0]
+    self.softening *= boost_factor
+```
+
+**Rationale**:
+- Smaller N → larger mass per particle → stronger forces
+- Close encounters more likely to violate timestep stability
+- Larger softening prevents spurious accelerations from near-collisions
+
+**Example**: N=50 particles in matter-only simulation
+- Without boost: Runaway particles at step 400 (max/RMS ratio = 3.0)
+- With 1.41x boost: Stable evolution (max/RMS ratio < 2.0)
+
+**Trade-off**: Larger softening slightly suppresses gravitational forces, reducing accuracy of small-scale structure. But essential for numerical stability when N < 100.
+
 ## Related Files
 
+- cosmo/integrator.py:48-68 - Adaptive softening with small-N boost
 - cosmo/integrator.py:230-274 - Leapfrog evolve() function
-- tests/test_model_comparison.py - Uses n=20 steps (short test duration, acceptable)
+- tests/test_model_comparison.py:466-531 - test_no_runaway_particles validates stability
 - run_simulation.py - User specifies --n-steps parameter
 - lode/architecture/testing.md - Documents this fix

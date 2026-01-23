@@ -21,13 +21,15 @@ Tests in `tests/`. Physics-first: validate equations (F=GMm/r², a=H₀²Ω_Λr)
 ## Running
 
 ```bash
-pytest tests/ -v  # All 79 tests (81 subtests)
+pytest tests/ -v  # All 88 tests
 pytest tests/test_constants.py -v  # 21 tests
 pytest tests/test_forces.py -v  # 12 tests
-pytest tests/test_model_comparison.py -v  # 4 tests (7 subtests)
+pytest tests/test_model_comparison.py -v  # 7 tests
 pytest tests/test_analysis.py -v  # 22 tests
 pytest tests/test_visualization.py -v  # 16 tests
-pytest tests/test_simulation_baseline.py -v  # 8 tests
+pytest tests/test_simulation_baseline.py -v  # 11 tests
+pytest tests/test_reproducibility.py -v  # 6 tests
+pytest tests/test_simulation_quality.py -v  # 5 tests
 ```
 
 ## Key Fixes Applied
@@ -61,6 +63,17 @@ Example failure case (20 Gyr simulation):
 - 500 steps (dt=0.040 Gyr): Matter-only correctly gives 27.29 Gpc (~same as LCDM) with stable energy
 
 **Minimum timestep requirement**: For matter-only simulations, need ~250-500 steps per crossing time (t_cross ≈ box_size / v_rms). Too few steps cause leapfrog to inject spurious energy when accelerations change over timestep. Rule of thumb: dt < 0.05 Gyr for typical cosmological simulations.
+
+**5. Softening mass scaling bug** (integrator.py:57): Changed `self.softening = base * mass_ratio` to `self.softening = base * (mass_ratio ** (1/3))`. The comment said "ε ∝ m^(1/3)" but code used linear scaling. With 50 particles (mass_ratio=0.02), linear gave 0.65 Mpc softening (too small), while m^(1/3) gives 8.8 Mpc (appropriate).
+
+**6. Small-N softening boost** (integrator.py:59-68): Added adaptive boost for N < 100: `boost = sqrt(100/N)`. Small particle counts have stronger forces per particle and higher risk of close encounters. Boost prevents numerical instability. Example: N=50 gets 1.41x boost, N=10 gets 3.16x boost.
+
+**7. compare_expansion_histories array return** (analysis.py:183-213): Added `return_array=False` parameter. When True and inputs are arrays, returns per-timestep match array instead of averaged scalar. Backward compatible (default False preserves old behavior). Enables per-timestep analysis in tests.
+
+**8. External nodes test physics correction** (test_model_comparison.py:366-471): Renamed `test_external_nodes_early_time_behavior` to `test_external_nodes_accelerate_expansion`. Original test incorrectly expected tidal forces to decelerate expansion at early times. Tidal formula a=GM_ext×r/S³ is proportional to r, so tidal forces ALWAYS accelerate expansion (like dark energy), not decelerate. Updated test to verify:
+- Early time: ratio ≥ 1.0 (tidal acceleration present but small)
+- Late time: ratio > 1.01 (tidal acceleration dominates)
+- Ratio increases with time (acceleration grows with r)
 
 ## Missing
 

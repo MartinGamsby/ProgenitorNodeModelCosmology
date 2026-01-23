@@ -109,7 +109,7 @@ graph TD
 - `solve_friedmann_equation(t_start, t_end, Omega_Lambda, n_points)`: Solve ΛCDM/matter-only evolution
 - `calculate_initial_conditions(t_start, reference_size)`: Compute a_start, box_size from t_start
 - `normalize_to_initial_size(a_array, initial_size)`: Convert scale factors to physical sizes
-- `compare_expansion_histories(size_ext, size_lcdm)`: Calculate match percentage
+- `compare_expansion_histories(size_ext, size_lcdm, return_array=False)`: Calculate match percentage. Returns array if return_array=True and inputs are arrays; otherwise returns scalar averaged match.
 - `detect_runaway_particles(max_distance, rms_size, threshold)`: Detect numerical instability
 - `calculate_today_marker(t_start, t_duration, today)`: Position of "today" in simulation time
 

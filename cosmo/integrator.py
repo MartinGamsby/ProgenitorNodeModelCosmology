@@ -52,13 +52,24 @@ class Integrator:
         particle_mass = self.particles.particles[0].mass  # All particles have same mass
         mass_ratio = particle_mass / m_ref
 
-        # Scale softening
+        # Scale softening: ε ∝ m^(1/3)
         # More massive particles (fewer particles) → larger softening
-        self.softening = self.softening_per_Mobs * mass_ratio
+        self.softening = self.softening_per_Mobs * (mass_ratio ** (1.0/3.0))
+
+        # Additional safety factor for small N systems
+        # Small N → higher probability of close encounters → need larger softening
+        # Use a strong scaling: boost_factor = (100/N)^0.5 for N < 100
+        # This gives: N=50 → 1.41x, N=25 → 2x, N=10 → 3.16x
+        if len(self.particles) < 100:
+            n_particles = len(self.particles)
+            boost_factor = np.sqrt(100.0 / n_particles)
+            boost_factor = max(1.0, min(5.0, boost_factor))  # Clamp to [1.0, 5.0]
+            self.softening *= boost_factor
+            print(f"[Integrator] Small-N boost applied: {boost_factor:.2f}x (N={n_particles})")
 
         print(f"[Integrator] Base softening: {self.softening_per_Mobs/self.const.Mpc_to_m:.2f} Mpc")
         print(f"[Integrator] Particle mass: {particle_mass:.2e} kg")
-        print(f"[Integrator] Adaptive softening: {self.softening/self.const.Mpc_to_m:.2f} Mpc (mass ratio: {mass_ratio:.2f})")
+        print(f"[Integrator] Final softening: {self.softening/self.const.Mpc_to_m:.2f} Mpc (mass ratio: {mass_ratio:.2f})")
         
         # ΛCDM parameters for dark energy
         self.lcdm = LambdaCDMParameters()

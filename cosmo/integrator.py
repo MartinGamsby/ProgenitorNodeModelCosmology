@@ -18,7 +18,7 @@ from .particles import ParticleSystem, HMEAGrid
 class Integrator:
     """Base class for N-body integration"""
     
-    def __init__(self, particle_system, hmea_grid=None, softening_per_Mobs_m=1e24, use_external_nodes=True, use_dark_energy=False):
+    def __init__(self, particle_system: ParticleSystem, hmea_grid: HMEAGrid=None, softening_per_Mobs_m=1e24, use_external_nodes=True, use_dark_energy=False):
         """
         Initialize integrator
 

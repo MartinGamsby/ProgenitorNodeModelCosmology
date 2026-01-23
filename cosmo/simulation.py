@@ -7,8 +7,7 @@ import numpy as np
 import pickle
 import os
 
-from .constants import (CosmologicalConstants, LambdaCDMParameters, 
-                             ExternalNodeParameters, SimulationParameters)
+from .constants import CosmologicalConstants, SimulationParameters
 from .particles import ParticleSystem, HMEAGrid
 from .integrator import LeapfrogIntegrator
 
@@ -16,7 +15,7 @@ from .integrator import LeapfrogIntegrator
 class CosmologicalSimulation:
     """Main class for running cosmological simulations"""
     
-    def __init__(self, sim_params, box_size_Gpc, a_start,
+    def __init__(self, sim_params: SimulationParameters, box_size_Gpc, a_start,
                  use_external_nodes=True, use_dark_energy=None):
         """
         Initialize simulation
@@ -137,7 +136,7 @@ class CosmologicalSimulation:
             sys.exit(1)
 
         # Warning if close to threshold
-        elif dt_Gyr >= dt_recommended:
+        elif dt_Gyr > dt_recommended:
             print("\n" + "!"*70)
             print("WARNING: Timestep is close to stability threshold")
             print("!"*70)

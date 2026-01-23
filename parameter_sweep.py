@@ -13,7 +13,6 @@ from cosmo.simulation import CosmologicalSimulation
 from cosmo.analysis import (
     calculate_initial_conditions,
     compare_expansion_histories,
-    solve_friedmann_equation,
     solve_friedmann_at_times
 )
 from cosmo.factories import run_and_extract_results
@@ -31,9 +30,9 @@ SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
 QUICK_SEARCH = False
 T_START_GYR = 3.8
 T_DURATION_GYR = 10.0
-DAMPING_FACTOR = 0.92
-PARTICLE_COUNT = 20 if QUICK_SEARCH else 140
-N_STEPS = 500 if QUICK_SEARCH else 550
+DAMPING_FACTOR = 0.975
+PARTICLE_COUNT = 20 if QUICK_SEARCH else 200
+N_STEPS = 200 if QUICK_SEARCH else 250
 SAVE_INTERVAL = 10  # Must match value used in sim() function
 
 
@@ -53,7 +52,7 @@ if QUICK_SEARCH:
     SMin_gpc = 12   # Min box size to test
     SMax_gpc = 120   # Max box size to test
     #Mlist = [i for i in range(1000, 0, -100)]
-    Mlist = [10000, 1000, 500, 250, 125, 60, 30]
+    Mlist = [10000, 1000, 100, 10]
 else:
     SMin_gpc = 10   # Min box size to test
     SMax_gpc = 100   # Max box size to test
@@ -137,7 +136,7 @@ def sim(M_factor, S_gpc, desc, seed):
     match_curve_pct = compare_expansion_histories(size_ext_curve, size_lcdm_curve)
     match_end_pct = compare_expansion_histories(size_ext_final, size_lcdm_final)
     match_max_pct = compare_expansion_histories(radius_max_final, radius_lcdm_max)
-    match_avg_pct = (match_curve_pct + match_end_pct + match_max_pct)/3
+    match_avg_pct = (match_curve_pct*2 + match_end_pct*2 + match_max_pct)/5
     diff_pct = 100 - match_avg_pct
 
     print(f"   External-Node final a(t) = {a_ext:.4f}, size = {size_ext_final:.2f} Gpc")

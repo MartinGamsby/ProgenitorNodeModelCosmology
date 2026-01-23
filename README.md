@@ -64,6 +64,43 @@ a_Λ = H₀² Ω_Λ × R
 - Initial size: R₀ = 11.59 Gpc (same as ΛCDM)
 - Effective Ω_Λ: 2.555
 
+## Numerical Implementation
+
+### Integration Method
+
+**Leapfrog (Kick-Drift-Kick)**: Symplectic second-order integrator with pre-kick initialization to properly stagger velocities. Eliminates "initial bump" artifact that would otherwise cause early-time expansion to overshoot.
+
+### Initial Conditions
+
+**Position normalization**: After random particle placement, positions are scaled to ensure exact target RMS radius. This eliminates 0.1-1% variation from random sampling that would cause initialization artifacts in model comparisons.
+
+**Velocity initialization**: Damped Hubble flow with center-of-mass removal:
+```
+v = damping × H(t_start) × r - v_COM
+```
+
+**Pre-kick**: Apply negative half-kick before evolution to align with leapfrog staggering convention:
+```
+v(t=-dt/2) = v(t=0) - a(t=0) × dt/2
+```
+
+### ΛCDM Baseline Alignment
+
+ΛCDM baseline computed at **exact** N-body snapshot times using `solve_friedmann_at_times()`. This ensures:
+- t[0] = 0.0 exactly (no grid misalignment)
+- a[0] = a_start exactly (no interpolation error)
+- Relative expansion starts at 1.0 (no "bump" pattern)
+
+### Validation
+
+Unit tests enforce critical physics constraints:
+- Matter-only **never** exceeds ΛCDM expansion (no acceleration source)
+- Early-time (<1 Gyr) behavior matches ΛCDM within 1% before divergence
+- Smooth evolution from t=0 (no initialization artifacts)
+- All models start with identical initial size (fair comparison)
+
+See `tests/test_early_time_behavior.py` for enforcement.
+
 ## Results
 
 ### Quantitative Match

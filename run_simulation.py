@@ -14,18 +14,14 @@ import matplotlib.pyplot as plt
 from cosmo.constants import CosmologicalConstants, LambdaCDMParameters, SimulationParameters
 from cosmo.simulation import CosmologicalSimulation
 from cosmo.analysis import (
-    solve_friedmann_equation,
     solve_friedmann_at_times,
     calculate_initial_conditions,
-    normalize_to_initial_size,
     compare_expansion_histories,
     detect_runaway_particles,
-    calculate_today_marker,
-    extract_expansion_history
+    calculate_today_marker
 )
 from cosmo.visualization import (
     generate_output_filename,
-    format_simulation_title,
     create_comparison_plot
 )
 from cosmo.factories import run_and_extract_results

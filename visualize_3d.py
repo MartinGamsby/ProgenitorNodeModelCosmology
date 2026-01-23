@@ -454,7 +454,7 @@ def run_comparison_simulations(output_dir="."):
             'time': t_seconds,
             'time_Gyr': t_Gyr_offset,#t_Gyr_absolute,
             'scale_factor': a_relative,  # Store relative scale factor to match simulations
-            'size': size_m,  # Size stored as radius to match simulation convention
+            'diameter_m': size_m,  # Size stored as radius to match simulation convention
             'com': np.zeros(3),  # ΛCDM doesn't drift
             'max_particle_distance': radius_max,
         })
@@ -493,7 +493,7 @@ def run_comparison_simulations(output_dir="."):
             'linestyle': '-'
         },
         'params': {
-            'M_ext': sim_params.M_value * const.M_observable,
+            'M_ext': sim_params.M_value * const.M_observable_kg,
             'S': sim_params.S_value,
             'initial_size': initial_conditions['box_size_Gpc']
         }
@@ -560,7 +560,7 @@ def create_comparison_multipanel(comparison_data, output_dir="."):
             ax.set_box_aspect([1,1,1])
 
     fig.suptitle(f'3-Way Comparison: External-Node vs Matter-Only vs ΛCDM\n'
-                f'M={comparison_data["params"]["M_ext"]/const.M_observable:.0f}×M_obs, '
+                f'M={comparison_data["params"]["M_ext"]/const.M_observable_kg:.0f}×M_obs, '
                 f'S={S_Gpc:.0f} Gpc',
                 fontsize=14, fontweight='bold')
     plt.tight_layout()

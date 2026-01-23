@@ -3,6 +3,7 @@ Main Simulation Runner
 Compares ΛCDM cosmology with External-Node Model
 """
 
+from typing import Optional, List, Dict
 import numpy as np
 import pickle
 import os
@@ -15,24 +16,12 @@ from .integrator import LeapfrogIntegrator
 class CosmologicalSimulation:
     """Main class for running cosmological simulations"""
     
-    def __init__(self, sim_params: SimulationParameters, box_size_Gpc, a_start,
-                 use_external_nodes=True, use_dark_energy=None):
+    def __init__(self, sim_params: SimulationParameters, box_size_Gpc: float, a_start: float,
+                 use_external_nodes: bool = True, use_dark_energy: Optional[bool] = None):
         """
-        Initialize simulation
+        Initialize simulation.
 
-        Parameters:
-        -----------
-        sim_params : SimulationParameters
-            Simulation parameters (n_particles, seed, damping_factor, external_params, etc.)
-        box_size_Gpc : float
-            Size of simulation box [Gpc]
-        a_start : float
-            Scale factor at start time (a=1 at present day)
-        use_external_nodes : bool
-            True = External-Node Model, False = matter-only
-        use_dark_energy : bool, optional
-            Whether to include dark energy acceleration.
-            If None, defaults to (not use_external_nodes)
+        If use_dark_energy is None, defaults to (not use_external_nodes).
         """
         self.const = CosmologicalConstants()
         self.use_external_nodes = use_external_nodes
@@ -82,28 +71,17 @@ class CosmologicalSimulation:
         self.snapshots = []
         self.expansion_history = []
 
-    def _validate_timestep(self, t_duration_Gyr, n_steps):
+    def _validate_timestep(self, t_duration_Gyr: float, n_steps: int) -> None:
         """
-        Validate that timestep is small enough for numerical stability
+        Validate timestep for leapfrog numerical stability.
 
-        The leapfrog integrator requires sufficient timesteps to prevent
-        spurious energy injection. Based on empirical testing:
+        Empirical testing shows dt < 0.05 Gyr required for stability:
         - 150 steps over 20 Gyr (dt=0.133 Gyr): UNSTABLE (1600% energy drift)
         - 500 steps over 20 Gyr (dt=0.040 Gyr): STABLE
 
-        Rule: dt < 0.05 Gyr for numerical stability
-        Recommended: dt < 0.04 Gyr for safety margin
+        Recommended: dt < 0.04 Gyr for safety margin.
 
-        Parameters:
-        -----------
-        t_duration_Gyr : float
-            Simulation duration in Gyr
-        n_steps : int
-            Number of timesteps
-
-        Raises:
-        -------
-        SystemExit : If timestep too large for stability
+        Raises SystemExit if timestep too large.
         """
         dt_Gyr = t_duration_Gyr / n_steps
 
@@ -145,24 +123,8 @@ class CosmologicalSimulation:
             print(f"For better stability, consider using {n_steps_recommended} steps or more")
             print("!"*70 + "\n")
 
-    def run(self, t_end_Gyr=13.8, n_steps=1000, save_interval=10):
-        """
-        Run the simulation
-
-        Parameters:
-        -----------
-        t_end_Gyr : float
-            End time in Gigayears
-        n_steps : int
-            Number of timesteps
-        save_interval : int
-            Save snapshot every N steps
-
-        Returns:
-        --------
-        snapshots : list
-            Simulation snapshots
-        """
+    def run(self, t_end_Gyr: float = 13.8, n_steps: int = 1000, save_interval: int = 10) -> List[Dict]:
+        """Run the simulation and return snapshots."""
         # Set random seed for reproducibility
         np.random.seed(self.seed)
         # Validate timestep before running
@@ -188,8 +150,8 @@ class CosmologicalSimulation:
         print("\nSimulation complete!")
         return self.snapshots
     
-    def _calculate_expansion_history(self):
-        """Calculate the scale factor a(t) from snapshots"""
+    def _calculate_expansion_history(self) -> None:
+        """Calculate the scale factor a(t) from snapshots."""
         self.expansion_history = []
 
         rms_initial, max_initial, _ = self.calculate_system_size(self.snapshots[0])
@@ -222,8 +184,8 @@ class CosmologicalSimulation:
         positions = snapshot['positions']
         return ParticleSystem.calculate_system_size(positions)
     
-    def save(self, filename):
-        """Save simulation results"""
+    def save(self, filename: str) -> None:
+        """Save simulation results."""
         data = {
             'snapshots': self.snapshots,
             'expansion_history': self.expansion_history,
@@ -239,8 +201,8 @@ class CosmologicalSimulation:
         print(f"\nSaved simulation to {filename}")
     
     @staticmethod
-    def load(filename):
-        """Load simulation results"""
+    def load(filename: str) -> Dict:
+        """Load simulation results."""
         with open(filename, 'rb') as f:
             data = pickle.load(f)
         return data

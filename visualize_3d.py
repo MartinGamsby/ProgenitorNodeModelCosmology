@@ -322,20 +322,6 @@ def generate_sphere_positions(radius_m, n_points=100, seed=42):
     Generate randomly distributed points on a sphere surface.
 
     Uses random spherical coordinates with uniform distribution.
-
-    Parameters:
-    -----------
-    radius_m : float
-        Sphere radius in meters
-    n_points : int
-        Number of points to generate on sphere surface
-    seed : int
-        Random seed for reproducibility
-
-    Returns:
-    --------
-    ndarray
-        Array of shape (n_points, 3) with 3D positions in meters
     """
     rng = np.random.RandomState(seed)
 

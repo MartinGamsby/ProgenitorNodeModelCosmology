@@ -7,27 +7,20 @@ Shared functions for:
 - Filename generation
 """
 
+from typing import Optional
 import os
 import numpy as np
 from datetime import datetime
 
 
-def get_node_positions(S_Gpc):
+def get_node_positions(S_Gpc: float) -> np.ndarray:
     """
     Get positions of 26 external nodes in 3×3×3 cubic lattice.
 
     Nodes placed at corners, edges, and faces of cube with spacing S.
     Center (0,0,0) is our observable universe - excluded.
 
-    Parameters:
-    -----------
-    S_Gpc : float
-        Node separation distance [Gpc]
-
-    Returns:
-    --------
-    ndarray
-        (26, 3) array of node positions [Gpc]
+    Returns (26, 3) array of node positions in Gpc.
     """
     positions = []
     for i in [-1, 0, 1]:
@@ -39,30 +32,9 @@ def get_node_positions(S_Gpc):
     return np.array(positions)
 
 
-def draw_universe_sphere(ax, radius_Gpc, center_Gpc=None, alpha=0.05, color='cyan', resolution=30):
-    """
-    Draw sphere representing universe boundary on 3D axes.
-
-    Parameters:
-    -----------
-    ax : matplotlib.axes.Axes3D
-        3D axes to draw on
-    radius_Gpc : float
-        Sphere radius [Gpc]
-    center_Gpc : array-like, shape (3,), optional
-        Center of sphere [Gpc]. If None, centered at origin.
-    alpha : float
-        Transparency (0=invisible, 1=opaque)
-    color : str
-        Sphere color
-    resolution : int
-        Number of points for sphere mesh
-
-    Returns:
-    --------
-    matplotlib surface object
-        The drawn sphere surface
-    """
+def draw_universe_sphere(ax, radius_Gpc: float, center_Gpc: Optional[np.ndarray] = None,
+                          alpha: float = 0.05, color: str = 'cyan', resolution: int = 30):
+    """Draw sphere representing universe boundary on 3D axes."""
     u = np.linspace(0, 2 * np.pi, resolution)
     v = np.linspace(0, np.pi, resolution)
 
@@ -79,23 +51,8 @@ def draw_universe_sphere(ax, radius_Gpc, center_Gpc=None, alpha=0.05, color='cya
                           alpha=alpha, color=color)
 
 
-def draw_cube_edges(ax, half_size_Gpc, color='orange', alpha=0.3, linewidth=1):
-    """
-    Draw edges of cube representing HMEA node grid.
-
-    Parameters:
-    -----------
-    ax : matplotlib.axes.Axes3D
-        3D axes to draw on
-    half_size_Gpc : float
-        Half-width of cube (distance from center to face) [Gpc]
-    color : str
-        Edge color
-    alpha : float
-        Edge transparency
-    linewidth : float
-        Edge line width
-    """
+def draw_cube_edges(ax, half_size_Gpc: float, color: str = 'orange', alpha: float = 0.3, linewidth: float = 1):
+    """Draw edges of cube representing HMEA node grid."""
     r = [-half_size_Gpc, half_size_Gpc]
 
     # Define 12 edges of cube
@@ -121,23 +78,8 @@ def draw_cube_edges(ax, half_size_Gpc, color='orange', alpha=0.3, linewidth=1):
         ax.plot3D(*zip(start, end), color=color, alpha=alpha, linewidth=linewidth)
 
 
-def setup_3d_axes(ax, lim_Gpc, title="", elev=20, azim=45):
-    """
-    Configure 3D axes with standard settings.
-
-    Parameters:
-    -----------
-    ax : matplotlib.axes.Axes3D
-        3D axes to configure
-    lim_Gpc : float
-        Axis limits (±lim_Gpc on all axes) [Gpc]
-    title : str
-        Plot title
-    elev : float
-        Viewing elevation angle [degrees]
-    azim : float
-        Viewing azimuth angle [degrees]
-    """
+def setup_3d_axes(ax, lim_Gpc: float, title: str = "", elev: float = 20, azim: float = 45):
+    """Configure 3D axes with standard settings."""
     ax.set_xlim([-lim_Gpc, lim_Gpc])
     ax.set_ylim([-lim_Gpc, lim_Gpc])
     ax.set_zlim([-lim_Gpc, lim_Gpc])
@@ -159,29 +101,7 @@ def generate_output_filename(
     output_dir='.',
     include_timestamp=True
 ):
-    """
-    Generate standardized output filename with parameters.
-
-    Format: {base_name}_{timestamp}_{particles}p_{time_range}_{M}M_{S}S_{steps}steps_{damping}d.{ext}
-
-    Parameters:
-    -----------
-    base_name : str
-        Base filename (e.g., 'simulation', 'figure')
-    sim_params : SimulationParameters
-        Simulation configuration
-    extension : str
-        File extension without dot (e.g., 'png', 'pkl')
-    output_dir : str
-        Output directory path
-    include_timestamp : bool
-        Whether to include timestamp in filename
-
-    Returns:
-    --------
-    str
-        Full path to output file
-    """
+    """Generate standardized output filename with parameters."""
     parts = [base_name]
 
     if include_timestamp:
@@ -200,22 +120,8 @@ def generate_output_filename(
     return os.path.join(output_dir, filename)
 
 
-def format_simulation_title(sim_params, include_particles=True):
-    """
-    Generate standardized title for plots.
-
-    Parameters:
-    -----------
-    sim_params : SimulationParameters
-        Simulation configuration
-    include_particles : bool
-        Whether to include particle count in title
-
-    Returns:
-    --------
-    str
-        Formatted title string
-    """
+def format_simulation_title(sim_params, include_particles: bool = True) -> str:
+    """Generate standardized title for plots."""
     parts = [f'M={sim_params.M_value}, S={sim_params.S_value}']
 
     if include_particles:
@@ -232,49 +138,7 @@ def create_comparison_plot(
     today=None
 ):
     """
-    Create standard 4-panel comparison plot.
-
-    Panels:
-    1. Scale Factor evolution
-    2. Hubble Parameter evolution
-    3. Relative Expansion (ratio to ΛCDM)
-    4. Physical Size evolution
-
-    Parameters:
-    -----------
-    sim_params : SimulationParameters
-        Simulation configuration (for title and node spacing)
-    t_lcdm : ndarray
-        ΛCDM time array [Gyr]
-    a_lcdm : ndarray
-        ΛCDM scale factor array
-    size_lcdm : ndarray
-        ΛCDM physical size array [Gpc]
-    H_lcdm_hubble : ndarray
-        ΛCDM Hubble parameter [km/s/Mpc]
-    t_ext : ndarray
-        External-Node time array [Gyr]
-    a_ext : ndarray
-        External-Node scale factor array
-    size_ext : ndarray
-        External-Node physical size array [Gpc]
-    H_ext_hubble : ndarray
-        External-Node Hubble parameter [km/s/Mpc]
-    t_matter : ndarray
-        Matter-only time array [Gyr]
-    a_matter_sim : ndarray
-        Matter-only scale factor array
-    size_matter_sim : ndarray
-        Matter-only physical size array [Gpc]
-    H_matter_sim_hubble : ndarray
-        Matter-only Hubble parameter [km/s/Mpc]
-    today : float or None
-        Position of "today" marker in simulation time [Gyr]
-
-    Returns:
-    --------
-    matplotlib.figure.Figure
-        The created figure
+    Create 4-panel comparison plot: Scale Factor, Hubble Parameter, Relative Expansion, Physical Size.
     """
     import matplotlib.pyplot as plt
 
@@ -346,3 +210,4 @@ def create_comparison_plot(
     plt.tight_layout()
 
     return fig
+

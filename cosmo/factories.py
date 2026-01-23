@@ -4,36 +4,17 @@ Simulation Utility Functions
 Utility functions for running and extracting simulation results.
 """
 
+from typing import Dict
 import numpy as np
 from .simulation import CosmologicalSimulation
 
 
-def run_and_extract_results(sim: CosmologicalSimulation, t_duration_Gyr, n_steps, save_interval=10):
+def run_and_extract_results(sim: CosmologicalSimulation, t_duration_Gyr: float,
+                            n_steps: int, save_interval: int = 10) -> Dict:
     """
     Run simulation and extract common results.
 
-    Parameters:
-    -----------
-    sim : CosmologicalSimulation
-        Simulation to run
-    t_duration_Gyr : float
-        Simulation duration [Gyr]
-    n_steps : int
-        Number of timesteps
-    save_interval : int
-        Save expansion history every N steps
-
-    Returns:
-    --------
-    dict with keys:
-        't_Gyr' : ndarray
-            Time array [Gyr]
-        'a' : ndarray
-            Scale factor array
-        'diameter_Gpc' : ndarray
-            Physical diameter array [Gpc]
-        'sim' : CosmologicalSimulation
-            The simulation object (for further analysis)
+    Returns dict with keys: 't_Gyr', 'a', 'diameter_Gpc', 'max_radius_Gpc', 'sim'.
     """
     from .constants import CosmologicalConstants
     from .analysis import extract_expansion_history

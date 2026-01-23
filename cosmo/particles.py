@@ -106,17 +106,17 @@ class ParticleSystem:
         # For a uniform sphere of radius R, RMS radius = R * sqrt(3/5) ≈ 0.775*R
         # We want RMS = box_size/2, so R_sphere = box_size/2 / 0.775
         # This means we need to use a sphere of radius: box_size/2 / sqrt(3/5)
-        sphere_radius = (self.box_size_m / 2) / np.sqrt(3/5)
+        sphere_radius_m = (self.box_size_m / 2) / np.sqrt(3/5)
 
         # First, generate all positions using rejection sampling
         # This keeps position RNG calls separate from velocity RNG calls
         positions = []
         for i in range(self.n_particles):
-            # Random position uniformly in sphere of radius sphere_radius
+            # Random position uniformly in sphere of radius sphere_radius_m
             # Using rejection sampling for clarity
             while True:
-                pos = np.random.uniform(-sphere_radius, sphere_radius, 3)
-                if np.linalg.norm(pos) <= sphere_radius:
+                pos = np.random.uniform(-sphere_radius_m, sphere_radius_m, 3)
+                if np.linalg.norm(pos) <= sphere_radius_m:
                     break
             positions.append(pos)
 
@@ -214,9 +214,9 @@ class ParticleSystem:
 
         Returns:
         --------
-        tuple: (rms_radius, max_radius, com)
-            rms_radius: RMS distance from center of mass (typical particle distance)
-            max_radius: Maximum particle distance from COM (detects runaway particles)
+        tuple: (rms_radius_m, max_radius_m, com)
+            rms_radius_m: RMS distance from center of mass [meters]
+            max_radius_m: Maximum particle distance from COM [meters]
             com: Center of mass position (shows universe center can drift)
         """
 
@@ -227,12 +227,12 @@ class ParticleSystem:
         r = np.linalg.norm(positions - com, axis=1)
 
         # RMS distance (mean behavior)
-        rms_radius = np.sqrt(np.mean(r**2))
+        rms_radius_m = np.sqrt(np.mean(r**2))
 
         # Maximum distance (catches runaway particles)
-        max_radius = np.max(r)
+        max_radius_m = np.max(r)
 
-        return rms_radius, max_radius, com
+        return rms_radius_m, max_radius_m, com
     
     
     def __len__(self):

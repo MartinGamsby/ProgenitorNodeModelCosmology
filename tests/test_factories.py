@@ -43,14 +43,14 @@ class TestFactories(unittest.TestCase):
         # Verify keys
         self.assertIn('t_Gyr', results)
         self.assertIn('a', results)
-        self.assertIn('size_Gpc', results)
+        self.assertIn('diameter_Gpc', results)
         self.assertIn('max_radius_Gpc', results)
         self.assertIn('sim', results)
 
         # Verify types
         self.assertIsInstance(results['t_Gyr'], np.ndarray)
         self.assertIsInstance(results['a'], np.ndarray)
-        self.assertIsInstance(results['size_Gpc'], np.ndarray)
+        self.assertIsInstance(results['diameter_Gpc'], np.ndarray)
         self.assertIsInstance(results['sim'], CosmologicalSimulation)
 
     def test_run_and_extract_results_size_is_in_Gpc(self):
@@ -80,17 +80,17 @@ class TestFactories(unittest.TestCase):
             save_interval=5
         )
 
-        size_Gpc = results['size_Gpc']
+        diameter_Gpc = results['diameter_Gpc']
 
-        # Size should be ~10-20 Gpc (reasonable for cosmological scales)
+        # Diameter should be ~10-20 Gpc (reasonable for cosmological scales)
         # NOT ~1e26 meters (which would indicate unit error)
         self.assertGreater(
-            size_Gpc[0], 1.0,
-            msg="Size should be in Gpc, not meters"
+            diameter_Gpc[0], 1.0,
+            msg="Diameter should be in Gpc, not meters"
         )
         self.assertLess(
-            size_Gpc[0], 100.0,
-            msg="Size should be in Gpc, not meters"
+            diameter_Gpc[0], 100.0,
+            msg="Diameter should be in Gpc, not meters"
         )
 
     def test_run_and_extract_results_arrays_same_length(self):
@@ -123,11 +123,11 @@ class TestFactories(unittest.TestCase):
         # All arrays should have same length
         n_t = len(results['t_Gyr'])
         n_a = len(results['a'])
-        n_size = len(results['size_Gpc'])
+        n_diameter = len(results['diameter_Gpc'])
         n_max = len(results['max_radius_Gpc'])
 
         self.assertEqual(n_t, n_a, "t_Gyr and a should have same length")
-        self.assertEqual(n_t, n_size, "t_Gyr and size_Gpc should have same length")
+        self.assertEqual(n_t, n_diameter, "t_Gyr and diameter_Gpc should have same length")
         self.assertEqual(n_t, n_max, "t_Gyr and max_radius_Gpc should have same length")
 
     def test_run_and_extract_results_time_is_monotonic(self):

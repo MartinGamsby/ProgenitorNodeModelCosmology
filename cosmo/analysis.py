@@ -346,8 +346,8 @@ def check_com_drift_quality(expansion_history, drift_threshold=0.5):
     com_drift_Gpc = com_drift_m / const.Gpc_to_m
 
     # Get final RMS size (stored in meters, diameter = 2*RMS)
-    final_size_m = expansion_history[-1]['size']
-    final_rms_m = final_size_m / 2.0
+    final_diameter_m = expansion_history[-1]['diameter_m']
+    final_rms_m = final_diameter_m / 2.0
     final_rms_Gpc = final_rms_m / const.Gpc_to_m
 
     # Calculate ratio

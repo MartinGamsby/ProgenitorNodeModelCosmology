@@ -53,16 +53,16 @@ class TestRadiusDiameterSemantics(unittest.TestCase):
             r_distances = np.linalg.norm(r_vectors, axis=1)
             rms_radius_m = np.sqrt(np.mean(r_distances**2))
 
-            # Get 'size' from expansion history
-            size_m = history_entry['size']
+            # Get 'diameter_m' from expansion history
+            diameter_m = history_entry['diameter_m']
 
-            # Verify: size = 2 × rms_radius (diameter)
+            # Verify: diameter_m = 2 × rms_radius_m
             expected_diameter_m = 2.0 * rms_radius_m
 
             self.assertAlmostEqual(
-                size_m, expected_diameter_m, places=5,
-                msg=f"Entry {i}: 'size' should equal 2*rms_radius. "
-                    f"Got {size_m:.3e}, expected {expected_diameter_m:.3e}"
+                diameter_m, expected_diameter_m, places=5,
+                msg=f"Entry {i}: 'diameter_m' should equal 2*rms_radius_m. "
+                    f"Got {diameter_m:.3e}, expected {expected_diameter_m:.3e}"
             )
 
     def test_calculate_system_size_returns_radius_not_diameter(self):
@@ -178,20 +178,20 @@ class TestRadiusDiameterSemantics(unittest.TestCase):
         r_distances = np.linalg.norm(r_vectors, axis=1)
         rms_radius_m = np.sqrt(np.mean(r_distances**2))
 
-        # Get size
-        size_m = sim.expansion_history[0]['size']
+        # Get diameter_m
+        diameter_m = sim.expansion_history[0]['diameter_m']
 
-        # size should NOT equal rms_radius (it should be 2x)
+        # diameter_m should NOT equal rms_radius_m (it should be 2x)
         self.assertNotAlmostEqual(
-            size_m, rms_radius_m, places=3,
-            msg="'size' should NOT equal rms_radius (it should be diameter = 2*rms_radius)"
+            diameter_m, rms_radius_m, places=3,
+            msg="'diameter_m' should NOT equal rms_radius_m (it should be diameter = 2*rms_radius_m)"
         )
 
         # Verify it's actually 2x
-        ratio = size_m / rms_radius_m
+        ratio = diameter_m / rms_radius_m
         self.assertAlmostEqual(
             ratio, 2.0, places=3,
-            msg=f"size/rms_radius ratio should be 2.0. Got {ratio:.4f}"
+            msg=f"diameter_m/rms_radius_m ratio should be 2.0. Got {ratio:.4f}"
         )
 
 

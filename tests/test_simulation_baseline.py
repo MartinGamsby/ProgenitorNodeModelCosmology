@@ -324,7 +324,7 @@ class TestLCDMBaselineHelper(unittest.TestCase):
         self.assertLess(baseline['t'][0], 0.1,
             msg=f"Time should start near 0, got {baseline['t'][0]:.3f}")
 
-        # Verify final size is ~14.5 Gpc
+        # Verify final diameter is ~14.5 Gpc
         self.assertAlmostEqual(baseline['size'][-1], 14.5, delta=0.3)
 
         # Verify all arrays have same length

@@ -207,11 +207,12 @@ class CosmologicalSimulation:
             # This ensures all models start from the same physical size
             size_Gpc = a * self.box_size_Gpc
 
+            # diameter_m = 2 × rms_radius_m
             self.expansion_history.append({
                 'time': t,
                 'time_Gyr': t / (1e9 * 365.25 * 24 * 3600),
                 'scale_factor': a,
-                'size': rms_current*2,
+                'diameter_m': rms_current*2,
                 'size_a': size_Gpc* self.const.Gpc_to_m,
                 'max_particle_distance': max_current,
                 'com': com,

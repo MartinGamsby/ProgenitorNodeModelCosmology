@@ -101,9 +101,9 @@ class TestCOMDriftQuality:
         # COM drift: from (0,0,0) to (3,4,0) Gpc = 5.0 Gpc
         # Final size: 20.0 Gpc diameter (10.0 Gpc RMS)
         mock_history = [
-            {'com': np.array([0.0, 0.0, 0.0]), 'size': 2.0 * const.Gpc_to_m},
-            {'com': np.array([1.0, 2.0, 2.0]) * const.Gpc_to_m, 'size': 10.0 * const.Gpc_to_m},
-            {'com': np.array([3.0, 4.0, 0.0]) * const.Gpc_to_m, 'size': 20.0 * const.Gpc_to_m},  # final
+            {'com': np.array([0.0, 0.0, 0.0]), 'diameter_m': 2.0 * const.Gpc_to_m},
+            {'com': np.array([1.0, 2.0, 2.0]) * const.Gpc_to_m, 'diameter_m': 10.0 * const.Gpc_to_m},
+            {'com': np.array([3.0, 4.0, 0.0]) * const.Gpc_to_m, 'diameter_m': 20.0 * const.Gpc_to_m},  # final
         ]
 
         quality = check_com_drift_quality(mock_history, drift_threshold=0.3)
@@ -136,8 +136,8 @@ class TestCOMDriftQuality:
 
         # Drift = 6.0 Gpc, RMS = 10.0 Gpc, ratio = 0.6
         mock_history = [
-            {'com': np.array([0.0, 0.0, 0.0]), 'size': 20.0 * const.Gpc_to_m},
-            {'com': np.array([6.0, 0.0, 0.0]) * const.Gpc_to_m, 'size': 20.0 * const.Gpc_to_m},
+            {'com': np.array([0.0, 0.0, 0.0]), 'diameter_m': 20.0 * const.Gpc_to_m},
+            {'com': np.array([6.0, 0.0, 0.0]) * const.Gpc_to_m, 'diameter_m': 20.0 * const.Gpc_to_m},
         ]
 
         # With default threshold (0.5), should be excessive
@@ -161,8 +161,8 @@ class TestCOMDriftQuality:
         const = CosmologicalConstants()
 
         mock_history = [
-            {'com': np.array([0.0, 0.0, 0.0]), 'size': 10.0 * const.Gpc_to_m},
-            {'com': np.array([0.0, 0.0, 0.0]), 'size': 20.0 * const.Gpc_to_m},
+            {'com': np.array([0.0, 0.0, 0.0]), 'diameter_m': 10.0 * const.Gpc_to_m},
+            {'com': np.array([0.0, 0.0, 0.0]), 'diameter_m': 20.0 * const.Gpc_to_m},
         ]
 
         quality = check_com_drift_quality(mock_history)

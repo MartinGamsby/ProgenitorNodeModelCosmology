@@ -224,13 +224,13 @@ class ParticleSystem:
         com = np.mean(positions, axis=0)
 
         # Distances from center
-        r = np.linalg.norm(positions - com, axis=1)
+        r_m = np.linalg.norm(positions - com, axis=1)
 
         # RMS distance (mean behavior)
-        rms_radius_m = np.sqrt(np.mean(r**2))
+        rms_radius_m = np.sqrt(np.mean(r_m**2))
 
         # Maximum distance (catches runaway particles)
-        max_radius_m = np.max(r)
+        max_radius_m = np.max(r_m)
 
         return rms_radius_m, max_radius_m, com
     
@@ -327,14 +327,14 @@ class HMEAGrid:
             M_ext_kg = node['mass']
 
             # Vector from position to node (attractive force toward node)
-            r_vec = node_pos - positions  # Broadcasting
-            r = np.linalg.norm(r_vec, axis=1, keepdims=True)
+            r_vec_m = node_pos - positions  # Broadcasting
+            r_m = np.linalg.norm(r_vec_m, axis=1, keepdims=True)
 
             # Avoid singularities
-            r = np.maximum(r, 1e10)
+            r_m = np.maximum(r_m, 1e10)
 
             # Tidal acceleration for all particles (attractive toward node)
-            a_tidal = const.G * M_ext_kg * r_vec / r**3
+            a_tidal = const.G * M_ext_kg * r_vec_m / r_m**3
 
             accelerations += a_tidal
         

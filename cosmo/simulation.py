@@ -196,7 +196,7 @@ class CosmologicalSimulation:
         rms_initial, max_initial, _ = self.calculate_system_size(self.snapshots[0])
 
         for snapshot in self.snapshots:
-            t = snapshot['time']
+            t = snapshot['time_s']
             rms_current, max_current, com = self.calculate_system_size(snapshot)
 
             # Scale factor a(t) = R(t) / R(t=0)

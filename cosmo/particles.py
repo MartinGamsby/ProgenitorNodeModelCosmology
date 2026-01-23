@@ -178,15 +178,15 @@ class ParticleSystem:
         for i, particle in enumerate(self.particles):
             particle.acc = accelerations[i]
     
-    def update_positions(self, dt):
+    def update_positions(self, dt_s):
         """Update positions using current velocities"""
         for particle in self.particles:
-            particle.pos += particle.vel * dt
-    
-    def update_velocities(self, dt):
+            particle.pos += particle.vel * dt_s
+
+    def update_velocities(self, dt_s):
         """Update velocities using current accelerations"""
         for particle in self.particles:
-            particle.vel += particle.acc * dt
+            particle.vel += particle.acc * dt_s
     
     def apply_periodic_boundaries(self):
         """Apply periodic boundary conditions"""

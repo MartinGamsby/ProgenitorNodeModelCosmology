@@ -236,7 +236,7 @@ class LeapfrogIntegrator(Integrator):
     Second-order symplectic integrator, conserves energy well
     """
     
-    def step(self, dt):
+    def step(self, dt_s):
         """
         Take one leapfrog timestep
 
@@ -246,23 +246,23 @@ class LeapfrogIntegrator(Integrator):
 
         Parameters:
         -----------
-        dt : float
+        dt_s : float
             Timestep [seconds]
         """
         a_total = self.calculate_total_forces()
 
         # Kick (half step)
         self.particles.set_accelerations(a_total)
-        self.particles.update_velocities(dt / 2)
+        self.particles.update_velocities(dt_s / 2)
 
         # Drift (full step)
-        self.particles.update_positions(dt)
+        self.particles.update_positions(dt_s)
 
         # Kick (half step)
         a_total = self.calculate_total_forces()
 
         self.particles.set_accelerations(a_total)
-        self.particles.update_velocities(dt / 2)
+        self.particles.update_velocities(dt_s / 2)
 
         # NOTE: Hubble drag is NOT applied in proper-coordinate simulations!
         # In proper coordinates with explicit dark energy, the expansion is handled
@@ -273,60 +273,60 @@ class LeapfrogIntegrator(Integrator):
         # both Hubble flow AND peculiar velocities.
 
         # Update time
-        self.particles.time += dt
+        self.particles.time += dt_s
     
-    def evolve(self, t_end, n_steps, save_interval=10):
+    def evolve(self, t_end_s, n_steps, save_interval=10):
         """
-        Evolve system from current time to t_end
-        
+        Evolve system from current time to t_end_s
+
         Parameters:
         -----------
-        t_end : float
+        t_end_s : float
             Final time [seconds]
         n_steps : int
             Number of timesteps
         save_interval : int
             Save snapshot every N steps
-            
+
         Returns:
         --------
         snapshots : list of dict
             Saved snapshots containing time, positions, velocities
         """
-        dt = (t_end - self.particles.time) / n_steps
-        
+        dt_s = (t_end_s - self.particles.time) / n_steps
+
         snapshots = []
-        
+
         print(f"Running leapfrog integration...")
-        print(f"  dt = {dt:.2e} s ({dt/(365.25*24*3600*1e6):.2f} Myr)")
+        print(f"  dt = {dt_s:.2e} s ({dt_s/(365.25*24*3600*1e6):.2f} Myr)")
         print(f"  Total steps = {n_steps}")
         print(f"  Save interval = {save_interval}")
-        
+
         # Initial snapshot
         snapshots.append(self._save_snapshot())
 
         n_particles = self.particles.n_particles
         for step in tqdm(range(n_steps), mininterval=.5 if n_particles > 200 else (0.25 if n_particles > 100 else 0.1),
                          desc="Integrating", unit="step"):
-            self.step(dt)
-            
+            self.step(dt_s)
+
             # Save snapshot
             if (step + 1) % save_interval == 0:
                 snapshots.append(self._save_snapshot())
-            
+
             # Track energy
             if (step + 1) % (n_steps // 10) == 0:
                 self.time_history.append(self.particles.time)
                 self.energy_history.append(self.total_energy())
-        
+
         print(f"Integration complete. Time = {self.particles.time/(365.25*24*3600*1e9):.2f} Gyr")
-        
+
         return snapshots
     
     def _save_snapshot(self):
         """Save current state"""
         return {
-            'time': self.particles.time,
+            'time_s': self.particles.time,
             'positions': self.particles.get_positions().copy(),
             'velocities': self.particles.get_velocities().copy(),
             'accelerations': self.particles.get_accelerations().copy(),

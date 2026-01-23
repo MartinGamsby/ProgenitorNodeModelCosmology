@@ -418,7 +418,7 @@ def run_comparison_simulations(output_dir="."):
     const = CosmologicalConstants()
 
     for snap in sim_ext.snapshots:
-        t_seconds = snap['time']
+        t_seconds = snap['time_s']
         t_Gyr_offset = t_seconds / (1e9 * 365.25 * 24 * 3600)  # Simulation time (starts at 0)
         t_Gyr_absolute = t_start_Gyr + t_Gyr_offset  # Absolute cosmic time
 

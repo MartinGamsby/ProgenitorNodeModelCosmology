@@ -241,7 +241,7 @@ class TestFactories(unittest.TestCase):
         snapshot = sim_obj.snapshots[0]
         self.assertIn('positions', snapshot)
         self.assertIn('velocities', snapshot)
-        self.assertIn('time', snapshot)
+        self.assertIn('time_s', snapshot)
 
 
 if __name__ == '__main__':

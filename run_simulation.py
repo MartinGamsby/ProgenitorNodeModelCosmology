@@ -59,11 +59,19 @@ def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start):
     )
     t_lcdm = lcdm_solution['t_Gyr'] - sim_params.t_start_Gyr
     a_lcdm = lcdm_solution['a']
+
+    # CRITICAL FIX: Ensure t_lcdm[0] = 0.0 and a_lcdm[0] = a_start for exact alignment
+    # solve_friedmann_equation uses masking, so first point may not land exactly on t_start
+    # This causes small mismatches that create artifacts in relative expansion
+    t_lcdm[0] = 0.0
+    a_lcdm[0] = a_start
+
     # Normalize using the EXACT a_start for consistency with N-body sims
-    size_lcdm = lcdm_initial_size * (a_lcdm / a_start)
+    # NOTE: lcdm_initial_size = box_size (diameter), matching N-body convention
+    diameter_lcdm_Gpc = lcdm_initial_size * (a_lcdm / a_start)
     H_lcdm_hubble = lcdm_solution['H_hubble']
 
-    print(f"LCDM: {lcdm_initial_size:.3f} -> {size_lcdm[-1]:.2f} Gpc")
+    print(f"LCDM: {lcdm_initial_size:.3f} -> {diameter_lcdm_Gpc[-1]:.2f} Gpc")
 
     # Solve matter-only evolution
     matter_solution = solve_friedmann_equation(
@@ -71,24 +79,30 @@ def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start):
         sim_params.t_end_Gyr,
         Omega_Lambda=0.0
     )
+    t_matter = matter_solution['t_Gyr'] - sim_params.t_start_Gyr
     a_matter = matter_solution['a']
-    # Normalize using the EXACT a_start for consistency with N-body sims
-    size_matter = lcdm_initial_size * (a_matter / a_start)
+
+    # Apply same fixes as LCDM
+    t_matter[0] = 0.0
+    a_matter[0] = a_start
+
+    # Normalize using the EXACT a_start
+    diameter_matter_Gpc = lcdm_initial_size * (a_matter / a_start)
     H_matter_hubble = matter_solution['H_hubble']
 
-    print(f"Matter-only: {lcdm_initial_size:.3f} -> {size_matter[-1]:.2f} Gpc")
+    print(f"Matter-only: {lcdm_initial_size:.3f} -> {diameter_matter_Gpc[-1]:.2f} Gpc")
 
     return {
         'lcdm': {
             't': t_lcdm,
             'a': a_lcdm,
-            'diameter_m': size_lcdm,
+            'diameter_m': diameter_lcdm_Gpc,  # Diameter in Gpc (matches N-body convention)
             'H_hubble': H_lcdm_hubble
         },
         'matter': {
-            't': t_lcdm,  # Use same time array for consistency
+            't': t_matter,  # Matter baseline has its own time array (also starts at 0.0)
             'a': a_matter,
-            'diameter_m': size_matter,
+            'diameter_m': diameter_matter_Gpc,  # Diameter in Gpc (matches N-body convention)
             'H_hubble': H_matter_hubble
         }
     }
@@ -172,10 +186,30 @@ def calculate_hubble_parameters(t_ext, a_ext, t_matter, a_matter_sim):
     H_ext = np.gradient(a_ext_smooth, t_ext * 1e9 * 365.25 * 24 * 3600) / a_ext_smooth
     H_ext_hubble = H_ext * const.Mpc_to_m / 1000
 
+    # Fix boundary points: np.gradient uses forward/backward differences at edges
+    # which are less accurate. Replace first and last points with NaN to exclude them
+    # from plots, or use second-order accurate formulas
+    if len(H_ext_hubble) > 2:
+        # Second-order forward difference for first point: f'(0) ≈ (-3f(0) + 4f(1) - f(2)) / (2h)
+        dt_0 = (t_ext[1] - t_ext[0]) * 1e9 * 365.25 * 24 * 3600
+        H_ext_hubble[0] = (-3*a_ext_smooth[0] + 4*a_ext_smooth[1] - a_ext_smooth[2]) / (2*dt_0 * a_ext_smooth[0]) * const.Mpc_to_m / 1000
+
+        # Second-order backward difference for last point: f'(n) ≈ (3f(n) - 4f(n-1) + f(n-2)) / (2h)
+        dt_n = (t_ext[-1] - t_ext[-2]) * 1e9 * 365.25 * 24 * 3600
+        H_ext_hubble[-1] = (3*a_ext_smooth[-1] - 4*a_ext_smooth[-2] + a_ext_smooth[-3]) / (2*dt_n * a_ext_smooth[-1]) * const.Mpc_to_m / 1000
+
     # Matter-only Hubble parameter
     a_matter_sim_smooth = gaussian_filter1d(a_matter_sim, sigma=2)
     H_matter_sim = np.gradient(a_matter_sim_smooth, t_matter * 1e9 * 365.25 * 24 * 3600) / a_matter_sim_smooth
     H_matter_sim_hubble = H_matter_sim * const.Mpc_to_m / 1000
+
+    # Fix boundary points for matter-only as well
+    if len(H_matter_sim_hubble) > 2:
+        dt_0 = (t_matter[1] - t_matter[0]) * 1e9 * 365.25 * 24 * 3600
+        H_matter_sim_hubble[0] = (-3*a_matter_sim_smooth[0] + 4*a_matter_sim_smooth[1] - a_matter_sim_smooth[2]) / (2*dt_0 * a_matter_sim_smooth[0]) * const.Mpc_to_m / 1000
+
+        dt_n = (t_matter[-1] - t_matter[-2]) * 1e9 * 365.25 * 24 * 3600
+        H_matter_sim_hubble[-1] = (3*a_matter_sim_smooth[-1] - 4*a_matter_sim_smooth[-2] + a_matter_sim_smooth[-3]) / (2*dt_n * a_matter_sim_smooth[-1]) * const.Mpc_to_m / 1000
 
     return {
         'H_ext_hubble': H_ext_hubble,

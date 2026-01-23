@@ -72,14 +72,27 @@ class TestMatterVsLCDM(unittest.TestCase):
         dt = 5e15  # ~158.5 Myr
         n_steps = 20
 
-        for _ in range(n_steps):
-            integrator_lcdm.step(dt)
-            integrator_matter.step(dt)
-
         # Calculate RMS radius (measure of expansion)
         def rms_radius(positions):
             return np.sqrt(np.mean(np.sum(positions**2, axis=1)))
 
+        # CRITICAL: Validate at EVERY step, not just the end
+        # Matter-only must NEVER exceed LCDM at any timestep (physics constraint)
+        for step in range(n_steps):
+            # Evolve both one step
+            integrator_lcdm.step(dt)
+            integrator_matter.step(dt)
+
+            # Check constraint after each step
+            rms_lcdm_step = rms_radius(particles_lcdm.get_positions())
+            rms_matter_step = rms_radius(particles_matter.get_positions())
+
+            # Matter-only should never exceed LCDM (allow tiny numerical tolerance)
+            self.assertLessEqual(rms_matter_step, rms_lcdm_step * 1.0001,
+                                f"Step {step+1}: Matter-only ({rms_matter_step:.6e} m) "
+                                f"exceeds LCDM ({rms_lcdm_step:.6e} m)")
+
+        # Final state check
         rms_lcdm = rms_radius(particles_lcdm.get_positions())
         rms_matter = rms_radius(particles_matter.get_positions())
 

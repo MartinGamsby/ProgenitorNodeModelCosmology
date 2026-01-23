@@ -131,10 +131,33 @@ class ParticleSystem:
         # Center the positions array
         centered_positions = positions_arr - com_position
 
-        # Now generate velocities using CENTERED positions
+        # CRITICAL: Normalize to exact target RMS radius
+        # Random particle rejection sampling creates slight RMS variation even with same seed
+        # This causes initialization artifacts in model comparisons (matter-only appearing
+        # to "exceed LCDM" initially when it's just starting 0.5% larger by chance)
+        # Normalization ensures exact comparison: any deviation is real physics, not randomness
+        current_rms = np.sqrt(np.mean(np.sum(centered_positions**2, axis=1)))
+        target_rms = self.box_size_m / 2  # RMS should be half box size
+
+        # Handle edge case: if RMS is already very small (e.g., n=1 particle at origin),
+        # skip normalization to avoid division by zero
+        if current_rms > 1e-10 * target_rms:  # Only normalize if RMS is non-negligible
+            scale_factor = target_rms / current_rms
+            centered_positions *= scale_factor
+
+            print(f"[ParticleSystem] Normalized RMS radius: {current_rms:.6e} -> {target_rms:.6e} m (scale={scale_factor:.6f})")
+
+            # Verify normalization succeeded
+            final_rms = np.sqrt(np.mean(np.sum(centered_positions**2, axis=1)))
+            assert abs(final_rms - target_rms) / target_rms < 1e-10, \
+                f"RMS normalization failed: {final_rms:.6e} vs {target_rms:.6e}"
+        else:
+            print(f"[ParticleSystem] Skipping RMS normalization (current RMS={current_rms:.3e} is negligible)")
+
+        # Now generate velocities using CENTERED and NORMALIZED positions
         # This ensures velocity initialization is independent of rejection sampling randomness
         for i in range(self.n_particles):
-            pos = centered_positions[i]  # Use centered position!
+            pos = centered_positions[i]  # Use centered and normalized position!
 
             # Initial velocity: Damped Hubble flow + small peculiar velocity
             # Damping compensates for lack of ongoing Hubble drag during integration

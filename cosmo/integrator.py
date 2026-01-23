@@ -302,7 +302,7 @@ class LeapfrogIntegrator(Integrator):
         print(f"  Total steps = {n_steps}")
         print(f"  Save interval = {save_interval}")
 
-        # Initial snapshot
+        # Initial snapshot (after pre-kick, velocities now at t=-dt/2)
         snapshots.append(self._save_snapshot())
 
         n_particles = self.particles.n_particles

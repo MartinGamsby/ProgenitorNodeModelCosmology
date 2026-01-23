@@ -180,7 +180,7 @@ def normalize_to_initial_size(a_array, initial_size_Gpc):
     return initial_size_Gpc * a_normalized
 
 
-def compare_expansion_histories(size_ext, size_lcdm):
+def compare_expansion_histories(size_ext, size_lcdm, return_array=False):
     """
     Calculate match percentage between two expansion histories.
 
@@ -194,19 +194,26 @@ def compare_expansion_histories(size_ext, size_lcdm):
         External-Node final size or size history [Gpc]
     size_lcdm : float or ndarray
         ΛCDM final size or size history [Gpc]
+    return_array : bool, optional
+        If True and inputs are arrays, return per-timestep match array.
+        If False (default), return scalar averaged match.
 
     Returns:
     --------
-    float
-        Match percentage (100% = perfect match, based on mean deviation across all timesteps)
+    float or ndarray
+        If return_array=True and inputs are arrays: array of match percentages
+        Otherwise: scalar match percentage (100% = perfect match)
     """
     # If arrays, compare full curve
     if isinstance(size_ext, np.ndarray) and isinstance(size_lcdm, np.ndarray):
-        # Calculate percentage difference at each timestep
+        # Calculate percentage match at each timestep
         diff_pct = np.abs(size_ext - size_lcdm) / size_lcdm * 100
-        # Average across all timesteps
-        mean_diff_pct = np.mean(diff_pct)
-        return 100 - mean_diff_pct
+        match_pct = 100 - diff_pct
+
+        if return_array:
+            return match_pct  # Per-timestep array
+        else:
+            return np.mean(match_pct)  # Averaged scalar (backward compatible)
     else:
         # Scalar comparison (backward compatibility)
         diff = np.abs(size_ext - size_lcdm) / size_lcdm * 100

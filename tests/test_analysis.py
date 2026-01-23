@@ -187,7 +187,7 @@ class TestCompareExpansionHistories(unittest.TestCase):
         size_ext = np.array([18.0, 19.0, 20.0])
         size_lcdm = np.array([20.0, 20.0, 20.0])
 
-        match = compare_expansion_histories(size_ext, size_lcdm)
+        match = compare_expansion_histories(size_ext, size_lcdm, return_array=True)
 
         # Should return array of matches
         self.assertEqual(len(match), 3)

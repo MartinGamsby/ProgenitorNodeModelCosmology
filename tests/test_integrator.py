@@ -17,7 +17,7 @@ class TestLeapfrogIntegrator(unittest.TestCase):
         """Leapfrog.step() should update both position and velocity"""
         particles = ParticleSystem(
             n_particles=10,
-            box_size=1e26,
+            box_size_m=1e26,
             total_mass_kg=1e54,
             damping_factor_override=0.0
         )
@@ -54,7 +54,7 @@ class TestLeapfrogIntegrator(unittest.TestCase):
         """Leapfrog should conserve energy over short integration"""
         particles = ParticleSystem(
             n_particles=20,
-            box_size=1e26,
+            box_size_m=1e26,
             total_mass_kg=1e54,
             damping_factor_override=0.0
         )
@@ -87,7 +87,7 @@ class TestLeapfrogIntegrator(unittest.TestCase):
         """Leapfrog step should increment particle system time"""
         particles = ParticleSystem(
             n_particles=10,
-            box_size=1e26,
+            box_size_m=1e26,
             total_mass_kg=1e54,
             damping_factor_override=0.0
         )
@@ -116,7 +116,7 @@ class TestLeapfrogIntegrator(unittest.TestCase):
         """Step with dt=0 should not change state"""
         particles = ParticleSystem(
             n_particles=10,
-            box_size=1e26,
+            box_size_m=1e26,
             total_mass_kg=1e54,
             damping_factor_override=0.0
         )
@@ -157,7 +157,7 @@ class TestLeapfrogIntegrator(unittest.TestCase):
         """Leapfrog should be time-reversible"""
         particles = ParticleSystem(
             n_particles=10,
-            box_size=1e26,
+            box_size_m=1e26,
             total_mass_kg=1e54,
             damping_factor_override=0.0
         )
@@ -196,7 +196,7 @@ class TestLeapfrogIntegrator(unittest.TestCase):
         """Total forces should be sum of internal + external + dark energy"""
         particles = ParticleSystem(
             n_particles=10,
-            box_size=1e26,
+            box_size_m=1e26,
             total_mass_kg=1e54,
             damping_factor_override=0.0,
             use_dark_energy=True
@@ -231,7 +231,7 @@ class TestLeapfrogIntegrator(unittest.TestCase):
         # Create 2-particle system at known separation
         particles = ParticleSystem(
             n_particles=2,
-            box_size=1e25,
+            box_size_m=1e25,
             total_mass_kg=2e53,
             damping_factor_override=0.0
         )

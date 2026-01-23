@@ -19,7 +19,7 @@ class TestUnitsValidation(unittest.TestCase):
         const = CosmologicalConstants()
         particles = ParticleSystem(
             n_particles=2,
-            box_size=1e25,
+            box_size_m=1e25,
             total_mass_kg=2e53,
             damping_factor_override=0.0
         )
@@ -60,7 +60,7 @@ class TestUnitsValidation(unittest.TestCase):
 
         particles = ParticleSystem(
             n_particles=10,
-            box_size=1e26,
+            box_size_m=1e26,
             total_mass_kg=1e54,
             damping_factor_override=0.0,
             use_dark_energy=True
@@ -93,7 +93,7 @@ class TestUnitsValidation(unittest.TestCase):
         """Leapfrog dt should be in seconds"""
         particles = ParticleSystem(
             n_particles=10,
-            box_size=1e26,
+            box_size_m=1e26,
             total_mass_kg=1e54,
             damping_factor_override=0.0
         )
@@ -125,7 +125,7 @@ class TestUnitsValidation(unittest.TestCase):
         """Particle positions should be stored in meters"""
         particles = ParticleSystem(
             n_particles=10,
-            box_size=1e26,  # 10 Gpc in meters
+            box_size_m=1e26,  # 10 Gpc in meters
             total_mass_kg=1e54,
             damping_factor_override=0.0
         )

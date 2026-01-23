@@ -38,7 +38,7 @@ class Particle:
 class ParticleSystem:
     """Collection of particles representing the observable universe"""
     
-    def __init__(self, n_particles=1000, box_size=None, total_mass_kg=None, a_start=1.0, use_dark_energy=True, damping_factor_override=0.91):
+    def __init__(self, n_particles=1000, box_size_m=None, total_mass_kg=None, a_start=1.0, use_dark_energy=True, damping_factor_override=0.91):
         """
         Initialize a system of particles
 
@@ -46,7 +46,7 @@ class ParticleSystem:
         -----------
         n_particles : int
             Number of particles (galaxy clusters)
-        box_size : float
+        box_size_m : float
             Size of simulation box [meters]
         total_mass_kg : float
             Total mass to distribute among particles [kg]
@@ -58,7 +58,7 @@ class ParticleSystem:
         const = CosmologicalConstants()
 
         self.n_particles = n_particles
-        self.box_size = box_size if box_size is not None else const.R_hubble
+        self.box_size_m = box_size_m if box_size_m is not None else const.R_hubble
         self.total_mass_kg = total_mass_kg if total_mass_kg is not None else const.M_observable_kg
         self.a_start = a_start
         self.use_dark_energy = use_dark_energy
@@ -106,7 +106,7 @@ class ParticleSystem:
         # For a uniform sphere of radius R, RMS radius = R * sqrt(3/5) ≈ 0.775*R
         # We want RMS = box_size/2, so R_sphere = box_size/2 / 0.775
         # This means we need to use a sphere of radius: box_size/2 / sqrt(3/5)
-        sphere_radius = (self.box_size / 2) / np.sqrt(3/5)
+        sphere_radius = (self.box_size_m / 2) / np.sqrt(3/5)
 
         # First, generate all positions using rejection sampling
         # This keeps position RNG calls separate from velocity RNG calls
@@ -192,11 +192,11 @@ class ParticleSystem:
         """Apply periodic boundary conditions"""
         for particle in self.particles:
             # Wrap positions back into box
-            particle.pos = np.where(particle.pos > self.box_size/2, 
-                                   particle.pos - self.box_size, 
+            particle.pos = np.where(particle.pos > self.box_size_m/2, 
+                                   particle.pos - self.box_size_m, 
                                    particle.pos)
-            particle.pos = np.where(particle.pos < -self.box_size/2, 
-                                   particle.pos + self.box_size, 
+            particle.pos = np.where(particle.pos < -self.box_size_m/2, 
+                                   particle.pos + self.box_size_m, 
                                    particle.pos)
     
     def kinetic_energy(self):

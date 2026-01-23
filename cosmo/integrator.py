@@ -18,7 +18,7 @@ from .particles import ParticleSystem, HMEAGrid
 class Integrator:
     """Base class for N-body integration"""
     
-    def __init__(self, particle_system, hmea_grid=None, softening_per_Mobs=1e24, use_external_nodes=True, use_dark_energy=False):
+    def __init__(self, particle_system, hmea_grid=None, softening_per_Mobs_m=1e24, use_external_nodes=True, use_dark_energy=False):
         """
         Initialize integrator
 
@@ -28,9 +28,9 @@ class Integrator:
             The particle system to evolve
         hmea_grid : HMEAGrid, optional
             External HMEA nodes (if None, runs pure ΛCDM)
-        softening : float
+        softening_per_Mobs_m : float
             Base gravitational softening length [meters]
-            Actual softening scales as: ε = softening × (m/M_observable_kg)^(1/3)
+            Actual softening scales as: ε = softening_per_Mobs_m × (m/M_observable_kg)^(1/3)
             This makes softening proportional to particle mass^(1/3), so heavier
             particles (fewer particles) have larger softening for stability
         use_external_nodes : bool
@@ -40,7 +40,7 @@ class Integrator:
         """
         self.particles = particle_system
         self.hmea_grid = hmea_grid
-        self.softening_per_Mobs = softening_per_Mobs
+        self.softening_per_Mobs_m = softening_per_Mobs_m
         self.use_external_nodes = use_external_nodes
         self.use_dark_energy = use_dark_energy
         self.const = CosmologicalConstants()
@@ -54,7 +54,7 @@ class Integrator:
 
         # Scale softening: ε ∝ m^(1/3)
         # More massive particles (fewer particles) → larger softening
-        self.softening = self.softening_per_Mobs * (mass_ratio ** (1.0/3.0))
+        self.softening_m = self.softening_per_Mobs_m * (mass_ratio ** (1.0/3.0))
 
         # Additional safety factor for small N systems
         # Small N → higher probability of close encounters → need larger softening
@@ -64,12 +64,12 @@ class Integrator:
             n_particles = len(self.particles)
             boost_factor = np.sqrt(100.0 / n_particles)
             boost_factor = max(1.0, min(5.0, boost_factor))  # Clamp to [1.0, 5.0]
-            self.softening *= boost_factor
+            self.softening_m *= boost_factor
             print(f"[Integrator] Small-N boost applied: {boost_factor:.2f}x (N={n_particles})")
 
-        print(f"[Integrator] Base softening: {self.softening_per_Mobs/self.const.Mpc_to_m:.2f} Mpc")
+        print(f"[Integrator] Base softening: {self.softening_per_Mobs_m/self.const.Mpc_to_m:.2f} Mpc")
         print(f"[Integrator] Particle mass_kg: {particle_mass_kg:.2e} kg")
-        print(f"[Integrator] Final softening: {self.softening/self.const.Mpc_to_m:.2f} Mpc (mass ratio: {mass_ratio:.2f})")
+        print(f"[Integrator] Final softening: {self.softening_m/self.const.Mpc_to_m:.2f} Mpc (mass ratio: {mass_ratio:.2f})")
         
         # ΛCDM parameters for dark energy
         self.lcdm = LambdaCDMParameters()
@@ -102,7 +102,7 @@ class Integrator:
         r = np.sqrt(np.sum(r_vec**2, axis=2))  # Shape: (N, N)
 
         # Softened distance to prevent singularities
-        r_soft = np.sqrt(r**2 + self.softening**2)  # Shape: (N, N)
+        r_soft = np.sqrt(r**2 + self.softening_m**2)  # Shape: (N, N)
 
         # Avoid division by zero on diagonal (self-interaction)
         # Set diagonal to large value to make acceleration zero
@@ -211,7 +211,7 @@ class Integrator:
         # Vectorized pairwise distance calculation
         r_vec = positions[np.newaxis, :, :] - positions[:, np.newaxis, :]  # Shape: (N, N, 3)
         r = np.sqrt(np.sum(r_vec**2, axis=2))  # Shape: (N, N)
-        r_soft = np.sqrt(r**2 + self.softening**2)  # Shape: (N, N)
+        r_soft = np.sqrt(r**2 + self.softening_m**2)  # Shape: (N, N)
 
         # Pairwise potential energy: -G * m_i * m_j / r_soft
         # Use outer product for masses: masses_kg[:, np.newaxis] * masses_kg[np.newaxis, :]

@@ -179,7 +179,7 @@ class TestInitialSizeConsistency:
     def test_particle_system_start_at_same_physical_size(self):
         box_size = 10.0 # Gpc
         particles = ParticleSystem(n_particles=1000,  # Use more particles for better statistics
-                                       box_size=box_size,
+                                       box_size_m=box_size,
                                        total_mass_kg=CosmologicalConstants().M_observable_kg,
                                        a_start=1.0,
                                        use_dark_energy=False,

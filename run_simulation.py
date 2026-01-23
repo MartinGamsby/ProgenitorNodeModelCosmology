@@ -31,7 +31,7 @@ from cosmo.visualization import (
 from cosmo.factories import run_and_extract_results
 
 
-def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start):
+def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start, save_interval=10):
     """
     Solve analytic ΛCDM and matter-only evolution at N-body simulation times.
 
@@ -45,6 +45,8 @@ def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start):
         Initial box size [Gpc]
     a_start : float
         Initial scale factor (for consistent normalization)
+    save_interval : int
+        Save interval used in N-body simulation (default: 10)
 
     Returns:
     --------
@@ -56,7 +58,6 @@ def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start):
 
     # Compute time array matching N-body snapshots
     # N-body saves initial snapshot + every save_interval steps
-    save_interval = 10  # Must match default in run_and_extract_results
     n_snapshots = (sim_params.n_steps // save_interval) + 1  # +1 for initial snapshot
 
     # Time points: 0, dt*save_interval, 2*dt*save_interval, ..., t_duration

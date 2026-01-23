@@ -17,7 +17,8 @@ class CosmologicalSimulation:
     """Main class for running cosmological simulations"""
     
     def __init__(self, sim_params: SimulationParameters, box_size_Gpc: float, a_start: float,
-                 use_external_nodes: bool = True, use_dark_energy: Optional[bool] = None):
+                 use_external_nodes: bool = True, use_dark_energy: Optional[bool] = None,
+                 force_method: str = 'direct', barnes_hut_theta: float = 0.5):
         """
         Initialize simulation.
 
@@ -64,7 +65,9 @@ class CosmologicalSimulation:
             self.hmea_grid,
             softening_per_Mobs_m=softening_m,
             use_external_nodes=use_external_nodes,
-            use_dark_energy=self.use_dark_energy
+            use_dark_energy=self.use_dark_energy,
+            force_method=force_method,
+            barnes_hut_theta=barnes_hut_theta
         )
         
         # Simulation results

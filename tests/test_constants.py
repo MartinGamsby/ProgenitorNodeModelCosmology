@@ -47,7 +47,7 @@ class TestExternalNodeParameters(unittest.TestCase):
     def test_default_mass(self):
         """Default M_ext should be ~5e55 kg"""
         params = ExternalNodeParameters()
-        self.assertAlmostEqual(params.M_ext, 5e55, delta=1e55)
+        self.assertAlmostEqual(params.M_ext_kg, 5e55, delta=1e55)
 
     def test_default_spacing(self):
         """Default S should be ~31.6 Gpc in meters"""
@@ -62,7 +62,7 @@ class TestExternalNodeParameters(unittest.TestCase):
         lcdm = LambdaCDMParameters()
 
         # Manual calculation
-        expected = self.const.G * params.M_ext / (params.S**3 * lcdm.H0**2)
+        expected = self.const.G * params.M_ext_kg / (params.S**3 * lcdm.H0**2)
 
         self.assertAlmostEqual(params.Omega_Lambda_eff, expected, places=5)
 
@@ -72,21 +72,21 @@ class TestExternalNodeParameters(unittest.TestCase):
         S_custom_gpc = 24.0
         S_custom_m = S_custom_gpc * self.const.Gpc_to_m
 
-        params = ExternalNodeParameters(M_ext=M_custom, S=S_custom_m)
+        params = ExternalNodeParameters(M_ext_kg=M_custom, S=S_custom_m)
 
-        self.assertEqual(params.M_ext, M_custom)
+        self.assertEqual(params.M_ext_kg, M_custom)
         self.assertAlmostEqual(params.S / self.const.Gpc_to_m, S_custom_gpc, places=1)
 
     def test_calculate_required_spacing(self):
         """calculate_required_spacing should return S for target Ω_Λ"""
-        params = ExternalNodeParameters(M_ext=5e55)
+        params = ExternalNodeParameters(M_ext_kg=5e55)
 
         # Request Ω_Λ = 0.7 (actual parameter name is Omega_Lambda_target)
         S_required = params.calculate_required_spacing(Omega_Lambda_target=0.7)
 
         # Verify: G*M/(S^3*H0^2) = 0.7
         lcdm = LambdaCDMParameters()
-        Omega_check = self.const.G * params.M_ext / (S_required**3 * lcdm.H0**2)
+        Omega_check = self.const.G * params.M_ext_kg / (S_required**3 * lcdm.H0**2)
 
         self.assertAlmostEqual(Omega_check, 0.7, places=3)
 

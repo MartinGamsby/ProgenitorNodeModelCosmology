@@ -20,7 +20,7 @@ class TestUnitsValidation(unittest.TestCase):
         particles = ParticleSystem(
             n_particles=2,
             box_size=1e25,
-            total_mass=2e53,
+            total_mass_kg=2e53,
             damping_factor_override=0.0
         )
 
@@ -61,7 +61,7 @@ class TestUnitsValidation(unittest.TestCase):
         particles = ParticleSystem(
             n_particles=10,
             box_size=1e26,
-            total_mass=1e54,
+            total_mass_kg=1e54,
             damping_factor_override=0.0,
             use_dark_energy=True
         )
@@ -94,7 +94,7 @@ class TestUnitsValidation(unittest.TestCase):
         particles = ParticleSystem(
             n_particles=10,
             box_size=1e26,
-            total_mass=1e54,
+            total_mass_kg=1e54,
             damping_factor_override=0.0
         )
 
@@ -126,7 +126,7 @@ class TestUnitsValidation(unittest.TestCase):
         particles = ParticleSystem(
             n_particles=10,
             box_size=1e26,  # 10 Gpc in meters
-            total_mass=1e54,
+            total_mass_kg=1e54,
             damping_factor_override=0.0
         )
 

@@ -30,7 +30,7 @@ class Integrator:
             External HMEA nodes (if None, runs pure ΛCDM)
         softening : float
             Base gravitational softening length [meters]
-            Actual softening scales as: ε = softening × (m/M_observable)^(1/3)
+            Actual softening scales as: ε = softening × (m/M_observable_kg)^(1/3)
             This makes softening proportional to particle mass^(1/3), so heavier
             particles (fewer particles) have larger softening for stability
         use_external_nodes : bool
@@ -47,10 +47,10 @@ class Integrator:
 
         # Calculate adaptive softening based on particle mass
         # ε ∝ m^(1/3) makes softening scale with typical inter-particle distance
-        # For reference mass (M_observable with 100 particles): m_ref = 1e52 kg
-        m_ref = self.const.M_observable
-        particle_mass = self.particles.particles[0].mass  # All particles have same mass
-        mass_ratio = particle_mass / m_ref
+        # For reference mass (M_observable_kg with 100 particles): m_ref = 1e52 kg
+        m_ref = self.const.M_observable_kg
+        particle_mass_kg = self.particles.particles[0].mass_kg  # All particles have same mass
+        mass_ratio = particle_mass_kg / m_ref
 
         # Scale softening: ε ∝ m^(1/3)
         # More massive particles (fewer particles) → larger softening
@@ -68,7 +68,7 @@ class Integrator:
             print(f"[Integrator] Small-N boost applied: {boost_factor:.2f}x (N={n_particles})")
 
         print(f"[Integrator] Base softening: {self.softening_per_Mobs/self.const.Mpc_to_m:.2f} Mpc")
-        print(f"[Integrator] Particle mass: {particle_mass:.2e} kg")
+        print(f"[Integrator] Particle mass_kg: {particle_mass_kg:.2e} kg")
         print(f"[Integrator] Final softening: {self.softening/self.const.Mpc_to_m:.2f} Mpc (mass ratio: {mass_ratio:.2f})")
         
         # ΛCDM parameters for dark energy
@@ -90,7 +90,7 @@ class Integrator:
         """
         N = len(self.particles)
         positions = self.particles.get_positions()  # Shape: (N, 3)
-        masses = self.particles.get_masses()        # Shape: (N,)
+        masses_kg = self.particles.get_masses()        # Shape: (N,)
 
         # Vectorized computation using NumPy broadcasting
         # positions[:, np.newaxis, :] has shape (N, 1, 3)
@@ -109,9 +109,9 @@ class Integrator:
         np.fill_diagonal(r_soft, np.inf)
 
         # Newton's law: a = GM/r_soft^2
-        # masses[np.newaxis, :] broadcasts to shape (1, N)
+        # masses_kg[np.newaxis, :] broadcasts to shape (1, N)
         # Result has shape (N, N) - acceleration magnitude from each j on each i
-        a_mag = self.const.G * masses[np.newaxis, :] / r_soft**2  # Shape: (N, N)
+        a_mag = self.const.G * masses_kg[np.newaxis, :] / r_soft**2  # Shape: (N, N)
 
         # Acceleration vectors: a_vec = a_mag * (r_vec / r_soft)
         # Need to expand dimensions for broadcasting
@@ -206,7 +206,7 @@ class Integrator:
         """
         N = len(self.particles)
         positions = self.particles.get_positions()  # Shape: (N, 3)
-        masses = self.particles.get_masses()        # Shape: (N,)
+        masses_kg = self.particles.get_masses()        # Shape: (N,)
 
         # Vectorized pairwise distance calculation
         r_vec = positions[np.newaxis, :, :] - positions[:, np.newaxis, :]  # Shape: (N, N, 3)
@@ -214,8 +214,8 @@ class Integrator:
         r_soft = np.sqrt(r**2 + self.softening**2)  # Shape: (N, N)
 
         # Pairwise potential energy: -G * m_i * m_j / r_soft
-        # Use outer product for masses: masses[:, np.newaxis] * masses[np.newaxis, :]
-        mass_products = masses[:, np.newaxis] * masses[np.newaxis, :]  # Shape: (N, N)
+        # Use outer product for masses: masses_kg[:, np.newaxis] * masses_kg[np.newaxis, :]
+        mass_products = masses_kg[:, np.newaxis] * masses_kg[np.newaxis, :]  # Shape: (N, N)
 
         # Avoid division by zero on diagonal
         np.fill_diagonal(r_soft, np.inf)

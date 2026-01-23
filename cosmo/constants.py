@@ -22,7 +22,7 @@ class CosmologicalConstants:
     M_sun = 1.989e30  # kg
     
     # Observable universe properties
-    M_observable = 1e53  # kg (approximate total mass)
+    M_observable_kg = 1e53  # kg (approximate total mass)
     R_hubble = 4.4e26  # meters (~14 Gpc, current Hubble radius)
     
 
@@ -73,19 +73,19 @@ class LambdaCDMParameters:
 class ExternalNodeParameters:
     """External-Node Model parameters from the paper"""
     
-    def __init__(self, M_ext=None, S=None):
+    def __init__(self, M_ext_kg=None, S=None):
         """
         Initialize External-Node parameters
-        
+
         Parameters:
         -----------
-        M_ext : float, optional
-            Mass of each HMEA node [kg]. Default: 5e55 kg (~500 x M_observable)
+        M_ext_kg : float, optional
+            Mass of each HMEA node [kg]. Default: 5e55 kg (~500 x M_observable_kg)
         S : float, optional
             Grid spacing between nodes [meters]. Default: 31.6 Gpc (tuned to match Ω_Λ=0.7)
         """
-        # Default values - S is tuned to give Ω_Λ_eff ≈ 0.7 with M_ext = 5e55
-        self.M_ext = M_ext if M_ext is not None else 5e55  # kg
+        # Default values - S is tuned to give Ω_Λ_eff ≈ 0.7 with M_ext_kg = 5e55
+        self.M_ext_kg = M_ext_kg if M_ext_kg is not None else 5e55  # kg
         self.S = S if S is not None else 31.6 * CosmologicalConstants.Gpc_to_m  # meters
         
         # Calculate derived parameters
@@ -96,33 +96,33 @@ class ExternalNodeParameters:
         const = CosmologicalConstants()
         
         # Effective dark energy from tidal acceleration
-        # From paper: H0^2 * Omega_Lambda ≈ G*M_ext/S^3
-        self.Omega_Lambda_eff = (const.G * self.M_ext) / (self.S**3 * (70*1000/const.Mpc_to_m)**2)
-        
+        # From paper: H0^2 * Omega_Lambda ≈ G*M_ext_kg/S^3
+        self.Omega_Lambda_eff = (const.G * self.M_ext_kg) / (self.S**3 * (70*1000/const.Mpc_to_m)**2)
+
         # Schwarzschild radius of HMEA (for reference)
-        self.R_schwarzschild = 2 * const.G * self.M_ext / const.c**2
-        
+        self.R_schwarzschild = 2 * const.G * self.M_ext_kg / const.c**2
+
         # Grid spacing in Gpc
         self.S_Gpc = self.S / const.Gpc_to_m
-        
+
         # Mass ratio to observable universe
-        self.M_ratio = self.M_ext / const.M_observable
+        self.M_ratio = self.M_ext_kg / const.M_observable_kg
         
     def set_grid_spacing(self, S_Gpc):
         """Set grid spacing in Gigaparsecs"""
         self.S = S_Gpc * CosmologicalConstants.Gpc_to_m
         self._calculate_derived()
         
-    def set_node_mass(self, M_ext):
+    def set_node_mass(self, M_ext_kg):
         """Set HMEA mass in kg"""
-        self.M_ext = M_ext
+        self.M_ext_kg = M_ext_kg
         self._calculate_derived()
         
     def calculate_required_spacing(self, Omega_Lambda_target=0.7, H0=70):
         """
         Calculate required grid spacing to match observed dark energy
-        From paper: S ≈ (G*M_ext / (H0^2 * Omega_Lambda))^(1/3)
-        
+        From paper: S ≈ (G*M_ext_kg / (H0^2 * Omega_Lambda))^(1/3)
+
         Returns:
         --------
         S : float
@@ -130,13 +130,13 @@ class ExternalNodeParameters:
         """
         const = CosmologicalConstants()
         H0_si = H0 * 1000 / const.Mpc_to_m  # Convert to s^-1
-        
-        S = (const.G * self.M_ext / (H0_si**2 * Omega_Lambda_target))**(1/3)
+
+        S = (const.G * self.M_ext_kg / (H0_si**2 * Omega_Lambda_target))**(1/3)
         return S
     
     def __str__(self):
         return (f"External-Node Parameters:\n"
-                f"  M_ext = {self.M_ext:.2e} kg ({self.M_ratio:.0f} × M_obs)\n"
+                f"  M_ext_kg = {self.M_ext_kg:.2e} kg ({self.M_ratio:.0f} × M_obs)\n"
                 f"  S = {self.S_Gpc:.1f} Gpc\n"
                 f"  Ω_Λ_eff = {self.Omega_Lambda_eff:.3f}\n"
                 f"  R_Schwarzschild = {self.R_schwarzschild/CosmologicalConstants.Gpc_to_m:.2e} Gpc")
@@ -186,14 +186,14 @@ class SimulationParameters:
         const = CosmologicalConstants()
 
         # Convert to physical units
-        self.M_ext = self.M_value * const.M_observable
+        self.M_ext_kg = self.M_value * const.M_observable_kg
         self.S = self.S_value * const.Gpc_to_m
 
         # Calculate end time
         self.t_end_Gyr = self.t_start_Gyr + self.t_duration_Gyr
 
         # Create external node parameters for this configuration
-        self.external_params = ExternalNodeParameters(M_ext=self.M_ext, S=self.S)
+        self.external_params = ExternalNodeParameters(M_ext_kg=self.M_ext_kg, S=self.S)
 
     def __str__(self):
         return (f"Simulation Parameters:\n"

@@ -22,7 +22,7 @@ class TestGravitationalForces(unittest.TestCase):
         particles = ParticleSystem(
             n_particles=2,
             box_size=1.0 * self.const.Gpc_to_m,
-            total_mass=2e53,
+            total_mass_kg=2e53,
             damping_factor_override=0.0
         )
 
@@ -63,7 +63,7 @@ class TestGravitationalForces(unittest.TestCase):
         particles = ParticleSystem(
             n_particles=2,
             box_size=1.0 * self.const.Gpc_to_m,
-            total_mass=3e53,
+            total_mass_kg=3e53,
             damping_factor_override=0.0
         )
 
@@ -92,7 +92,7 @@ class TestGravitationalForces(unittest.TestCase):
         particles = ParticleSystem(
             n_particles=2,
             box_size=1.0 * self.const.Gpc_to_m,
-            total_mass=2e53,
+            total_mass_kg=2e53,
             damping_factor_override=0.0
         )
 
@@ -130,7 +130,7 @@ class TestTidalForces(unittest.TestCase):
         M_ext = 1e56
         S = 30 * self.const.Gpc_to_m
 
-        node_params = ExternalNodeParameters(M_ext=M_ext, S=S)
+        node_params = ExternalNodeParameters(M_ext_kg=M_ext, S=S)
         grid = HMEAGrid(node_params=node_params)
 
         # Keep only one node at +x (find closest to target position)
@@ -155,7 +155,7 @@ class TestTidalForces(unittest.TestCase):
         M_ext = 1e56
         S = 30 * self.const.Gpc_to_m
 
-        node_params = ExternalNodeParameters(M_ext=M_ext, S=S)
+        node_params = ExternalNodeParameters(M_ext_kg=M_ext, S=S)
         grid = HMEAGrid(node_params=node_params)
 
         # Keep only one node at +x
@@ -187,7 +187,7 @@ class TestTidalForces(unittest.TestCase):
         S = 30 * self.const.Gpc_to_m
 
         # Create symmetric 3x3x3 grid
-        node_params = ExternalNodeParameters(M_ext=M_ext, S=S)
+        node_params = ExternalNodeParameters(M_ext_kg=M_ext, S=S)
         np.random.seed(42)  # Fixed seed for reproducibility
         grid = HMEAGrid(node_params=node_params)
 

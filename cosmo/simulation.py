@@ -56,7 +56,7 @@ class CosmologicalSimulation:
 
         self.particles = ParticleSystem(n_particles=sim_params.n_particles,
                                        box_size=box_size,
-                                       total_mass=self.const.M_observable*1,#TODO: As an argument (multi Mobs?)
+                                       total_mass_kg=self.const.M_observable_kg*1,#TODO: As an argument (multi Mobs?)
                                        a_start=self.a_start,
                                        use_dark_energy=self.use_dark_energy,
                                        damping_factor_override=sim_params.damping_factor)

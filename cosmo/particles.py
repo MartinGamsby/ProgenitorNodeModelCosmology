@@ -10,35 +10,35 @@ from .constants import CosmologicalConstants, ExternalNodeParameters, LambdaCDMP
 class Particle:
     """Represents a single galaxy cluster or tracer particle"""
     
-    def __init__(self, position, velocity, mass, particle_id=0):
+    def __init__(self, position, velocity, mass_kg, particle_id=0):
         """
         Initialize a particle
-        
+
         Parameters:
         -----------
         position : array-like, shape (3,)
             Position vector [x, y, z] in meters
         velocity : array-like, shape (3,)
             Velocity vector [vx, vy, vz] in m/s
-        mass : float
+        mass_kg : float
             Mass in kg
         particle_id : int
             Unique identifier
         """
         self.pos = np.array(position, dtype=np.float64)
         self.vel = np.array(velocity, dtype=np.float64)
-        self.mass = float(mass)
+        self.mass_kg = float(mass_kg)
         self.id = particle_id
         self.acc = np.zeros(3, dtype=np.float64)  # Acceleration
-        
+
     def __repr__(self):
-        return f"Particle(id={self.id}, mass={self.mass:.2e} kg, pos={self.pos})"
+        return f"Particle(id={self.id}, mass_kg={self.mass_kg:.2e} kg, pos={self.pos})"
 
 
 class ParticleSystem:
     """Collection of particles representing the observable universe"""
     
-    def __init__(self, n_particles=1000, box_size=None, total_mass=None, a_start=1.0, use_dark_energy=True, damping_factor_override=0.91):
+    def __init__(self, n_particles=1000, box_size=None, total_mass_kg=None, a_start=1.0, use_dark_energy=True, damping_factor_override=0.91):
         """
         Initialize a system of particles
 
@@ -48,7 +48,7 @@ class ParticleSystem:
             Number of particles (galaxy clusters)
         box_size : float
             Size of simulation box [meters]
-        total_mass : float
+        total_mass_kg : float
             Total mass to distribute among particles [kg]
         a_start : float
             Scale factor at simulation start time (a=1 at present day)
@@ -59,7 +59,7 @@ class ParticleSystem:
 
         self.n_particles = n_particles
         self.box_size = box_size if box_size is not None else const.R_hubble
-        self.total_mass = total_mass if total_mass is not None else const.M_observable
+        self.total_mass_kg = total_mass_kg if total_mass_kg is not None else const.M_observable_kg
         self.a_start = a_start
         self.use_dark_energy = use_dark_energy
         self.damping_factor = damping_factor_override
@@ -100,7 +100,7 @@ class ParticleSystem:
 
         print("[ParticleSystem] Damping factor for initial:", damping_factor)
 
-        particle_mass = self.total_mass / self.n_particles
+        particle_mass_kg = self.total_mass_kg / self.n_particles
 
         # Scale box_size so that the RMS radius matches the target
         # For a uniform sphere of radius R, RMS radius = R * sqrt(3/5) ≈ 0.775*R
@@ -142,7 +142,7 @@ class ParticleSystem:
             v_peculiar = np.random.normal(0, 1e5, 3)  # ~100 km/s peculiar velocity
             vel = v_hubble + v_peculiar
 
-            particle = Particle(pos, vel, particle_mass, particle_id=i)
+            particle = Particle(pos, vel, particle_mass_kg, particle_id=i)
             self.particles.append(particle)
 
         # CRITICAL: Remove center-of-mass velocity to prevent bulk motion
@@ -167,7 +167,7 @@ class ParticleSystem:
     
     def get_masses(self):
         """Get all particle masses as (N,) array"""
-        return np.array([p.mass for p in self.particles])
+        return np.array([p.mass_kg for p in self.particles])
     
     def get_accelerations(self):
         """Get all particle accelerations as (N, 3) array"""
@@ -204,7 +204,7 @@ class ParticleSystem:
         KE = 0.0
         for particle in self.particles:
             v2 = np.sum(particle.vel**2)
-            KE += 0.5 * particle.mass * v2
+            KE += 0.5 * particle.mass_kg * v2
         return KE
 
     @staticmethod
@@ -291,7 +291,7 @@ class HMEAGrid:
                     node = {
                         'id': node_id,
                         'position': pos,
-                        'mass': self.params.M_ext,
+                        'mass': self.params.M_ext_kg,
                     }
                     self.nodes.append(node)
                     node_id += 1
@@ -324,8 +324,8 @@ class HMEAGrid:
         
         for node in self.nodes:
             node_pos = node['position']
-            M_ext = node['mass']
-            
+            M_ext_kg = node['mass']
+
             # Vector from position to node (attractive force toward node)
             r_vec = node_pos - positions  # Broadcasting
             r = np.linalg.norm(r_vec, axis=1, keepdims=True)
@@ -334,13 +334,13 @@ class HMEAGrid:
             r = np.maximum(r, 1e10)
 
             # Tidal acceleration for all particles (attractive toward node)
-            a_tidal = const.G * M_ext * r_vec / r**3
-            
+            a_tidal = const.G * M_ext_kg * r_vec / r**3
+
             accelerations += a_tidal
         
         return accelerations
     
     def __repr__(self):
         return (f"HMEAGrid(n_nodes={self.n_nodes}, "
-                f"M_ext={self.params.M_ext:.2e} kg, "
+                f"M_ext_kg={self.params.M_ext_kg:.2e} kg, "
                 f"S={self.params.S_Gpc:.1f} Gpc)")

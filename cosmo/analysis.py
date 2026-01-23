@@ -307,7 +307,7 @@ def check_com_drift_quality(expansion_history, drift_threshold=0.5):
     Detect excessive center-of-mass drift as simulation quality metric.
 
     Large COM drift indicates asymmetric tidal forces from external nodes,
-    suggesting problematic simulation parameters (M_ext too large and/or
+    suggesting problematic simulation parameters (M_ext_kg too large and/or
     S too small). The drift is physically valid but indicates the system
     is being pulled strongly toward external nodes.
 

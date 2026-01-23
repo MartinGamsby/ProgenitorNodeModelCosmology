@@ -43,9 +43,69 @@ def friedmann_equation(a, t, H0_si, Omega_m, Omega_Lambda):
     return H_si * a
 
 
+def solve_friedmann_at_times(t_array_Gyr, Omega_Lambda=None):
+    """
+    Solve Friedmann equation at specific time points.
+
+    Ensures exact time alignment with N-body simulations by evaluating
+    the analytic solution at the exact same times as simulation snapshots.
+    This eliminates the need to force t[0]=0 or interpolate misaligned grids.
+
+    Parameters:
+    -----------
+    t_array_Gyr : ndarray
+        Array of times since Big Bang [Gyr] at which to evaluate solution
+    Omega_Lambda : float or None
+        Dark energy density. If None, uses ΛCDM value. Set to 0.0 for matter-only.
+
+    Returns:
+    --------
+    dict with keys:
+        't_Gyr' : ndarray
+            Time array [Gyr] (same as input)
+        'a' : ndarray
+            Scale factor array
+        'H_hubble' : ndarray
+            Hubble parameter [km/s/Mpc]
+    """
+    const = CosmologicalConstants()
+    lcdm = LambdaCDMParameters()
+
+    if Omega_Lambda is None:
+        Omega_Lambda = lcdm.Omega_Lambda
+
+    # Solve from Big Bang to max requested time with fine resolution for interpolation
+    t_max_Gyr = np.max(t_array_Gyr) + 1.0  # Add buffer
+    n_solve = 1000  # Fine resolution for accurate interpolation
+    t_solve = np.linspace(0, t_max_Gyr * 1e9 * 365.25 * 24 * 3600, n_solve)
+
+    a0 = 0.001
+    a_solve = odeint(
+        friedmann_equation, a0, t_solve,
+        args=(lcdm.H0_si, lcdm.Omega_m, Omega_Lambda)
+    ).flatten()
+
+    t_solve_Gyr = t_solve / (1e9 * 365.25 * 24 * 3600)
+
+    # Interpolate to requested time points
+    a = np.interp(t_array_Gyr, t_solve_Gyr, a_solve)
+
+    # Calculate Hubble parameter at requested times
+    H_si = lcdm.H0_si * np.sqrt(lcdm.Omega_m / a**3 + Omega_Lambda)
+    H_hubble = H_si * const.Mpc_to_m / 1000  # Convert to km/s/Mpc
+
+    return {
+        't_Gyr': t_array_Gyr,
+        'a': a,
+        'H_hubble': H_hubble
+    }
+
+
 def solve_friedmann_equation(t_start_Gyr, t_end_Gyr, Omega_Lambda=None, n_points=400):
     """
     Solve Friedmann equation for ΛCDM or matter-only cosmology.
+
+    NOTE: For exact alignment with N-body simulations, use solve_friedmann_at_times() instead.
 
     Parameters:
     -----------

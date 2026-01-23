@@ -15,6 +15,7 @@ from cosmo.constants import CosmologicalConstants, LambdaCDMParameters, Simulati
 from cosmo.simulation import CosmologicalSimulation
 from cosmo.analysis import (
     solve_friedmann_equation,
+    solve_friedmann_at_times,
     calculate_initial_conditions,
     normalize_to_initial_size,
     compare_expansion_histories,
@@ -32,7 +33,9 @@ from cosmo.factories import run_and_extract_results
 
 def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start):
     """
-    Solve analytic ΛCDM and matter-only evolution.
+    Solve analytic ΛCDM and matter-only evolution at N-body simulation times.
+
+    Uses exact time alignment with N-body snapshots to eliminate interpolation artifacts.
 
     Parameters:
     -----------
@@ -51,54 +54,47 @@ def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start):
     """
     lcdm_params = LambdaCDMParameters()
 
-    # Solve ΛCDM evolution
-    lcdm_solution = solve_friedmann_equation(
-        sim_params.t_start_Gyr,
-        sim_params.t_end_Gyr,
-        Omega_Lambda=lcdm_params.Omega_Lambda
-    )
-    t_lcdm = lcdm_solution['t_Gyr'] - sim_params.t_start_Gyr
-    a_lcdm = lcdm_solution['a']
+    # Compute time array matching N-body snapshots
+    # N-body saves initial snapshot + every save_interval steps
+    save_interval = 10  # Must match default in run_and_extract_results
+    n_snapshots = (sim_params.n_steps // save_interval) + 1  # +1 for initial snapshot
 
-    # CRITICAL FIX: Ensure t_lcdm[0] = 0.0 and a_lcdm[0] = a_start for exact alignment
-    # solve_friedmann_equation uses masking, so first point may not land exactly on t_start
-    # This causes small mismatches that create artifacts in relative expansion
-    t_lcdm[0] = 0.0
-    a_lcdm[0] = a_start
+    # Time points: 0, dt*save_interval, 2*dt*save_interval, ..., t_duration
+    # This matches exactly what the N-body simulation records
+    snapshot_steps = np.arange(0, sim_params.n_steps + 1, save_interval)
+    t_relative_Gyr = (snapshot_steps / sim_params.n_steps) * sim_params.t_duration_Gyr
+    t_absolute_Gyr = sim_params.t_start_Gyr + t_relative_Gyr
+
+    # Solve ΛCDM at exact N-body snapshot times
+    lcdm_solution = solve_friedmann_at_times(t_absolute_Gyr, Omega_Lambda=lcdm_params.Omega_Lambda)
+    a_lcdm = lcdm_solution['a']
+    H_lcdm_hubble = lcdm_solution['H_hubble']
 
     # Normalize using the EXACT a_start for consistency with N-body sims
     # NOTE: lcdm_initial_size = box_size (diameter), matching N-body convention
     diameter_lcdm_Gpc = lcdm_initial_size * (a_lcdm / a_start)
-    H_lcdm_hubble = lcdm_solution['H_hubble']
 
     print(f"LCDM: {lcdm_initial_size:.3f} -> {diameter_lcdm_Gpc[-1]:.2f} Gpc")
 
-    # Solve matter-only evolution (uses same time grid as LCDM)
-    matter_solution = solve_friedmann_equation(
-        sim_params.t_start_Gyr,
-        sim_params.t_end_Gyr,
-        Omega_Lambda=0.0
-    )
+    # Solve matter-only at same time points
+    matter_solution = solve_friedmann_at_times(t_absolute_Gyr, Omega_Lambda=0.0)
     a_matter = matter_solution['a']
-
-    # Apply same fix: force a_matter[0] = a_start for exact alignment
-    a_matter[0] = a_start
+    H_matter_hubble = matter_solution['H_hubble']
 
     # Normalize using the EXACT a_start
     diameter_matter_Gpc = lcdm_initial_size * (a_matter / a_start)
-    H_matter_hubble = matter_solution['H_hubble']
 
     print(f"Matter-only: {lcdm_initial_size:.3f} -> {diameter_matter_Gpc[-1]:.2f} Gpc")
 
     return {
         'lcdm': {
-            't': t_lcdm,
+            't': t_relative_Gyr,  # Time relative to simulation start (starts at exactly 0.0)
             'a': a_lcdm,
             'diameter_m': diameter_lcdm_Gpc,  # Diameter in Gpc (matches N-body convention)
             'H_hubble': H_lcdm_hubble
         },
         'matter': {
-            't': t_lcdm,  # Use same time array as LCDM (same grid, both fixed at t[0]=0)
+            't': t_relative_Gyr,  # Same time array (exact alignment with N-body)
             'a': a_matter,
             'diameter_m': diameter_matter_Gpc,  # Diameter in Gpc (matches N-body convention)
             'H_hubble': H_matter_hubble

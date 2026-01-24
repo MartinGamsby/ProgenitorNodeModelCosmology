@@ -71,7 +71,7 @@ def _validate_timestep(self, t_duration_Gyr: float, n_steps: int) -> None:
 
 **Three-way comparison**: Plot ΛCDM (analytic) vs External-Node (N-body) vs Matter-only (N-body). External-Node should track ΛCDM, Matter-only should fall below.
 
-**Match percentage**: Report final size agreement External-Node vs ΛCDM. >99% is excellent, 95-99% good, <95% suggests different parameters. This is exploratory research—no configuration is "optimal", just testing mechanism viability.
+**Curve comparison metric**: Use R² (coefficient of determination) to compare expansion curves. R² = 1 - (SS_res/SS_tot) measures fraction of ΛCDM variance explained by model. R² > 0.9999 is excellent (corresponds to ~99.4% match), R² > 0.999 is good. For backward compatibility, percentage match still available via `use_r_squared=False`. This is exploratory research—no configuration is "optimal", just testing mechanism viability.
 
 **Parameter exploration**: Use `parameter_sweep.py` for systematic grid search over M and S. Goal: understand parameter space, not find single "optimal" point.
 

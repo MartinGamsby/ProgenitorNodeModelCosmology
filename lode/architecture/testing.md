@@ -99,7 +99,13 @@ Example failure case (20 Gyr simulation):
 
 **6. Small-N softening boost** (integrator.py:59-68): Added adaptive boost for N < 100: `boost = sqrt(100/N)`. Small particle counts have stronger forces per particle and higher risk of close encounters. Boost prevents numerical instability. Example: N=50 gets 1.41x boost, N=10 gets 3.16x boost.
 
-**7. compare_expansion_histories array return** (analysis.py:183-213): Added `return_array=False` parameter. When True and inputs are arrays, returns per-timestep match array instead of averaged scalar. Backward compatible (default False preserves old behavior). Enables per-timestep analysis in tests.
+**7. compare_expansion_histories R² metric** (analysis.py:162-234): Switched from percentage match to R² (coefficient of determination) as default metric. R² = 1 - (SS_res/SS_tot) measures fraction of ΛCDM variance explained by External-Node model. Provides statistical foundation for curve comparison. Parameters:
+- `use_r_squared=True` (default): Returns R² in 0-1 range (1=perfect fit)
+- `use_r_squared=False`: Returns percentage match 0-100 range (backward compatible)
+- `return_diagnostics=True`: Returns dict with r_squared, match_pct, max_error_pct, mean_error_pct, rmse, rmse_pct
+- `return_array=True`: Returns per-timestep percentage errors (R² is aggregate metric)
+
+Edge case: scalar inputs or constant baseline → R²=1.0 if match, else 0.0. New `calculate_r_squared()` helper function implements standard R² calculation with edge case handling.
 
 **8. External nodes test physics correction** (test_model_comparison.py:366-471): Renamed `test_external_nodes_early_time_behavior` to `test_external_nodes_accelerate_expansion`. Original test incorrectly expected tidal forces to decelerate expansion at early times. Tidal formula a=GM_ext×r/S³ is proportional to r, so tidal forces ALWAYS accelerate expansion (like dark energy), not decelerate. Updated test to verify:
 - Early time: ratio ≥ 1.0 (tidal acceleration present but small)

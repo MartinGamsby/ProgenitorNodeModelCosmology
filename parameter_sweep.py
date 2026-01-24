@@ -13,6 +13,7 @@ from cosmo.simulation import CosmologicalSimulation
 from cosmo.analysis import (
     calculate_initial_conditions,
     compare_expansion_histories,
+    compare_expansion_history,
     solve_friedmann_at_times,
     calculate_hubble_parameters
 )
@@ -29,11 +30,12 @@ class SearchMethod(Enum):
 # Configuration defaults
 SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
 QUICK_SEARCH = False
+MANY_SEARCH = False
 T_START_GYR = 3.8
 T_DURATION_GYR = 10.0
 DAMPING_FACTOR = 0.98
 PARTICLE_COUNT = 20 if QUICK_SEARCH else 200#300
-N_STEPS = 200 if QUICK_SEARCH else 300
+N_STEPS = 250 if QUICK_SEARCH else 300
 SAVE_INTERVAL = 10  # Must match value used in sim() function
 
 
@@ -56,19 +58,19 @@ Mlist = []
 M = 10
 while M < 500:
     Mlist.append(M)
-    M += 1#10
+    M += 1 if MANY_SEARCH else 10
 while M < 1000:
     Mlist.append(M)
-    M += 5#50
+    M += 5 if MANY_SEARCH else 50
 while M < 2000:
     Mlist.append(M)
-    M += 10#100
+    M += 10 if MANY_SEARCH else 100
 while M < 5000:
     Mlist.append(M)
-    M += 100#500
-while M < 100000+1:
+    M += 100 if MANY_SEARCH else 500
+while M < (25000 if MANY_SEARCH else 100000)+1:
     Mlist.append(M)
-    M += 1000#10000
+    M += 1000 if MANY_SEARCH else 10000
 
 Mlist.reverse()
 
@@ -149,13 +151,15 @@ def sim(M_factor, S_gpc, desc, seed):
 
     # Calculate match using full curve comparison
     match_curve_pct = compare_expansion_histories(size_ext_curve, size_lcdm_curve)
-    match_end_pct = compare_expansion_histories(size_ext_final, size_lcdm_final)
-    match_max_pct = compare_expansion_histories(radius_max_final, radius_lcdm_max)
+    match_end_pct = compare_expansion_history(size_ext_final, size_lcdm_final)
+    match_max_pct = compare_expansion_history(radius_max_final, radius_lcdm_max)
     match_hubble_curve_pct = compare_expansion_histories(hubble_ext, H_lcdm_hubble)
+
     #match_avg_pct = (match_hubble_curve_pct*1 + match_curve_pct*3 + match_end_pct*5 + match_max_pct*1)/10
     #match_avg_pct = match_curve_pct#TODOOO
     #match_avg_pct = match_end_pct#TODOOOO
-    match_avg_pct = (match_hubble_curve_pct*0.1 + match_curve_pct*0.25 + match_end_pct*0.6 + match_max_pct*0.05)
+    #match_avg_pct = (match_hubble_curve_pct*0.1 + match_curve_pct*0.25 + match_end_pct*0.6 + match_max_pct*0.05)
+    match_avg_pct = (match_hubble_curve_pct + match_curve_pct + match_end_pct + match_max_pct)/4
     diff_pct = 100 - match_avg_pct
 
     print(f"   External-Node final a(t) = {a_ext:.4f}, size = {size_ext_final:.2f} Gpc")

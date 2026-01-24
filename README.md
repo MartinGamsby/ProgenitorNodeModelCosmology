@@ -63,7 +63,7 @@ a_Λ = H₀² Ω_Λ × R
 Multiple (M, S) combinations achieve high fidelity ΛCDM matching:
 
 - **M = 855 × M_observable**, S = 25 Gpc: 99.36% endpoint, R²=0.90 (expansion rate)
-- **M = 97000 × M_observable**, S = 64 Gpc: 99.46% endpoint, R²=0.90 (expansion rate)
+- **M = 97000 × M_observable**, S = 65 Gpc: 99.46% endpoint, R²=0.90 (expansion rate)
 - **M = 69 × M_observable**, S = 15 Gpc: 99.91% endpoint, R²=0.81 (expansion rate)
 
 This multiplicity demonstrates mechanism robustness—no fine-tuning to singular configuration required.

@@ -17,6 +17,7 @@ from cosmo.analysis import (
     normalize_to_initial_size,
     calculate_r_squared,
     compare_expansion_histories,
+    compare_expansion_history,
     detect_runaway_particles,
     calculate_today_marker
 )
@@ -251,14 +252,28 @@ class TestCalculateRSquared(unittest.TestCase):
 class TestCompareExpansionHistories(unittest.TestCase):
     """Test expansion history comparison"""
 
+    def test_compare_identical_history(self):
+        size_ext = 20.0
+        size_lcdm = 20.0
+        r2 = compare_expansion_history(size_ext, size_lcdm)
+        self.assertAlmostEqual(r2, 100.0, places=10)
+
+    def test_compare_different_history(self):
+        size_ext = 18.0
+        size_lcdm = 20.0
+        r2 = compare_expansion_history(size_ext, size_lcdm)
+        self.assertAlmostEqual(r2, 90.0, places=10)
+
     def test_compare_identical_histories(self):
         """Test identical histories give R² = 1.0 (new default) or 100% match (old)"""
         size_ext = 20.0
         size_lcdm = 20.0
 
         # Test new default: R²
-        r2 = compare_expansion_histories(size_ext, size_lcdm)
+        r2 = compare_expansion_histories(size_ext, size_lcdm, r_square_times_100=False)
         self.assertAlmostEqual(r2, 1.0, places=10)
+        r2 = compare_expansion_histories(size_ext, size_lcdm)
+        self.assertAlmostEqual(r2, 100.0, places=10)
 
         # Test backward compatibility: percentage
         match = compare_expansion_histories(size_ext, size_lcdm, use_r_squared=False)
@@ -295,11 +310,15 @@ class TestCompareExpansionHistories(unittest.TestCase):
         size_ext = np.linspace(10, 26, 50)
         size_lcdm = np.linspace(10, 26, 50) + 0.1  # small constant offset
 
-        r2 = compare_expansion_histories(size_ext, size_lcdm)
+        r2 = compare_expansion_histories(size_ext, size_lcdm, r_square_times_100=False)
 
         # Should be in 0-1 range
         self.assertGreater(r2, 0.0)
         self.assertLess(r2, 1.0)
+
+        r2 = compare_expansion_histories(size_ext, size_lcdm)
+        self.assertGreater(r2, 0.0)
+        self.assertLess(r2, 100.0)
 
     def test_backward_compatibility_percentage(self):
         """Test percentage mode matches old behavior"""
@@ -380,10 +399,13 @@ class TestCompareExpansionHistories(unittest.TestCase):
         size_ext = np.array([1e-10, 2e-10, 3e-10])
         size_lcdm = np.array([1e-10, 2e-10, 3e-10])
 
-        r2 = compare_expansion_histories(size_ext, size_lcdm)
+        r2 = compare_expansion_histories(size_ext, size_lcdm, r_square_times_100=False)
 
         # Perfect match should give R² = 1.0
         self.assertAlmostEqual(r2, 1.0, places=5)
+
+        r2 = compare_expansion_histories(size_ext, size_lcdm)
+        self.assertAlmostEqual(r2, 100.0, places=5)
 
 
 class TestDetectRunawayParticles(unittest.TestCase):

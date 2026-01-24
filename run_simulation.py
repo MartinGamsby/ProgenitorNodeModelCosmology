@@ -15,7 +15,7 @@ from cosmo.simulation import CosmologicalSimulation
 from cosmo.analysis import (
     solve_friedmann_at_times,
     calculate_initial_conditions,
-    compare_expansion_histories,
+    compare_expansion_history,
     detect_runaway_particles,
     calculate_today_marker,
     calculate_hubble_parameters
@@ -153,8 +153,8 @@ def run_simulation(output_dir, sim_params, use_max_radius=False):
     size_lcdm_final = baseline[size_key][-1]
     size_matter_final = nbody['matter'][size_key][-1]
 
-    ext_match = compare_expansion_histories(size_ext_final, size_lcdm_final)
-    matter_match = compare_expansion_histories(size_matter_final, size_lcdm_final)
+    ext_match = compare_expansion_history(size_ext_final, size_lcdm_final)
+    matter_match = compare_expansion_history(size_matter_final, size_lcdm_final)
 
     # Check for runaway particles
     max_ext_final = nbody['ext']['sim'].expansion_history[-1]['max_particle_distance'] / const.Gpc_to_m

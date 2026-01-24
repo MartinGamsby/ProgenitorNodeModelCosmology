@@ -208,21 +208,18 @@ def calculate_r_squared(y_actual, y_predicted):
     r_squared = 1.0 - (ss_res / ss_tot)
     return r_squared
 
+def compare_expansion_history(size1, size):
+    diff = np.abs(size1 - size) / size * 100
+    return 100 - diff
 
 def compare_expansion_histories(size_ext, size_lcdm, return_array: bool = False,
-                                  use_r_squared: bool = True, return_diagnostics: bool = False):
+                                  use_r_squared: bool = True, r_square_times_100: bool = True,
+                                    return_diagnostics: bool = False):
     """
     Calculate match quality between two expansion histories.
 
     Uses R² (coefficient of determination) by default. Option to use legacy
     percentage match for backward compatibility.
-
-    Args:
-        size_ext: External-Node model expansion (scalar or array)
-        size_lcdm: ΛCDM baseline expansion (scalar or array)
-        return_array: If True and inputs are arrays, return per-timestep percentage errors
-        use_r_squared: If True (default), use R² metric. If False, use percentage match.
-        return_diagnostics: If True, return dict with multiple metrics
 
     Returns:
         - If return_diagnostics=False: scalar R² (default) or percentage match
@@ -256,6 +253,7 @@ def compare_expansion_histories(size_ext, size_lcdm, return_array: bool = False,
     # R² or percentage match
     if use_r_squared:
         r_squared = calculate_r_squared(size_lcdm, size_ext)
+        r_squared = r_squared * 100 if r_square_times_100 else r_squared
         primary_metric = r_squared
     else:
         primary_metric = match_pct_scalar
@@ -271,7 +269,6 @@ def compare_expansion_histories(size_ext, size_lcdm, return_array: bool = False,
             'rmse_pct': rmse_pct
         }
         return diagnostics
-
     return primary_metric
 
 

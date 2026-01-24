@@ -21,7 +21,7 @@ class Integrator:
     
     def __init__(self, particle_system: ParticleSystem, hmea_grid: Optional[HMEAGrid] = None,
                  softening_per_Mobs_m: float = 1e24, use_external_nodes: bool = True, use_dark_energy: bool = False,
-                 force_method: str = 'direct', barnes_hut_theta: float = 0.5):
+                 force_method: str = 'auto', barnes_hut_theta: float = 0.5):
         """
         Initialize integrator.
 
@@ -30,7 +30,7 @@ class Integrator:
         particles (fewer particles) have larger softening for stability.
 
         Args:
-            force_method: 'direct' for O(N²) or 'barnes_hut' for O(N log N)
+            force_method: 'auto' (uses barnes_hut for N>=100), 'direct' for O(N²), or 'barnes_hut' for O(N log N)
             barnes_hut_theta: Opening angle for Barnes-Hut (0.3-0.7 typical)
         """
         self.particles = particle_system
@@ -40,6 +40,13 @@ class Integrator:
         self.use_dark_energy = use_dark_energy
         self.force_method = force_method
         self.barnes_hut_theta = barnes_hut_theta
+
+        # Determine actual method to use
+        N = len(particle_system.particles)
+        if force_method == 'auto':
+            self._active_force_method = 'barnes_hut' if N >= 100 else 'direct'
+        else:
+            self._active_force_method = force_method
         self.const = CosmologicalConstants()
 
         # Calculate adaptive softening based on particle mass
@@ -178,7 +185,7 @@ class Integrator:
         Returns accelerations array with shape (N, 3) in m/s².
         """
         # Select internal force method
-        if self.force_method == 'barnes_hut':
+        if self._active_force_method == 'barnes_hut':
             a_internal_mps2 = self.calculate_internal_forces_barnes_hut()
         else:
             a_internal_mps2 = self.calculate_internal_forces()

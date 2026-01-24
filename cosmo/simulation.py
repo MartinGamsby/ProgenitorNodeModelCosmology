@@ -18,11 +18,14 @@ class CosmologicalSimulation:
     
     def __init__(self, sim_params: SimulationParameters, box_size_Gpc: float, a_start: float,
                  use_external_nodes: bool = True, use_dark_energy: Optional[bool] = None,
-                 force_method: str = 'direct', barnes_hut_theta: float = 0.5):
+                 force_method: str = 'auto', barnes_hut_theta: float = 0.5):
         """
         Initialize simulation.
 
         If use_dark_energy is None, defaults to (not use_external_nodes).
+
+        Args:
+            force_method: 'auto' (uses Numba JIT for N>=100), 'direct', or 'barnes_hut'
         """
         self.const = CosmologicalConstants()
         self.use_external_nodes = use_external_nodes

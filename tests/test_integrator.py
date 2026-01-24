@@ -5,6 +5,7 @@ Tests the step() method, energy conservation, and symplectic properties.
 
 import unittest
 import numpy as np
+import pytest
 from cosmo.particles import ParticleSystem
 from cosmo.integrator import LeapfrogIntegrator
 from cosmo.constants import CosmologicalConstants
@@ -283,6 +284,100 @@ class TestLeapfrogIntegrator(unittest.TestCase):
             abs(actual_mag - expected_mag) / expected_mag, 1.0,
             msg=f"Acceleration magnitude should be ~G*m/r². Got {actual_mag:.3e}, expected {expected_mag:.3e}"
         )
+
+
+# Parametrized tests to verify both direct and Barnes-Hut methods
+class TestBothForceMethods:
+    """Test both direct and Barnes-Hut force methods produce similar results"""
+
+    @pytest.mark.parametrize("force_method", ["direct", "barnes_hut"])
+    def test_internal_forces_newtonian_both_methods(self, force_method):
+        """Both force methods should follow Newton's law"""
+        const = CosmologicalConstants()
+
+        # Create 2-particle system
+        particles = ParticleSystem(
+            n_particles=2,
+            box_size_m=1e25,
+            total_mass_kg=2e53,
+            damping_factor_override=0.0
+        )
+
+        # Place particles
+        r_sep = 5e24
+        particles.particles[0].pos = np.array([0.0, 0.0, 0.0])
+        particles.particles[1].pos = np.array([r_sep, 0.0, 0.0])
+        particles.particles[0].mass_kg = 1e53
+        particles.particles[1].mass_kg = 1e53
+
+        integrator = LeapfrogIntegrator(
+            particles,
+            use_external_nodes=False,
+            use_dark_energy=False,
+            force_method=force_method,
+            barnes_hut_theta=0.5
+        )
+
+        # Calculate forces using selected method
+        if force_method == "barnes_hut":
+            accelerations = integrator.calculate_internal_forces_barnes_hut()
+        else:
+            accelerations = integrator.calculate_internal_forces()
+
+        a0 = accelerations[0]
+
+        # Check direction (+x)
+        assert a0[0] > 0, f"{force_method}: Acceleration should point in +x"
+        assert abs(a0[1]) < 1e-10, f"{force_method}: Should only be in x-direction"
+        assert abs(a0[2]) < 1e-10, f"{force_method}: Should only be in x-direction"
+
+        # Check magnitude
+        expected_mag = const.G * 1e53 / r_sep**2
+        actual_mag = np.linalg.norm(a0)
+
+        # Note: With large softening (162 Mpc for N=2) vs 5 Gpc separation,
+        # both methods give similar but softened results. Allow generous tolerance.
+        # For barnes_hut, the octree approximation adds additional difference.
+        tolerance = 1.5 if force_method == "barnes_hut" else 1.0
+        assert abs(actual_mag - expected_mag) / expected_mag < tolerance, \
+            f"{force_method}: Magnitude {actual_mag:.3e} vs expected {expected_mag:.3e}"
+
+    @pytest.mark.parametrize("force_method", ["direct", "barnes_hut"])
+    def test_energy_conservation_both_methods(self, force_method):
+        """Energy conservation should work for both methods"""
+        particles = ParticleSystem(
+            n_particles=20,
+            box_size_m=1e26,
+            total_mass_kg=2e54,
+            damping_factor_override=0.0
+        )
+
+        integrator = LeapfrogIntegrator(
+            particles,
+            use_external_nodes=False,
+            use_dark_energy=False,
+            force_method=force_method,
+            barnes_hut_theta=0.5
+        )
+
+        # Initial energy
+        E0 = integrator.total_energy()
+
+        # Evolve for 10 steps
+        dt_s = 1e15
+        for _ in range(10):
+            integrator.step(dt_s)
+
+        # Final energy
+        E1 = integrator.total_energy()
+
+        # Energy should be conserved within ~2-3%
+        # Barnes-Hut may have slightly worse conservation due to approximation
+        tolerance = 0.03 if force_method == "barnes_hut" else 0.02
+        energy_drift = abs(E1 - E0) / abs(E0)
+
+        assert energy_drift < tolerance, \
+            f"{force_method}: Energy drift {energy_drift:.4f} exceeds tolerance {tolerance}"
 
 
 if __name__ == '__main__':

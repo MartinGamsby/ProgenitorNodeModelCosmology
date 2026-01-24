@@ -285,33 +285,54 @@ class HMEAGrid:
         """Get all node masses as (N,) array."""
         return np.array([node['mass'] for node in self.nodes])
 
-    def calculate_tidal_acceleration_batch(self, positions: np.ndarray) -> np.ndarray:
+    def calculate_tidal_acceleration_batch(self, positions: np.ndarray, use_numba: bool = True) -> np.ndarray:
         """
-        Calculate tidal acceleration for multiple positions (vectorized).
+        Calculate tidal acceleration for multiple positions.
 
-        Returns accelerations array with shape (N, 3) in m/s².
+        Args:
+            positions: (N, 3) particle positions in meters
+            use_numba: If True, use Numba JIT for speedup
+
+        Returns:
+            Accelerations array with shape (N, 3) in m/s².
         """
         const = CosmologicalConstants()
-        N = len(positions)
-        accelerations = np.zeros((N, 3))
-        
-        for node in self.nodes:
-            node_pos = node['position']
-            M_ext_kg = node['mass']
 
-            # Vector from position to node (attractive force toward node)
-            r_vec_m = node_pos - positions  # Broadcasting
-            r_m = np.linalg.norm(r_vec_m, axis=1, keepdims=True)
+        if use_numba:
+            # Use Numba JIT-compiled version (much faster)
+            from .tidal_forces_numba import calculate_tidal_forces_numba
 
-            # Avoid singularities
-            r_m = np.maximum(r_m, 1e10)
+            node_positions = self.get_positions()
+            node_masses = self.get_masses()
 
-            # Tidal acceleration for all particles (attractive toward node)
-            a_tidal = const.G * M_ext_kg * r_vec_m / r_m**3
+            return calculate_tidal_forces_numba(
+                positions,
+                node_positions,
+                node_masses,
+                const.G
+            )
+        else:
+            # Original NumPy vectorized version (fallback)
+            N = len(positions)
+            accelerations = np.zeros((N, 3))
 
-            accelerations += a_tidal
-        
-        return accelerations
+            for node in self.nodes:
+                node_pos = node['position']
+                M_ext_kg = node['mass']
+
+                # Vector from position to node (attractive force toward node)
+                r_vec_m = node_pos - positions  # Broadcasting
+                r_m = np.linalg.norm(r_vec_m, axis=1, keepdims=True)
+
+                # Avoid singularities
+                r_m = np.maximum(r_m, 1e10)
+
+                # Tidal acceleration for all particles (attractive toward node)
+                a_tidal = const.G * M_ext_kg * r_vec_m / r_m**3
+
+                accelerations += a_tidal
+
+            return accelerations
     
     def __repr__(self):
         return (f"HMEAGrid(n_nodes={self.n_nodes}, "

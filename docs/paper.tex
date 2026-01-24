@@ -104,10 +104,16 @@ To rigorously test whether the external-node mechanism can reproduce $\Lambda$CD
 We model the meta-structure as a 3×3×3 cubic lattice with 26 external nodes surrounding our observable universe. The central position represents our universe (no node present), with HMEAs positioned at integer multiples of the grid spacing $S$. This topology naturally enforces approximate isotropy while accounting for the discrete nature of the gravitational sources. We emphasize that this symmetric grid is a \textbf{simplified representation} for computational tractability—a real virialized meta-structure would contain nodes of varying masses at different distances with irregular spacing. However, nodes at distances significantly greater than the nearest neighbors contribute negligibly to the tidal force, making the 3×3×3 approximation sufficient for validating the core mechanism. The purpose of this toy model is to test whether the concept is viable, not to claim exact correspondence with reality.
 
 \paragraph{Simulation Parameters:}
-The simulation evolves 200-300 test particles over a 10 Gyr period (from cosmic time $t = 3.8$ Gyr to $t = 13.8$ Gyr), covering the era of late-universe expansion and observed cosmic acceleration. We begin at $t = 3.8$ Gyr rather than the Big Bang because this toy model explicitly focuses on late-time acceleration—early universe physics (inflation, nucleosynthesis, CMB) are outside our current scope (Section 5.2). Initial conditions are set to match $\Lambda$CDM predictions at $t = 3.8$ Gyr.
+The simulation evolves 200-1000 test particles over a 10 Gyr period (from cosmic time $t = 3.8$ Gyr to $t = 13.8$ Gyr), covering the era of late-universe expansion and observed cosmic acceleration. We begin at $t = 3.8$ Gyr rather than the Big Bang because this toy model explicitly focuses on late-time acceleration—early universe physics (inflation, nucleosynthesis, CMB) are outside our current scope (Section 5.2). Initial conditions are set to match $\Lambda$CDM predictions at $t = 3.8$ Gyr.
 
 \paragraph{Parameter Exploration Methodology:}
-We conducted systematic parameter sweeps using an adaptive linear search algorithm with intelligent step-skipping to efficiently explore the $(M_{ext}, S)$ parameter space. The $\Lambda$CDM baseline is computed analytically via exact Friedmann solution at N-body snapshot times, eliminating interpolation artifacts. Each configuration is validated using the R² (coefficient of determination) metric, which measures the fraction of $\Lambda$CDM variance explained by the External-Node model. Quality checks include: (1) matter-only simulations must never exceed $\Lambda$CDM expansion at any timestep (physics constraint), (2) center-of-mass drift monitoring to ensure grid symmetry, and (3) runaway particle detection to flag numerical instability.
+We conducted systematic parameter sweeps using an adaptive linear search algorithm with intelligent step-skipping to efficiently explore the $(M_{ext}, S)$ parameter space. The $\Lambda$CDM baseline is computed analytically via exact Friedmann solution at N-body snapshot times, eliminating interpolation artifacts. Each configuration is validated using the R² (coefficient of determination) metric, which measures the fraction of $\Lambda$CDM variance explained by the External-Node model. Quality checks include:
+
+\begin{enumerate}
+\item Matter-only simulations must never exceed $\Lambda$CDM expansion at any timestep (physics constraint),
+\item Center-of-mass drift monitoring to ensure grid symmetry, and
+\item Runaway particle detection to flag numerical instability.
+\end{enumerate}
 
 \begin{figure}
     \centering
@@ -124,15 +130,21 @@ We conducted systematic parameter sweeps using an adaptive linear search algorit
 
 \subsection{Parameter Space Exploration and Results}
 
-Through systematic parameter exploration, we identified \textbf{multiple parameter combinations} that reproduce $\Lambda$CDM expansion with high fidelity. There is no single "optimal" configuration—rather, a family of solutions exists across a broad parameter range, demonstrating the robustness of the external-node mechanism:
+Through systematic parameter exploration, we identified \textbf{multiple parameter combinations} that reproduce $\Lambda$CDM expansion with high fidelity. There is no single "optimal" configuration. A family of solutions exists across a broad parameter range, demonstrating the robustness of the external-node mechanism:
 
-\begin{itemize}
-    \item $M_{ext} = 855 \times M_{obs} \approx 8.6 \times 10^{55}$ kg, $S = 25$ Gpc: 99.36\% endpoint match, $R^2 = 0.9979$ (size), $R^2 = 0.8976$ (expansion rate)
-    \item $M_{ext} = 97000 \times M_{obs} \approx 9.7 \times 10^{57}$ kg, $S = 64$ Gpc: 99.46\% endpoint match, $R^2 = 0.9983$ (size), $R^2 = 0.9041$ (expansion rate)
-    \item $M_{ext} = 69 \times M_{obs} \approx 6.9 \times 10^{54}$ kg, $S = 15$ Gpc: 99.91\% endpoint match, $R^2 = 0.9992$ (size), $R^2 = 0.8120$ (expansion rate)
-\end{itemize}
+\begin{center}
+\begin{tabular}{lccc}
+\hline
+\textbf{M} & \textbf{S} & \textbf{Endpoint Match} & \textbf{Size $R^2$} \\
+\hline
+855 \times M_{obs} & 25 & 99.36\% & 0.9979 \\
+97000 \times M_{obs} & 64 & 99.46\% & 0.9983 \\
+69 \times M_{obs} & 15 & 99.91\% & 0.9992 \\
+\hline
+\end{tabular}
+\end{center}
 
-This multiplicity demonstrates that the mechanism is not fine-tuned to a singular point in parameter space. The existence of very high-mass solutions (e.g., $M_{ext} \sim 10^{57}$ kg) suggests exploring alternative topologies where more mass resides in a central concentration with less massive external nodes. Conversely, very close configurations ($S = 15$ Gpc) may predict future hyper-acceleration as the universe approaches the node boundary—offering testable predictions for deep-time cosmology.
+This multiplicity demonstrates that the mechanism is not fine-tuned to a singular point in parameter space. The existence of very high-mass solutions suggests exploring alternative topologies where more mass resides in a central concentration with less massive external nodes. Conversely, very close configurations ($S = 15$ Gpc) may predict near future hyper-acceleration as the universe approaches the node boundary, offering testable predictions for deep-time cosmology.
 
 \paragraph{R² Metric and Statistical Rigor:}
 We employ the coefficient of determination ($R^2$) to quantify agreement with $\Lambda$CDM:
@@ -165,10 +177,10 @@ Critically, the model reproduces realistic Hubble parameter values without requi
 
 \subsection{Matter-Only Comparison: Distinguishing Endpoint from Dynamics}
 
-A critical validation is comparing the external-node model against a matter-only cosmology (no dark energy, no external nodes—pure gravitational deceleration). This comparison exposes a subtle but crucial distinction: \textbf{endpoint match versus dynamics match}.
+A critical validation is comparing the external-node model against a matter-only cosmology (no dark energy, no external nodes: pure gravitational deceleration). This comparison exposes a subtle but crucial distinction: \textbf{endpoint match versus dynamics match}.
 
 \paragraph{Matter-Only Performance:}
-The matter-only model (evolving under internal self-gravity alone) produces deceptively good endpoint agreement:
+The matter-only model (evolving under internal self-gravity alone) produces decent endpoint agreement:
 \begin{itemize}
     \item Final size: 14.02 Gpc (vs. 14.52 Gpc $\Lambda$CDM)
     \item Endpoint match: 96.56\%
@@ -176,7 +188,7 @@ The matter-only model (evolving under internal self-gravity alone) produces dece
     \item \textbf{Expansion rate $R^2$ (last 5 Gyr): -0.4840}
 \end{itemize}
 
-The endpoint match appears respectable ($\sim$96\%), and even the size $R^2$ seems acceptable (0.97). However, the \textbf{expansion rate $R^2$ is catastrophically negative} (-0.48), indicating the matter-only model performs \textit{worse than a constant baseline}. This exposes the fundamental physics failure: matter-only reaches a similar final size through \textbf{deceleration} (wrong mechanism), while $\Lambda$CDM reaches it through \textbf{acceleration}.
+The endpoint match appears respectable ($\sim$96\%), and even the size $R^2$ seems acceptable (0.97), but it's because the initial conditions were set, and it's one order of magnitude worse than the External Nodes model, which is closer to 0.997 $R^2$. Furthermore, the \textbf{expansion rate $R^2$ is catastrophically negative} (-0.48).
 
 \paragraph{External-Node vs Matter-Only:}
 Comparing external-nodes ($M_{ext} = 855 \times M_{obs}$, $S = 25$ Gpc) to matter-only:
@@ -193,10 +205,10 @@ Matter-only & 96.56\% & 0.9716 & \textbf{-0.4840} \\
 \end{tabular}
 \end{center}
 
-The external-node model achieves \textbf{positive expansion rate $R^2$} (0.90), demonstrating it replicates the acceleration \textit{mechanism}, not just the coincidental endpoint. Matter-only's negative $R^2$ confirms it lacks any acceleration mechanism—it simply decelerates more slowly than might be naively expected, reaching a similar size by chance.
+The external-node model achieves \textbf{positive expansion rate $R^2$} (0.90), demonstrating it replicates the acceleration \textit{mechanism}, not just the coincidental endpoint. Matter-only's negative $R^2$ confirms it lacks any acceleration mechanism.
 
 \paragraph{Why Last-Half $R^2$ Matters:}
-Full-timeline $R^2$ (covering all 10 Gyr from $t = 3.8$ to $13.8$ Gyr) can be misleadingly high for matter-only because the early universe (first $\sim$5 Gyr) exhibits similar behavior across all models—acceleration from dark energy or external nodes has not yet dominated over matter-driven deceleration. By isolating the \textbf{last half} (5 Gyr), we focus on the late-time regime where acceleration mechanisms become decisive. This is precisely the phenomenon the toy model targets: late-universe expansion, not early-universe dynamics.
+Full-timeline $R^2$ (covering all 10 Gyr from $t = 3.8$ to $13.8$ Gyr) can be misleadingly high for matter-only because the early universe (first $\sim$5 Gyr) exhibits similar behavior across all models, when acceleration from dark energy or external nodes has not yet dominated over matter-driven deceleration. By isolating the \textbf{last half} (5 Gyr), we focus on the late-time regime where acceleration mechanisms become decisive. This is precisely the phenomenon the toy model targets: late-universe expansion, not early-universe dynamics.
 
 \paragraph{Physical Interpretation:}
 This comparison proves that external nodes provide an acceleration mechanism comparable to dark energy, not merely a fortuitous final size. The expansion rate $R^2$ serves as a "lie detector" for spurious matches: matter-only cannot fake acceleration dynamics across 5 Gyr of evolution, even if it accidentally reaches a similar endpoint.

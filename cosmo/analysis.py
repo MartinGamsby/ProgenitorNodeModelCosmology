@@ -159,31 +159,120 @@ def normalize_to_initial_size(a_array: np.ndarray, initial_size_Gpc: float) -> n
     return initial_size_Gpc * a_normalized
 
 
-def compare_expansion_histories(size_ext, size_lcdm, return_array: bool = False):
+def calculate_r_squared(y_actual, y_predicted):
     """
-    Calculate match percentage between two expansion histories.
+    Calculate R² (coefficient of determination).
 
-    Compares full expansion curves by computing average percentage difference
-    across all timesteps. This ensures we match the entire evolution, not just
-    the final state.
+    R² = 1 - (SS_res / SS_tot)
+    where SS_res = sum of squared residuals
+          SS_tot = total sum of squares
 
-    If return_array=True and inputs are arrays, returns per-timestep match array.
-    Otherwise returns scalar averaged match percentage (100% = perfect match).
+    Args:
+        y_actual: Reference values (ΛCDM baseline)
+        y_predicted: Model values (External-Node model)
+
+    Returns:
+        R² value (float):
+        - 1.0 = perfect fit
+        - 0.0 = model explains no variance (predicts mean)
+        - Negative = worse than predicting mean
+        - Edge case: if y_actual is constant, returns 1.0 if match else 0.0
+
+    Physics interpretation: Fraction of ΛCDM variance explained by External-Node model.
     """
-    # If arrays, compare full curve
-    if isinstance(size_ext, np.ndarray) and isinstance(size_lcdm, np.ndarray):
-        # Calculate percentage match at each timestep
-        diff_pct = np.abs(size_ext - size_lcdm) / size_lcdm * 100
-        match_pct = 100 - diff_pct
+    y_actual = np.asarray(y_actual)
+    y_predicted = np.asarray(y_predicted)
 
-        if return_array:
-            return match_pct  # Per-timestep array
+    # Handle scalar inputs (convert to 1-element array for uniform processing)
+    if y_actual.ndim == 0:
+        y_actual = y_actual.reshape(1)
+    if y_predicted.ndim == 0:
+        y_predicted = y_predicted.reshape(1)
+
+    # Calculate residuals
+    residuals = y_actual - y_predicted
+    ss_res = np.sum(residuals**2)
+
+    # Calculate total sum of squares
+    y_mean = np.mean(y_actual)
+    ss_tot = np.sum((y_actual - y_mean)**2)
+
+    # Edge case: constant y_actual (SS_tot = 0)
+    if ss_tot == 0:
+        if ss_res == 0:
+            return 1.0  # Perfect match of constant curves
         else:
-            return np.mean(match_pct)  # Averaged scalar (backward compatible)
+            return 0.0  # Curves differ but baseline is constant
+
+    # Standard R² calculation
+    r_squared = 1.0 - (ss_res / ss_tot)
+    return r_squared
+
+
+def compare_expansion_histories(size_ext, size_lcdm, return_array: bool = False,
+                                  use_r_squared: bool = True, return_diagnostics: bool = False):
+    """
+    Calculate match quality between two expansion histories.
+
+    Uses R² (coefficient of determination) by default. Option to use legacy
+    percentage match for backward compatibility.
+
+    Args:
+        size_ext: External-Node model expansion (scalar or array)
+        size_lcdm: ΛCDM baseline expansion (scalar or array)
+        return_array: If True and inputs are arrays, return per-timestep percentage errors
+        use_r_squared: If True (default), use R² metric. If False, use percentage match.
+        return_diagnostics: If True, return dict with multiple metrics
+
+    Returns:
+        - If return_diagnostics=False: scalar R² (default) or percentage match
+        - If return_diagnostics=True: dict with R², errors, RMSE
+        - If return_array=True: per-timestep percentage error array
+    """
+    # Convert to arrays for uniform processing
+    is_array = isinstance(size_ext, np.ndarray) and isinstance(size_lcdm, np.ndarray)
+
+    if not is_array:
+        size_ext = np.asarray([size_ext])
+        size_lcdm = np.asarray([size_lcdm])
+
+    # Calculate percentage errors (used for diagnostics and backward compat)
+    diff_pct = np.abs(size_ext - size_lcdm) / size_lcdm * 100
+    match_pct_array = 100 - diff_pct
+
+    # Per-timestep array output
+    if return_array and is_array:
+        return match_pct_array
+
+    # Calculate metrics
+    mean_error_pct = np.mean(diff_pct)
+    max_error_pct = np.max(diff_pct)
+    match_pct_scalar = np.mean(match_pct_array)
+
+    # RMSE
+    rmse = np.sqrt(np.mean((size_ext - size_lcdm)**2))
+    rmse_pct = rmse / np.mean(size_lcdm) * 100
+
+    # R² or percentage match
+    if use_r_squared:
+        r_squared = calculate_r_squared(size_lcdm, size_ext)
+        primary_metric = r_squared
     else:
-        # Scalar comparison (backward compatibility)
-        diff = np.abs(size_ext - size_lcdm) / size_lcdm * 100
-        return 100 - diff
+        primary_metric = match_pct_scalar
+
+    # Return diagnostics if requested
+    if return_diagnostics:
+        diagnostics = {
+            'r_squared': r_squared if use_r_squared else None,
+            'match_pct': match_pct_scalar if not use_r_squared else None,
+            'max_error_pct': max_error_pct,
+            'mean_error_pct': mean_error_pct,
+            'rmse': rmse,
+            'rmse_pct': rmse_pct
+        }
+        return diagnostics
+
+    return primary_metric
 
 
 def detect_runaway_particles(max_distance_Gpc: float, rms_size_Gpc: float, threshold: float = 2.0) -> Dict[str, float]:

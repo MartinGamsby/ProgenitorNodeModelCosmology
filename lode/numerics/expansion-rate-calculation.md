@@ -243,6 +243,56 @@ hubble_smooth = calculate_hubble_parameters(
 )
 ```
 
+## Comparison Metrics
+
+### R² (Coefficient of Determination)
+
+**Primary metric** for comparing N-body expansion curves to ΛCDM baseline.
+
+**Formula**: R² = 1 - (SS_res / SS_tot)
+- SS_res = Σ(ΛCDM - model)² (residual sum of squares)
+- SS_tot = Σ(ΛCDM - mean(ΛCDM))² (total sum of squares)
+
+**Interpretation**:
+- R² = 1.0: Perfect match (model explains 100% of ΛCDM variance)
+- R² = 0.99: Model explains 99% of variance (excellent fit)
+- R² = 0.0: Model performs no better than predicting mean
+- R² < 0: Model worse than predicting mean
+
+**Usage**:
+```python
+from cosmo.analysis import compare_expansion_histories
+
+# R² comparison (default)
+r2 = compare_expansion_histories(size_ext, size_lcdm)
+# r2 ≈ 0.9999 for 99.4% match
+
+# Diagnostics
+diagnostics = compare_expansion_histories(
+    size_ext, size_lcdm,
+    return_diagnostics=True
+)
+# Returns: r_squared, max_error_pct, mean_error_pct, rmse, rmse_pct
+
+# Backward compatibility: percentage match
+match_pct = compare_expansion_histories(
+    size_ext, size_lcdm,
+    use_r_squared=False
+)
+# match_pct ≈ 99.4 for 0.6% mean error
+```
+
+**Why R² over percentage match**:
+1. Statistical foundation: measures variance explained
+2. Standard metric in curve fitting
+3. Handles systematic deviations (offset, scaling) appropriately
+4. Comparable across different physical quantities (diameter, Hubble, scale factor)
+
+**Typical values** (M≈800, S≈24 Gpc, best fit):
+- Expansion curve R²: 0.9998-0.9999 (99.4% match)
+- Hubble parameter R²: 0.9995-0.9997 (small derivative errors amplified)
+- Final state R²: 1.0 (single point comparison)
+
 ## Comparison: N-body vs LCDM
 
 | Aspect | N-body | LCDM |
@@ -252,6 +302,7 @@ hubble_smooth = calculate_hubble_parameters(
 | Edge behavior | Same as middle | Perfect everywhere |
 | Smoothing | Optional | Not needed |
 | Computational cost | O(N) gradient | O(N) sqrt |
+| Comparison metric | R² ≈ 0.9998 typical | R² = 1.0 (reference) |
 
 ## Related
 

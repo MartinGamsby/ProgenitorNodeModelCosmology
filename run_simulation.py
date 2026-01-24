@@ -8,7 +8,6 @@ import sys
 import os
 import argparse
 import numpy as np
-from scipy.ndimage import gaussian_filter1d
 import matplotlib.pyplot as plt
 
 from cosmo.constants import CosmologicalConstants, LambdaCDMParameters, SimulationParameters
@@ -18,7 +17,8 @@ from cosmo.analysis import (
     calculate_initial_conditions,
     compare_expansion_histories,
     detect_runaway_particles,
-    calculate_today_marker
+    calculate_today_marker,
+    calculate_hubble_parameters
 )
 from cosmo.visualization import (
     generate_output_filename,
@@ -56,29 +56,18 @@ def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start, save_interval=10
 
     print(f"LCDM: {lcdm_initial_size:.3f} -> {diameter_lcdm_Gpc[-1]:.2f} Gpc")
 
-    # Solve matter-only at same time points
-    matter_solution = solve_friedmann_at_times(t_absolute_Gyr, Omega_Lambda=0.0)
-    a_matter = matter_solution['a']
-    H_matter_hubble = matter_solution['H_hubble']
-
-    # Normalize using the EXACT a_start
-    diameter_matter_Gpc = lcdm_initial_size * (a_matter / a_start)
-
-    print(f"Matter-only: {lcdm_initial_size:.3f} -> {diameter_matter_Gpc[-1]:.2f} Gpc")
-
+    # Scale box_size so that the RMS radius matches the target
+    # For a uniform sphere of radius R, RMS radius = R * sqrt(3/5) ≈ 0.775*R
+    # We want RMS = size_lcdm_Gpc, so R_sphere = size_lcdm_Gpc / 0.775
+    # This means we need to use a sphere of radius: size_lcdm_Gpc/2 / sqrt(3/5)
+    max_diameter_lcdm_Gpc = diameter_lcdm_Gpc / np.sqrt(3/5)
+    
     return {
-        'lcdm': {
-            't': t_relative_Gyr,  # Time relative to simulation start (starts at exactly 0.0)
-            'a': a_lcdm,
-            'diameter_m': diameter_lcdm_Gpc,  # Diameter in Gpc (matches N-body convention)
-            'H_hubble': H_lcdm_hubble
-        },
-        'matter': {
-            't': t_relative_Gyr,  # Same time array (exact alignment with N-body)
-            'a': a_matter,
-            'diameter_m': diameter_matter_Gpc,  # Diameter in Gpc (matches N-body convention)
-            'H_hubble': H_matter_hubble
-        }
+        't': t_relative_Gyr,  # Time relative to simulation start (starts at exactly 0.0)
+        'a': a_lcdm,
+        'diameter_Gpc': diameter_lcdm_Gpc,  # Diameter in Gpc (matches N-body convention)
+        'max_diameter_Gpc': max_diameter_lcdm_Gpc,
+        'H_hubble': H_lcdm_hubble
     }
 
 
@@ -106,64 +95,17 @@ def run_nbody_simulations(sim_params, box_size, a_start):
             'sim': ext_results['sim'],
             't': ext_results['t_Gyr'],
             'a': ext_results['a'],
-            'diameter_m': ext_results['diameter_Gpc']
+            'diameter_Gpc': ext_results['diameter_Gpc'],
+            'max_diameter_Gpc': ext_results['max_radius_Gpc']*2
         },
         'matter': {
             'sim': matter_results['sim'],
             't': matter_results['t_Gyr'],
             'a': matter_results['a'],
-            'diameter_m': matter_results['diameter_Gpc']
+            'diameter_Gpc': matter_results['diameter_Gpc'],
+            'max_diameter_Gpc': matter_results['max_radius_Gpc']*2
         }
     }
-
-
-def calculate_hubble_parameters(t_ext, a_ext, t_matter, a_matter_sim, smooth_sigma=0.0):
-    """
-    Calculate Hubble parameters from scale factors.
-    """
-    const = CosmologicalConstants()
-
-    # Optional smoothing (default: no smoothing per user request)
-    if smooth_sigma > 0:
-        a_ext_smooth = gaussian_filter1d(a_ext, sigma=smooth_sigma)
-        a_matter_sim_smooth = gaussian_filter1d(a_matter_sim, sigma=smooth_sigma)
-    else:
-        a_ext_smooth = a_ext
-        a_matter_sim_smooth = a_matter_sim
-
-    # External-Node Hubble parameter
-    H_ext = np.gradient(a_ext_smooth, t_ext * 1e9 * 365.25 * 24 * 3600) / a_ext_smooth
-    H_ext_hubble = H_ext * const.Mpc_to_m / 1000
-
-    # Fix boundary points: np.gradient uses forward/backward differences at edges
-    # which are less accurate. Replace first and last points with NaN to exclude them
-    # from plots, or use second-order accurate formulas
-    if len(H_ext_hubble) > 2:
-        # Second-order forward difference for first point: f'(0) ≈ (-3f(0) + 4f(1) - f(2)) / (2h)
-        dt_0 = (t_ext[1] - t_ext[0]) * 1e9 * 365.25 * 24 * 3600
-        H_ext_hubble[0] = (-3*a_ext_smooth[0] + 4*a_ext_smooth[1] - a_ext_smooth[2]) / (2*dt_0 * a_ext_smooth[0]) * const.Mpc_to_m / 1000
-
-        # Second-order backward difference for last point: f'(n) ≈ (3f(n) - 4f(n-1) + f(n-2)) / (2h)
-        dt_n = (t_ext[-1] - t_ext[-2]) * 1e9 * 365.25 * 24 * 3600
-        H_ext_hubble[-1] = (3*a_ext_smooth[-1] - 4*a_ext_smooth[-2] + a_ext_smooth[-3]) / (2*dt_n * a_ext_smooth[-1]) * const.Mpc_to_m / 1000
-
-    # Matter-only Hubble parameter
-    H_matter_sim = np.gradient(a_matter_sim_smooth, t_matter * 1e9 * 365.25 * 24 * 3600) / a_matter_sim_smooth
-    H_matter_sim_hubble = H_matter_sim * const.Mpc_to_m / 1000
-
-    # Fix boundary points for matter-only as well
-    if len(H_matter_sim_hubble) > 2:
-        dt_0 = (t_matter[1] - t_matter[0]) * 1e9 * 365.25 * 24 * 3600
-        H_matter_sim_hubble[0] = (-3*a_matter_sim_smooth[0] + 4*a_matter_sim_smooth[1] - a_matter_sim_smooth[2]) / (2*dt_0 * a_matter_sim_smooth[0]) * const.Mpc_to_m / 1000
-
-        dt_n = (t_matter[-1] - t_matter[-2]) * 1e9 * 365.25 * 24 * 3600
-        H_matter_sim_hubble[-1] = (3*a_matter_sim_smooth[-1] - 4*a_matter_sim_smooth[-2] + a_matter_sim_smooth[-3]) / (2*dt_n * a_matter_sim_smooth[-1]) * const.Mpc_to_m / 1000
-
-    return {
-        'H_ext_hubble': H_ext_hubble,
-        'H_matter_hubble': H_matter_sim_hubble
-    }
-
 
 def print_results_summary(sim_params, size_ext_final, size_lcdm_final, size_matter_final,
                          ext_match, matter_match, max_ext_final, max_matter_final):
@@ -181,7 +123,7 @@ def print_results_summary(sim_params, size_ext_final, size_lcdm_final, size_matt
         print(f"         This indicates numerical instability - particles being shot out")
 
 
-def run_simulation(output_dir, sim_params):
+def run_simulation(output_dir, sim_params, use_max_radius=False):
     """Run cosmological simulation with specified parameters
     """
     # Setup
@@ -206,9 +148,10 @@ def run_simulation(output_dir, sim_params):
     nbody = run_nbody_simulations(sim_params, box_size, a_at_start)
 
     # Calculate match statistics
-    size_ext_final = nbody['ext']['diameter_m'][-1]
-    size_lcdm_final = baseline['lcdm']['diameter_m'][-1]
-    size_matter_final = nbody['matter']['diameter_m'][-1]
+    size_key = 'max_diameter_Gpc' if use_max_radius else 'diameter_Gpc'
+    size_ext_final = nbody['ext'][size_key][-1]
+    size_lcdm_final = baseline[size_key][-1]
+    size_matter_final = nbody['matter'][size_key][-1]
 
     ext_match = compare_expansion_histories(size_ext_final, size_lcdm_final)
     matter_match = compare_expansion_histories(size_matter_final, size_lcdm_final)
@@ -223,19 +166,16 @@ def run_simulation(output_dir, sim_params):
     )
 
     # Calculate Hubble parameters for plotting (no smoothing by default per user request)
-    hubble = calculate_hubble_parameters(
-        nbody['ext']['t'], nbody['ext']['a'],
-        nbody['matter']['t'], nbody['matter']['a'],
-        smooth_sigma=0.0
-    )
+    H_ext_hubble = calculate_hubble_parameters(nbody['ext']['t'], nbody['ext']['a'], smooth_sigma=0.0)
+    H_matter_hubble = calculate_hubble_parameters(nbody['matter']['t'], nbody['matter']['a'], smooth_sigma=0.0)
 
     # Create visualization
     today = calculate_today_marker(sim_params.t_start_Gyr, sim_params.t_duration_Gyr)
     fig = create_comparison_plot(
         sim_params,
-        baseline['lcdm']['t'], baseline['lcdm']['a'], baseline['lcdm']['diameter_m'], baseline['lcdm']['H_hubble'],
-        nbody['ext']['t'], nbody['ext']['a'], nbody['ext']['diameter_m'], hubble['H_ext_hubble'],
-        nbody['matter']['t'], nbody['matter']['a'], nbody['matter']['diameter_m'], hubble['H_matter_hubble'],
+        baseline['t'], baseline['a'], baseline[size_key], baseline['H_hubble'],
+        nbody['ext']['t'], nbody['ext']['a'], nbody['ext'][size_key], H_ext_hubble,
+        nbody['matter']['t'], nbody['matter']['a'], nbody['matter'][size_key], H_matter_hubble,
         today=today
     )
 

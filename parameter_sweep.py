@@ -13,7 +13,8 @@ from cosmo.simulation import CosmologicalSimulation
 from cosmo.analysis import (
     calculate_initial_conditions,
     compare_expansion_histories,
-    solve_friedmann_at_times
+    solve_friedmann_at_times,
+    calculate_hubble_parameters
 )
 from cosmo.factories import run_and_extract_results
 
@@ -30,9 +31,9 @@ SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
 QUICK_SEARCH = False
 T_START_GYR = 3.8
 T_DURATION_GYR = 10.0
-DAMPING_FACTOR = 0.975
-PARTICLE_COUNT = 20 if QUICK_SEARCH else 300
-N_STEPS = 200 if QUICK_SEARCH else 250
+DAMPING_FACTOR = 0.98
+PARTICLE_COUNT = 20 if QUICK_SEARCH else 200#300
+N_STEPS = 200 if QUICK_SEARCH else 300
 SAVE_INTERVAL = 10  # Must match value used in sim() function
 
 
@@ -48,15 +49,31 @@ A_START = initial_conditions['a_start']
 # Test different configurations
 configs = []
 
+#Mlist = [15, 16, 17, 18, 19, 20, 22, 25, 27, 30, 33, 35, 37, 40, 45, 50, 60, 70, 80, 90, 100, 110, 125, 150, 175, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000]
+#Mlist = [5, 10, 15, 20, 25, 30, 33, 35, 40, 45, 50, 60, 70, 80, 90, 100, 110, 125, 150, 175, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000]
+#Mlist = [15, 20, 30, 40, 50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000]
 Mlist = []
-M = 15
+M = 10
+while M < 500:
+    Mlist.append(M)
+    M += 1#10
 while M < 1000:
     Mlist.append(M)
-    M = int(M * 1.1)
+    M += 5#50
+while M < 2000:
+    Mlist.append(M)
+    M += 10#100
+while M < 5000:
+    Mlist.append(M)
+    M += 100#500
+while M < 100000+1:
+    Mlist.append(M)
+    M += 1000#10000
+
 Mlist.reverse()
 
 SMin_gpc = 15   # Min box size to test
-SMax_gpc = 60   # Max box size to test
+SMax_gpc = 250   # Max box size to test
 
 Slist = [i for i in range(SMin_gpc, SMax_gpc+1, 1)]
 nbConfigs_bruteforce = len(Mlist)*len(Slist)
@@ -79,6 +96,7 @@ t_absolute_Gyr = T_START_GYR + t_relative_Gyr
 
 # Solve ΛCDM at exact N-body snapshot times
 lcdm_solution = solve_friedmann_at_times(t_absolute_Gyr, Omega_Lambda=None)
+H_lcdm_hubble = lcdm_solution['H_hubble']
 
 # Extract expansion history
 t_lcdm = lcdm_solution['t_Gyr'] - T_START_GYR  # Offset to start at 0
@@ -124,6 +142,8 @@ def sim(M_factor, S_gpc, desc, seed):
     radius_max_final = ext_results['max_radius_Gpc'][-1]
     t_ext = ext_results['t_Gyr']  # Time points from simulation
 
+    hubble_ext = calculate_hubble_parameters(t_ext, ext_results['a'], smooth_sigma=0.0)
+
     # LCDM curve should now match N-body time points exactly (no interpolation needed)
     size_lcdm_curve = size_lcdm_full
 
@@ -131,11 +151,15 @@ def sim(M_factor, S_gpc, desc, seed):
     match_curve_pct = compare_expansion_histories(size_ext_curve, size_lcdm_curve)
     match_end_pct = compare_expansion_histories(size_ext_final, size_lcdm_final)
     match_max_pct = compare_expansion_histories(radius_max_final, radius_lcdm_max)
-    match_avg_pct = (match_curve_pct*3 + match_end_pct*3 + match_max_pct*2)/8
+    match_hubble_curve_pct = compare_expansion_histories(hubble_ext, H_lcdm_hubble)
+    #match_avg_pct = (match_hubble_curve_pct*1 + match_curve_pct*3 + match_end_pct*5 + match_max_pct*1)/10
+    #match_avg_pct = match_curve_pct#TODOOO
+    #match_avg_pct = match_end_pct#TODOOOO
+    match_avg_pct = (match_hubble_curve_pct*0.1 + match_curve_pct*0.25 + match_end_pct*0.6 + match_max_pct*0.05)
     diff_pct = 100 - match_avg_pct
 
     print(f"   External-Node final a(t) = {a_ext:.4f}, size = {size_ext_final:.2f} Gpc")
-    print(f"   Match: {match_avg_pct:.2f}% (avg diff across all timesteps: {diff_pct:.2f}%)")
+    print(f"   Match: {match_avg_pct:.2f}% (curve {(match_curve_pct):.2f}%, end {(match_end_pct):.2f}%, radius {(match_max_pct):.2f}%, Hubble {(match_hubble_curve_pct):.2f}%)")
 
     return {
         'M_factor': M_factor,
@@ -147,11 +171,13 @@ def sim(M_factor, S_gpc, desc, seed):
         'match_avg_pct': match_avg_pct,
         'match_end_pct': match_end_pct,
         'match_max_pct': match_max_pct,
+        'match_hubble_curve_pct': match_hubble_curve_pct,
         'diff_pct': diff_pct,
         'params': sim_params.external_params
     }
 
 def sim_check(M_factor, S_gpc, desc):
+    return sim(M_factor, S_gpc, desc, seed=42)
     # Take the worst of 2 seeds to avoid lucky runs
     result1 = sim(M_factor, S_gpc, desc, seed=42)
     result2 = sim(M_factor, S_gpc, desc, seed=123)
@@ -248,7 +274,7 @@ elif SEARCH_METHOD == SearchMethod.LINEAR_SEARCH:
         print(f"{'='*70}")
 
         S_min = SMin_gpc
-        S_max = prev_best_S+1 if prev_best_S else SMax_gpc
+        S_max = prev_best_S if prev_best_S else SMax_gpc # prev_best_S+1?
 
         current_evaluated = []
         S_list = range(S_max, S_min - 1, -1) 
@@ -265,8 +291,8 @@ elif SEARCH_METHOD == SearchMethod.LINEAR_SEARCH:
                 break
 
             if current_evaluated:
-                if current_evaluated[-1][1]['match_avg_pct'] > result['match_avg_pct']*1.003:
-                    print("\tMatch decreasing > 0.3%, stopping search for this M.")
+                if current_evaluated[-1][1]['match_avg_pct'] > result['match_avg_pct']*1.00025:
+                    print("\tMatch decreasing > 0.025%, stopping search for this M.")
                     break
                 # if almost equal 0, skip one S
                 diff = result['match_avg_pct'] - current_evaluated[-1][1]['match_avg_pct']
@@ -285,10 +311,10 @@ elif SEARCH_METHOD == SearchMethod.LINEAR_SEARCH:
             i += 1
             
         # Find best result from current evaluations
-        prev_best_S, best_result = max(current_evaluated, key=lambda x: x[1]['match_avg_pct'])
         if prev_best_S == SMin_gpc:
-            continue  # No point in going to lower M if S is already at minimum
-
+            break  # No point in going to lower M if S is already at minimum
+        prev_best_S, best_result = max(current_evaluated, key=lambda x: x[1]['match_avg_pct'])
+        
 print("\n" + "="*70)
 
 print("RESULTS BY MASS")
@@ -297,11 +323,11 @@ print("="*70)
 # Sort by best match
 results.reverse() # Original order was descending M
 
-print(f"\n{'Config':<20} {'M×M_obs':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'End%':<10} {'Radius%':<10} ")
+print(f"\n{'Config':<20} {'M×M_obs':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'End%':<10} {'Radius%':<10} {'Hubble%':<10}")
 print("-" * 70)
 for r in results:
     print(f"{r['desc']:<20} {r['M_factor']:<10} {r['S_gpc']:<10.1f} "
-          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_max_pct']:<10.2f}")
+          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_max_pct']:<10.2f} {r['match_hubble_curve_pct']:<10.2f}")
 print("\n" + "="*70)
 
 print("RESULTS SUMMARY")
@@ -310,11 +336,11 @@ print("="*70)
 # Sort by best match
 results.sort(key=lambda x: x['diff_pct'])
 
-print(f"\n{'Config':<20} {'M×M_obs':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'End%':<10} {'Radius%':<10} ")
+print(f"\n{'Config':<20} {'M×M_obs':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'End%':<10} {'Radius%':<10} {'Hubble%':<10}")
 print("-" * 70)
 for r in results:
     print(f"{r['desc']:<20} {r['M_factor']:<10} {r['S_gpc']:<10.1f} "
-          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_max_pct']:<10.2f}")
+          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_max_pct']:<10.2f} {r['match_hubble_curve_pct']:<10.2f}")
 best = results[0]
 print(f"\n★ BEST MATCH: {best['desc']}")
 print(f"   M = {best['M_factor']} × M_obs")

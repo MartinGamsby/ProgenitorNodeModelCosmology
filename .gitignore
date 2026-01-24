@@ -209,6 +209,7 @@ __marimo__/
 # Results
 *.pkl
 *.png
+*.gif
 *.pdf
 results/
 output/

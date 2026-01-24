@@ -11,6 +11,7 @@ Shared functions for:
 from typing import Optional, Dict
 import numpy as np
 from scipy.integrate import odeint
+from scipy.ndimage import gaussian_filter1d
 from .constants import CosmologicalConstants, LambdaCDMParameters
 
 
@@ -263,3 +264,33 @@ def check_com_drift_quality(expansion_history: list, drift_threshold: float = 0.
         'is_excessive': is_excessive,
         'threshold': drift_threshold
     }
+
+def calculate_hubble_parameters(t_ext, a_ext, smooth_sigma=0.0):
+    """
+    Calculate Hubble parameters from scale factors.
+    """
+    const = CosmologicalConstants()
+
+    # Optional smoothing (default: no smoothing per user request)
+    if smooth_sigma > 0:
+        a_smooth = gaussian_filter1d(a_ext, sigma=smooth_sigma)
+    else:
+        a_smooth = a_ext
+
+    # External-Node Hubble parameter
+    H_ext = np.gradient(a_smooth, t_ext * 1e9 * 365.25 * 24 * 3600) / a_smooth
+    H_hubble = H_ext * const.Mpc_to_m / 1000
+
+    # Fix boundary points: np.gradient uses forward/backward differences at edges
+    # which are less accurate. Replace first and last points with NaN to exclude them
+    # from plots, or use second-order accurate formulas
+    if len(H_hubble) > 2:
+        # Second-order forward difference for first point: f'(0) ≈ (-3f(0) + 4f(1) - f(2)) / (2h)
+        dt_0 = (t_ext[1] - t_ext[0]) * 1e9 * 365.25 * 24 * 3600
+        H_hubble[0] = (-3*a_smooth[0] + 4*a_smooth[1] - a_smooth[2]) / (2*dt_0 * a_smooth[0]) * const.Mpc_to_m / 1000
+
+        # Second-order backward difference for last point: f'(n) ≈ (3f(n) - 4f(n-1) + f(n-2)) / (2h)
+        dt_n = (t_ext[-1] - t_ext[-2]) * 1e9 * 365.25 * 24 * 3600
+        H_hubble[-1] = (3*a_smooth[-1] - 4*a_smooth[-2] + a_smooth[-3]) / (2*dt_n * a_smooth[-1]) * const.Mpc_to_m / 1000
+
+    return H_hubble

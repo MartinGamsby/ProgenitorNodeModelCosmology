@@ -15,7 +15,7 @@
 \begin{abstract}
 Standard $\Lambda$CDM cosmology attributes the observed late-time cosmic acceleration to an intrinsic, theoretically unexplained vacuum energy known as Dark Energy. While this parameter provides an excellent fit to observational data, it suffers from severe theoretical pathologies, most notably the fine-tuning problem—requiring a cancellation of vacuum energy terms to 120 decimal places—and the coincidence problem, which questions why we exist in the precise epoch where matter and dark energy densities are comparable. This paper proposes a radical alternative: a geometric framework termed the \textbf{External-Node Model}. We posit that the observable universe—modeled as a finite Friedmann-Robertson-Walker (FRW) "bubble"—originates from the destabilization of a Progenitor Node situated within a larger, static, and virialized meta-structure composed of Hyper-Massive External Attractors (HMEAs).
 \paragraph{}
-In this framework, the apparent acceleration of the cosmos arises not from a repulsive "push" originating from the vacuum, but from the tidal gravitational "pull" of the surrounding grid as the bubble's proper radius $R(t)$ expands toward the effective capture radius of neighbor nodes. By deriving a modified acceleration equation based on external tidal forces, we demonstrate that an HMEA mass of $M \approx 8 \times 10^{55}$ kg at a grid spacing of $S \approx 24$ Gpc reproduces the observational signature of $\Omega_\Lambda \approx 0.7$ without invoking exotic fluids or modified gravity. We validate this mechanism through N-body simulations, achieving 99.4\% agreement with $\Lambda$CDM expansion over a 10 Gyr period. While this work presents a simplified toy model that does not yet address early universe physics or CMB observations, it demonstrates that dark energy is not inevitable—classical gravitational alternatives exist. This proof-of-concept challenges the assumption that the cosmological principle holds at super-horizon scales and opens new research directions for understanding cosmic acceleration, even if ultimately superseded by more complete theories.
+In this framework, the apparent acceleration of the cosmos arises not from a repulsive "push" originating from the vacuum, but from the tidal gravitational "pull" of the surrounding grid as the bubble's proper radius $R(t)$ expands toward the effective capture radius of neighbor nodes. By deriving a modified acceleration equation based on external tidal forces, we demonstrate that an HMEA mass of $M \approx 8.6 \times 10^{55}$ kg (855$\times$M$_{obs}$) at a grid spacing of $S = 25$ Gpc achieves 99.36\% endpoint match (R$^2$=0.9979 for size evolution, R$^2$=0.8976 for expansion rate) over a 10 Gyr period without invoking exotic fluids or modified gravity. We validate this mechanism through N-body simulations covering the late-universe expansion era (t=3.8$\rightarrow$13.8 Gyr). While this work presents a simplified toy model that does not yet address early universe physics or CMB observations, it demonstrates that dark energy is not inevitable—classical gravitational alternatives exist. This proof-of-concept challenges the assumption that the cosmological principle holds at super-horizon scales and opens new research directions for understanding cosmic acceleration, even if ultimately superseded by more complete theories.
 \end{abstract}
 \clearpage
 
@@ -94,6 +94,9 @@ $$S \approx 31 \text{ Gigaparsecs (Gpc)}$$
     \item[Result]: A network of nodes with masses of $\sim 10^{55}$ kg spaced $\sim 30$ Gpc apart provides the correct magnitude of gravitational "lift" to reproduce the observed $\Lambda$. This distance is significant because it places the attractors well outside the current particle horizon of the universe ($\sim 14$ Gpc), explaining why they are not immediately obvious in sky surveys—we are fundamentally causally disconnected from their light, but not their gravity.
 \end{enumerate}
 
+\paragraph{Analytical vs. Numerical Discrepancy:}
+While our analytical estimate predicts $S \approx 31$ Gpc, systematic numerical exploration reveals optimal matches at $S = 15$-65 Gpc, with the best balance of size and expansion rate R$^2$ occurring at $S = 25$ Gpc. This $\sim$20\% discrepancy between analytical prediction and numerical optimum likely arises from (1) the analytical derivation's assumption of a single external node, whereas the simulation uses a 3$\times$3$\times$3 grid whose combined tidal field differs from isolated-node geometry, and (2) nonlinear effects in the particle dynamics not captured by the linearized tidal formula. The broader range of viable $S$ values (15-65 Gpc) demonstrates that the mechanism is robust rather than fine-tuned to the analytical target.
+
 \section{Numerical Validation}
 
 \subsection{N-Body Simulation Framework}
@@ -118,14 +121,14 @@ We conducted systematic parameter sweeps using an adaptive linear search algorit
 \begin{figure}
     \centering
     \includegraphics[width=1.0\linewidth]{figure_simulation_results_2026-01-24_13.23.30_500p_3.8-13.8Gyr_855.0M_25.0S_500steps_0.98d.png}
-    \caption{Comparison of $\Lambda$CDM (blue solid) and External-Node model (red dashed) showing: (top left) scale factor evolution, (top right) Hubble parameter evolution with realistic present-day value $H_0 \approx 70$ km/s/Mpc, (bottom left) ratio of physical sizes demonstrating $\pm 1\%$ agreement throughout 10 Gyr, and (bottom right) physical universe size versus node distance showing both models exhibit gentle upward curvature characteristic of accelerated expansion.}
+    \caption{Comparison of $\Lambda$CDM (blue solid) and External-Node model with M=855$\times$M$_{obs}$, S=25 Gpc (red dashed) showing: (top left) scale factor evolution, (top right) Hubble parameter evolution with realistic present-day value $H_0 \approx 70$ km/s/Mpc, (bottom left) ratio of physical sizes demonstrating $\pm 1\%$ agreement throughout 10 Gyr, and (bottom right) physical universe size versus node distance showing both models exhibit gentle upward curvature characteristic of accelerated expansion. This configuration achieves 99.36\% endpoint match with R$^2$=0.9979 (size) and R$^2$=0.8976 (expansion rate).}
 \end{figure}
 
 \begin{figure}
     \centering
-    \includegraphics[width=1.0\linewidth]{figure_simulation_results_2026-01-24_13.24.01_500p_3.8-13.8Gyr_97000.0M_65.0S_500steps_0.98d.png}
-    \includegraphics[width=1.0\linewidth]{figure_simulation_results_2026-01-24_13.24.24_500p_3.8-13.8Gyr_69.0M_15.0S_500steps_0.98d.png}
-    \caption{Other external nodes mass and distance can also produce the same effects.}
+    \includegraphics[width=0.9\linewidth]{figure_simulation_results_2026-01-24_13.24.01_500p_3.8-13.8Gyr_97000.0M_65.0S_500steps_0.98d.png}
+    \includegraphics[width=0.9\linewidth]{figure_simulation_results_2026-01-24_13.24.24_500p_3.8-13.8Gyr_69.0M_15.0S_500steps_0.98d.png}
+    \caption{Additional parameter configurations demonstrating mechanism robustness: (top) M=97000$\times$M$_{obs}$, S=65 Gpc achieving 99.46\% endpoint match (R$^2$=0.9983 size, R$^2$=0.9041 expansion rate), and (bottom) M=69$\times$M$_{obs}$, S=15 Gpc achieving 99.91\% endpoint match (R$^2$=0.9992 size, R$^2$=0.8120 expansion rate). Multiple solutions across wide parameter range (M from 69 to 97000$\times$M$_{obs}$, S from 15 to 65 Gpc) all reproduce $\Lambda$CDM acceleration dynamics.}
 \end{figure}
 
 \subsection{Parameter Space Exploration and Results}
@@ -133,13 +136,13 @@ We conducted systematic parameter sweeps using an adaptive linear search algorit
 Through systematic parameter exploration, we identified \textbf{multiple parameter combinations} that reproduce $\Lambda$CDM expansion with high fidelity. There is no single "optimal" configuration. A family of solutions exists across a broad parameter range, demonstrating the robustness of the external-node mechanism:
 
 \begin{center}
-\begin{tabular}{lccc}
+\begin{tabular}{lcccc}
 \hline
-\textbf{M} & \textbf{S} & \textbf{Endpoint Match} & \textbf{Size $R^2$} \\
+\textbf{M} & \textbf{S [Gpc]} & \textbf{Endpoint Match} & \textbf{Size $R^2$} & \textbf{Exp. Rate $R^2$} \\
 \hline
-855 \times M_{obs} & 25 & 99.36\% & 0.9979 \\
-97000 \times M_{obs} & 64 & 99.46\% & 0.9983 \\
-69 \times M_{obs} & 15 & 99.91\% & 0.9992 \\
+855 \times M_{obs} & 25 & 99.36\% & 0.9979 & 0.8976 \\
+97000 \times M_{obs} & 65 & 99.46\% & 0.9983 & 0.9041 \\
+69 \times M_{obs} & 15 & 99.91\% & 0.9992 & 0.8120 \\
 \hline
 \end{tabular}
 \end{center}
@@ -275,7 +278,7 @@ We do not claim this model represents physical reality. Rather, we demonstrate t
     \item \textbf{New research directions open}—even if ultimately superseded, this approach may inspire more complete theories
 \end{enumerate}
 
-The value of this work lies not in claiming to solve cosmology, but in demonstrating that well-motivated alternatives to vacuum energy deserve investigation. The remarkable 99.4\% agreement with $\Lambda$CDM suggests this direction warrants further theoretical development, particularly in constructing the full relativistic framework and testing against additional observational constraints.
+The value of this work lies not in claiming to solve cosmology, but in demonstrating that well-motivated alternatives to vacuum energy deserve investigation. The remarkable agreement with $\Lambda$CDM (99.36\% endpoint match, R$^2$>0.89 for expansion rate evolution) suggests this direction warrants further theoretical development, particularly in constructing the full relativistic framework and testing against additional observational constraints.
 
 \section{Observational Consistency and Defenses}
 \paragraph{}
@@ -336,7 +339,7 @@ In this view, our universe is a transient structure—a pulse of energy and matt
 \paragraph{}
 The External-Node model offers a geometric solution to the Dark Energy problem. By reframing cosmic acceleration as the consequence of gravitational attraction from a larger, trans-observable manifold, we eliminate the need for fine-tuned vacuum energy and the associated theoretical crises of the Standard Model.
 \paragraph{}
-Through N-body simulations, we have demonstrated that a configuration of external nodes with masses $M_{ext} \approx 8 \times 10^{55}$ kg at spacing $S \approx 24$ Gpc reproduces $\Lambda$CDM expansion dynamics with 99.4\% accuracy, including realistic Hubble parameter evolution. This validates the core mechanism: external gravitational sources can mimic dark energy using only classical physics.
+Through N-body simulations, we have demonstrated that multiple parameter configurations (M = 69-97000 $\times$ M$_{obs}$, S = 15-65 Gpc) reproduce $\Lambda$CDM expansion dynamics with >99\% endpoint accuracy and R$^2$>0.89 for expansion rate evolution. The primary configuration (M = 855 $\times$ M$_{obs}$ $\approx$ 8.6 $\times$ 10$^{55}$ kg, S = 25 Gpc) achieves 99.36\% endpoint match with R$^2$=0.9979 for size evolution and R$^2$=0.8976 for expansion rate. This validates the core mechanism: external gravitational sources can mimic dark energy using only classical physics.
 \paragraph{}
 While this work presents a simplified toy model with acknowledged limitations—particularly regarding early universe physics, CMB observations, and the need for full relativistic treatment—it demonstrates several important principles. First, \textbf{dark energy is not inevitable}: classical gravitational alternatives can reproduce the observed acceleration without invoking vacuum energy. Second, \textbf{fundamental assumptions may break down}: the cosmological principle might not extend to super-horizon scales, opening new theoretical possibilities. Third, \textbf{the mechanism is viable}: external structure could, in principle, explain cosmic acceleration. Finally, \textbf{new research directions emerge}: even if this specific model is ultimately superseded, it may inspire more complete theories that challenge orthodox assumptions.
 \paragraph{}

@@ -24,7 +24,7 @@ Analytical target: M_ext ≈ 5×10⁵⁵ kg, S ≈ 31 Gpc
 
 Numerical exploration found MULTIPLE close matches (not single optimal):
 - M=855×M_obs, S=25 Gpc: 99.36% endpoint, R²=0.9979 (size), R²=0.8976 (expansion rate)
-- M=97000×M_obs, S=64 Gpc: 99.46% endpoint, R²=0.9983 (size), R²=0.9041 (expansion rate)
+- M=97000×M_obs, S=65 Gpc: 99.46% endpoint, R²=0.9983 (size), R²=0.9041 (expansion rate)
 - M=69×M_obs, S=15 Gpc: 99.91% endpoint, R²=0.9992 (size), R²=0.8120 (expansion rate)
 
 Result: >99% endpoint match, R²>0.89 expansion rate match over 10 Gyr (t=3.8→13.8 Gyr)

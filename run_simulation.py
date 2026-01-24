@@ -249,14 +249,14 @@ def parse_arguments():
     parser.add_argument(
         '--M',
         type=float,
-        default=800,
+        default=855,
         help='External mass parameter (in units of observable mass)'
     )
 
     parser.add_argument(
         '--S',
         type=float,
-        default=24.0,
+        default=25.0,
         help='Node separation distance (in Gpc)'
     )
 
@@ -277,7 +277,7 @@ def parse_arguments():
     parser.add_argument(
         '--t-start',
         type=float,
-        default=10.8,
+        default=3.8,
         help='Simulation start time since Big Bang (in Gyr)'
     )
 
@@ -291,7 +291,7 @@ def parse_arguments():
     parser.add_argument(
         '--t-duration',
         type=float,
-        default=6.0,
+        default=10.0,
         help='Simulation duration (in Gyr)'
     )
 

@@ -30,11 +30,11 @@ class SearchMethod(Enum):
 # Configuration defaults
 SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
 QUICK_SEARCH = False
-MANY_SEARCH = False
+MANY_SEARCH = True
 T_START_GYR = 3.8
 T_DURATION_GYR = 10.0
 DAMPING_FACTOR = 0.98
-PARTICLE_COUNT = 20 if QUICK_SEARCH else 200#300
+PARTICLE_COUNT = 50 if QUICK_SEARCH else 200#300
 N_STEPS = 250 if QUICK_SEARCH else 300
 SAVE_INTERVAL = 10  # Must match value used in sim() function
 
@@ -51,9 +51,6 @@ A_START = initial_conditions['a_start']
 # Test different configurations
 configs = []
 
-#Mlist = [15, 16, 17, 18, 19, 20, 22, 25, 27, 30, 33, 35, 37, 40, 45, 50, 60, 70, 80, 90, 100, 110, 125, 150, 175, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000]
-#Mlist = [5, 10, 15, 20, 25, 30, 33, 35, 40, 45, 50, 60, 70, 80, 90, 100, 110, 125, 150, 175, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000]
-#Mlist = [15, 20, 30, 40, 50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000]
 Mlist = []
 M = 10
 while M < 500:
@@ -68,13 +65,13 @@ while M < 2000:
 while M < 5000:
     Mlist.append(M)
     M += 100 if MANY_SEARCH else 500
-while M < (25000 if MANY_SEARCH else 100000)+1:
+while M < (100000 if MANY_SEARCH else 25000)+1:
     Mlist.append(M)
     M += 1000 if MANY_SEARCH else 10000
 
 Mlist.reverse()
 
-SMin_gpc = 15   # Min box size to test
+SMin_gpc = 10    # Min box size to test
 SMax_gpc = 250   # Max box size to test
 
 Slist = [i for i in range(SMin_gpc, SMax_gpc+1, 1)]
@@ -149,17 +146,19 @@ def sim(M_factor, S_gpc, desc, seed):
     # LCDM curve should now match N-body time points exactly (no interpolation needed)
     size_lcdm_curve = size_lcdm_full
 
+
+    half_point = len(size_lcdm_curve)//2
+
     # Calculate match using full curve comparison
-    match_curve_pct = compare_expansion_histories(size_ext_curve, size_lcdm_curve)
+    match_curve_pct = compare_expansion_histories(size_ext_curve[half_point:], size_lcdm_curve[half_point:])
     match_end_pct = compare_expansion_history(size_ext_final, size_lcdm_final)
     match_max_pct = compare_expansion_history(radius_max_final, radius_lcdm_max)
-    match_hubble_curve_pct = compare_expansion_histories(hubble_ext, H_lcdm_hubble)
+    match_hubble_curve_pct = compare_expansion_histories(hubble_ext[half_point:], H_lcdm_hubble[half_point:])
 
     #match_avg_pct = (match_hubble_curve_pct*1 + match_curve_pct*3 + match_end_pct*5 + match_max_pct*1)/10
     #match_avg_pct = match_curve_pct#TODOOO
     #match_avg_pct = match_end_pct#TODOOOO
-    #match_avg_pct = (match_hubble_curve_pct*0.1 + match_curve_pct*0.25 + match_end_pct*0.6 + match_max_pct*0.05)
-    match_avg_pct = (match_hubble_curve_pct + match_curve_pct + match_end_pct + match_max_pct)/4
+    match_avg_pct = (match_hubble_curve_pct*0.1 + match_curve_pct*0.6 + match_end_pct*0.2 + match_max_pct*0.1)
     diff_pct = 100 - match_avg_pct
 
     print(f"   External-Node final a(t) = {a_ext:.4f}, size = {size_ext_final:.2f} Gpc")

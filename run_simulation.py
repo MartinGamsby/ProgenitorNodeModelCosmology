@@ -16,6 +16,7 @@ from cosmo.analysis import (
     solve_friedmann_at_times,
     calculate_initial_conditions,
     compare_expansion_history,
+    compare_expansion_histories,
     detect_runaway_particles,
     calculate_today_marker,
     calculate_hubble_parameters
@@ -107,14 +108,34 @@ def run_nbody_simulations(sim_params, box_size, a_start):
         }
     }
 
-def print_results_summary(sim_params, size_ext_final, size_lcdm_final, size_matter_final,
-                         ext_match, matter_match, max_ext_final, max_matter_final):
+def print_results_summary(size_ext_final, size_lcdm_final, size_matter_final,
+                         ext_match, matter_match, match_ext_curve_pct, match_ext_hubble_curve_pct, 
+                         match_matter_curve_pct, match_matter_hubble_curve_pct, max_ext_final):
     """
     Print summary of simulation results.
     """
-    print(f"\n{size_ext_final:.2f} Gpc")
-    print(f"Match: {ext_match:.2f}%")
-    print(f"Max particle: {max_ext_final:.1f} Gpc")
+
+    print("="*30)
+    print("Simulation Results Summary:")
+    print("="*30)
+    print("Parameters used:")
+    print(f"\tM={sim_params.M_value},\n\tS={sim_params.S_value},\n\tParticles={sim_params.n_particles}\n\tSeed={sim_params.seed}\n\tStart={sim_params.t_start_Gyr} Gyr,\n\tDuration={sim_params.t_duration_Gyr} Gyr,\n\tSteps={sim_params.n_steps},\n\tDamping={sim_params.damping_factor}")
+
+    print("\nExternal Nodes:")
+    print(f"\t{size_ext_final:.2f} Gpc")
+    print(f"\tend size match: {ext_match:.2f}%")
+    print(f"\t(last 1/2) size R2 match: {(match_ext_curve_pct/100):.4f}")
+    print(f"\t(last 1/2) expansion rate R2 match: {(match_ext_hubble_curve_pct/100):.4f}")
+    print(f"\tMax particle: {max_ext_final:.1f} Gpc")
+    
+    print("\nMatter-only:")
+    print(f"\t{size_matter_final:.2f} Gpc")
+    print(f"\tend size match: {matter_match:.2f}%")
+    print(f"\t(last 1/2) size R2 match: {(match_matter_curve_pct/100):.4f}")
+    print(f"\t(last 1/2) expansion rate R2 match: {(match_matter_hubble_curve_pct/100):.4f}")
+
+    print("\nLCMD Summary:")
+    print(f"\t{size_lcdm_final:.2f} Gpc")
 
     # Check for runaway particles in External-Node
     ext_runaway = detect_runaway_particles(max_ext_final, size_ext_final)
@@ -156,13 +177,29 @@ def run_simulation(output_dir, sim_params, use_max_radius=False):
     ext_match = compare_expansion_history(size_ext_final, size_lcdm_final)
     matter_match = compare_expansion_history(size_matter_final, size_lcdm_final)
 
+    size_lcdm_curve = baseline[size_key]
+    hubble_ext = calculate_hubble_parameters(nbody['ext']['t'], nbody['ext']['a'], smooth_sigma=0.0)
+    H_lcdm_hubble = baseline['H_hubble']
+
+    half_point = len(size_lcdm_curve)//2
+
+    match_ext_curve_pct = compare_expansion_histories(nbody['ext'][size_key][half_point:], size_lcdm_curve[half_point:])
+    match_ext_hubble_curve_pct = compare_expansion_histories(hubble_ext[half_point:], H_lcdm_hubble[half_point:])
+    match_matter_curve_pct = compare_expansion_histories(nbody['matter'][size_key][half_point:], size_lcdm_curve[half_point:])
+    match_matter_hubble_curve_pct = compare_expansion_histories(
+        calculate_hubble_parameters(nbody['matter']['t'], nbody['matter']['a'], smooth_sigma=0.0)[half_point:], 
+        H_lcdm_hubble[half_point:]
+    )
+
+
     # Check for runaway particles
     max_ext_final = nbody['ext']['sim'].expansion_history[-1]['max_particle_distance'] / const.Gpc_to_m
     max_matter_final = nbody['matter']['sim'].expansion_history[-1]['max_particle_distance'] / const.Gpc_to_m
 
     print_results_summary(
-        sim_params, size_ext_final, size_lcdm_final, size_matter_final,
-        ext_match, matter_match, max_ext_final, max_matter_final
+        size_ext_final, size_lcdm_final, size_matter_final,
+        ext_match, matter_match, match_ext_curve_pct, match_ext_hubble_curve_pct, 
+        match_matter_curve_pct, match_matter_hubble_curve_pct, max_ext_final
     )
 
     # Calculate Hubble parameters for plotting (no smoothing by default per user request)

@@ -43,7 +43,7 @@ START_TIME = 3.8  # Gyr
 sim_params = SimulationParameters(
     M_value=644,
     S_value=21,
-    n_particles=140,
+    n_particles=1400,
     seed=42,
     t_start_Gyr=START_TIME,
     t_duration_Gyr=10.0*5/4,
@@ -430,7 +430,7 @@ def run_comparison_simulations(output_dir="."):
 
         # Generate sphere positions for this snapshot
 
-        sphere_positions = generate_sphere_positions(radius_max, n_points=100)
+        sphere_positions = generate_sphere_positions(radius_max, n_points=sim_params.n_particles//3)
         #for i in range(50, 90, 10):
         #    pc = int(i/100)
         #    sphere_positions = np.concatenate((sphere_positions, generate_sphere_positions(radius_max*pc, n_points=30*pc, seed=i)))
@@ -520,7 +520,7 @@ def create_comparison_multipanel(comparison_data, output_dir="."):
 
             # Plot particles
             ax.scatter(positions[:, 0], positions[:, 1], positions[:, 2],
-                      c=model_data['color'], s=10, alpha=0.5)
+                      c=model_data['color'], s=1500 / len(positions), alpha=0.5)
 
             # Plot nodes (only for external-node model)
             if model_name == 'external_node':
@@ -578,7 +578,7 @@ def create_comparison_animations(comparison_data, output_dir=".", fps=10):
         setup_3d_axes(ax, S_Gpc * 1.2)
 
         # Initialize plots
-        particles_plot = ax.scatter([], [], [], c=model_data['color'], s=20, alpha=0.6)
+        particles_plot = ax.scatter([], [], [], c=model_data['color'], s=1500 / len(node_positions), alpha=0.6)
 
         # Plot nodes for external-node model
         if model_name == 'external_node':

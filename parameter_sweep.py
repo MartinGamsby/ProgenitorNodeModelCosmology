@@ -31,7 +31,7 @@ QUICK_SEARCH = False
 T_START_GYR = 3.8
 T_DURATION_GYR = 10.0
 DAMPING_FACTOR = 0.975
-PARTICLE_COUNT = 20 if QUICK_SEARCH else 250
+PARTICLE_COUNT = 20 if QUICK_SEARCH else 300
 N_STEPS = 200 if QUICK_SEARCH else 250
 SAVE_INTERVAL = 10  # Must match value used in sim() function
 
@@ -56,7 +56,7 @@ while M < 1000:
 Mlist.reverse()
 
 SMin_gpc = 15   # Min box size to test
-SMax_gpc = 50   # Max box size to test
+SMax_gpc = 60   # Max box size to test
 
 Slist = [i for i in range(SMin_gpc, SMax_gpc+1, 1)]
 nbConfigs_bruteforce = len(Mlist)*len(Slist)
@@ -265,13 +265,13 @@ elif SEARCH_METHOD == SearchMethod.LINEAR_SEARCH:
                 break
 
             if current_evaluated:
-                if current_evaluated[-1][1]['match_avg_pct'] > result['match_avg_pct']*1.005:
-                    print("\tMatch decreasing > 0.5%, stopping search for this M.")
+                if current_evaluated[-1][1]['match_avg_pct'] > result['match_avg_pct']*1.003:
+                    print("\tMatch decreasing > 0.3%, stopping search for this M.")
                     break
                 # if almost equal 0, skip one S
                 diff = result['match_avg_pct'] - current_evaluated[-1][1]['match_avg_pct']
                 print(f"\tMATCH CHANGE: {diff:.4f}%")
-                if S > 50:  # Only skip if we have room to skip
+                if S > 40:  # Only skip if we have room to skip
                     if abs(diff) < 0.002:
                         print("\tMatch change < 0.002%, skipping S/10 S.")
                         i += int(S/10)

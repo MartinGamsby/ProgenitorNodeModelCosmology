@@ -31,7 +31,7 @@ QUICK_SEARCH = False
 T_START_GYR = 3.8
 T_DURATION_GYR = 10.0
 DAMPING_FACTOR = 0.975
-PARTICLE_COUNT = 20 if QUICK_SEARCH else 200
+PARTICLE_COUNT = 20 if QUICK_SEARCH else 250
 N_STEPS = 200 if QUICK_SEARCH else 250
 SAVE_INTERVAL = 10  # Must match value used in sim() function
 
@@ -48,21 +48,16 @@ A_START = initial_conditions['a_start']
 # Test different configurations
 configs = []
 
-if QUICK_SEARCH:    
-    SMin_gpc = 12   # Min box size to test
-    SMax_gpc = 120   # Max box size to test
-    #Mlist = [i for i in range(1000, 0, -100)]
-    Mlist = [10000, 1000, 100, 10]
-else:
-    SMin_gpc = 10   # Min box size to test
-    SMax_gpc = 100   # Max box size to test
-    # Go from 5 and down 20% per step
-    Mlist = []
-    M = 10
-    while M < 100000:
-        Mlist.append(M)
-        M = int(M * 1.2)
-    Mlist.reverse()
+Mlist = []
+M = 15
+while M < 1000:
+    Mlist.append(M)
+    M = int(M * 1.1)
+Mlist.reverse()
+
+SMin_gpc = 15   # Min box size to test
+SMax_gpc = 50   # Max box size to test
+
 Slist = [i for i in range(SMin_gpc, SMax_gpc+1, 1)]
 nbConfigs_bruteforce = len(Mlist)*len(Slist)
 
@@ -136,7 +131,7 @@ def sim(M_factor, S_gpc, desc, seed):
     match_curve_pct = compare_expansion_histories(size_ext_curve, size_lcdm_curve)
     match_end_pct = compare_expansion_histories(size_ext_final, size_lcdm_final)
     match_max_pct = compare_expansion_histories(radius_max_final, radius_lcdm_max)
-    match_avg_pct = (match_curve_pct*2 + match_end_pct*2 + match_max_pct)/5
+    match_avg_pct = (match_curve_pct*3 + match_end_pct*3 + match_max_pct*2)/8
     diff_pct = 100 - match_avg_pct
 
     print(f"   External-Node final a(t) = {a_ext:.4f}, size = {size_ext_final:.2f} Gpc")

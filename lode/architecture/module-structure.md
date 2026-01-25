@@ -11,7 +11,8 @@ graph TD
     analysis[analysis.py<br/>Shared analysis utilities]
     viz[visualization.py<br/>Shared plotting utilities]
     factories[factories.py<br/>Simulation utilities]
-    bh_numba[barnes_hut_numba.py<br/>Numba JIT internal forces]
+    numba_direct[numba_direct.py<br/>Numba JIT O(N²) direct]
+    bh_numba[barnes_hut_numba.py<br/>Barnes-Hut O(N log N) octree]
     tidal_numba[tidal_forces_numba.py<br/>Numba JIT tidal forces]
     run[run_simulation.py<br/>Main entry point]
     sweep[parameter_sweep.py<br/>Grid search]
@@ -20,6 +21,7 @@ graph TD
     particles --> constants
     integrator --> constants
     integrator --> particles
+    integrator --> numba_direct
     integrator --> bh_numba
     integrator --> tidal_numba
     simulation --> constants
@@ -91,15 +93,28 @@ graph TD
 
 **Exports**: `Integrator`, `LeapfrogIntegrator`.
 
-### `cosmo/barnes_hut_numba.py`
-**Purpose**: Numba JIT-compiled internal gravity calculation for performance.
+### `cosmo/numba_direct.py`
+**Purpose**: Fast O(N²) gravity via Numba JIT compilation.
 
-**Note**: Despite the name, uses direct O(N²) summation with Numba JIT compilation (14-17x speedup), not Barnes-Hut tree approximation. Speedup comes from compilation, not algorithmic complexity reduction.
+**Class**: `NumbaDirectSolver`
 
 **Functions**:
-- `calculate_internal_forces_numba()`: JIT-compiled pairwise gravity with softening
+- `calculate_forces_direct_numba()`: JIT-compiled pairwise gravity with softening (exact, 14-17x speedup)
 
-**Used by**: `integrator.py` for N≥100 particles (auto-selected)
+**Used by**: `integrator.py` for N≥100 particles (auto mode default)
+
+### `cosmo/barnes_hut_numba.py`
+**Purpose**: Real Barnes-Hut octree O(N log N) gravity with Numba JIT.
+
+**Class**: `NumbaBarnesHutTree`
+
+**Functions**:
+- `build_octree()`: Iterative particle insertion into octree (max_depth=60)
+- `calculate_forces_barnes_hut()`: Stack-based tree traversal with opening angle criterion
+
+**Parameters**: `theta` controls accuracy/speed tradeoff (0.3=accurate, 0.5=balanced, 0.7=fast)
+
+**Used by**: `integrator.py` when `force_method='barnes_hut'`
 
 ### `cosmo/tidal_forces_numba.py`
 **Purpose**: Numba JIT-compiled tidal force calculation from external HMEA nodes.
@@ -208,7 +223,8 @@ graph TD
 | `cosmo/simulation.py` | 214 | High-level runner |
 | `cosmo/analysis.py` | 382 | Shared analysis utilities |
 | `cosmo/visualization.py` | 213 | Shared plotting utilities |
-| `cosmo/barnes_hut_numba.py` | 160 | Numba JIT internal forces |
+| `cosmo/numba_direct.py` | 82 | Numba JIT O(N²) direct |
+| `cosmo/barnes_hut_numba.py` | 200 | Barnes-Hut O(N log N) octree |
 | `cosmo/tidal_forces_numba.py` | 60 | Numba JIT tidal forces |
 | `cosmo/factories.py` | 39 | Simulation utilities |
 | `run_simulation.py` | 345 | Main comparison script |

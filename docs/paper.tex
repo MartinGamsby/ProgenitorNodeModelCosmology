@@ -297,10 +297,12 @@ The HMEA model faces two immediate observational challenges: the invisibility of
 \end{enumerate}
 
 \subsection{Fossil Black Holes and Dark Matter}
+\textit{(Speculative---no simulation support)}
+
 \paragraph{}
 While the nodes themselves are invisible, the HMEA framework predicts that the void space between the bubble and the nodes is not perfectly empty. It may contain remnant debris from previous epochs of the meta-structure's evolution.
 
-In particular, the unexplained population of intermediate-mass black holes (IMBHs)—wandering objects too massive to be stellar remnants yet too small to be galactic nuclei—may offer an alternative explanation as fossil remnants. These could be debris from the HMEA's previous accretion cycles, ancient compact objects lingering in the void until encompassed by our expansion. While highly speculative, such objects might even contribute to the observed dark matter budget if sufficiently numerous and small-scale. This remains an open question requiring further theoretical development and observational constraints.
+In particular, the unexplained population of intermediate-mass black holes (IMBHs) (wandering objects too massive to be stellar remnants yet too small to be galactic nuclei) may offer an alternative explanation as fossil remnants. These could be debris from the HMEA's previous accretion cycles, ancient compact objects lingering in the void until encompassed by our expansion. While highly speculative, such objects might even contribute to the observed dark matter budget if sufficiently numerous and small-scale. This remains an open question requiring further theoretical development and observational constraints.
 
 \section{Predictions and Falsifiability}
 \paragraph{}
@@ -315,6 +317,17 @@ Standard $\Lambda$CDM predicts a constant dark energy density, which leads to a 
     \item[Observable]: In deep future epochs, or perhaps measurable in current high-z supernova data, the effective equation of state $w$ should drift below $-1$ (phantom energy behavior), indicating stronger-than-exponential acceleration as we approach the node boundary.
 \end{enumerate}
 
+\paragraph{Quantitative Analysis:}
+We compute the effective equation of state using $w_{eff} = -1 - (2/3) \cdot d(\ln H)/d(\ln a)$. Extended simulations (20 Gyr, from $t = 3.8$ to 23.8 Gyr) with M = 855 $\times$ M$_{obs}$, S = 25 Gpc show:
+
+\begin{itemize}
+    \item At $t = 13.8$ Gyr (today): $w_{ext} \approx -0.74$, $w_{\Lambda CDM} \approx -0.70$, $\Delta w \approx -0.04$
+    \item The External-Node model tracks $\Lambda$CDM closely during the current epoch
+    \item Significant phantom deviation ($\Delta w < -0.05$) requires $R/S \rightarrow 1$
+\end{itemize}
+
+For the M = 855, S = 25 Gpc configuration, the current universe (RMS radius $\sim$7 Gpc) has $R/S \approx 0.3$. As $R/S$ increases toward unity, stronger phantom deviations become observable. This provides a quantitative test: future precision measurements of $w(z)$ at low redshift should detect systematic drift if external-node dynamics are correct.
+
 \subsection{Dipole Anisotropy}
 \paragraph{}
 While the Progenitor Hypothesis suggests a roughly isotropic start, the virialized (irregular) nature of the meta-grid implies the nearest HMEAs likely have different masses or distances.
@@ -322,7 +335,25 @@ While the Progenitor Hypothesis suggests a roughly isotropic start, the virializ
     \item[Prediction]: Deep-field surveys (e.g., Euclid, LSST) should detect a subtle \textbf{dipole in the expansion rate}. One hemisphere of the sky (facing the nearest or largest HMEA) should exhibit a slightly higher local Hubble constant ($H_0$) than the opposing hemisphere. This anisotropy may offer an alternative explanation for the current "Hubble Tension" (the discrepancy between early-universe and late-universe measurements of $H_0$).
 \end{enumerate}
 
+\paragraph{Quantitative Estimate:}
+Assuming 5\% grid irregularity (node positions displaced by $\delta = 0.05 \times S$ from perfect lattice), we estimate the resulting $H_0$ dipole analytically. The tidal acceleration asymmetry from a displaced nearest node propagates to $H_0$ via:
+\[
+\frac{\Delta H_0}{H_0} \approx \frac{1}{2} \cdot \frac{\Omega_{\Lambda,eff}}{\Omega_m + \Omega_{\Lambda,eff}} \cdot \frac{2\delta_{eff}}{S - R}
+\]
+where $\delta_{eff} = \delta/\sqrt{6}$ accounts for statistical cancellation from 6 nearest face nodes.
+
+For M = 855 $\times$ M$_{obs}$, S = 25 Gpc, $R \approx 7.25$ Gpc (today):
+\begin{itemize}
+    \item Full grid (statistical average): $\Delta H_0 / H_0 \approx 2.6\%$ ($\sim$1.8 km/s/Mpc)
+    \item Single nearest node (worst case): $\Delta H_0 / H_0 \approx 6.3\%$ ($\sim$4.4 km/s/Mpc)
+    \item Observed Hubble Tension: $\sim$8.6\% (6 km/s/Mpc difference between 67 and 73 km/s/Mpc)
+\end{itemize}
+
+\paragraph{Implications:}
+The predicted dipole ($\sim$2.6\%) is smaller than but comparable to the Hubble Tension ($\sim$8.6\%). Explaining the full tension would require $\sim$17\% grid irregularity---larger than our assumed 5\% but not implausible for a virialized structure. This provides a falsifiable prediction: if high-precision all-sky $H_0$ measurements (e.g., from Euclid) detect a dipole anisotropy at the $\sim$2-6\% level aligned with no known local structure, it would support the external-node hypothesis. Conversely, the absence of any dipole at the $>$1\% level would constrain the model's parameter space.
+
 \section{The "Great Metabolism" Hypothesis}
+\textit{(Speculative Extension---not derived from simulation results)}
 
 The HMEA framework implies a cyclical, evolutionary cosmology that radically reframes our place in the universe. We propose that cosmic expansion is not a linear march toward entropy death, but a metabolic phase of the meta-structure.
 

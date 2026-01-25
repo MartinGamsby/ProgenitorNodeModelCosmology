@@ -85,27 +85,28 @@ When requirements unclear, check paper for ground truth on:
 
 When paper contradicts code, paper defines intent; code is implementation-in-progress.
 
-## Untested Predictions (Qualitative Only)
+## Quantified Predictions (Paper Section 7)
 
-Paper Section 7 makes two falsifiable predictions that lack quantitative thresholds:
+Paper Section 7 now includes quantitative predictions computed by `compute_predictions.py`:
 
 ### 1. Phantom Energy Behavior (w < -1)
-**Claim**: As R→S, tidal force scales as (S-R)⁻². Effective equation of state w should drift below -1.
+**Mechanism**: As R→S, tidal force scales as (S-R)⁻². Effective w = -1 - (2/3)(d ln H / d ln a) should drift below ΛCDM.
 
-**Not quantified**: What w value? When observable? High-z supernova constraints?
-
-**To quantify**: Run simulations extending into far future (t > 15 Gyr). Compute effective w(t) = -1 - (2/3)(d ln H / d ln a). Compare to ΛCDM w = -1 constant.
+**Quantitative results** (M=855, S=25 Gpc):
+- Today (t=13.8 Gyr): w_ext ≈ -0.74 vs w_ΛCDM ≈ -0.70, Δw ≈ -0.04
+- Current R/S ratio ≈ 0.3
+- Significant phantom deviation (Δw < -0.05) requires R/S → 1
+- Observable via precision w(z) measurements at low redshift
 
 ### 2. Dipole Anisotropy in H₀
-**Claim**: 5% HMEA position irregularity creates asymmetric tidal field. One hemisphere should have higher H₀.
+**Mechanism**: 5% HMEA grid irregularity creates asymmetric tidal field.
 
-**Not quantified**: Expected ΔH₀ magnitude? Comparison to Hubble Tension (~10%)?
+**Quantitative results** (analytical, M=855, S=25 Gpc):
+- Full grid (statistical average): ΔH₀/H₀ ≈ 2.6% (~1.8 km/s/Mpc)
+- Single nearest node (worst case): ΔH₀/H₀ ≈ 6.3% (~4.4 km/s/Mpc)
+- Hubble Tension (~8.6%) would need ~17% grid irregularity
+- Testable by Euclid/LSST: dipole at 2-6% level with no local structure correlation
 
-**To quantify**: Place observer off-center by δ. Compute H₀ in opposite directions. Estimate δH₀/H₀ as function of offset δ/S.
-
-### Future Work
-Quantifying these predictions would require:
-1. Extended simulations beyond t=13.8 Gyr
-2. Effective equation of state calculation from H(t)
-3. Off-center observer simulation with directional H₀ measurement
-4. Comparison to current observational constraints (SN Ia, Euclid, LSST)
+### Speculative Sections (marked in paper)
+- Section 6.2 Fossil Black Holes: Speculative, no simulation support
+- Section 8 Great Metabolism: Speculative extension, not derived from simulation

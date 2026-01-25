@@ -50,7 +50,7 @@ Ensures ΛCDM baseline computed at exact N-body snapshot times, eliminating "bum
 ## Running
 
 ```bash
-pytest tests/ -v  # All 158 tests
+pytest tests/ -v  # All 163 tests
 pytest tests/test_constants.py -v  # 21 tests
 pytest tests/test_forces.py -v  # 12 tests
 pytest tests/test_model_comparison.py -v  # 7 tests

@@ -15,7 +15,7 @@
 ## Physics
 - [physics/theoretical-framework.md](./physics/theoretical-framework.md) - External-Node Model, Progenitor Hypothesis, predictions, scope/limitations
 - [physics/force-calculations.md](./physics/force-calculations.md) - Internal gravity, tidal forces, dark energy, Hubble drag
-- [physics/barnes-hut-optimization.md](./physics/barnes-hut-optimization.md) - Numba JIT internal forces (O(N²) direct, not tree); speedup from compilation
+- [physics/barnes-hut-optimization.md](./physics/barnes-hut-optimization.md) - Force methods: direct, numba_direct (O(N²) JIT), barnes_hut (real octree O(N log N))
 - [physics/initial-conditions.md](./physics/initial-conditions.md) - Damped Hubble flow setup and rationale
 - [physics/integration.md](./physics/integration.md) - Leapfrog algorithm implementation
 

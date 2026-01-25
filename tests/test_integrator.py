@@ -286,13 +286,13 @@ class TestLeapfrogIntegrator(unittest.TestCase):
         )
 
 
-# Parametrized tests to verify both direct and Barnes-Hut methods
+# Parametrized tests to verify all force methods
 class TestBothForceMethods:
-    """Test both direct and Barnes-Hut force methods produce similar results"""
+    """Test direct, numba_direct, and barnes_hut force methods produce similar results"""
 
-    @pytest.mark.parametrize("force_method", ["direct", "barnes_hut"])
+    @pytest.mark.parametrize("force_method", ["direct", "numba_direct", "barnes_hut"])
     def test_internal_forces_newtonian_both_methods(self, force_method):
-        """Both force methods should follow Newton's law"""
+        """All force methods should follow Newton's law"""
         const = CosmologicalConstants()
 
         # Create 2-particle system
@@ -319,7 +319,9 @@ class TestBothForceMethods:
         )
 
         # Calculate forces using selected method
-        if force_method == "barnes_hut":
+        if force_method == "numba_direct":
+            accelerations = integrator.calculate_internal_forces_numba_direct()
+        elif force_method == "barnes_hut":
             accelerations = integrator.calculate_internal_forces_barnes_hut()
         else:
             accelerations = integrator.calculate_internal_forces()
@@ -336,15 +338,15 @@ class TestBothForceMethods:
         actual_mag = np.linalg.norm(a0)
 
         # Note: With large softening (162 Mpc for N=2) vs 5 Gpc separation,
-        # both methods give similar but softened results. Allow generous tolerance.
-        # For barnes_hut, the octree approximation adds additional difference.
+        # all methods give similar but softened results. Allow generous tolerance.
+        # Barnes-Hut octree approximation adds additional difference.
         tolerance = 1.5 if force_method == "barnes_hut" else 1.0
         assert abs(actual_mag - expected_mag) / expected_mag < tolerance, \
             f"{force_method}: Magnitude {actual_mag:.3e} vs expected {expected_mag:.3e}"
 
-    @pytest.mark.parametrize("force_method", ["direct", "barnes_hut"])
+    @pytest.mark.parametrize("force_method", ["direct", "numba_direct", "barnes_hut"])
     def test_energy_conservation_both_methods(self, force_method):
-        """Energy conservation should work for both methods"""
+        """Energy conservation should work for all methods"""
         particles = ParticleSystem(
             n_particles=20,
             box_size_m=1e26,
@@ -373,7 +375,7 @@ class TestBothForceMethods:
 
         # Energy should be conserved within ~2-3%
         # Barnes-Hut may have slightly worse conservation due to approximation
-        tolerance = 0.03 if force_method == "barnes_hut" else 0.02
+        tolerance = 0.05 if force_method == "barnes_hut" else 0.02
         energy_drift = abs(E1 - E0) / abs(E0)
 
         assert energy_drift < tolerance, \

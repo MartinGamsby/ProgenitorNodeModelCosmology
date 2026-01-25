@@ -25,7 +25,7 @@ class CosmologicalSimulation:
         If use_dark_energy is None, defaults to (not use_external_nodes).
 
         Args:
-            force_method: 'auto' (uses Numba JIT for N>=100), 'direct', or 'barnes_hut'
+            force_method: 'auto' (barnes_hut for N>=1000, numba_direct for N>=100, direct otherwise), 'direct', 'numba_direct', or 'barnes_hut'
         """
         self.const = CosmologicalConstants()
         self.use_external_nodes = use_external_nodes

@@ -30,11 +30,11 @@ class SearchMethod(Enum):
 # Configuration defaults
 SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
 QUICK_SEARCH = False
-MANY_SEARCH = True
+MANY_SEARCH = False
 T_START_GYR = 3.8
 T_DURATION_GYR = 10.0
 DAMPING_FACTOR = 0.98
-PARTICLE_COUNT = 50 if QUICK_SEARCH else 200#300
+PARTICLE_COUNT = 50 if QUICK_SEARCH else (200 if MANY_SEARCH else 2000)
 N_STEPS = 250 if QUICK_SEARCH else 300
 SAVE_INTERVAL = 10  # Must match value used in sim() function
 
@@ -155,8 +155,8 @@ def sim(M_factor, S_gpc, desc, seed):
     match_max_pct = compare_expansion_history(radius_max_final, radius_lcdm_max)
     match_hubble_curve_pct = compare_expansion_histories(hubble_ext[half_point:], H_lcdm_hubble[half_point:])
 
-    # Weighted average: curve shape (60%) + endpoint (20%) + Hubble rate (10%) + max radius (10%)
-    match_avg_pct = (match_hubble_curve_pct*0.1 + match_curve_pct*0.6 + match_end_pct*0.2 + match_max_pct*0.1)
+    # Weighted average: curve shape (50%) + endpoint (30%) + Hubble rate (10%) + max radius (10%)
+    match_avg_pct = (match_hubble_curve_pct*0.1 + match_curve_pct*0.5 + match_end_pct*0.3 + match_max_pct*0.1)
     diff_pct = 100 - match_avg_pct
 
     print(f"   External-Node final a(t) = {a_ext:.4f}, size = {size_ext_final:.2f} Gpc")

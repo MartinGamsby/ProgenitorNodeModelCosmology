@@ -116,6 +116,6 @@ Edge case: scalar inputs or constant baseline → R²=1.0 if match, else 0.0. Ne
 - Late time: ratio > 1.01 (tidal acceleration dominates)
 - Ratio increases with time (acceleration grows with r)
 
-## Missing
+## Coverage Notes
 
-Integration tests (Leapfrog correctness), particle initialization (damped Hubble flow), full simulation validation.
+Leapfrog correctness covered by test_integrator.py. Particle initialization (damped Hubble flow, COM removal, RMS normalization) covered by test_early_time_behavior.py. Simulation quality covered by test_simulation_quality.py and test_reproducibility.py. No known gaps in critical paths.

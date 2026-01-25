@@ -212,7 +212,7 @@ graph TD
 | `cosmo/tidal_forces_numba.py` | 60 | Numba JIT tidal forces |
 | `cosmo/factories.py` | 39 | Simulation utilities |
 | `run_simulation.py` | 345 | Main comparison script |
-| `parameter_sweep.py` | 365 | Parameter exploration |
+| `parameter_sweep.py` | 363 | Parameter exploration |
 | `visualize_3d.py` | 747 | 3D visualization |
 
 ## Import Pattern

@@ -10,6 +10,10 @@ graph TD
     simulation[simulation.py<br/>CosmologicalSimulation]
     analysis[analysis.py<br/>Shared analysis utilities]
     viz[visualization.py<br/>Shared plotting utilities]
+    factories[factories.py<br/>Simulation utilities]
+    numba_direct[numba_direct.py<br/>Numba JIT O(N²) direct]
+    bh_numba[barnes_hut_numba.py<br/>Barnes-Hut O(N log N) octree]
+    tidal_numba[tidal_forces_numba.py<br/>Numba JIT tidal forces]
     run[run_simulation.py<br/>Main entry point]
     sweep[parameter_sweep.py<br/>Grid search]
     viz3d[visualize_3d.py<br/>3D visualizations]
@@ -17,11 +21,17 @@ graph TD
     particles --> constants
     integrator --> constants
     integrator --> particles
+    integrator --> numba_direct
+    integrator --> bh_numba
+    integrator --> tidal_numba
     simulation --> constants
     simulation --> particles
     simulation --> integrator
     analysis --> constants
     viz --> constants
+    factories --> simulation
+    factories --> constants
+    factories --> analysis
     run --> simulation
     run --> constants
     run --> analysis
@@ -82,6 +92,47 @@ graph TD
 - `LeapfrogIntegrator.evolve()`: Full simulation loop (integrator.py:254-298)
 
 **Exports**: `Integrator`, `LeapfrogIntegrator`.
+
+### `cosmo/numba_direct.py`
+**Purpose**: Fast O(N²) gravity via Numba JIT compilation.
+
+**Class**: `NumbaDirectSolver`
+
+**Functions**:
+- `calculate_forces_direct_numba()`: JIT-compiled pairwise gravity with softening (exact, 14-17x speedup)
+
+**Used by**: `integrator.py` for N≥100 particles (auto mode default)
+
+### `cosmo/barnes_hut_numba.py`
+**Purpose**: Real Barnes-Hut octree O(N log N) gravity with Numba JIT.
+
+**Class**: `NumbaBarnesHutTree`
+
+**Functions**:
+- `build_octree()`: Iterative particle insertion into octree (max_depth=60)
+- `calculate_forces_barnes_hut()`: Stack-based tree traversal with opening angle criterion
+
+**Parameters**: `theta` controls accuracy/speed tradeoff (0.3=accurate, 0.5=balanced, 0.7=fast)
+
+**Used by**: `integrator.py` when `force_method='barnes_hut'`
+
+### `cosmo/tidal_forces_numba.py`
+**Purpose**: Numba JIT-compiled tidal force calculation from external HMEA nodes.
+
+**Functions**:
+- `calculate_tidal_forces_numba(particle_positions, node_positions, node_masses, G)`: Returns (N, 3) accelerations in m/s²
+
+**Algorithm**: Double loop over N particles × M nodes (M=26), computing attractive acceleration toward each node. Singularity protection at r < 1e10 m.
+
+**Used by**: `integrator.py` for external force calculations
+
+### `cosmo/factories.py`
+**Purpose**: Utility functions for running simulations and extracting results.
+
+**Functions**:
+- `run_and_extract_results(sim, t_duration_Gyr, n_steps, save_interval)`: Runs simulation, returns dict with t_Gyr, a, diameter_Gpc, max_radius_Gpc, sim
+
+**Used by**: Scripts needing streamlined simulation execution
 
 ### `cosmo/simulation.py`
 **Purpose**: High-level simulation orchestration.
@@ -166,15 +217,19 @@ graph TD
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `cosmo/constants.py` | 206 | Parameter definitions |
-| `cosmo/particles.py` | 277 | Physical structures |
-| `cosmo/integrator.py` | 308 | Force calculations + integration |
-| `cosmo/simulation.py` | 182 | High-level runner |
-| `cosmo/analysis.py` | 226 | Shared analysis utilities (NEW) |
-| `cosmo/visualization.py` | 187 | Shared plotting utilities (NEW) |
-| `run_simulation.py` | 353 | Main comparison script (refactored) |
-| `parameter_sweep.py` | 130 | Parameter exploration (refactored) |
-| `visualize_3d.py` | 379 | 3D visualization (refactored) |
+| `cosmo/constants.py` | 154 | Parameter definitions |
+| `cosmo/particles.py` | 340 | Physical structures |
+| `cosmo/integrator.py` | 316 | Force calculations + integration |
+| `cosmo/simulation.py` | 214 | High-level runner |
+| `cosmo/analysis.py` | 382 | Shared analysis utilities |
+| `cosmo/visualization.py` | 213 | Shared plotting utilities |
+| `cosmo/numba_direct.py` | 82 | Numba JIT O(N²) direct |
+| `cosmo/barnes_hut_numba.py` | 200 | Barnes-Hut O(N log N) octree |
+| `cosmo/tidal_forces_numba.py` | 60 | Numba JIT tidal forces |
+| `cosmo/factories.py` | 39 | Simulation utilities |
+| `run_simulation.py` | 345 | Main comparison script |
+| `parameter_sweep.py` | 363 | Parameter exploration |
+| `visualize_3d.py` | 747 | 3D visualization |
 
 ## Import Pattern
 

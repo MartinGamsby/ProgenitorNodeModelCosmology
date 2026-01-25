@@ -85,9 +85,13 @@ def _validate_timestep(self, t_duration_Gyr: float, n_steps: int) -> None:
 
 ## Performance
 
-**N² scaling accepted**: Direct pairwise gravity for N~300 is fine (O(N²)). Only optimize if N>1000 needed.
+**N² scaling accepted**: Direct pairwise gravity for N~300 is fine (O(N²)). Only use barnes_hut if N>1000.
 
-**Vectorization**: External forces use batch calculation over all 26 nodes. Never loop over nodes in Python.
+**Three force methods**: 'direct' (NumPy O(N²)), 'numba_direct' (Numba JIT O(N²), 14-17x speedup, exact), 'barnes_hut' (real octree O(N log N), ~5% error at θ=0.5). Auto mode uses numba_direct for N≥100.
+
+**Numba JIT**: Internal gravity (numba_direct.py, barnes_hut_numba.py) and tidal forces (tidal_forces_numba.py) use Numba JIT compilation.
+
+**Vectorization**: External forces use batch calculation over all 26 nodes. Never loop over nodes in Python (except in Numba-compiled code where explicit loops are faster).
 
 **Progress bars**: Use `tqdm` for user feedback during multi-minute runs.
 

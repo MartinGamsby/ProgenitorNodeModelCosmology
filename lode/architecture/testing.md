@@ -26,6 +26,8 @@ Tests in `tests/`. Physics-first: validate equations (F=GMm/r², a=H₀²Ω_Λr)
 
 **test_factories.py**: Factory function validation. Tests create_default_external_node_model, create_default_lcdm_model, and create_matter_only_model. Validates parameter passing, unit conversions, and default value handling. Ensures factories produce valid simulation configurations.
 
+**test_tidal_numba.py**: Numba JIT tidal force validation. 5 tests: default uses Numba, faster for large N, matches NumPy for small/large N, symmetry preserved.
+
 **test_early_time_behavior.py**: Physics constraint enforcement. 6 tests validating:
 1. **Initial size exact match**: All models start with identical RMS radius (no random variation from particle placement)
 2. **Early-time matching**: Progenitor models within 1% of ΛCDM in first ~1 Gyr before divergence
@@ -48,7 +50,7 @@ Ensures ΛCDM baseline computed at exact N-body snapshot times, eliminating "bum
 ## Running
 
 ```bash
-pytest tests/ -v  # All 110 tests
+pytest tests/ -v  # All 163 tests
 pytest tests/test_constants.py -v  # 21 tests
 pytest tests/test_forces.py -v  # 12 tests
 pytest tests/test_model_comparison.py -v  # 7 tests
@@ -61,6 +63,8 @@ pytest tests/test_units_validation.py -v  # Unit naming conventions
 pytest tests/test_radius_diameter_semantics.py -v  # Radius vs diameter
 pytest tests/test_integrator.py -v  # Leapfrog mechanics
 pytest tests/test_factories.py -v  # Factory functions
+pytest tests/test_tidal_numba.py -v  # 5 tests
+pytest tests/test_barnes_hut.py -v  # Barnes-Hut/Numba internal forces
 ```
 
 ## Key Fixes Applied
@@ -112,6 +116,6 @@ Edge case: scalar inputs or constant baseline → R²=1.0 if match, else 0.0. Ne
 - Late time: ratio > 1.01 (tidal acceleration dominates)
 - Ratio increases with time (acceleration grows with r)
 
-## Missing
+## Coverage Notes
 
-Integration tests (Leapfrog correctness), particle initialization (damped Hubble flow), full simulation validation.
+Leapfrog correctness covered by test_integrator.py. Particle initialization (damped Hubble flow, COM removal, RMS normalization) covered by test_early_time_behavior.py. Simulation quality covered by test_simulation_quality.py and test_reproducibility.py. No known gaps in critical paths.

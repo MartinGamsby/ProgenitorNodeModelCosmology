@@ -1,9 +1,11 @@
 \documentclass{article}
 \usepackage{graphicx} % Required for inserting images
 \usepackage{amsmath}
+\usepackage{geometry}
+\geometry{left=4cm,right=4cm,top=4cm,bottom=4cm}
 
 
-\title{DRAFT - Replacing Dark Energy with a Virialized Meta-Structure: The Progenitor Node Model of Cosmic Acceleration}
+\title{Replacing Dark Energy with a Virialized Meta-Structure: The Progenitor Node Model of Cosmic Acceleration}
 \author{Martin Gamsby}
 \date{January 2026}
 
@@ -15,7 +17,7 @@
 \begin{abstract}
 Standard $\Lambda$CDM cosmology attributes the observed late-time cosmic acceleration to an intrinsic, theoretically unexplained vacuum energy known as Dark Energy. While this parameter provides an excellent fit to observational data, it suffers from severe theoretical pathologies, most notably the fine-tuning problem—requiring a cancellation of vacuum energy terms to 120 decimal places—and the coincidence problem, which questions why we exist in the precise epoch where matter and dark energy densities are comparable. This paper proposes a radical alternative: a geometric framework termed the \textbf{External-Node Model}. We posit that the observable universe—modeled as a finite Friedmann-Robertson-Walker (FRW) "bubble"—originates from the destabilization of a Progenitor Node situated within a larger, static, and virialized meta-structure composed of Hyper-Massive External Attractors (HMEAs).
 \paragraph{}
-In this framework, the apparent acceleration of the cosmos arises not from a repulsive "push" originating from the vacuum, but from the tidal gravitational "pull" of the surrounding grid as the bubble's proper radius $R(t)$ expands toward the effective capture radius of neighbor nodes. By deriving a modified acceleration equation based on external tidal forces, we demonstrate that an HMEA mass of $M \approx 8.6 \times 10^{55}$ kg (855$\times$M$_{obs}$) at a grid spacing of $S = 25$ Gpc achieves 99.36\% endpoint match (R$^2$=0.9979 for size evolution, R$^2$=0.8976 for expansion rate) over a 10 Gyr period without invoking exotic fluids or modified gravity. We validate this mechanism through N-body simulations covering the late-universe expansion era (t=3.8$\rightarrow$13.8 Gyr). While this work presents a simplified toy model that does not yet address early universe physics or CMB observations, it demonstrates that dark energy is not inevitable—classical gravitational alternatives exist. This proof-of-concept challenges the assumption that the cosmological principle holds at super-horizon scales and opens new research directions for understanding cosmic acceleration, even if ultimately superseded by more complete theories.
+In this framework, the apparent acceleration of the cosmos arises not from a repulsive "push" originating from the vacuum, but from the tidal gravitational "pull" of the surrounding grid as the bubble's proper radius $R(t)$ expands toward the effective capture radius of neighbor nodes. By deriving a modified acceleration equation based on external tidal forces, we demonstrate that an HMEA mass of $M \approx 8.6 \times 10^{55}$ kg (855$\times$M$_{obs}$) at a grid spacing of $S = 25$ Gpc achieves 99.36\% endpoint match (R$^2$=0.9979 for size evolution, R$^2$=0.8976 for expansion rate) over a 10 Gyr period without invoking exotic fluids or modified gravity. We validate this mechanism through N-body simulations covering the late-universe expansion era (t=3.8$\rightarrow$13.8 Gyr). The model makes a quantitative, falsifiable prediction: the virialized nature of the meta-structure (with $\sim$5\% position irregularity and $\sim$20\% mass variation between nodes) produces a dipole anisotropy in the Hubble constant of $\Delta H_0/H_0 \approx 4$-$11\%$, comparable to the observed Hubble Tension ($\sim$8.6\%). While this work presents a simplified toy model that does not yet address early universe physics or CMB observations, it demonstrates that dark energy is not inevitable, classical gravitational alternatives exist. This proof-of-concept challenges the assumption that the cosmological principle holds at super-horizon scales and opens new research directions for understanding cosmic acceleration, even if ultimately superseded by more complete theories.
 \end{abstract}
 \clearpage
 
@@ -90,9 +92,7 @@ Converting this result from meters to parsecs ($1 \text{ Mpc} \approx 3.08 \time
 
 $$S \approx 31 \text{ Gigaparsecs (Gpc)}$$
 
-\begin{enumerate}
-    \item[Result]: A network of nodes with masses of $\sim 10^{55}$ kg spaced $\sim 30$ Gpc apart provides the correct magnitude of gravitational "lift" to reproduce the observed $\Lambda$. This distance is significant because it places the attractors well outside the current particle horizon of the universe ($\sim 14$ Gpc), explaining why they are not immediately obvious in sky surveys—we are fundamentally causally disconnected from their light, but not their gravity.
-\end{enumerate}
+\paragraph{Result:} A network of nodes with masses of $\sim 10^{55}$ kg spaced $\sim 30$ Gpc apart provides the correct magnitude of gravitational "lift" to reproduce the observed $\Lambda$. This distance is significant because it places the attractors well outside the current particle horizon of the universe ($\sim 14$ Gpc), explaining why they are not immediately obvious in sky surveys—we are fundamentally causally disconnected from their light, but not their gravity.
 
 \paragraph{Analytical vs. Numerical Discrepancy:}
 While our analytical estimate predicts $S \approx 31$ Gpc, systematic numerical exploration reveals optimal matches at $S = 15$-65 Gpc, with the best balance of size and expansion rate R$^2$ occurring at $S = 25$ Gpc. This $\sim$20\% discrepancy between analytical prediction and numerical optimum likely arises from (1) the analytical derivation's assumption of a single external node, whereas the simulation uses a 3$\times$3$\times$3 grid whose combined tidal field differs from isolated-node geometry, and (2) nonlinear effects in the particle dynamics not captured by the linearized tidal formula. The broader range of viable $S$ values (15-65 Gpc) demonstrates that the mechanism is robust rather than fine-tuned to the analytical target.
@@ -290,17 +290,17 @@ The HMEA model faces two immediate observational challenges: the invisibility of
 \paragraph{}
 \textbf{Defense}: The most parsimonious explanation is that HMEAs are Eon-Spanning Black Holes that have long since exhausted their local fuel supply.
 
-\begin{enumerate}
-\item[Mechanism]: An HMEA is vastly older than the current expansion bubble ($t_{node} \gg 13.8 \text{ Gyr}$). Over quadrillions of years, it has accreted all available matter in its immediate vicinity, effectively clearing its "cell" in the grid.
+\paragraph{Mechanism:} An HMEA is vastly older than the current expansion bubble ($t_{node} \gg 13.8 \text{ Gyr}$). Possibly over quadrillions of years, it has accreted all available matter in its immediate vicinity, effectively clearing its "cell" in the grid.
 
-\item[Result]: Without an active accretion disk to generate thermal radiation or relativistic jets, a black hole is electromagnetically silent. It is a "naked mass" in the meta-structure—detectable only through its gravitational gradient (Dark Energy), not its luminosity. Furthermore, any residual Hawking radiation would be so redshifted and diluted by the inverse-square law over 30 Gpc that it would be indistinguishable from the noise floor of the Cosmic Microwave Background (CMB).
-\end{enumerate}
+\paragraph{Result:} Without an active accretion disk to generate thermal radiation or relativistic jets, a black hole is electromagnetically silent. It is a "naked mass" in the meta-structure—detectable only through its gravitational gradient (Dark Energy), not its luminosity. Furthermore, any residual Hawking radiation would be so redshifted and diluted by the inverse-square law over 30 Gpc that it would be indistinguishable from the noise floor of the Cosmic Microwave Background (CMB).
 
 \subsection{Fossil Black Holes and Dark Matter}
+\textit{(Speculative---no simulation support)}
+
 \paragraph{}
 While the nodes themselves are invisible, the HMEA framework predicts that the void space between the bubble and the nodes is not perfectly empty. It may contain remnant debris from previous epochs of the meta-structure's evolution.
 
-In particular, the unexplained population of intermediate-mass black holes (IMBHs)—wandering objects too massive to be stellar remnants yet too small to be galactic nuclei—may offer an alternative explanation as fossil remnants. These could be debris from the HMEA's previous accretion cycles, ancient compact objects lingering in the void until encompassed by our expansion. While highly speculative, such objects might even contribute to the observed dark matter budget if sufficiently numerous and small-scale. This remains an open question requiring further theoretical development and observational constraints.
+In particular, the unexplained population of intermediate-mass black holes (IMBHs) (wandering objects too massive to be stellar remnants yet too small to be galactic nuclei) may offer an alternative explanation as fossil remnants. These could be debris from the HMEA's previous accretion cycles, ancient compact objects lingering in the void until encompassed by our expansion. While highly speculative, such objects might even contribute to the observed dark matter budget if sufficiently numerous and small-scale. This remains an open question requiring further theoretical development and observational constraints.
 
 \section{Predictions and Falsifiability}
 \paragraph{}
@@ -310,19 +310,50 @@ The External-Node Gravity model makes distinct predictions that differ from stan
 \paragraph{}
 Standard $\Lambda$CDM predicts a constant dark energy density, which leads to a smooth exponential expansion ($w = -1$) forever. The HMEA model predicts a dynamic future.
 
-\begin{enumerate}
-    \item[Prediction]: As the bubble radius $R(t)$ approaches the grid spacing $S$, the tidal force scales as $(S-R)^{-2}$. The acceleration will not remain constant; it will increase as the leading edge of the universe approaches the gravity wells of the HMEAs.
-    \item[Observable]: In deep future epochs, or perhaps measurable in current high-z supernova data, the effective equation of state $w$ should drift below $-1$ (phantom energy behavior), indicating stronger-than-exponential acceleration as we approach the node boundary.
-\end{enumerate}
+\paragraph{Prediction:} As the bubble radius $R(t)$ approaches the grid spacing $S$, the tidal force scales as $(S-R)^{-2}$. The acceleration will not remain constant; it will increase as the leading edge of the universe approaches the gravity wells of the HMEAs.
+
+\paragraph{Observable:} In deep future epochs, or perhaps measurable in current high-z supernova data, the effective equation of state $w$ should drift below $-1$ (phantom energy behavior), indicating stronger-than-exponential acceleration as we approach the node boundary.
+
+\paragraph{Quantitative Analysis:}
+We compute the effective equation of state using $w_{eff} = -1 - (2/3) \cdot d(\ln H)/d(\ln a)$. Extended simulations (20 Gyr, from $t = 3.8$ to 23.8 Gyr) with M = 855 $\times$ M$_{obs}$, S = 25 Gpc show:
+
+\begin{itemize}
+    \item At $t = 13.8$ Gyr (today): $w_{ext} \approx -0.74$, $w_{\Lambda CDM} \approx -0.70$, $\Delta w \approx -0.04$
+    \item The External-Node model tracks $\Lambda$CDM closely during the current epoch
+    \item Significant phantom deviation ($\Delta w < -0.05$) requires $R/S \rightarrow 1$
+\end{itemize}
+
+For the M = 855, S = 25 Gpc configuration, the current universe (RMS radius $\sim$7 Gpc) has $R/S \approx 0.3$. As $R/S$ increases toward unity, stronger phantom deviations become observable. This provides a quantitative test: future precision measurements of $w(z)$ at low redshift should detect systematic drift if external-node dynamics are correct.
 
 \subsection{Dipole Anisotropy}
 \paragraph{}
 While the Progenitor Hypothesis suggests a roughly isotropic start, the virialized (irregular) nature of the meta-grid implies the nearest HMEAs likely have different masses or distances.
-\begin{enumerate}
-    \item[Prediction]: Deep-field surveys (e.g., Euclid, LSST) should detect a subtle \textbf{dipole in the expansion rate}. One hemisphere of the sky (facing the nearest or largest HMEA) should exhibit a slightly higher local Hubble constant ($H_0$) than the opposing hemisphere. This anisotropy may offer an alternative explanation for the current "Hubble Tension" (the discrepancy between early-universe and late-universe measurements of $H_0$).
-\end{enumerate}
+
+\paragraph{Prediction:} Deep-field surveys (e.g., Euclid, LSST) should detect a subtle \textbf{dipole in the expansion rate}. One hemisphere of the sky (facing the nearest or largest HMEA) should exhibit a slightly higher local Hubble constant ($H_0$) than the opposing hemisphere. This anisotropy may offer an alternative explanation for the current "Hubble Tension" (the discrepancy between early-universe and late-universe measurements of $H_0$).
+
+\paragraph{Quantitative Estimate:}
+In a virialized meta-structure, nodes exhibit both \textbf{position irregularity} (deviations from perfect lattice) and \textbf{mass variation} (nodes have different masses). Both contribute to asymmetric tidal fields. We estimate the resulting $H_0$ dipole analytically, assuming 5\% position irregularity and 20\% mass variation---conservative values for a virialized structure.
+
+The tidal acceleration asymmetry propagates to $H_0$ via:
+\[
+\frac{\Delta H_0}{H_0} \approx \frac{1}{2} \cdot \frac{\Omega_{\Lambda,eff}}{\Omega_m + \Omega_{\Lambda,eff}} \cdot \sqrt{\left(\frac{2\delta_{pos}}{S - R}\right)^2 + \left(\frac{\Delta M}{M}\right)^2}
+\]
+where position and mass variations add in quadrature (uncorrelated), with $\delta_{eff} = \delta/\sqrt{6}$ accounting for statistical cancellation from 6 nearest face nodes.
+
+For M = 855 $\times$ M$_{obs}$, S = 25 Gpc, $R \approx 7.25$ Gpc (today):
+\begin{itemize}
+    \item Position irregularity only (5\%): $\Delta H_0 / H_0 \approx 2.6\%$ (grid average)
+    \item Mass variation only (20\%): $\Delta H_0 / H_0 \approx 3.6\%$ (grid average)
+    \item \textbf{Combined (position + mass)}: $\Delta H_0 / H_0 \approx 4.4\%$ ($\sim$3.1 km/s/Mpc, grid average)
+    \item \textbf{Single nearest node (worst case)}: $\Delta H_0 / H_0 \approx 10.9\%$ ($\sim$7.6 km/s/Mpc)
+    \item Observed Hubble Tension: $\sim$8.6\% (6 km/s/Mpc difference between 67 and 73 km/s/Mpc)
+\end{itemize}
+
+\paragraph{Implications:}
+The predicted dipole ($\sim$4.4\% grid average, up to $\sim$10.9\% worst-case) is comparable to the Hubble Tension ($\sim$8.6\%). This provides a falsifiable prediction with significant discriminating power: if high-precision all-sky $H_0$ measurements (e.g., from Euclid, LSST) detect a dipole anisotropy at the $\sim$4-10\% level aligned with no known local structure, it would strongly support the external-node hypothesis. Conversely, the absence of any dipole at the $>$2\% level would constrain the model's parameter space, requiring either more symmetric node distributions or smaller mass variations than expected for virialized structures.
 
 \section{The "Great Metabolism" Hypothesis}
+\textit{(Speculative Extension---not derived from simulation results)}
 
 The HMEA framework implies a cyclical, evolutionary cosmology that radically reframes our place in the universe. We propose that cosmic expansion is not a linear march toward entropy death, but a metabolic phase of the meta-structure.
 

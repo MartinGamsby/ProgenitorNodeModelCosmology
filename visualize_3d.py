@@ -41,13 +41,13 @@ START_TIME = 3.8  # Gyr
 
 # Calculate initial conditions using shared function
 sim_params = SimulationParameters(
-    M_value=644,
-    S_value=21,
-    n_particles=1400,
+    M_value=855,
+    S_value=25,
+    n_particles=2000,
     seed=42,
     t_start_Gyr=START_TIME,
     t_duration_Gyr=10.0*5/4,
-    n_steps=1000,
+    n_steps=500,
     damping_factor=0.92
 )
 

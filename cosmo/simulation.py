@@ -25,7 +25,7 @@ class CosmologicalSimulation:
         If use_dark_energy is None, defaults to (not use_external_nodes).
 
         Args:
-            force_method: 'auto' (uses Numba JIT for N>=100), 'direct', or 'barnes_hut'
+            force_method: 'auto' (barnes_hut for N>=1000, numba_direct for N>=100, direct otherwise), 'direct', 'numba_direct', or 'barnes_hut'
         """
         self.const = CosmologicalConstants()
         self.use_external_nodes = use_external_nodes
@@ -48,7 +48,7 @@ class CosmologicalSimulation:
 
         self.particles = ParticleSystem(n_particles=sim_params.n_particles,
                                        box_size_m=box_size_m,
-                                       total_mass_kg=self.const.M_observable_kg*1,#TODO: As an argument (multi Mobs?)
+                                       total_mass_kg=self.const.M_observable_kg,
                                        a_start=self.a_start,
                                        use_dark_energy=self.use_dark_energy,
                                        damping_factor_override=sim_params.damping_factor)

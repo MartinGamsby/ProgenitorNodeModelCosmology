@@ -151,7 +151,7 @@ class ParticleSystem:
 
         print(f"[ParticleSystem] Removing COM velocity: [{com_velocity[0]:.3e}, {com_velocity[1]:.3e}, {com_velocity[2]:.3e}] m/s")
 
-        # TODO?
+        # Apply COM velocity correction to each particle
         for particle in self.particles:
             particle.vel -= com_velocity
     

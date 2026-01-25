@@ -30,7 +30,8 @@ class Integrator:
         particles (fewer particles) have larger softening for stability.
 
         Args:
-            force_method: 'auto' (uses barnes_hut for N>=100), 'direct' for O(N²), or 'barnes_hut' for O(N log N)
+            force_method: 'auto' (uses numba_direct for N>=100), 'direct' for NumPy O(N²),
+                          'numba_direct' for Numba JIT O(N²), or 'barnes_hut' for real O(N log N) octree
             barnes_hut_theta: Opening angle for Barnes-Hut (0.3-0.7 typical)
         """
         self.particles = particle_system
@@ -44,7 +45,12 @@ class Integrator:
         # Determine actual method to use
         N = len(particle_system.particles)
         if force_method == 'auto':
-            self._active_force_method = 'barnes_hut' if N >= 100 else 'direct'
+            if N >= 1000:
+                self._active_force_method = 'barnes_hut'
+            elif N >= 100:
+                self._active_force_method = 'numba_direct'
+            else:
+                self._active_force_method = 'direct'
         else:
             self._active_force_method = force_method
         self.const = CosmologicalConstants()
@@ -125,10 +131,29 @@ class Integrator:
 
         return accelerations
 
+    def calculate_internal_forces_numba_direct(self) -> np.ndarray:
+        """
+        Calculate gravitational forces using Numba JIT-compiled direct O(N^2) summation.
+        14-17x faster than NumPy vectorized method. Exact results (no approximation).
+
+        Returns accelerations array with shape (N, 3) in m/s².
+        """
+        from cosmo.numba_direct import NumbaDirectSolver
+
+        positions = self.particles.get_positions()
+        masses_kg = self.particles.get_masses()
+
+        solver = NumbaDirectSolver(
+            softening_m=self.softening_m,
+            G=self.const.G
+        )
+        solver.build_tree(positions, masses_kg)
+        return solver.calculate_all_accelerations()
+
     def calculate_internal_forces_barnes_hut(self) -> np.ndarray:
         """
-        Calculate gravitational forces using Numba JIT-compiled Barnes-Hut.
-        14-17x faster than direct method with machine precision accuracy.
+        Calculate gravitational forces using real Barnes-Hut octree.
+        O(N log N) with accuracy controlled by opening angle theta.
 
         Returns accelerations array with shape (N, 3) in m/s².
         """
@@ -137,16 +162,13 @@ class Integrator:
         positions = self.particles.get_positions()
         masses_kg = self.particles.get_masses()
 
-        # Build octree and calculate forces with Numba JIT
         tree = NumbaBarnesHutTree(
             theta=self.barnes_hut_theta,
             softening_m=self.softening_m,
             G=self.const.G
         )
         tree.build_tree(positions, masses_kg)
-        accelerations = tree.calculate_all_accelerations()
-
-        return accelerations
+        return tree.calculate_all_accelerations()
 
     def calculate_external_forces(self) -> np.ndarray:
         """
@@ -185,7 +207,9 @@ class Integrator:
         Returns accelerations array with shape (N, 3) in m/s².
         """
         # Select internal force method
-        if self._active_force_method == 'barnes_hut':
+        if self._active_force_method == 'numba_direct':
+            a_internal_mps2 = self.calculate_internal_forces_numba_direct()
+        elif self._active_force_method == 'barnes_hut':
             a_internal_mps2 = self.calculate_internal_forces_barnes_hut()
         else:
             a_internal_mps2 = self.calculate_internal_forces()

@@ -84,3 +84,31 @@ When requirements unclear, check paper for ground truth on:
 - What we explicitly don't care about (yet)
 
 When paper contradicts code, paper defines intent; code is implementation-in-progress.
+
+## Quantified Predictions (Paper Section 7)
+
+Paper Section 7 now includes quantitative predictions computed by `compute_predictions.py`:
+
+### 1. Phantom Energy Behavior (w < -1)
+**Mechanism**: As R→S, tidal force scales as (S-R)⁻². Effective w = -1 - (2/3)(d ln H / d ln a) should drift below ΛCDM.
+
+**Quantitative results** (M=855, S=25 Gpc):
+- Today (t=13.8 Gyr): w_ext ≈ -0.74 vs w_ΛCDM ≈ -0.70, Δw ≈ -0.04
+- Current R/S ratio ≈ 0.3
+- Significant phantom deviation (Δw < -0.05) requires R/S → 1
+- Observable via precision w(z) measurements at low redshift
+
+### 2. Dipole Anisotropy in H₀
+**Mechanism**: Virialized structure has both position irregularity (5%) AND mass variation (20%). Both contribute to asymmetric tidal field, adding in quadrature.
+
+**Quantitative results** (analytical, M=855, S=25 Gpc):
+- Position only (grid): ΔH₀/H₀ ≈ 2.6%
+- Mass only (grid): ΔH₀/H₀ ≈ 3.6%
+- **Combined (grid)**: ΔH₀/H₀ ≈ 4.4% (~3.1 km/s/Mpc)
+- **Combined (single node, worst case)**: ΔH₀/H₀ ≈ 10.9% (~7.6 km/s/Mpc)
+- Hubble Tension: ~8.6% (6 km/s/Mpc)
+- Testable by Euclid/LSST: dipole at 4-10% level with no local structure correlation
+
+### Speculative Sections (marked in paper)
+- Section 6.2 Fossil Black Holes: Speculative, no simulation support
+- Section 8 Great Metabolism: Speculative extension, not derived from simulation

@@ -155,9 +155,7 @@ def sim(M_factor, S_gpc, desc, seed):
     match_max_pct = compare_expansion_history(radius_max_final, radius_lcdm_max)
     match_hubble_curve_pct = compare_expansion_histories(hubble_ext[half_point:], H_lcdm_hubble[half_point:])
 
-    #match_avg_pct = (match_hubble_curve_pct*1 + match_curve_pct*3 + match_end_pct*5 + match_max_pct*1)/10
-    #match_avg_pct = match_curve_pct#TODOOO
-    #match_avg_pct = match_end_pct#TODOOOO
+    # Weighted average: curve shape (60%) + endpoint (20%) + Hubble rate (10%) + max radius (10%)
     match_avg_pct = (match_hubble_curve_pct*0.1 + match_curve_pct*0.6 + match_end_pct*0.2 + match_max_pct*0.1)
     diff_pct = 100 - match_avg_pct
 

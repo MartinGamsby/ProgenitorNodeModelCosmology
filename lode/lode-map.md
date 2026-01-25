@@ -15,7 +15,7 @@
 ## Physics
 - [physics/theoretical-framework.md](./physics/theoretical-framework.md) - External-Node Model, Progenitor Hypothesis, predictions, scope/limitations
 - [physics/force-calculations.md](./physics/force-calculations.md) - Internal gravity, tidal forces, dark energy, Hubble drag
-- [physics/barnes-hut-optimization.md](./physics/barnes-hut-optimization.md) - O(N log N) octree algorithm for internal forces, performance/accuracy trade-offs
+- [physics/barnes-hut-optimization.md](./physics/barnes-hut-optimization.md) - Numba JIT internal forces (O(N²) direct, not tree); speedup from compilation
 - [physics/initial-conditions.md](./physics/initial-conditions.md) - Damped Hubble flow setup and rationale
 - [physics/integration.md](./physics/integration.md) - Leapfrog algorithm implementation
 
@@ -24,6 +24,10 @@
 - [numerics/lcdm-baseline.md](./numerics/lcdm-baseline.md) - ΛCDM baseline computation standardization, reference values, bug fixes
 - [numerics/leapfrog-staggering.md](./numerics/leapfrog-staggering.md) - Velocity staggering, pre-kick fix, initial bump elimination
 - [numerics/expansion-rate-calculation.md](./numerics/expansion-rate-calculation.md) - Hubble parameter H(t) from numerical derivatives, edge artifacts from smoothing, diagnostic tools
+
+## Scripts
+- [scripts/parameter-sweep.md](./scripts/parameter-sweep.md) - Grid search methodology, match metrics, best configurations
+- [scripts/visualization.md](./scripts/visualization.md) - 3D visualization pipeline, comparison mode, animation
 
 ## Plans
 - [plans/](./plans/) - Future enhancements and TODOs

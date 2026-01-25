@@ -84,3 +84,28 @@ When requirements unclear, check paper for ground truth on:
 - What we explicitly don't care about (yet)
 
 When paper contradicts code, paper defines intent; code is implementation-in-progress.
+
+## Untested Predictions (Qualitative Only)
+
+Paper Section 7 makes two falsifiable predictions that lack quantitative thresholds:
+
+### 1. Phantom Energy Behavior (w < -1)
+**Claim**: As R→S, tidal force scales as (S-R)⁻². Effective equation of state w should drift below -1.
+
+**Not quantified**: What w value? When observable? High-z supernova constraints?
+
+**To quantify**: Run simulations extending into far future (t > 15 Gyr). Compute effective w(t) = -1 - (2/3)(d ln H / d ln a). Compare to ΛCDM w = -1 constant.
+
+### 2. Dipole Anisotropy in H₀
+**Claim**: 5% HMEA position irregularity creates asymmetric tidal field. One hemisphere should have higher H₀.
+
+**Not quantified**: Expected ΔH₀ magnitude? Comparison to Hubble Tension (~10%)?
+
+**To quantify**: Place observer off-center by δ. Compute H₀ in opposite directions. Estimate δH₀/H₀ as function of offset δ/S.
+
+### Future Work
+Quantifying these predictions would require:
+1. Extended simulations beyond t=13.8 Gyr
+2. Effective equation of state calculation from H(t)
+3. Off-center observer simulation with directional H₀ measurement
+4. Comparison to current observational constraints (SN Ia, Euclid, LSST)

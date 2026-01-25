@@ -1,8 +1,10 @@
-# Barnes-Hut Optimization
+# Numba JIT Force Calculation
 
 ## Overview
 
-Optional O(N log N) force calculation using Numba JIT compilation. Achieves 14-17x speedup over NumPy direct method with machine precision accuracy (~1e-16 error).
+**Note**: Despite filename `barnes_hut_numba.py`, current implementation uses **direct O(N²) summation** with Numba JIT compilation, NOT Barnes-Hut tree approximation. Speedup (14-17x) comes from compiled loops, not algorithmic complexity reduction. Name is historical.
+
+Achieves 14-17x speedup over NumPy vectorized direct method with machine precision accuracy (~1e-16 error).
 
 **File**: cosmo/barnes_hut_numba.py
 **Class**: NumbaBarnesHutTree

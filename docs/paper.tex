@@ -336,21 +336,25 @@ While the Progenitor Hypothesis suggests a roughly isotropic start, the virializ
 \end{enumerate}
 
 \paragraph{Quantitative Estimate:}
-Assuming 5\% grid irregularity (node positions displaced by $\delta = 0.05 \times S$ from perfect lattice), we estimate the resulting $H_0$ dipole analytically. The tidal acceleration asymmetry from a displaced nearest node propagates to $H_0$ via:
+In a virialized meta-structure, nodes exhibit both \textbf{position irregularity} (deviations from perfect lattice) and \textbf{mass variation} (nodes have different masses). Both contribute to asymmetric tidal fields. We estimate the resulting $H_0$ dipole analytically, assuming 5\% position irregularity and 20\% mass variation---conservative values for a virialized structure.
+
+The tidal acceleration asymmetry propagates to $H_0$ via:
 \[
-\frac{\Delta H_0}{H_0} \approx \frac{1}{2} \cdot \frac{\Omega_{\Lambda,eff}}{\Omega_m + \Omega_{\Lambda,eff}} \cdot \frac{2\delta_{eff}}{S - R}
+\frac{\Delta H_0}{H_0} \approx \frac{1}{2} \cdot \frac{\Omega_{\Lambda,eff}}{\Omega_m + \Omega_{\Lambda,eff}} \cdot \sqrt{\left(\frac{2\delta_{pos}}{S - R}\right)^2 + \left(\frac{\Delta M}{M}\right)^2}
 \]
-where $\delta_{eff} = \delta/\sqrt{6}$ accounts for statistical cancellation from 6 nearest face nodes.
+where position and mass variations add in quadrature (uncorrelated), with $\delta_{eff} = \delta/\sqrt{6}$ accounting for statistical cancellation from 6 nearest face nodes.
 
 For M = 855 $\times$ M$_{obs}$, S = 25 Gpc, $R \approx 7.25$ Gpc (today):
 \begin{itemize}
-    \item Full grid (statistical average): $\Delta H_0 / H_0 \approx 2.6\%$ ($\sim$1.8 km/s/Mpc)
-    \item Single nearest node (worst case): $\Delta H_0 / H_0 \approx 6.3\%$ ($\sim$4.4 km/s/Mpc)
+    \item Position irregularity only (5\%): $\Delta H_0 / H_0 \approx 2.6\%$ (grid average)
+    \item Mass variation only (20\%): $\Delta H_0 / H_0 \approx 3.6\%$ (grid average)
+    \item \textbf{Combined (position + mass)}: $\Delta H_0 / H_0 \approx 4.4\%$ ($\sim$3.1 km/s/Mpc, grid average)
+    \item \textbf{Single nearest node (worst case)}: $\Delta H_0 / H_0 \approx 10.9\%$ ($\sim$7.6 km/s/Mpc)
     \item Observed Hubble Tension: $\sim$8.6\% (6 km/s/Mpc difference between 67 and 73 km/s/Mpc)
 \end{itemize}
 
 \paragraph{Implications:}
-The predicted dipole ($\sim$2.6\%) is smaller than but comparable to the Hubble Tension ($\sim$8.6\%). Explaining the full tension would require $\sim$17\% grid irregularity---larger than our assumed 5\% but not implausible for a virialized structure. This provides a falsifiable prediction: if high-precision all-sky $H_0$ measurements (e.g., from Euclid) detect a dipole anisotropy at the $\sim$2-6\% level aligned with no known local structure, it would support the external-node hypothesis. Conversely, the absence of any dipole at the $>$1\% level would constrain the model's parameter space.
+The predicted dipole ($\sim$4.4\% grid average, up to $\sim$10.9\% worst-case) is comparable to the Hubble Tension ($\sim$8.6\%). This provides a falsifiable prediction with significant discriminating power: if high-precision all-sky $H_0$ measurements (e.g., from Euclid, LSST) detect a dipole anisotropy at the $\sim$4-10\% level aligned with no known local structure, it would strongly support the external-node hypothesis. Conversely, the absence of any dipole at the $>$2\% level would constrain the model's parameter space, requiring either more symmetric node distributions or smaller mass variations than expected for virialized structures.
 
 \section{The "Great Metabolism" Hypothesis}
 \textit{(Speculative Extension---not derived from simulation results)}

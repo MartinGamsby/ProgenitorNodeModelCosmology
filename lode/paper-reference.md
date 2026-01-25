@@ -99,13 +99,15 @@ Paper Section 7 now includes quantitative predictions computed by `compute_predi
 - Observable via precision w(z) measurements at low redshift
 
 ### 2. Dipole Anisotropy in H₀
-**Mechanism**: 5% HMEA grid irregularity creates asymmetric tidal field.
+**Mechanism**: Virialized structure has both position irregularity (5%) AND mass variation (20%). Both contribute to asymmetric tidal field, adding in quadrature.
 
 **Quantitative results** (analytical, M=855, S=25 Gpc):
-- Full grid (statistical average): ΔH₀/H₀ ≈ 2.6% (~1.8 km/s/Mpc)
-- Single nearest node (worst case): ΔH₀/H₀ ≈ 6.3% (~4.4 km/s/Mpc)
-- Hubble Tension (~8.6%) would need ~17% grid irregularity
-- Testable by Euclid/LSST: dipole at 2-6% level with no local structure correlation
+- Position only (grid): ΔH₀/H₀ ≈ 2.6%
+- Mass only (grid): ΔH₀/H₀ ≈ 3.6%
+- **Combined (grid)**: ΔH₀/H₀ ≈ 4.4% (~3.1 km/s/Mpc)
+- **Combined (single node, worst case)**: ΔH₀/H₀ ≈ 10.9% (~7.6 km/s/Mpc)
+- Hubble Tension: ~8.6% (6 km/s/Mpc)
+- Testable by Euclid/LSST: dipole at 4-10% level with no local structure correlation
 
 ### Speculative Sections (marked in paper)
 - Section 6.2 Fossil Black Holes: Speculative, no simulation support

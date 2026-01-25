@@ -157,15 +157,15 @@ def compute_dipole_anisotropy():
     """
     Estimate dipole anisotropy in H_0 from HMEA grid irregularity.
 
-    The HMEA grid has 5% position irregularity. An observer at the center
-    of a perfect grid sees isotropic expansion. With irregularity, one hemisphere
-    has slightly closer/farther nodes -> different tidal acceleration -> different H_0.
+    In a virialized meta-structure, nodes have BOTH:
+    1. Position irregularity: ~5% deviation from perfect lattice
+    2. Mass variation: nodes have different masses (virialized, not identical)
 
-    We estimate this analytically from the tidal force formula:
-    a_tidal = G*M_ext*r / |r_node - r|^3
+    Both contribute to asymmetric tidal field -> dipole in H_0.
 
-    For small offset delta from center:
-    DeltaH_0/H_0 ~ (3delta/S) * (Omega_Lambda_eff / (Omega_m + Omega_Lambda_eff))
+    Tidal acceleration: a_tidal = G*M_node / (S - R)^2
+    Position offset changes (S - R), mass variation changes M directly.
+    Combined effect adds in quadrature for uncorrelated variations.
     """
     print("\n" + "="*70)
     print("PREDICTION 2: Dipole Anisotropy in H_0")
@@ -177,9 +177,12 @@ def compute_dipole_anisotropy():
     S_m = S_VALUE * const.Gpc_to_m
     M_ext_kg = M_VALUE * const.M_observable_kg
 
-    # HMEA grid irregularity: 5% of S
-    irregularity_fraction = 0.05
-    delta_S = irregularity_fraction * S_VALUE  # Gpc
+    # Grid irregularity parameters for virialized structure
+    position_irregularity = 0.05  # 5% position deviation
+    mass_irregularity = 0.20      # 20% mass variation (virialized structure has diverse node masses)
+
+    delta_S = position_irregularity * S_VALUE  # Gpc
+    delta_M_frac = mass_irregularity  # fractional mass variation
 
     # Current universe size
     R_universe = 14.5 / 2  # Gpc (RMS radius ~7.25 Gpc)
@@ -189,75 +192,98 @@ def compute_dipole_anisotropy():
     Omega_Lambda_eff = (const.G * M_ext_kg) / (S_m**3 * H0_si**2)
 
     print(f"\nParameters:")
-    print(f"  M = {M_VALUE}*M_obs, S = {S_VALUE} Gpc")
+    print(f"  M_mean = {M_VALUE}*M_obs, S_mean = {S_VALUE} Gpc")
     print(f"  Omega_Lambda_eff = {Omega_Lambda_eff:.4f}")
-    print(f"  Grid irregularity: {irregularity_fraction*100:.0f}% -> deltaS = {delta_S:.2f} Gpc")
+    print(f"  Position irregularity: {position_irregularity*100:.0f}% -> deltaS = {delta_S:.2f} Gpc")
+    print(f"  Mass variation: {mass_irregularity*100:.0f}% -> deltaM/M = {delta_M_frac:.2f}")
     print(f"  Universe RMS radius: {R_universe:.2f} Gpc")
-
-    # Tidal acceleration from nearest node at distance (S - R):
-    # a_tidal = G*M_ext / (S - R)^2  (leading order for particle at edge)
-    #
-    # With node displaced by delta toward observer:
-    #   Closer hemisphere: d = S - delta  ->  a+ = G*M / (S-delta-R)^2
-    #   Farther hemisphere: d = S + delta  ->  a- = G*M / (S+delta-R)^2
-    #
-    # Fractional difference: Deltaa/a ~ 4delta / (S - R)  (leading order)
 
     S_minus_R = S_VALUE - R_universe  # Distance from edge to nearest node
 
-    # Conservative: single nearest node displacement
-    delta_a_over_a_single = 2 * delta_S / S_minus_R
+    # === POSITION CONTRIBUTION ===
+    # Tidal acceleration: a = GM/(S-R)^2
+    # With node displaced by delta: da/a ~ 2*delta/(S-R)
+    # For single nearest node:
+    delta_a_position_single = 2 * delta_S / S_minus_R
 
-    # Full grid: 26 nodes partially cancel. Net dipole from irregular positions.
-    # RMS displacement of COM of nearest 6 face nodes (each shifted by +/-delta randomly):
-    # Net dipole ~ delta/sqrt(6) for 6 nearest nodes
-    delta_effective = delta_S / np.sqrt(6)  # Statistical reduction from multiple nodes
-    delta_a_over_a_grid = 2 * delta_effective / S_minus_R
+    # For 6 face nodes with random displacements, net dipole ~ delta/sqrt(6)
+    delta_a_position_grid = 2 * (delta_S / np.sqrt(6)) / S_minus_R
+
+    # === MASS CONTRIBUTION ===
+    # Tidal acceleration: a = GM/(S-R)^2
+    # With mass varied by deltaM: da/a = deltaM/M directly
+    # For single nearest node:
+    delta_a_mass_single = delta_M_frac
+
+    # For 6 face nodes with random mass variations, net dipole ~ deltaM/sqrt(6)
+    delta_a_mass_grid = delta_M_frac / np.sqrt(6)
+
+    # === COMBINED EFFECT ===
+    # Position and mass variations are uncorrelated, so add in quadrature
+    delta_a_combined_single = np.sqrt(delta_a_position_single**2 + delta_a_mass_single**2)
+    delta_a_combined_grid = np.sqrt(delta_a_position_grid**2 + delta_a_mass_grid**2)
 
     # Convert tidal acceleration asymmetry to H_0 asymmetry
-    # H^2 ~ (8piG/3)rho + Lambda/3. The tidal contribution acts like variable Lambda.
-    # DeltaH/H ~ (1/2) * (Omega_Lambda_eff / (Omega_m + Omega_Lambda_eff)) * Deltaa_tidal/a_tidal
+    # H^2 ~ (8piG/3)rho + Lambda_eff/3
+    # DeltaH/H ~ (1/2) * (Omega_Lambda_eff / (Omega_m + Omega_Lambda_eff)) * Deltaa/a
     omega_factor = Omega_Lambda_eff / (lcdm.Omega_m + Omega_Lambda_eff)
 
-    delta_H_single = 0.5 * omega_factor * delta_a_over_a_single
-    delta_H_grid = 0.5 * omega_factor * delta_a_over_a_grid
+    delta_H_position_single = 0.5 * omega_factor * delta_a_position_single
+    delta_H_position_grid = 0.5 * omega_factor * delta_a_position_grid
+    delta_H_mass_single = 0.5 * omega_factor * delta_a_mass_single
+    delta_H_mass_grid = 0.5 * omega_factor * delta_a_mass_grid
+    delta_H_combined_single = 0.5 * omega_factor * delta_a_combined_single
+    delta_H_combined_grid = 0.5 * omega_factor * delta_a_combined_grid
 
     # Hubble tension is ~10% (67 vs 73 km/s/Mpc)
     hubble_tension_pct = ((73 - 67) / 70) * 100  # ~8.6%
 
-    print(f"\n--- Single Nearest Node (worst case) ---")
-    print(f"  Node displacement: delta = {delta_S:.2f} Gpc")
-    print(f"  S - R = {S_minus_R:.2f} Gpc")
-    print(f"  Deltaa/a_tidal = {delta_a_over_a_single*100:.2f}%")
-    print(f"  DeltaH_0/H_0 = {delta_H_single*100:.3f}%")
-    print(f"  DeltaH_0 = {delta_H_single * 70:.2f} km/s/Mpc")
+    print(f"\n--- Position Irregularity Only (5%) ---")
+    print(f"  Single node: DeltaH_0/H_0 = {delta_H_position_single*100:.2f}%")
+    print(f"  Full grid:   DeltaH_0/H_0 = {delta_H_position_grid*100:.2f}%")
 
-    print(f"\n--- Full Grid (statistical average) ---")
-    print(f"  Effective dipole offset: delta_eff = {delta_effective:.3f} Gpc")
-    print(f"  DeltaH_0/H_0 = {delta_H_grid*100:.3f}%")
-    print(f"  DeltaH_0 = {delta_H_grid * 70:.2f} km/s/Mpc")
+    print(f"\n--- Mass Variation Only (20%) ---")
+    print(f"  Single node: DeltaH_0/H_0 = {delta_H_mass_single*100:.2f}%")
+    print(f"  Full grid:   DeltaH_0/H_0 = {delta_H_mass_grid*100:.2f}%")
+
+    print(f"\n--- Combined (Position + Mass, in quadrature) ---")
+    print(f"  Single nearest node (worst case):")
+    print(f"    DeltaH_0/H_0 = {delta_H_combined_single*100:.2f}%")
+    print(f"    DeltaH_0 = {delta_H_combined_single * 70:.2f} km/s/Mpc")
+    print(f"  Full grid (statistical average):")
+    print(f"    DeltaH_0/H_0 = {delta_H_combined_grid*100:.2f}%")
+    print(f"    DeltaH_0 = {delta_H_combined_grid * 70:.2f} km/s/Mpc")
 
     print(f"\n--- Comparison to Hubble Tension ---")
     print(f"  Observed tension: ~{hubble_tension_pct:.1f}% ({73-67} km/s/Mpc)")
-    print(f"  Predicted dipole (single node): {delta_H_single*100:.3f}%")
-    print(f"  Predicted dipole (full grid): {delta_H_grid*100:.3f}%")
+    print(f"  Predicted dipole (combined, single node): {delta_H_combined_single*100:.2f}%")
+    print(f"  Predicted dipole (combined, full grid): {delta_H_combined_grid*100:.2f}%")
 
-    if delta_H_grid * 100 < 1.0:
-        print(f"\n* Predicted dipole ({delta_H_grid*100:.2f}%) is much smaller than Hubble Tension ({hubble_tension_pct:.1f}%)")
-        print(f"  External-Node Model does NOT explain the Hubble Tension via simple dipole")
-        print(f"  Would need >20% grid irregularity to produce ~1% dipole")
+    # Assess significance
+    if delta_H_combined_grid * 100 >= hubble_tension_pct * 0.5:
+        print(f"\n* Predicted dipole ({delta_H_combined_grid*100:.1f}%) is significant fraction of Hubble Tension ({hubble_tension_pct:.1f}%)")
+        print(f"  External-Node Model predicts measurable H_0 anisotropy")
     else:
-        print(f"\n* Predicted dipole is comparable to or larger than Hubble Tension")
+        print(f"\n* Predicted dipole ({delta_H_combined_grid*100:.1f}%) is smaller than Hubble Tension ({hubble_tension_pct:.1f}%)")
 
-    # What irregularity would be needed to explain Hubble Tension?
-    required_delta = (hubble_tension_pct / 100) / (omega_factor / (S_minus_R)) * np.sqrt(6)
-    required_irregularity = required_delta / S_VALUE * 100
-    print(f"\n  To explain full Hubble Tension: need ~{required_irregularity:.0f}% grid irregularity")
+    # What mass variation would be needed to explain Hubble Tension (with 5% position)?
+    # Combined: sqrt(pos^2 + mass^2) = target
+    # mass^2 = target^2 - pos^2
+    target_delta_a = (hubble_tension_pct / 100) / (0.5 * omega_factor) * np.sqrt(6)
+    if target_delta_a**2 > delta_a_position_grid**2:
+        required_mass_var = np.sqrt(target_delta_a**2 - delta_a_position_grid**2)
+        print(f"\n  To explain full Hubble Tension with 5% position irregularity:")
+        print(f"    Need ~{required_mass_var*100:.0f}% mass variation")
+    else:
+        print(f"\n  Position irregularity alone could explain Hubble Tension")
 
     return {
-        'delta_H_single_pct': delta_H_single * 100,
-        'delta_H_grid_pct': delta_H_grid * 100,
-        'required_irregularity_pct': required_irregularity
+        'delta_H_position_single_pct': delta_H_position_single * 100,
+        'delta_H_position_grid_pct': delta_H_position_grid * 100,
+        'delta_H_mass_single_pct': delta_H_mass_single * 100,
+        'delta_H_mass_grid_pct': delta_H_mass_grid * 100,
+        'delta_H_combined_single_pct': delta_H_combined_single * 100,
+        'delta_H_combined_grid_pct': delta_H_combined_grid * 100,
     }
 
 
@@ -277,9 +303,11 @@ if __name__ == "__main__":
     print(f"   R/S ratio at t=23.8 Gyr: {phantom_results['R_to_S']:.3f}")
     print(f"   (Phantom effects grow as R/S -> 1)")
 
-    print(f"\n2. Dipole Anisotropy:")
-    print(f"   DeltaH_0/H_0 ~ {dipole_results['delta_H_grid_pct']:.2f}% (full grid, 5% irregularity)")
-    print(f"   DeltaH_0/H_0 ~ {dipole_results['delta_H_single_pct']:.2f}% (worst-case single node)")
-    print(f"   Hubble Tension requires ~{dipole_results['required_irregularity_pct']:.0f}% grid irregularity")
+    print(f"\n2. Dipole Anisotropy (5% position + 20% mass variation):")
+    print(f"   Position only (grid): {dipole_results['delta_H_position_grid_pct']:.2f}%")
+    print(f"   Mass only (grid):     {dipole_results['delta_H_mass_grid_pct']:.2f}%")
+    print(f"   Combined (grid):      {dipole_results['delta_H_combined_grid_pct']:.2f}%")
+    print(f"   Combined (single):    {dipole_results['delta_H_combined_single_pct']:.2f}% (worst-case)")
+    print(f"   Hubble Tension:       ~8.6%")
 
     print(f"\nDone.")

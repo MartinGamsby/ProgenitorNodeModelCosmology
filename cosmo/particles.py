@@ -28,8 +28,21 @@ class ParticleSystem:
     
     def __init__(self, n_particles: int = 1000, box_size_m: Optional[float] = None,
                  total_mass_kg: Optional[float] = None, a_start: float = 1.0,
-                 use_dark_energy: bool = True, damping_factor_override: float = 0.91):
-        """Initialize particle system with damped Hubble flow initial conditions."""
+                 use_dark_energy: bool = True, damping_factor_override: float = 0.91,
+                 mass_randomize: float = 0.5):
+        """
+        Initialize particle system with damped Hubble flow initial conditions.
+
+        Args:
+            n_particles: Number of particles
+            box_size_m: Box size in meters (default: Hubble radius)
+            total_mass_kg: Total mass in kg (default: M_observable)
+            a_start: Initial scale factor
+            use_dark_energy: Whether dark energy is enabled
+            damping_factor_override: Damping factor for initial Hubble flow
+            mass_randomize: Mass distribution randomness (0.0 = equal masses,
+                           1.0 = masses from 0 to 2x mean, 0.5 = default)
+        """
         const = CosmologicalConstants()
 
         self.n_particles = n_particles
@@ -38,6 +51,7 @@ class ParticleSystem:
         self.a_start = a_start
         self.use_dark_energy = use_dark_energy
         self.damping_factor = damping_factor_override
+        self.mass_randomize = np.clip(mass_randomize, 0.0, 1.0)
 
         self.particles = []
         self.time = 0.0
@@ -75,7 +89,28 @@ class ParticleSystem:
 
         print("[ParticleSystem] Damping factor for initial:", damping_factor)
 
-        particle_mass_kg = self.total_mass_kg / self.n_particles
+        # Generate particle masses
+        mean_mass_kg = self.total_mass_kg / self.n_particles
+        if self.mass_randomize > 0 and self.n_particles > 1:
+            # Generate random masses with specified randomization level
+            # mass_randomize=1.0: uniform in [0, 2*mean], so range is 2*mean
+            # mass_randomize=0.5: uniform in [0.5*mean, 1.5*mean], range is mean
+            # mass_randomize=0.0: all masses equal to mean
+            half_range = self.mass_randomize * mean_mass_kg
+            raw_masses = np.random.uniform(
+                mean_mass_kg - half_range,
+                mean_mass_kg + half_range,
+                self.n_particles
+            )
+            # Ensure no negative masses (shouldn't happen unless randomize > 1, but be safe)
+            raw_masses = np.maximum(raw_masses, 1e-10 * mean_mass_kg)
+            # Normalize to preserve total mass exactly
+            particle_masses_kg = raw_masses * (self.total_mass_kg / np.sum(raw_masses))
+            print(f"[ParticleSystem] Mass randomize={self.mass_randomize:.2f}: "
+                  f"min={np.min(particle_masses_kg):.2e}, max={np.max(particle_masses_kg):.2e}, "
+                  f"mean={np.mean(particle_masses_kg):.2e} kg")
+        else:
+            particle_masses_kg = np.full(self.n_particles, mean_mass_kg)
 
         # Scale box_size so that the RMS radius matches the target
         # For a uniform sphere of radius R, RMS radius = R * sqrt(3/5) ≈ 0.775*R
@@ -140,7 +175,7 @@ class ParticleSystem:
             v_peculiar = np.random.normal(0, 1e5, 3)  # ~100 km/s peculiar velocity
             vel = v_hubble + v_peculiar
 
-            particle = Particle(pos, vel, particle_mass_kg, particle_id=i)
+            particle = Particle(pos, vel, particle_masses_kg[i], particle_id=i)
             self.particles.append(particle)
 
         # CRITICAL: Remove center-of-mass velocity to prevent bulk motion

@@ -61,7 +61,7 @@ graph TD
 - `CosmologicalConstants`: G, c, Mpc_to_m, Gpc_to_m, Gyr_to_s, M_observable, etc.
 - `LambdaCDMParameters`: H₀, Ω_m, Ω_Λ, method `H_at_time(a)`
 - `ExternalNodeParameters`: M_ext, S, Ω_Λ_eff, method `calculate_required_spacing()`
-- `SimulationParameters`: Unified config (M_value, S_value, n_particles, seed, t_start_Gyr, t_duration_Gyr, n_steps, damping_factor, center_node_mass)
+- `SimulationParameters`: Unified config (M_value, S_value, n_particles, seed, t_start_Gyr, t_duration_Gyr, n_steps, damping_factor, center_node_mass, mass_randomize)
 
 **Exports**: All four classes.
 
@@ -71,7 +71,7 @@ graph TD
 **Purpose**: Command-line interface utilities shared across scripts.
 
 **Functions**:
-- `add_common_arguments(parser)`: Add shared simulation args (--M, --S, --particles, --seed, --t-start, --t-duration, --n-steps, --damping, --center-node-mass, --compare)
+- `add_common_arguments(parser)`: Add shared simulation args (--M, --S, --particles, --seed, --t-start, --t-duration, --n-steps, --damping, --center-node-mass, --mass-randomize, --compare)
 - `parse_arguments(description, add_output_dir)`: Create parser, add common args, parse CLI
 - `args_to_sim_params(args)`: Convert parsed args to SimulationParameters
 
@@ -91,6 +91,7 @@ graph TD
 - `ParticleSystem._initialize_particles()`: Sets up particles with damped Hubble flow + peculiar velocities (particles.py:73-116)
   - Auto-calculates damping from deceleration parameter q if damping_factor_override=None
   - Uses override if provided (e.g., 0.0 for tests, 0.91 for best-fit)
+  - `mass_randomize` parameter (0.0=equal masses, 1.0=masses from 0 to 2x mean). Default 0.5. Total mass preserved via normalization.
 - `HMEAGrid.calculate_tidal_acceleration_batch()`: Vectorized tidal forces across all 26 nodes
 
 **Exports**: All three classes.

@@ -55,12 +55,12 @@ class Integrator:
             self._active_force_method = force_method
         self.const = CosmologicalConstants()
 
-        # Calculate adaptive softening based on particle mass
+        # Calculate adaptive softening based on mean particle mass
         # ε ∝ m^(1/3) makes softening scale with typical inter-particle distance
         # For reference mass (M_observable_kg with 100 particles): m_ref = 1e52 kg
         m_ref = self.const.M_observable_kg
-        particle_mass_kg = self.particles.particles[0].mass_kg  # All particles have same mass
-        mass_ratio = particle_mass_kg / m_ref
+        mean_particle_mass_kg = np.mean(self.particles.get_masses())
+        mass_ratio = mean_particle_mass_kg / m_ref
 
         # Scale softening: ε ∝ m^(1/3)
         # More massive particles (fewer particles) → larger softening
@@ -78,7 +78,7 @@ class Integrator:
             print(f"[Integrator] Small-N boost applied: {boost_factor:.2f}x (N={n_particles})")
 
         print(f"[Integrator] Base softening: {self.softening_per_Mobs_m/self.const.Mpc_to_m:.2f} Mpc")
-        print(f"[Integrator] Particle mass_kg: {particle_mass_kg:.2e} kg")
+        print(f"[Integrator] Mean particle mass_kg: {mean_particle_mass_kg:.2e} kg")
         print(f"[Integrator] Final softening: {self.softening_m/self.const.Mpc_to_m:.2f} Mpc (mass ratio: {mass_ratio:.2f})")
         
         # ΛCDM parameters for dark energy

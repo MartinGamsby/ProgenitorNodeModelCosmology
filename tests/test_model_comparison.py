@@ -393,7 +393,8 @@ class TestMatterVsLCDM(unittest.TestCase):
             box_size_m=10.0 * self.const.Gpc_to_m,
             total_mass_kg=1e54,
             damping_factor_override=1.0,
-            use_dark_energy=False
+            use_dark_energy=False,
+            mass_randomize=0.0  # Equal masses for deterministic test
         )
 
         # Create HMEA grid with M=500
@@ -414,7 +415,8 @@ class TestMatterVsLCDM(unittest.TestCase):
             box_size_m=10.0 * self.const.Gpc_to_m,
             total_mass_kg=1e54,
             damping_factor_override=1.0,
-            use_dark_energy=False
+            use_dark_energy=False,
+            mass_randomize=0.0  # Equal masses for deterministic test
         )
 
         integrator_matter = LeapfrogIntegrator(

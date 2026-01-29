@@ -56,7 +56,8 @@ class CosmologicalSimulation:
                                        total_mass_kg=total_mass_kg,
                                        a_start=self.a_start,
                                        use_dark_energy=self.use_dark_energy,
-                                       damping_factor_override=sim_params.damping_factor)
+                                       damping_factor_override=sim_params.damping_factor,
+                                       mass_randomize=sim_params.mass_randomize)
 
         # Initialize HMEA grid if using External-Node Model
         self.hmea_grid = None

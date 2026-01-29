@@ -8,7 +8,7 @@ This script handles simulation setup, callback wiring, and output formatting.
 """
 
 import numpy as np
-import pickle
+import csv
 import os
 from cosmo.constants import CosmologicalConstants, SimulationParameters
 from cosmo.simulation import CosmologicalSimulation
@@ -39,7 +39,7 @@ config = SweepConfig(
     t_duration_Gyr=10.0,
     damping_factor=0.98,
     s_min_gpc=15,
-    s_max_gpc=100 if MANY_SEARCH else 60,
+    s_max_gpc=(100 if MANY_SEARCH else 60),
     save_interval=10
 )
 
@@ -200,9 +200,17 @@ print(f"Total simulations run: {sim_count}")
 print(f"Brute force would require: {nbConfigs_bruteforce}")
 print(f"Speedup: {nbConfigs_bruteforce/sim_count:.1f}×")
 
-# Save best configuration
+# Save all results to CSV
 os.makedirs('./results', exist_ok=True)
-with open('./results/best_config.pkl', 'wb') as f:
-    pickle.dump(best, f)
+csv_path = './results/sweep_results.csv'
 
-print(f"\n✓ Saved best configuration to results/best_config.pkl")
+csv_columns = ['M_factor', 'S_gpc', 'centerM', 'match_avg_pct', 'diff_pct',
+               'match_curve_pct', 'match_end_pct', 'match_max_pct', 'match_hubble_curve_pct',
+               'a_ext', 'size_ext', 'desc']
+
+with open(csv_path, 'w', newline='') as f:
+    writer = csv.DictWriter(f, fieldnames=csv_columns, extrasaction='ignore')
+    writer.writeheader()
+    writer.writerows(results)
+
+print(f"\n✓ Saved {len(results)} results to {csv_path}")

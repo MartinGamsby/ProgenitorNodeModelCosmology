@@ -146,11 +146,10 @@ Dummy callbacks create SimResult with predictable quality based on distance from
 
 **Console**: Progress updates, match percentages per config
 
-**File**: `results/best_config.pkl` - dict with:
-- M_factor, S_gpc, centerM, desc
-- match_avg_pct, match_curve_pct, match_end_pct, match_max_pct, match_hubble_curve_pct
-- diff_pct (100 - match_avg)
-- params (ExternalNodeParameters)
+**File**: `results/sweep_results.csv` - all evaluated configurations with columns:
+- M_factor, S_gpc, centerM
+- match_avg_pct, diff_pct, match_curve_pct, match_end_pct, match_max_pct, match_hubble_curve_pct
+- a_ext, size_ext, desc
 
 ## Usage
 

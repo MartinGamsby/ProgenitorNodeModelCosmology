@@ -28,6 +28,8 @@ Tests in `tests/`. Physics-first: validate equations (F=GMm/r², a=H₀²Ω_Λr)
 
 **test_tidal_numba.py**: Numba JIT tidal force validation. 5 tests: default uses Numba, faster for large N, matches NumPy for small/large N, symmetry preserved.
 
+**test_parameter_sweep.py**: Parameter sweep module validation. 37 tests using dummy callbacks to test search algorithms without running real simulations. Tests parameter space builders (M list, S list, center mass list), match metric computation, ternary search, linear search with early stopping and adaptive skipping, brute force exhaustive search, and SweepConfig dataclass. Dummy callbacks return SimResult with predictable quality based on distance from optimal point.
+
 **test_early_time_behavior.py**: Physics constraint enforcement. 6 tests validating:
 1. **Initial size exact match**: All models start with identical RMS radius (no random variation from particle placement)
 2. **Early-time matching**: Progenitor models within 1% of ΛCDM in first ~1 Gyr before divergence

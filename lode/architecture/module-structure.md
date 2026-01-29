@@ -15,11 +15,13 @@ graph TD
     numba_direct[numba_direct.py<br/>Numba JIT O(N²) direct]
     bh_numba[barnes_hut_numba.py<br/>Barnes-Hut O(N log N) octree]
     tidal_numba[tidal_forces_numba.py<br/>Numba JIT tidal forces]
+    param_sweep[cosmo/parameter_sweep.py<br/>Search algorithms]
     run[run_simulation.py<br/>Main entry point]
-    sweep[parameter_sweep.py<br/>Grid search]
+    sweep[parameter_sweep.py<br/>Grid search script]
     viz3d[visualize_3d.py<br/>3D visualizations]
 
     cli --> constants
+    param_sweep --> analysis
     particles --> constants
     integrator --> constants
     integrator --> particles
@@ -39,6 +41,7 @@ graph TD
     run --> constants
     run --> analysis
     run --> viz
+    sweep --> param_sweep
     sweep --> simulation
     sweep --> constants
     sweep --> analysis
@@ -218,17 +221,38 @@ graph TD
 
 **Entry point**: `if __name__ == "__main__"`
 
+### `cosmo/parameter_sweep.py`
+**Purpose**: Reusable parameter sweep infrastructure with search algorithms and dataclasses.
+
+**Classes**:
+- `SearchMethod`: Enum (BRUTE_FORCE, TERNARY_SEARCH, LINEAR_SEARCH)
+- `SweepConfig`: Configuration dataclass (quick_search, many_search, search_center_mass, etc.)
+- `MatchWeights`: Match metric weights (hubble_curve, size_curve, endpoint, max_radius)
+- `SimResult`: Raw simulation output dataclass (size_curve_Gpc, hubble_curve, etc.)
+- `LCDMBaseline`: Precomputed LCDM reference data
+
+**Functions**:
+- `build_m_list(many_search)`: Build M value list (descending)
+- `build_s_list(s_min, s_max)`: Build S value list
+- `build_center_mass_list(search_center_mass, many_search)`: Build centerM value list
+- `compute_match_metrics(sim_result, baseline, weights)`: Compute R^2-based match metrics
+- `ternary_search_S(...)`: Ternary search for optimal S
+- `linear_search_S(...)`: Linear search with early stopping
+- `brute_force_search(...)`: Exhaustive grid search
+- `run_sweep(config, method, callback, baseline, weights)`: Main entry point
+
+**Exports**: All classes and functions.
+
 ### `parameter_sweep.py`
-**Purpose**: Grid search over M and S parameter space.
+**Purpose**: Script wiring simulation callback to sweep module, handling output formatting.
 
 **Workflow**:
-1. Calculate initial conditions once using `analysis.calculate_initial_conditions()`
-2. Run ΛCDM baseline simulation
-3. Test multiple (M, S) configurations
-4. Compare each using `analysis.compare_expansion_histories()`
-5. Sort results by best match, save best configuration
+1. Create SweepConfig and LCDMBaseline from analysis utilities
+2. Define sim_callback that runs real simulations, returns SimResult
+3. Call run_sweep() from cosmo.parameter_sweep module
+4. Format and display results, save best config
 
-**No longer calls**: `run_simulation()` - now uses shared utilities directly for efficiency.
+**Uses**: `cosmo.parameter_sweep.run_sweep()` for search algorithms.
 
 ## File Locations
 
@@ -245,8 +269,9 @@ graph TD
 | `cosmo/barnes_hut_numba.py` | 200 | Barnes-Hut O(N log N) octree |
 | `cosmo/tidal_forces_numba.py` | 60 | Numba JIT tidal forces |
 | `cosmo/factories.py` | 39 | Simulation utilities |
+| `cosmo/parameter_sweep.py` | 350 | Search algorithms, dataclasses |
 | `run_simulation.py` | 280 | Main comparison script |
-| `parameter_sweep.py` | 363 | Parameter exploration |
+| `parameter_sweep.py` | 210 | Parameter exploration script |
 | `visualize_3d.py` | 765 | 3D visualization |
 
 ## Import Pattern

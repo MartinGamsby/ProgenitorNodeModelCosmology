@@ -1,11 +1,14 @@
 \documentclass{article}
-\usepackage{graphicx} % Required for inserting images
+\usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{geometry}
-\geometry{left=4cm,right=4cm,top=4cm,bottom=4cm}
+\usepackage{microtype}
+\usepackage{silence}
+\WarningFilter{latex}{Command \showhyphens has changed}
+\geometry{left=3cm,right=3cm,top=3cm,bottom=3cm}
 
 
-\title{Replacing Dark Energy with a Virialized Meta-Structure: The Progenitor Node Model of Cosmic Acceleration}
+\title{Replacing Dark Energy with a Virialized Meta-Structure: \\ The Progenitor Node Model of Cosmic Acceleration}
 \author{Martin Gamsby}
 \date{January 2026}
 
@@ -13,148 +16,221 @@
 
 \maketitle
 
-
 \begin{abstract}
-Standard $\Lambda$CDM cosmology attributes the observed late-time cosmic acceleration to an intrinsic, theoretically unexplained vacuum energy known as Dark Energy. While this parameter provides an excellent fit to observational data, it suffers from severe theoretical pathologies, most notably the fine-tuning problem—requiring a cancellation of vacuum energy terms to 120 decimal places—and the coincidence problem, which questions why we exist in the precise epoch where matter and dark energy densities are comparable. This paper proposes a radical alternative: a geometric framework termed the \textbf{External-Node Model}. We posit that the observable universe—modeled as a finite Friedmann-Robertson-Walker (FRW) "bubble"—originates from the destabilization of a Progenitor Node situated within a larger, static, and virialized meta-structure composed of Hyper-Massive External Attractors (HMEAs).
-\paragraph{}
-In this framework, the apparent acceleration of the cosmos arises not from a repulsive "push" originating from the vacuum, but from the tidal gravitational "pull" of the surrounding grid as the bubble's proper radius $R(t)$ expands toward the effective capture radius of neighbor nodes. By deriving a modified acceleration equation based on external tidal forces, we demonstrate that an HMEA mass of $M \approx 8.6 \times 10^{55}$ kg (855$\times$M$_{obs}$) at a grid spacing of $S = 25$ Gpc achieves 99.36\% endpoint match (R$^2$=0.9979 for size evolution, R$^2$=0.8976 for expansion rate) over a 10 Gyr period without invoking exotic fluids or modified gravity. We validate this mechanism through N-body simulations covering the late-universe expansion era (t=3.8$\rightarrow$13.8 Gyr). The model makes a quantitative, falsifiable prediction: the virialized nature of the meta-structure (with $\sim$5\% position irregularity and $\sim$20\% mass variation between nodes) produces a dipole anisotropy in the Hubble constant of $\Delta H_0/H_0 \approx 4$-$11\%$, comparable to the observed Hubble Tension ($\sim$8.6\%). While this work presents a simplified toy model that does not yet address early universe physics or CMB observations, it demonstrates that dark energy is not inevitable, classical gravitational alternatives exist. This proof-of-concept challenges the assumption that the cosmological principle holds at super-horizon scales and opens new research directions for understanding cosmic acceleration, even if ultimately superseded by more complete theories.
+Standard $\Lambda$CDM cosmology \cite{Planck2020} attributes the observed late-time cosmic acceleration to an intrinsic, theoretically unexplained vacuum energy known as Dark Energy.
+While this parameter provides an excellent fit to observational data, it suffers from severe theoretical pathologies, most notably the fine-tuning problem \cite{Weinberg1989}—requiring a cancellation of vacuum energy terms to 120 decimal places—and the coincidence problem \cite{Steinhardt1999}.
+This paper proposes a radical alternative: a geometric framework termed the \textbf{External-Node Model}.
+We posit that the observable universe—modeled as a finite Friedmann-Robertson-Walker (FRW) region—originates from the destabilization of a Progenitor Node situated within a larger, static, and virialized meta-structure composed of Hyper-Massive External Attractors (HMEAs).
+
+In this framework, cosmic acceleration arises not from a repulsive "push" from the vacuum, but from the tidal gravitational "pull" of the surrounding grid as the bubble's radius expands toward the effective capture radius of neighbor nodes.
+By deriving a modified acceleration equation based on external tidal forces, we demonstrate that a grid of attractors with mass $M \approx 8.6 \times 10^{55}$ kg (855$\times$M$_{obs}$) at a spacing of $S = 25$ Gpc achieves a 99.36\% endpoint match to $\Lambda$CDM (R$^2$=0.9979 for size evolution, R$^2$=0.8976 for the expansion rate) over a 10 Gyr period without invoking exotic fluids or modified gravity.
+We validate this mechanism through N-body simulations covering the late-universe expansion era ($t=3.8 \rightarrow 13.8$ Gyr).
+The model makes a quantitative, falsifiable prediction: the virialized nature of the meta-structure produces a dipole anisotropy in the Hubble constant of $\Delta H_0/H_0 \approx 4$-$11\%$, comparable to the observed Hubble Tension ($\sim$8.6\%) \cite{Riess2021}.
+
+While this work presents a simplified toy model that does not yet address early universe physics or CMB observations, it demonstrates that dark energy is not inevitable;
+classical gravitational alternatives exist. This proof-of-concept challenges the assumption that the cosmological principle holds at super-horizon scales and demonstrates that classical gravitational alternatives to dark energy are viable.
 \end{abstract}
+
+\clearpage
+
+\tableofcontents
+
 \clearpage
 
 \section{Introduction}
-\paragraph{}
-The discovery of the accelerating expansion of the universe in the late 1990s remains the most significant theoretical challenge in modern cosmology. To reconcile this acceleration with General Relativity, the standard $\Lambda$CDM model reintroduces the Cosmological Constant ($\Lambda$), interpreted as a constant energy density inherent to the vacuum of space. While $\Lambda$ fits the Type Ia supernovae and Cosmic Microwave Background (CMB) data with remarkable precision ($\Omega_\Lambda \approx 0.7$), it suffers from profound theoretical deficiencies that suggest it may be a mathematical placeholder rather than a physical explanation.
-\paragraph{}
-First is the \textbf{Fine-Tuning Problem}: predictions of vacuum energy density derived from Quantum Field Theory (summing the zero-point energies of fundamental fields) exceed the observed value of $\Lambda$ by approximately 120 orders of magnitude. To align theory with observation requires an inexplicable cancellation of terms to an absurd precision, a condition often viewed as unnatural. Second is the \textbf{Coincidence Problem}: why do we live in the unique cosmological epoch where the density of dark energy and the density of matter are roughly comparable ($\Omega_\Lambda \sim \Omega_m$)? In the standard model, this appears to be a statistical fluke in a timeline where $\Lambda$ eventually dominates the energy budget completely.
-\paragraph{}
-This paper explores a classical solution based on embedding geometry, eschewing the need for quantum vacuum energy entirely. We abandon the assumption that the FRW metric describes the totality of spacetime. Instead, we investigate the dynamics of a finite FRW region expanding within a 3D Euclidean meta-space populated by discrete, massive gravitational anchors. We propose that what we interpret as "Dark Energy" is actually a local misinterpretation of global boundary conditions—specifically, a rising gravitational potential caused by the shrinking separation between the boundary of our observable universe and external mass concentrations.
-\paragraph{}
-We term this the \textbf{External-Node Model}. By replacing intrinsic repulsion with extrinsic attraction, we naturally resolve the fine-tuning problem—gravity is weak on large scales, so the forces are naturally small—and provide a unified explanation for several persistent tensions in astrophysical data. Critically, this work demonstrates that dark energy is not inevitable: classical gravitational mechanisms can reproduce the observed acceleration without requiring new physics. While the model presented here is a simplified proof-of-concept, it challenges fundamental assumptions about the cosmological principle at super-horizon scales and may inspire more complete theories of cosmic dynamics.
 
+The discovery of the accelerating expansion of the universe remains the most significant theoretical challenge in modern cosmology \cite{Riess1998, Perlmutter1999}.
+To reconcile this acceleration with General Relativity, the standard $\Lambda$CDM model reintroduces the Cosmological Constant ($\Lambda$), interpreted as a constant energy density inherent to the vacuum.
+Although $\Lambda$ fits Type Ia supernovae and Cosmic Microwave Background (CMB) data with remarkable precision ($\Omega_\Lambda \approx 0.7$), it suffers from profound theoretical deficiencies suggesting it may be a mathematical placeholder rather than a physical explanation.
+
+First is the \textbf{Fine-Tuning Problem} \cite{Weinberg1989}: predictions of vacuum energy density derived from Quantum Field Theory exceed the observed value of $\Lambda$ by approximately 120 orders of magnitude.
+To align theory with observation requires an inexplicable cancellation of terms to an unnatural precision.
+
+Second is the \textbf{Coincidence Problem} \cite{Steinhardt1999}: why do we live in the unique cosmological epoch where dark energy and matter densities are comparable ($\Omega_\Lambda \sim \Omega_m$)?
+In the standard model, this appears to be a statistical fluke.
+
+This paper explores a classical solution based on embedding geometry, eschewing the need for quantum vacuum energy entirely.
+We abandon the assumption that the FRW metric describes the totality of spacetime.
+Instead, we investigate the dynamics of a finite FRW region expanding within a 3D Euclidean meta-space populated by discrete, massive gravitational anchors.
+
+We propose that "Dark Energy" is a local misinterpretation of global boundary conditions.
+Specifically, we replace the **intrinsic repulsion** of the vacuum with the **extrinsic attraction** of a surrounding mass distribution.
+We term this the \textbf{External-Node Model}. By doing so, we naturally resolve the fine-tuning problem—gravity is weak on large scales, so the forces are naturally small—and provide a unified explanation for persistent tensions in astrophysical data.
+Critically, this work demonstrates that dark energy is not inevitable: classical gravitational mechanisms can reproduce the observed acceleration without requiring new physics.
+
+While the model presented here is a simplified proof-of-concept, it challenges fundamental assumptions about the cosmological principle at super-horizon scales and may inspire more complete theories of cosmic dynamics.
 
 \section{The Physical Model}
 
 \subsection{The Virialized Grid Topology}
-\paragraph{}
-Standard cosmology assumes the Cosmological Principle holds indefinitely—that the universe is homogeneous and isotropic on all scales. We propose this is valid only within our local "bubble." Outside our horizon, we model the meta-universe as a \textbf{Virialized Meta-Structure}.
-\paragraph{}
-This structure is conceptually similar to a crystal lattice or a super-scaled cosmic web, but governed by virial dynamics. This implies the arrangement of mass concentrations is stable over vast timescales, balanced by their mutual gravitation and orbital velocities, but irregular in detail—much like the distribution of galaxies within a relaxed cluster.
-\paragraph{}
-These concentrations, termed \textbf{Hyper-Massive External Attractors (HMEAs)}, are compact objects—likely Eon-Spanning Black Holes—with masses exceeding the total mass of our observable universe by several orders of magnitude ($M_{ext} \gg M_{obs}$). They are separated by immense voids ($S \gg R_{H}$, where $R_H$ is the Hubble radius). Our universe exists within one of these voids, expanding outward toward the surrounding nodes. The "grid" serves as the gravitational boundary condition for our spacetime bubble.
+Standard cosmology assumes the Cosmological Principle—homogeneity and isotropy—holds indefinitely.
+We propose this is valid only within our local "bubble."
+Outside our horizon, we model the meta-universe as a \textbf{Virialized Meta-Structure}.
+
+This structure is conceptually similar to a super-scaled cosmic web governed by virial dynamics.
+This implies that the arrangement of mass concentrations is stable over vast timescales, balanced by mutual gravitation, but irregular in detail—much like the distribution of galaxies within a relaxed cluster.
+
+These concentrations, termed \textbf{Hyper-Massive External Attractors (HMEAs)}, are compact objects—likely Eon-Spanning Black Holes—with masses exceeding the total mass of our observable universe ($M_{ext} \gg M_{obs}$) and separated by voids ($S \gg R_{H}$).
+Our universe exists within one of these voids, expanding outward toward the surrounding nodes.
+The "grid" serves as the gravitational boundary condition for our spacetime bubble.
 
 \subsection{The Progenitor Hypothesis}
-\paragraph{}
-A common objection to "bubble" or "multiverse" cosmologies is the Copernican fine-tuning problem: why is our universe located precisely in the center of the void between nodes, such that expansion appears isotropic? If we were off-center, we would see massive dipole anisotropies in the CMB.
-\paragraph{}
-We resolve this via the \textbf{Progenitor Hypothesis}. We posit that the Big Bang was not a creation event ex nihilo in random empty space, but a phase transition event of a specific object.
+A common objection to "bubble" cosmologies is the Copernican fine-tuning problem: why is our universe located precisely in the center of the void, such that expansion appears isotropic?
+
+We resolve this via the \textbf{Progenitor Hypothesis}. We posit that the Big Bang was not a creation event \textit{ex nihilo} in random empty space, but a phase transition event of a specific object.
+
 \begin{enumerate}
-\item[The Origin]: Our universe originates from a \textbf{Progenitor Node} that was previously a constituent member of the Virialized Grid. It sat at a gravitational equilibrium point relative to its neighbors, balanced by the forces of the surrounding lattice.
-\item[The Event]: This node underwent a destabilization event—perhaps triggered by accumulating critical mass, internal quantum instability (such as Hawking radiation thresholds), or a collision with another body—transitioning from a bound object to a rapidly expanding cloud of matter and radiation (the Big Bang).
-\item[Isotropy]: Because the Progenitor Node was gravitationally locked in equilibrium with its neighbors prior to the event, the resulting expansion originates from a point of pre-existing dynamic stability. The matter expands outward symmetrically into the symmetric potential wells of the surrounding meta-structure, naturally preserving isotropy without requiring fine-tuning of initial conditions.
+\item \textbf{The Origin}: Our universe originates from a \textbf{Progenitor Node} that was previously a constituent member of the Virialized Grid.
+It sat at a gravitational equilibrium point relative to its neighbors, balanced by the forces of the surrounding lattice.
+\item \textbf{The Event}: This node underwent a destabilization event. Perhaps triggered by accumulating critical mass, internal quantum instability (such as Hawking radiation thresholds), or a collision with another body.
+Transitioning from a bound object to a rapidly expanding cloud of matter and radiation (a Big Bang, our Big Bang).
+
+\item \textbf{Isotropy}: Because the Progenitor Node was gravitationally locked in equilibrium with its neighbors prior to the event, the resulting expansion originates from a point of pre-existing dynamic stability.
+The matter expands symmetrically into the potential wells of the surrounding meta-structure, naturally preserving isotropy without requiring fine-tuning of initial conditions.
 \end{enumerate}
 
 \section{Dynamics and Quantitative Analysis}
-\paragraph{}
 In this framework, the scale factor $a(t)$ of the universe is governed by the competitive interplay between internal self-gravity (which causes deceleration, as in the standard matter-dominated era) and external tidal gravity (which mimics acceleration).
 
 \subsection{The Tidal Acceleration Mechanism}
-\paragraph{}
-In standard Newtonian cosmology, a spherical shell of matter decelerates solely due to the internal mass $M_{int}$ enclosed by the shell. This is a consequence of Birkhoff's Theorem, which states that external spherical shells exert no net force on the interior. However, our model violates the conditions of Birkhoff's Theorem: the external distribution is not a continuous spherical shell, but a discrete grid of massive points.
-\paragraph{}
-As the bubble expands, it experiences a tidal force—a differential gravitational pull that increases with distance from the center. Consider a test galaxy at the edge of the expanding bubble. The net force from the surrounding isotropic grid is zero at the exact center ($R=0$). As the galaxy moves outward, however, it climbs the potential gradient of the nearest HMEA. The tidal acceleration $a_{tidal}$ caused by an external mass $M_{ext}$ at distance $S$ scales as the derivative of the gravitational force with respect to position. Differentiating the Newtonian force equation $F = -GM/r^2$ yields the tidal term:
+In standard Newtonian cosmology, a spherical shell of matter decelerates solely due to internal mass $M_{int}$ enclosed by the shell.
+This is a consequence of Birkhoff's Theorem \cite{Birkhoff1923}, which states that external spherical shells exert no net force on the interior.
+However, our model violates the conditions of Birkhoff's Theorem: the external distribution is not a continuous spherical shell, but a discrete grid of massive points.
 
-$$a_{tidal} \approx \frac{G M_{ext}}{(S - R)^2} - \frac{G M_{ext}}{S^2}$$
+As the bubble expands, it experiences a tidal force—a differential gravitational pull that increases with distance from the center.
+Consider a test galaxy at the edge of the expanding bubble.
+The net force from the surrounding isotropic grid is zero at the exact center ($R=0$).
+As the galaxy moves outward, however, it climbs the potential gradient of the nearest HMEA.
+
+The tidal acceleration $a_{tidal}$ caused by an external mass $M_{ext}$ at distance $S$ scales as the derivative of the gravitational force with respect to position.
+Differentiating the Newtonian force equation $F = -GM/r^2$ yields the tidal term:
+
+\begin{equation}
+a_{tidal} \approx \frac{G M_{ext}}{(S - R)^2} - \frac{G M_{ext}}{S^2}
+\end{equation}
 
 In the limit where the bubble radius is small compared to the grid spacing ($R \ll S$), we can Taylor expand this term, resulting in a linear dependence on $R$:
 
+\begin{equation}
+a_{tidal} \approx \frac{2 G M_{ext}}{S^3} R
+\end{equation}
 
-$$a_{tidal} \approx \frac{2 G M_{ext}}{S^3} R$$
-
-This linear dependence on $R$ is crucial. In the Friedmann equations, the repulsive acceleration due to a Cosmological Constant is given by $H_0^2 \Omega_\Lambda R$. Since both the tidal acceleration and the Dark Energy acceleration scale linearly with $R$, a uniform external tidal field is mathematically indistinguishable from an intrinsic cosmological constant in the non-relativistic limit. The "Dark Energy" we observe is simply the tidal tension of the meta-grid pulling the universe apart.
+This linear dependence on $R$ is crucial.
+In the Friedmann equations, the repulsive acceleration due to a Cosmological Constant is given by $H_0^2 \Omega_\Lambda R$.
+Since both tidal acceleration and Dark Energy acceleration scale linearly with $R$, a uniform external tidal field is mathematically indistinguishable from an intrinsic cosmological constant in the non-relativistic limit.
+The "Dark Energy" we observe is simply the tidal tension of the meta-grid pulling the universe apart.
 
 \subsection{Estimation of Required Node Mass and Distance}
-\paragraph{}
-To determine if this hypothesis is physically plausible, we must solve for the grid parameters required to match current observations. We equate the derived tidal acceleration to the observed Dark Energy acceleration:
+To determine if this hypothesis is physically plausible, we solve for the grid parameters required to match current observations.
+We equate the derived tidal acceleration to the observed Dark Energy acceleration:
 
-$$H_0^2 \Omega_\Lambda \approx \frac{G M_{ext}}{S^3}$$
+\begin{equation}
+H_0^2 \Omega_\Lambda \approx \frac{G M_{ext}}{S^3}
+\end{equation}
 
 We rearrange this to solve for the necessary grid spacing distance $S$:
 
+\begin{equation}
+S \approx \left( \frac{G M_{ext}}{H_0^2 \Omega_\Lambda} \right)^{1/3}
+\end{equation}
 
-$$S \approx \left( \frac{G M_{ext}}{H_0^2 \Omega_\Lambda} \right)^{1/3}$$
+We must posit a mass for the HMEA.
+We assume $M_{ext} = 5 \times 10^{55} \text{ kg}$, which is approximately 500 times the estimated mass of the observable universe ($M_{obs} \approx 10^{53} \text{ kg}$).
+Using the current Hubble constant $H_0 \approx 70 \text{ km/s/Mpc} \approx 2.3 \times 10^{-18} \text{ s}^{-1}$ and $\Omega_\Lambda \approx 0.7$:
 
-We must posit a mass for the HMEA. We assume $M_{ext} = 5 \times 10^{55} \text{ kg}$, which is approximately 500 times the estimated mass of the observable universe ($M_{obs} \approx 10^{53} \text{ kg}$). Using the current Hubble constant $H_0 \approx 70 \text{ km/s/Mpc} \approx 2.3 \times 10^{-18} \text{ s}^{-1}$ and $\Omega_\Lambda \approx 0.7$:
-
-$$S \approx \left( \frac{6.67 \times 10^{-11} \cdot 5 \times 10^{55}}{(3.7 \times 10^{-36})} \right)^{1/3} \approx 9.6 \times 10^{26} \text{ meters}$$
+\begin{equation}
+S \approx \left( \frac{6.67 \times 10^{-11} \cdot 5 \times 10^{55}}{(3.7 \times 10^{-36})} \right)^{1/3} \approx 9.6 \times 10^{26} \text{ meters}
+\end{equation}
 
 Converting this result from meters to parsecs ($1 \text{ Mpc} \approx 3.08 \times 10^{22} \text{ m}$) yields:
 
+\begin{equation}
+S \approx 31 \text{ Gigaparsecs (Gpc)}
+\end{equation}
 
-$$S \approx 31 \text{ Gigaparsecs (Gpc)}$$
-
-\paragraph{Result:} A network of nodes with masses of $\sim 10^{55}$ kg spaced $\sim 30$ Gpc apart provides the correct magnitude of gravitational "lift" to reproduce the observed $\Lambda$. This distance is significant because it places the attractors well outside the current particle horizon of the universe ($\sim 14$ Gpc), explaining why they are not immediately obvious in sky surveys—we are fundamentally causally disconnected from their light, but not their gravity.
+\paragraph{Result:} A network of nodes with masses of $\sim 10^{55}$ kg spaced $\sim 30$ Gpc apart provides the correct magnitude of gravitational "lift" to reproduce the observed $\Lambda$.
+This distance is significant because it places the attractors well outside the current particle horizon of the universe ($\sim 14$ Gpc), explaining why they are not immediately obvious in sky surveys—we are fundamentally causally disconnected from their light, but not their gravity.
 
 \paragraph{Analytical vs. Numerical Discrepancy:}
-While our analytical estimate predicts $S \approx 31$ Gpc, systematic numerical exploration reveals optimal matches at $S = 15$-65 Gpc, with the best balance of size and expansion rate R$^2$ occurring at $S = 25$ Gpc. This $\sim$20\% discrepancy between analytical prediction and numerical optimum likely arises from (1) the analytical derivation's assumption of a single external node, whereas the simulation uses a 3$\times$3$\times$3 grid whose combined tidal field differs from isolated-node geometry, and (2) nonlinear effects in the particle dynamics not captured by the linearized tidal formula. The broader range of viable $S$ values (15-65 Gpc) demonstrates that the mechanism is robust rather than fine-tuned to the analytical target.
+While our analytical estimate predicts $S \approx 31$ Gpc, systematic numerical exploration reveals optimal matches at $S = 15$-65 Gpc, with the best balance of size and expansion rate R$^2$ occurring at $S = 25$ Gpc.
+This $\sim$20\% discrepancy likely arises from (1) the analytical derivation's assumption of a single external node, whereas the simulation uses a 3$\times$3$\times$3 grid whose combined tidal field differs from isolated-node geometry, and (2) nonlinear effects in the particle dynamics not captured by the linearized tidal formula.
+The broader range of viable $S$ values (15-65 Gpc) demonstrates that the mechanism is robust rather than fine-tuned to the analytical target.
 
 \section{Numerical Validation}
 
 \subsection{N-Body Simulation Framework}
-
-To rigorously test whether the external-node mechanism can reproduce $\Lambda$CDM expansion dynamics, we implemented a computational N-body simulation. The simulation models our observable universe as a collection of test particles expanding under the combined influence of internal self-gravity and external tidal forces from the HMEA grid.
+To rigorously test whether the external-node mechanism can reproduce $\Lambda$CDM expansion dynamics, we implemented a computational N-body simulation.
+The simulation models our observable universe as a collection of test particles expanding under the combined influence of internal self-gravity and external tidal forces from the HMEA grid.
 
 \paragraph{Grid Configuration:}
-We model the meta-structure as a 3×3×3 cubic lattice with 26 external nodes surrounding our observable universe. The central position represents our universe (no node present), with HMEAs positioned at integer multiples of the grid spacing $S$. This topology naturally enforces approximate isotropy while accounting for the discrete nature of the gravitational sources. We emphasize that this symmetric grid is a \textbf{simplified representation} for computational tractability—a real virialized meta-structure would contain nodes of varying masses at different distances with irregular spacing. However, nodes at distances significantly greater than the nearest neighbors contribute negligibly to the tidal force, making the 3×3×3 approximation sufficient for validating the core mechanism. The purpose of this toy model is to test whether the concept is viable, not to claim exact correspondence with reality.
+We model the meta-structure as a 3×3×3 cubic lattice with 26 external nodes surrounding our observable universe.
+The central position represents our universe (no node present), with HMEAs positioned at integer multiples of the grid spacing $S$.
+This topology naturally enforces approximate isotropy while accounting for the discrete nature of the gravitational sources.
+We emphasize that this symmetric grid is a \textbf{simplified representation} for computational tractability—a real virialized meta-structure would contain nodes of varying masses at different distances with irregular spacing.
+However, nodes at distances significantly greater than the nearest neighbors contribute negligibly to the tidal force, making the 3×3×3 approximation sufficient for validating the core mechanism.
+The purpose of this toy model is to test whether the concept is viable, not to claim exact correspondence with reality.
 
 \paragraph{Simulation Parameters:}
-The simulation evolves 200-1000 test particles over a 10 Gyr period (from cosmic time $t = 3.8$ Gyr to $t = 13.8$ Gyr), covering the era of late-universe expansion and observed cosmic acceleration. We begin at $t = 3.8$ Gyr rather than the Big Bang because this toy model explicitly focuses on late-time acceleration—early universe physics (inflation, nucleosynthesis, CMB) are outside our current scope (Section 5.2). Initial conditions are set to match $\Lambda$CDM predictions at $t = 3.8$ Gyr.
+The simulation evolves test particles over a 10 Gyr period (from cosmic time $t = 3.8$ Gyr to $t = 13.8$ Gyr), covering the era of late-universe expansion and observed cosmic acceleration.
+We begin at $t = 3.8$ Gyr rather than the Big Bang because this toy model explicitly focuses on late-time acceleration—early universe physics are outside our current scope (Section 5.2).
+Initial conditions are set to match $\Lambda$CDM predictions at $t = 3.8$ Gyr.
 
 \paragraph{Parameter Exploration Methodology:}
-We conducted systematic parameter sweeps using an adaptive linear search algorithm with intelligent step-skipping to efficiently explore the $(M_{ext}, S)$ parameter space. The $\Lambda$CDM baseline is computed analytically via exact Friedmann solution at N-body snapshot times, eliminating interpolation artifacts. Each configuration is validated using the R² (coefficient of determination) metric, which measures the fraction of $\Lambda$CDM variance explained by the External-Node model. Quality checks include:
-
+We conducted systematic parameter sweeps using an adaptive linear search algorithm with intelligent step-skipping to efficiently explore the $(M_{ext}, S)$ parameter space.
+The $\Lambda$CDM baseline is computed analytically via exact Friedmann solution at N-body snapshot times, eliminating interpolation artifacts.
+Each configuration is validated using the R² (coefficient of determination) metric, which measures the fraction of $\Lambda$CDM variance explained by the External-Node model.
+Quality checks include:
 \begin{enumerate}
 \item Matter-only simulations must never exceed $\Lambda$CDM expansion at any timestep (physics constraint),
 \item Center-of-mass drift monitoring to ensure grid symmetry, and
 \item Runaway particle detection to flag numerical instability.
 \end{enumerate}
 
-\begin{figure}
+\begin{figure}[htbp]
     \centering
     \includegraphics[width=1.0\linewidth]{figure_simulation_results_2026-01-24_13.23.30_500p_3.8-13.8Gyr_855.0M_25.0S_500steps_0.98d.png}
-    \caption{Comparison of $\Lambda$CDM (blue solid) and External-Node model with M=855$\times$M$_{obs}$, S=25 Gpc (red dashed) showing: (top left) scale factor evolution, (top right) Hubble parameter evolution with realistic present-day value $H_0 \approx 70$ km/s/Mpc, (bottom left) ratio of physical sizes demonstrating $\pm 1\%$ agreement throughout 10 Gyr, and (bottom right) physical universe size versus node distance showing both models exhibit gentle upward curvature characteristic of accelerated expansion. This configuration achieves 99.36\% endpoint match with R$^2$=0.9979 (size) and R$^2$=0.8976 (expansion rate).}
+    \caption{Comparison of $\Lambda$CDM (blue solid) and External-Node model with M=855$\times$M$_{obs}$ S=25 Gpc (red dashed) showing: (top left) scale factor evolution, (top right) Hubble parameter evolution with realistic present-day value $H_0 \approx 70$ km/s/Mpc, (bottom left) ratio of physical sizes demonstrating $\pm 1\%$ agreement throughout 10 Gyr, and (bottom right) physical universe size versus node distance showing both models exhibit gentle upward curvature characteristic of accelerated expansion.
+This configuration achieves 99.36\% endpoint match with R$^2$=0.9979 (size) and R$^2$=0.8976 (expansion rate).}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.9\linewidth]{figure_simulation_results_2026-01-24_13.24.01_500p_3.8-13.8Gyr_97000.0M_65.0S_500steps_0.98d.png}
-    \includegraphics[width=0.9\linewidth]{figure_simulation_results_2026-01-24_13.24.24_500p_3.8-13.8Gyr_69.0M_15.0S_500steps_0.98d.png}
-    \caption{Additional parameter configurations demonstrating mechanism robustness: (top) M=97000$\times$M$_{obs}$, S=65 Gpc achieving 99.46\% endpoint match (R$^2$=0.9983 size, R$^2$=0.9041 expansion rate), and (bottom) M=69$\times$M$_{obs}$, S=15 Gpc achieving 99.91\% endpoint match (R$^2$=0.9992 size, R$^2$=0.8120 expansion rate). Multiple solutions across wide parameter range (M from 69 to 97000$\times$M$_{obs}$, S from 15 to 65 Gpc) all reproduce $\Lambda$CDM acceleration dynamics.}
+    \includegraphics[width=0.87\linewidth]{figure_simulation_results_2026-01-24_13.24.01_500p_3.8-13.8Gyr_97000.0M_65.0S_500steps_0.98d.png}
+    \includegraphics[width=0.87\linewidth]{figure_simulation_results_2026-01-24_13.24.24_500p_3.8-13.8Gyr_69.0M_15.0S_500steps_0.98d.png}
+    \caption{Additional parameter configurations demonstrating mechanism robustness: (top) M=97000$\times$M$_{obs}$, S=65 Gpc achieving 99.46\% endpoint match (R$^2$=0.9983 size, R$^2$=0.9041 expansion rate), and (bottom) M=69$\times$M$_{obs}$, S=15 Gpc achieving 99.91\% endpoint match (R$^2$=0.9992 size, R$^2$=0.8120 expansion rate).
+Multiple solutions across wide parameter range (M from 69 to 97000$\times$M$_{obs}$, S from 15 to 65 Gpc) all reproduce $\Lambda$CDM acceleration dynamics.}
 \end{figure}
 
 \subsection{Parameter Space Exploration and Results}
 
-Through systematic parameter exploration, we identified \textbf{multiple parameter combinations} that reproduce $\Lambda$CDM expansion with high fidelity. There is no single "optimal" configuration. A family of solutions exists across a broad parameter range, demonstrating the robustness of the external-node mechanism:
+Through systematic parameter exploration, we identified \textbf{multiple parameter combinations} that reproduce $\Lambda$CDM expansion with high fidelity.
+There is no single "optimal" configuration. A family of solutions exists across a broad parameter range, demonstrating the robustness of the external-node mechanism:
 
 \begin{center}
 \begin{tabular}{lcccc}
 \hline
 \textbf{M} & \textbf{S [Gpc]} & \textbf{Endpoint Match} & \textbf{Size $R^2$} & \textbf{Exp. Rate $R^2$} \\
 \hline
-855 \times M_{obs} & 25 & 99.36\% & 0.9979 & 0.8976 \\
-97000 \times M_{obs} & 65 & 99.46\% & 0.9983 & 0.9041 \\
-69 \times M_{obs} & 15 & 99.91\% & 0.9992 & 0.8120 \\
+$855 \times M_{obs}$ & 25 & 99.36\% & 0.9979 & 0.8976 \\
+$97000 \times M_{obs}$ & 65 & 99.46\% & 0.9983 & 0.9041 \\
+$69 \times M_{obs}$ & 15 & 99.91\% & 0.9992 & 0.8120 \\
 \hline
 \end{tabular}
 \end{center}
 
-This multiplicity demonstrates that the mechanism is not fine-tuned to a singular point in parameter space. The existence of very high-mass solutions suggests exploring alternative topologies where more mass resides in a central concentration with less massive external nodes. Conversely, very close configurations ($S = 15$ Gpc) may predict near future hyper-acceleration as the universe approaches the node boundary, offering testable predictions for deep-time cosmology.
+This multiplicity demonstrates that the mechanism is not fine-tuned to a singular point in parameter space.
+The existence of very high-mass solutions suggests exploring alternative topologies where more mass resides in a central concentration with less massive external nodes.
+Conversely, very close configurations ($S = 15$ Gpc) may predict near future hyper-acceleration as the universe approaches the node boundary, offering testable predictions for deep-time cosmology.
 
 \paragraph{R² Metric and Statistical Rigor:}
 We employ the coefficient of determination ($R^2$) to quantify agreement with $\Lambda$CDM:
 \[
 R^2 = 1 - \frac{\sum (y_{model} - y_{\Lambda CDM})^2}{\sum (y_{\Lambda CDM} - \bar{y}_{\Lambda CDM})^2}
 \]
-where $R^2 = 1$ indicates perfect fit, $R^2 = 0$ means the model performs no better than the mean, and $R^2 < 0$ indicates the model is worse than a constant baseline. We compute $R^2$ separately for universe size evolution and expansion rate $H(t)$ evolution. Critically, we analyze the \textbf{last half} of the simulation period (final 5 Gyr) to isolate late-time acceleration behavior; the full 10 Gyr timeline includes early epochs where all models (matter-only, $\Lambda$CDM, external-nodes) evolve similarly, which can inflate $R^2$ scores and obscure meaningful differences.
+where $R^2 = 1$ indicates perfect fit, $R^2 = 0$ means the model performs no better than the mean, and $R^2 < 0$ indicates the model is worse than a constant baseline.
+We compute $R^2$ separately for universe size evolution and expansion rate $H(t)$ evolution.
+Critically, we analyze the \textbf{last half} of the simulation period (final 5 Gyr) to isolate late-time acceleration behavior;
+the full 10 Gyr timeline includes early epochs where all models (matter-only, $\Lambda$CDM, external-nodes) evolve similarly, which can inflate $R^2$ scores and obscure meaningful differences.
 
 \paragraph{Quantitative Agreement:}
 Using the $M_{ext} = 855 \times M_{obs}$, $S = 25$ Gpc configuration as an example:
@@ -180,7 +256,8 @@ Critically, the model reproduces realistic Hubble parameter values without requi
 
 \subsection{Matter-Only Comparison: Distinguishing Endpoint from Dynamics}
 
-A critical validation is comparing the external-node model against a matter-only cosmology (no dark energy, no external nodes: pure gravitational deceleration). This comparison exposes a subtle but crucial distinction: \textbf{endpoint match versus dynamics match}.
+A critical validation is comparing the external-node model against a matter-only cosmology (no dark energy, no external nodes: pure gravitational deceleration).
+This comparison exposes a subtle but crucial distinction: \textbf{endpoint match versus dynamics match}.
 
 \paragraph{Matter-Only Performance:}
 The matter-only model (evolving under internal self-gravity alone) produces decent endpoint agreement:
@@ -191,7 +268,8 @@ The matter-only model (evolving under internal self-gravity alone) produces dece
     \item \textbf{Expansion rate $R^2$ (last 5 Gyr): -0.4840}
 \end{itemize}
 
-The endpoint match appears respectable ($\sim$96\%), and even the size $R^2$ seems acceptable (0.97), but it's because the initial conditions were set, and it's one order of magnitude worse than the External Nodes model, which is closer to 0.997 $R^2$. Furthermore, the \textbf{expansion rate $R^2$ is catastrophically negative} (-0.48).
+The endpoint match appears respectable ($\sim$96\%), and even the size $R^2$ seems acceptable (0.97), but it is one order of magnitude worse than the External Nodes model (0.997).
+Furthermore, the \textbf{expansion rate $R^2$ is catastrophically negative} (-0.48).
 
 \paragraph{External-Node vs Matter-Only:}
 Comparing external-nodes ($M_{ext} = 855 \times M_{obs}$, $S = 25$ Gpc) to matter-only:
@@ -208,39 +286,42 @@ Matter-only & 96.56\% & 0.9716 & \textbf{-0.4840} \\
 \end{tabular}
 \end{center}
 
-The external-node model achieves \textbf{positive expansion rate $R^2$} (0.90), demonstrating it replicates the acceleration \textit{mechanism}, not just the coincidental endpoint. Matter-only's negative $R^2$ confirms it lacks any acceleration mechanism.
+The external-node model achieves \textbf{positive expansion rate $R^2$} (0.90), demonstrating it replicates the acceleration \textit{mechanism}, not just the coincidental endpoint.
+Matter-only's negative $R^2$ confirms it lacks any acceleration mechanism.
 
 \paragraph{Why Last-Half $R^2$ Matters:}
-Full-timeline $R^2$ (covering all 10 Gyr from $t = 3.8$ to $13.8$ Gyr) can be misleadingly high for matter-only because the early universe (first $\sim$5 Gyr) exhibits similar behavior across all models, when acceleration from dark energy or external nodes has not yet dominated over matter-driven deceleration. By isolating the \textbf{last half} (5 Gyr), we focus on the late-time regime where acceleration mechanisms become decisive. This is precisely the phenomenon the toy model targets: late-universe expansion, not early-universe dynamics.
+Full-timeline $R^2$ (covering all 10 Gyr from $t = 3.8$ to $13.8$ Gyr) can be misleadingly high for matter-only because the early universe (first $\sim$5 Gyr) exhibits similar behavior across all models, before acceleration from dark energy or external nodes has dominated over matter-driven deceleration.
+By isolating the \textbf{last half} (5 Gyr), we focus on the late-time regime where acceleration mechanisms become decisive.
+This is precisely the phenomenon the toy model targets.
 
 \paragraph{Physical Interpretation:}
-This comparison proves that external nodes provide an acceleration mechanism comparable to dark energy, not merely a fortuitous final size. The expansion rate $R^2$ serves as a "lie detector" for spurious matches: matter-only cannot fake acceleration dynamics across 5 Gyr of evolution, even if it accidentally reaches a similar endpoint.
+This comparison proves that external nodes provide an acceleration mechanism comparable to dark energy, not merely a fortuitous final size.
+The expansion rate $R^2$ serves as a "lie detector" for spurious matches: matter-only cannot fake acceleration dynamics across 5 Gyr of evolution, even if it accidentally reaches a similar endpoint.
 
 \subsection{Physical Interpretation}
 
 These results demonstrate several key points:
 
 \begin{enumerate}
-    \item \textbf{Mechanism Validation}: External gravitational sources can produce accelerated expansion indistinguishable from dark energy at the $\sim$99\% level using only classical Newtonian gravity. The positive expansion rate $R^2$ (0.90) confirms we replicate the acceleration \textit{dynamics}, not just the endpoint.
-
-    \item \textbf{Parameter Economy}: The model requires only two free parameters ($M_{ext}$ and $S$), comparable to standard $\Lambda$CDM (which requires $\Omega_\Lambda$ and $\Omega_m$), with no additional fine-tuning needed.
-
-    \item \textbf{Observational Consistency}: The Hubble parameter evolution matches current measurements, including the approximate value of $H_0 \sim 70$ km/s/Mpc at the present epoch.
-
-    \item \textbf{Proof of Concept}: While this is a simplified toy model—assuming homogeneous expansion and neglecting density perturbations—it establishes that purely gravitational mechanisms can account for observed cosmic acceleration without invoking vacuum energy or modified gravity.
-
-    \item \textbf{Matter-Only Falsification}: The matter-only model's catastrophic expansion rate $R^2$ (-0.48) demonstrates that deceleration cannot mimic acceleration dynamics, even if endpoints coincidentally align. This validates that external nodes provide a genuine acceleration mechanism.
+    \item \textbf{Mechanism Validation}: External gravitational sources can produce accelerated expansion indistinguishable from dark energy at the $\sim$99\% level using only classical Newtonian gravity.
+The positive expansion rate $R^2$ (0.90) confirms we replicate the acceleration \textit{dynamics}.
+\item \textbf{Parameter Economy}: The model requires only two free parameters ($M_{ext}$ and $S$), comparable to standard $\Lambda$CDM (which requires $\Omega_\Lambda$ and $\Omega_m$), with no additional fine-tuning needed.
+\item \textbf{Observational Consistency}: The Hubble parameter evolution matches current measurements, including the approximate value of $H_0 \sim 70$ km/s/Mpc at the present epoch.
+\item \textbf{Proof of Concept}: While this is a simplified toy model—assuming homogeneous expansion and neglecting density perturbations—it establishes that purely gravitational mechanisms can account for observed cosmic acceleration without invoking vacuum energy or modified gravity.
+\item \textbf{Matter-Only Falsification}: The matter-only model's catastrophic expansion rate $R^2$ (-0.48) demonstrates that deceleration cannot mimic acceleration dynamics, even if endpoints coincidentally align.
+This validates that external nodes provide a genuine acceleration mechanism.
 \end{enumerate}
 
 \section{Scope and Limitations of the Toy Model}
 
-This work presents a \textbf{proof-of-concept toy model}, not a complete cosmological theory. We explicitly acknowledge the following limitations and boundaries of our current framework:
+This work presents a \textbf{proof-of-concept toy model}, not a complete cosmological theory.
+We explicitly acknowledge the following limitations and boundaries of our current framework:
 
 \subsection{What the Model Addresses}
 The external-node model successfully demonstrates:
 \begin{itemize}
     \item Late-time cosmic acceleration (10 Gyr period from $t = 3.8$ to $13.8$ Gyr)
-    \item Reproduction of $\Lambda$CDM expansion dynamics to $>$99\% endpoint accuracy with $R^2 > 0.89$ for expansion rate evolution
+    \item Reproduction of $\Lambda$CDM expansion dynamics to $> 99\%$ endpoint accuracy with $R^2 > 0.89$ for expansion rate evolution
     \item A classical gravitational mechanism that mimics dark energy acceleration dynamics, not just endpoints
     \item Resolution of the fine-tuning problem (gravity is naturally weak)
     \item A natural explanation for the timing of acceleration (related to geometric scales)
@@ -251,26 +332,23 @@ The external-node model successfully demonstrates:
 Several critical aspects of cosmology remain outside the scope of this work:
 \begin{itemize}
     \item \textbf{Early Universe Physics}: The model does not address inflation, baryogenesis, or primordial nucleosynthesis. The Progenitor destabilization event is posited but not derived from fundamental physics.
-    
-    \item \textbf{CMB Power Spectrum}: We have not calculated how the external grid affects acoustic oscillations, the distance to last scattering, or the detailed structure of CMB anisotropies. Compatibility with Planck observations requires future investigation.
-    
+\item \textbf{CMB Power Spectrum}: We have not calculated how the external grid affects acoustic oscillations, the distance to last scattering, or the detailed structure of CMB anisotropies. Compatibility with Planck observations requires future investigation \cite{Planck2020}.
     \item \textbf{Structure Formation}: The toy model assumes homogeneous expansion. Density perturbations, hierarchical galaxy formation, and the growth of large-scale structure are not included.
-    
-    \item \textbf{Baryon Acoustic Oscillations}: Standard ruler measurements from BAO provide independent constraints on dark energy that we have not yet tested against our model.
-    
-    \item \textbf{General Relativity}: Our analysis uses Newtonian gravity in a flat Euclidean embedding space. A complete theory would require:
+\item \textbf{Baryon Acoustic Oscillations}: Standard ruler measurements from BAO \cite{Eisenstein2005} provide independent constraints on dark energy that we have not yet tested against our model.
+\item \textbf{General Relativity}: Our analysis uses Newtonian gravity in a flat Euclidean embedding space.
+A complete theory would require:
     \begin{itemize}
         \item Full relativistic treatment of the meta-structure's metric
         \item Junction conditions at the bubble boundary
         \item Proper relativistic formulation of tidal forces in curved spacetime
         \item Reconciliation with the cosmological principle's domain of validity
     \end{itemize}
-    
     \item \textbf{Trans-Observable Structure}: The existence, observability, and detailed properties of HMEAs and the meta-structure remain speculative. We cannot yet specify how such a structure could form or be verified.
 \end{itemize}
 
 \subsection{Philosophical Stance}
-We do not claim this model represents physical reality. Rather, we demonstrate that:
+We do not claim this model represents physical reality.
+Rather, we demonstrate that:
 \begin{enumerate}
     \item \textbf{Dark energy is not inevitable}—classical gravitational alternatives exist
     \item \textbf{Fundamental assumptions may break down}—the cosmological principle might not hold at super-horizon scales
@@ -278,44 +356,50 @@ We do not claim this model represents physical reality. Rather, we demonstrate t
     \item \textbf{New research directions open}—even if ultimately superseded, this approach may inspire more complete theories
 \end{enumerate}
 
-The value of this work lies not in claiming to solve cosmology, but in demonstrating that well-motivated alternatives to vacuum energy deserve investigation. The remarkable agreement with $\Lambda$CDM (99.36\% endpoint match, R$^2$>0.89 for expansion rate evolution) suggests this direction warrants further theoretical development, particularly in constructing the full relativistic framework and testing against additional observational constraints.
+The value of this work lies not in claiming to solve cosmology, but in demonstrating that well-motivated alternatives to vacuum energy deserve investigation.
+The remarkable agreement with $\Lambda$CDM (99.36\% endpoint match, $R^2>0.89$ for expansion rate evolution) suggests this direction warrants further theoretical development, particularly in constructing the full relativistic framework and testing against additional observational constraints.
 
 \section{Observational Consistency and Defenses}
-\paragraph{}
-The HMEA model faces two immediate observational challenges: the invisibility of the attractors (why don't we see them?) and the apparent isolation of our universe. We propose that these are not contradictions, but necessary consequences of the meta-structure's extreme age and scale.
-
+The HMEA model faces two immediate observational challenges: the invisibility of the attractors (why don't we see them?) and the apparent isolation of our universe.
+We propose that these are not contradictions, but necessary consequences of the meta-structure's extreme age and scale.
 \subsection{The "Dark Giant" Principle (Spectral Quiescence)}
-\paragraph{}
-\textbf{Critique}: Even if an object is 30 Gpc away, a singular mass of $10^{55}$ kg should surely emit detectable radiation, perhaps from an accretion disk or Hawking radiation. Why is the sky dark in those directions?
-\paragraph{}
-\textbf{Defense}: The most parsimonious explanation is that HMEAs are Eon-Spanning Black Holes that have long since exhausted their local fuel supply.
+\paragraph{Critique:} Even if an object is 30 Gpc away, a singular mass of $10^{55}$ kg should surely emit detectable radiation, perhaps from an accretion disk or Hawking radiation.
+Why is the sky dark in those directions?
 
-\paragraph{Mechanism:} An HMEA is vastly older than the current expansion bubble ($t_{node} \gg 13.8 \text{ Gyr}$). Possibly over quadrillions of years, it has accreted all available matter in its immediate vicinity, effectively clearing its "cell" in the grid.
+\paragraph{Defense:} The most parsimonious explanation is that HMEAs are Eon-Spanning Black Holes that have long since exhausted their local fuel supply.
 
-\paragraph{Result:} Without an active accretion disk to generate thermal radiation or relativistic jets, a black hole is electromagnetically silent. It is a "naked mass" in the meta-structure—detectable only through its gravitational gradient (Dark Energy), not its luminosity. Furthermore, any residual Hawking radiation would be so redshifted and diluted by the inverse-square law over 30 Gpc that it would be indistinguishable from the noise floor of the Cosmic Microwave Background (CMB).
+\paragraph{Mechanism:} An HMEA is vastly older than the current expansion bubble ($t_{node} \gg 13.8 \text{ Gyr}$).
+Possibly over quadrillions of years, it has accreted all available matter in its immediate vicinity, effectively clearing its "cell" in the grid.
+
+\paragraph{Result:} Without an active accretion disk to generate thermal radiation or relativistic jets, a black hole is electromagnetically silent.
+It is a "naked mass" in the meta-structure—detectable only through its gravitational gradient (Dark Energy), not its luminosity.
+Furthermore, any residual Hawking radiation would be so redshifted and diluted by the inverse-square law over 30 Gpc that it would be indistinguishable from the noise floor of the Cosmic Microwave Background (CMB).
 
 \subsection{Fossil Black Holes and Dark Matter}
 \textit{(Speculative---no simulation support)}
 
-\paragraph{}
-While the nodes themselves are invisible, the HMEA framework predicts that the void space between the bubble and the nodes is not perfectly empty. It may contain remnant debris from previous epochs of the meta-structure's evolution.
-
-In particular, the unexplained population of intermediate-mass black holes (IMBHs) (wandering objects too massive to be stellar remnants yet too small to be galactic nuclei) may offer an alternative explanation as fossil remnants. These could be debris from the HMEA's previous accretion cycles, ancient compact objects lingering in the void until encompassed by our expansion. While highly speculative, such objects might even contribute to the observed dark matter budget if sufficiently numerous and small-scale. This remains an open question requiring further theoretical development and observational constraints.
+While the nodes themselves are invisible, the HMEA framework predicts that the void space between the bubble and the nodes is not perfectly empty.
+It may contain remnant debris from previous epochs of the meta-structure's evolution.
+In particular, the unexplained population of intermediate-mass black holes (IMBHs) (wandering objects too massive to be stellar remnants yet too small to be galactic nuclei) may offer an alternative explanation as fossil remnants.
+These could be debris from the HMEA's previous accretion cycles, ancient compact objects lingering in the void until encompassed by our expansion.
+While highly speculative, such objects might even contribute to the observed dark matter budget if sufficiently numerous and small-scale.
+This remains an open question requiring further theoretical development and observational constraints.
 
 \section{Predictions and Falsifiability}
-\paragraph{}
 The External-Node Gravity model makes distinct predictions that differ from standard $\Lambda$CDM cosmology, offering pathways for falsification.
 
 \subsection{The Geometric "Big Rip" (Hyper-Acceleration)}
-\paragraph{}
-Standard $\Lambda$CDM predicts a constant dark energy density, which leads to a smooth exponential expansion ($w = -1$) forever. The HMEA model predicts a dynamic future.
+Standard $\Lambda$CDM predicts a constant dark energy density, which leads to a smooth exponential expansion ($w = -1$) forever.
+The HMEA model predicts a dynamic future.
 
-\paragraph{Prediction:} As the bubble radius $R(t)$ approaches the grid spacing $S$, the tidal force scales as $(S-R)^{-2}$. The acceleration will not remain constant; it will increase as the leading edge of the universe approaches the gravity wells of the HMEAs.
+\paragraph{Prediction:} As the bubble radius $R(t)$ approaches the grid spacing $S$, the tidal force scales as $(S-R)^{-2}$.
+The acceleration will not remain constant; it will increase as the leading edge of the universe approaches the gravity wells of the HMEAs.
 
-\paragraph{Observable:} In deep future epochs, or perhaps measurable in current high-z supernova data, the effective equation of state $w$ should drift below $-1$ (phantom energy behavior), indicating stronger-than-exponential acceleration as we approach the node boundary.
+\paragraph{Observable:} In deep future epochs, or perhaps measurable in current high-z supernova data, the effective equation of state $w$ should drift below $-1$ (phantom energy behavior \cite{Caldwell2003}), indicating stronger-than-exponential acceleration as we approach the node boundary.
 
 \paragraph{Quantitative Analysis:}
-We compute the effective equation of state using $w_{eff} = -1 - (2/3) \cdot d(\ln H)/d(\ln a)$. Extended simulations (20 Gyr, from $t = 3.8$ to 23.8 Gyr) with M = 855 $\times$ M$_{obs}$, S = 25 Gpc show:
+We compute the effective equation of state using $w_{eff} = -1 - (2/3) \cdot d(\ln H)/d(\ln a)$.
+Extended simulations (20 Gyr, from $t = 3.8$ to 23.8 Gyr) with M = 855 $\times$ M$_{obs}$, S = 25 Gpc show:
 
 \begin{itemize}
     \item At $t = 13.8$ Gyr (today): $w_{ext} \approx -0.74$, $w_{\Lambda CDM} \approx -0.70$, $\Delta w \approx -0.04$
@@ -323,24 +407,29 @@ We compute the effective equation of state using $w_{eff} = -1 - (2/3) \cdot d(\
     \item Significant phantom deviation ($\Delta w < -0.05$) requires $R/S \rightarrow 1$
 \end{itemize}
 
-For the M = 855, S = 25 Gpc configuration, the current universe (RMS radius $\sim$7 Gpc) has $R/S \approx 0.3$. As $R/S$ increases toward unity, stronger phantom deviations become observable. This provides a quantitative test: future precision measurements of $w(z)$ at low redshift should detect systematic drift if external-node dynamics are correct.
+For the M = 855, S = 25 Gpc configuration, the current universe (RMS radius $\sim$7 Gpc) has $R/S \approx 0.3$.
+As $R/S$ increases toward unity, stronger phantom deviations become observable.
+This provides a quantitative test: future precision measurements of $w(z)$ at low redshift should detect systematic drift if external-node dynamics are correct.
 
 \subsection{Dipole Anisotropy}
-\paragraph{}
 While the Progenitor Hypothesis suggests a roughly isotropic start, the virialized (irregular) nature of the meta-grid implies the nearest HMEAs likely have different masses or distances.
 
-\paragraph{Prediction:} Deep-field surveys (e.g., Euclid, LSST) should detect a subtle \textbf{dipole in the expansion rate}. One hemisphere of the sky (facing the nearest or largest HMEA) should exhibit a slightly higher local Hubble constant ($H_0$) than the opposing hemisphere. This anisotropy may offer an alternative explanation for the current "Hubble Tension" (the discrepancy between early-universe and late-universe measurements of $H_0$).
+\paragraph{Prediction:} Deep-field surveys (e.g., Euclid \cite{Euclid2011}, LSST \cite{LSST2019}) should detect a subtle \textbf{dipole in the expansion rate}.
+One hemisphere of the sky (facing the nearest or largest HMEA) should exhibit a slightly higher local Hubble constant ($H_0$) than the opposing hemisphere.
+This anisotropy may offer an alternative explanation for the current "Hubble Tension" (the discrepancy between early-universe and late-universe measurements of $H_0$) \cite{Riess2021, DiValentino2021}.
 
 \paragraph{Quantitative Estimate:}
-In a virialized meta-structure, nodes exhibit both \textbf{position irregularity} (deviations from perfect lattice) and \textbf{mass variation} (nodes have different masses). Both contribute to asymmetric tidal fields. We estimate the resulting $H_0$ dipole analytically, assuming 5\% position irregularity and 20\% mass variation---conservative values for a virialized structure.
-
+In a virialized meta-structure, nodes exhibit both \textbf{position irregularity} (deviations from perfect lattice) and \textbf{mass variation} (nodes have different masses).
+Both contribute to asymmetric tidal fields. We estimate the resulting $H_0$ dipole analytically, assuming 5\% position irregularity and 20\% mass variation---conservative values for a virialized structure.
 The tidal acceleration asymmetry propagates to $H_0$ via:
+
 \[
 \frac{\Delta H_0}{H_0} \approx \frac{1}{2} \cdot \frac{\Omega_{\Lambda,eff}}{\Omega_m + \Omega_{\Lambda,eff}} \cdot \sqrt{\left(\frac{2\delta_{pos}}{S - R}\right)^2 + \left(\frac{\Delta M}{M}\right)^2}
 \]
-where position and mass variations add in quadrature (uncorrelated), with $\delta_{eff} = \delta/\sqrt{6}$ accounting for statistical cancellation from 6 nearest face nodes.
 
+where position and mass variations add in quadrature (uncorrelated), with $\delta_{eff} = \delta/\sqrt{6}$ accounting for statistical cancellation from 6 nearest face nodes.
 For M = 855 $\times$ M$_{obs}$, S = 25 Gpc, $R \approx 7.25$ Gpc (today):
+
 \begin{itemize}
     \item Position irregularity only (5\%): $\Delta H_0 / H_0 \approx 2.6\%$ (grid average)
     \item Mass variation only (20\%): $\Delta H_0 / H_0 \approx 3.6\%$ (grid average)
@@ -350,30 +439,76 @@ For M = 855 $\times$ M$_{obs}$, S = 25 Gpc, $R \approx 7.25$ Gpc (today):
 \end{itemize}
 
 \paragraph{Implications:}
-The predicted dipole ($\sim$4.4\% grid average, up to $\sim$10.9\% worst-case) is comparable to the Hubble Tension ($\sim$8.6\%). This provides a falsifiable prediction with significant discriminating power: if high-precision all-sky $H_0$ measurements (e.g., from Euclid, LSST) detect a dipole anisotropy at the $\sim$4-10\% level aligned with no known local structure, it would strongly support the external-node hypothesis. Conversely, the absence of any dipole at the $>$2\% level would constrain the model's parameter space, requiring either more symmetric node distributions or smaller mass variations than expected for virialized structures.
+The predicted dipole ($\sim$4.4\% grid average, up to $\sim$10.9\% worst-case) is comparable to the Hubble Tension ($\sim$8.6\%).
+This provides a falsifiable prediction with significant discriminating power: if high-precision all-sky $H_0$ measurements (e.g., from Euclid, LSST) detect a dipole anisotropy at the $\sim$4-10\% level aligned with no known local structure, it would strongly support the external-node hypothesis.
+Conversely, the absence of any dipole at the $>$2\% level would constrain the model's parameter space, requiring either more symmetric node distributions or smaller mass variations than expected for virialized structures.
 
 \section{The "Great Metabolism" Hypothesis}
 \textit{(Speculative Extension---not derived from simulation results)}
 
-The HMEA framework implies a cyclical, evolutionary cosmology that radically reframes our place in the universe. We propose that cosmic expansion is not a linear march toward entropy death, but a metabolic phase of the meta-structure.
+The HMEA framework implies a cyclical, evolutionary cosmology that radically reframes our place in the universe.
+We propose that cosmic expansion is not a linear march toward entropy death, but a metabolic phase of the meta-structure.
 
 \begin{enumerate}
-    \item[Expansion/Accretion]: An "explosion" (Big Bang) fills a void with matter. As the bubble expands, it acts effectively as a macroscopic accretion disk, transporting matter across the void.
-    \item[Feeding]: Our galaxies are eventually stripped away and accreted onto the HMEAs, adding to their mass and energy. The universe is "consumed."
-    \item[Destabilization]: After eons of growth, an HMEA accumulates critical mass or destabilizes due to orbital decay and merger with a neighbor node.
-    \item[Re-Ignition]: The node detonates, redistributing its mass into the void and initiating a new Big Bang cycle.
+    \item \textbf{Expansion/Accretion}: An "explosion" (Big Bang) fills a void with matter.
+As the bubble expands, it acts effectively as a macroscopic accretion disk, transporting matter across the void.
+\item \textbf{Feeding}: Our galaxies are eventually stripped away and accreted onto the HMEAs, adding to their mass and energy.
+The universe is "consumed."
+    \item \textbf{Destabilization}: After eons of growth, an HMEA accumulates critical mass or destabilizes due to orbital decay and merger with a neighbor node.
+\item \textbf{Re-Ignition}: The node detonates, redistributing its mass into the void and initiating a new Big Bang cycle.
 \end{enumerate}
 
-In this view, our universe is a transient structure—a pulse of energy and matter—facilitating the transfer of mass between nodes in an eternal cosmic lattice. We are the fuel for the next generation of attractors.
+In this view, our universe is a transient structure—a pulse of energy and matter—facilitating the transfer of mass between nodes in an eternal cosmic lattice.
+We are the fuel for the next generation of attractors.
 
 \section{Conclusion}
-\paragraph{}
-The External-Node model offers a geometric solution to the Dark Energy problem. By reframing cosmic acceleration as the consequence of gravitational attraction from a larger, trans-observable manifold, we eliminate the need for fine-tuned vacuum energy and the associated theoretical crises of the Standard Model.
-\paragraph{}
-Through N-body simulations, we have demonstrated that multiple parameter configurations (M = 69-97000 $\times$ M$_{obs}$, S = 15-65 Gpc) reproduce $\Lambda$CDM expansion dynamics with >99\% endpoint accuracy and R$^2$>0.89 for expansion rate evolution. The primary configuration (M = 855 $\times$ M$_{obs}$ $\approx$ 8.6 $\times$ 10$^{55}$ kg, S = 25 Gpc) achieves 99.36\% endpoint match with R$^2$=0.9979 for size evolution and R$^2$=0.8976 for expansion rate. This validates the core mechanism: external gravitational sources can mimic dark energy using only classical physics.
-\paragraph{}
-While this work presents a simplified toy model with acknowledged limitations—particularly regarding early universe physics, CMB observations, and the need for full relativistic treatment—it demonstrates several important principles. First, \textbf{dark energy is not inevitable}: classical gravitational alternatives can reproduce the observed acceleration without invoking vacuum energy. Second, \textbf{fundamental assumptions may break down}: the cosmological principle might not extend to super-horizon scales, opening new theoretical possibilities. Third, \textbf{the mechanism is viable}: external structure could, in principle, explain cosmic acceleration. Finally, \textbf{new research directions emerge}: even if this specific model is ultimately superseded, it may inspire more complete theories that challenge orthodox assumptions.
-\paragraph{}
-The model provides natural explanations for the timing of acceleration (relating it to geometric scales rather than arbitrary constants) and may offer alternative interpretations of current anomalies such as the Hubble Tension and the population of intermediate-mass black holes. Future work must focus on extending the framework to address early universe physics, testing against CMB and large-scale structure data, developing the full general relativistic formulation, and quantifying predictions for anisotropy measurements in upcoming surveys (Euclid, LSST). While the existence of trans-observable structure remains speculative, the remarkable agreement between this toy model and observations suggests that alternatives to dark energy deserve serious theoretical investigation.
+The External-Node model offers a geometric solution to the Dark Energy problem.
+By reframing cosmic acceleration as the consequence of gravitational attraction from a larger, trans-observable manifold, we eliminate the need for fine-tuned vacuum energy and the associated theoretical crises of the Standard Model.
+
+Through N-body simulations, we have demonstrated that multiple parameter configurations (M = 69-97000 $\times$ M$_{obs}$, S = 15-65 Gpc) reproduce $\Lambda$CDM expansion dynamics with $>99\%$ endpoint accuracy and R$^2 > 0.89$ for expansion rate evolution.
+The primary configuration (M = 855 $\times$ M$_{obs}$ $\approx$ 8.6 $\times$ 10$^{55}$ kg, S = 25 Gpc) achieves 99.36\% endpoint match with R$^2$=0.9979 for size evolution and R$^2$=0.8976 for expansion rate.
+This validates the core mechanism: external gravitational sources can mimic dark energy using only classical physics.
+
+While this work presents a simplified toy model with acknowledged limitations, particularly regarding early universe physics, CMB observations, and the need for full relativistic treatment, it demonstrates several important principles.
+
+First, \textbf{dark energy is not inevitable}: classical gravitational alternatives can reproduce the observed acceleration without invoking vacuum energy.
+
+Second, \textbf{fundamental assumptions may break down}: the cosmological principle might not extend to super-horizon scales, opening new theoretical possibilities.
+
+Third, \textbf{the mechanism is viable}: external structure could, in principle, explain cosmic acceleration.
+
+Finally, \textbf{new research directions emerge}: even if this specific model is ultimately superseded, it may inspire more complete theories that challenge orthodox assumptions.
+
+The model provides natural explanations for the timing of acceleration (relating it to geometric scales rather than arbitrary constants) and may offer alternative interpretations of current anomalies such as the Hubble Tension and the population of intermediate-mass black holes.
+Future work must focus on extending the framework to address early universe physics, testing against CMB and large-scale structure data, developing the full general relativistic formulation, and quantifying predictions for anisotropy measurements in upcoming surveys (Euclid, LSST).
+While the existence of trans-observable structure remains speculative, the remarkable agreement between this toy model and observations suggests that alternatives to dark energy deserve serious theoretical investigation.
+
+\begin{thebibliography}{99}
+
+\bibitem{Planck2020} Planck Collaboration. "Planck 2018 results. VI. Cosmological parameters." \textit{Astronomy \& Astrophysics} 641, A6 (2020).
+
+\bibitem{Weinberg1989} Weinberg, S. "The cosmological constant problem." \textit{Reviews of Modern Physics} 61.1: 1 (1989).
+
+\bibitem{Steinhardt1999} Zlatev, I., Wang, L., and Steinhardt, P. J. "Quintessence, cosmic coincidence, and the cosmological constant." \textit{Physical Review Letters} 82.5: 896 (1999).
+
+\bibitem{Riess1998} Riess, A. G., et al. "Observational evidence from supernovae for an accelerating universe and a cosmological constant." \textit{The Astronomical Journal} 116.3: 1009 (1998).
+
+\bibitem{Perlmutter1999} Perlmutter, S., et al. "Measurements of $\Omega$ and $\Lambda$ from 42 high-redshift supernovae." \textit{The Astrophysical Journal} 517.2: 565 (1999).
+
+\bibitem{Birkhoff1923} Birkhoff, G. D. \textit{Relativity and Modern Physics}. Harvard University Press, 1923.
+
+\bibitem{Eisenstein2005} Eisenstein, D. J., et al. "Detection of the baryon acoustic peak in the large-scale correlation function of SDSS luminous red galaxies." \textit{The Astrophysical Journal} 633.2: 560 (2005).
+
+\bibitem{Caldwell2003} Caldwell, R. R., Kamionkowski, M., and Weinberg, N. N. "Phantom energy and cosmic doomsday." \textit{Physical Review Letters} 91.7: 071301 (2003).
+
+\bibitem{Riess2021} Riess, A. G., et al. "A Comprehensive Measurement of the Local Value of the Hubble Constant with 1 km/s/Mpc Uncertainty." \textit{The Astrophysical Journal Letters} 934.1: L7 (2022).
+
+\bibitem{DiValentino2021} Di Valentino, E., et al. "In the realm of the Hubble tension—a review of solutions." \textit{Classical and Quantum Gravity} 38.15: 153001 (2021).
+
+\bibitem{Euclid2011} Laureijs, R., et al. "Euclid Definition Study Report." arXiv preprint arXiv:1110.3193 (2011).
+
+\bibitem{LSST2019} Ivezić, Ž., et al. "LSST: from science drivers to reference design and anticipated data products." \textit{The Astrophysical Journal} 873.2: 111 (2019).
+
+\end{thebibliography}
 
 \end{document}

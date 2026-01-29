@@ -34,9 +34,11 @@ MANY_SEARCH = False
 T_START_GYR = 3.8
 T_DURATION_GYR = 10.0
 DAMPING_FACTOR = 0.98
-PARTICLE_COUNT = 50 if QUICK_SEARCH else (200 if MANY_SEARCH else 2000)
+PARTICLE_COUNT = 150 if QUICK_SEARCH else (1000 if MANY_SEARCH else 10000)
 N_STEPS = 250 if QUICK_SEARCH else 300
 SAVE_INTERVAL = 10  # Must match value used in sim() function
+
+SEARCH_CENTER_MASS = True
 
 
 print("="*70)
@@ -52,34 +54,54 @@ A_START = initial_conditions['a_start']
 configs = []
 
 Mlist = []
-M = 10
+M = 25
 while M < 500:
     Mlist.append(M)
-    M += 1 if MANY_SEARCH else 10
+    M += 1 if MANY_SEARCH else 25#10
 while M < 1000:
     Mlist.append(M)
-    M += 5 if MANY_SEARCH else 50
+    M += 5 if MANY_SEARCH else 100#50
 while M < 2000:
     Mlist.append(M)
-    M += 10 if MANY_SEARCH else 100
+    M += 10 if MANY_SEARCH else 500#100
 while M < 5000:
     Mlist.append(M)
-    M += 100 if MANY_SEARCH else 500
-while M < (100000 if MANY_SEARCH else 25000)+1:
+    M += 100 if MANY_SEARCH else 1000#500
+while M < (100001 if MANY_SEARCH else 25001):
     Mlist.append(M)
-    M += 1000 if MANY_SEARCH else 10000
+    M += 1000 if MANY_SEARCH else 5000
 
 Mlist.reverse()
+if SEARCH_CENTER_MASS:
+    #centerMasses = range(1,20)
+    centerMasses = []
+    M = 1
+    while M < 5:
+        centerMasses.append(M)
+        M += 1
+    while M < 20:
+        centerMasses.append(M)
+        M += 2 if MANY_SEARCH else 5
+    while M < 50:
+        centerMasses.append(M)
+        M += 5 if MANY_SEARCH else 10
+    while M < 101:
+        centerMasses.append(M)
+        M += 10 if MANY_SEARCH else 25
+else:
+    centerMasses = [1]
 
-SMin_gpc = 10    # Min box size to test
-SMax_gpc = 250   # Max box size to test
+SMin_gpc = 15    # Min box size to test
+SMax_gpc = 100 if MANY_SEARCH else 60   # Max box size to test
 
 Slist = [i for i in range(SMin_gpc, SMax_gpc+1, 1)]
-nbConfigs_bruteforce = len(Mlist)*len(Slist)
+nbConfigs_bruteforce = len(Mlist)*len(Slist)*len(centerMasses)
 
 
 print(f"Using ternary search on S for each M value...")
 print(f"M values to test: {len(Mlist)}")
+if SEARCH_CENTER_MASS:
+    print(f"Center M values to test: {len(centerMasses)}")
 print(f"S range: [{SMin_gpc}, {SMax_gpc}]")
 print(f"(Brute force would test {nbConfigs_bruteforce} configurations)")
 
@@ -114,10 +136,10 @@ print(f"   ΛCDM final a(t) = {a_lcdm:.4f}, size = {size_lcdm_final:.2f} Gpc")
 results = []
 sim_count = 0  # Track total simulations
 
-def sim(M_factor, S_gpc, desc, seed):
+def sim(M_factor, S_gpc, centerM, desc, seed):
     global sim_count
     sim_count += 1
-    print(f"\n2. Testing {desc}: M={M_factor}×M_obs, S={S_gpc:.1f}Gpc (sim #{sim_count})")
+    print(f"\n2. Testing {desc} (sim #{sim_count})")
 
     # Create simulation parameters
     sim_params = SimulationParameters(
@@ -128,7 +150,8 @@ def sim(M_factor, S_gpc, desc, seed):
         t_start_Gyr=T_START_GYR,
         t_duration_Gyr=T_DURATION_GYR,
         n_steps=N_STEPS,
-        damping_factor=DAMPING_FACTOR
+        damping_factor=DAMPING_FACTOR,
+        center_node_mass=centerM
     )
 
     # Run simulation
@@ -156,7 +179,8 @@ def sim(M_factor, S_gpc, desc, seed):
     match_hubble_curve_pct = compare_expansion_histories(hubble_ext[half_point:], H_lcdm_hubble[half_point:])
 
     # Weighted average: curve shape (50%) + endpoint (30%) + Hubble rate (10%) + max radius (10%)
-    match_avg_pct = (match_hubble_curve_pct*0.1 + match_curve_pct*0.5 + match_end_pct*0.3 + match_max_pct*0.1)
+    #match_avg_pct = (match_hubble_curve_pct*0.1 + match_curve_pct*0.5 + match_end_pct*0.3 + match_max_pct*0.1)
+    match_avg_pct = (match_hubble_curve_pct*0.05 + match_curve_pct*0.8 + match_end_pct*0.1 + match_max_pct*0.05)
     diff_pct = 100 - match_avg_pct
 
     print(f"   External-Node final a(t) = {a_ext:.4f}, size = {size_ext_final:.2f} Gpc")
@@ -165,6 +189,7 @@ def sim(M_factor, S_gpc, desc, seed):
     return {
         'M_factor': M_factor,
         'S_gpc': S_gpc,
+        'centerM': centerM,
         'desc': desc,
         'a_ext': a_ext,
         'size_ext': size_ext_final,
@@ -177,16 +202,16 @@ def sim(M_factor, S_gpc, desc, seed):
         'params': sim_params.external_params
     }
 
-def sim_check(M_factor, S_gpc, desc):
-    return sim(M_factor, S_gpc, desc, seed=42)
+def sim_check(M_factor, S_gpc, centerM, desc):
+    return sim(M_factor, S_gpc, centerM, desc, seed=42)
     # Take the worst of 2 seeds to avoid lucky runs
-    result1 = sim(M_factor, S_gpc, desc, seed=42)
-    result2 = sim(M_factor, S_gpc, desc, seed=123)
+    result1 = sim(M_factor, S_gpc, centerM, desc, seed=42)
+    result2 = sim(M_factor, S_gpc, centerM, desc, seed=123)
     if result1['match_avg_pct'] < result2['match_avg_pct']:
         return result1
     return result2    
 
-def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc, S_hint=None, hint_window=10):
+def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc, S_hint=None, hint_window=10, centerM=1):
     """
     Ternary search for optimal S given fixed M.
     Assumes unimodal (bell curve) match quality.
@@ -207,7 +232,7 @@ def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc, S_hint=None, hint
         """Evaluate and cache simulation result for given S"""
         S_val = round(S_val)  # Round to integer
         if S_val not in evaluated:
-            result = sim_check(M_factor, S_val, f"M={M_factor}, S={S_val}")
+            result = sim_check(M_factor, S_val, centerM, f"M={M_factor}, S={S_val}, centerM={centerM}")
             results.append(result)
             evaluated[S_val] = result
         return evaluated[S_val]['match_avg_pct']
@@ -245,77 +270,82 @@ def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc, S_hint=None, hint
     return best_S, best_match, best_result
 
 
-# Ternary search for each M
-prev_best_S = None
+for centerM in centerMasses:
+    # Ternary search for each M
+    prev_best_S = None
+    if SEARCH_METHOD == SearchMethod.BRUTE_FORCE:
+        for M in Mlist:
+            for S in Slist:
+                desc = f"M={M}×M_obs, S={S}Gpc, centerM={centerM}"
+                results.append(sim_check(M, S, centerM, desc))
+    elif SEARCH_METHOD == SearchMethod.TERNARY_SEARCH:
+        for M in Mlist:
+            print(f"\n{'='*70}")
+            print(f"Searching optimal S for M={M}×M_obs")
+            print(f"{'='*70}")
+            S_best, match_avg_pct, result = ternary_search_S(M, S_hint=prev_best_S, 
+                                                        S_max=prev_best_S if prev_best_S else SMax_gpc,
+                                                        hint_window=prev_best_S//4 if prev_best_S else SMax_gpc//4, centerM=centerM)  # Going from high mass to low mass, it needs to be lower
+            #results.append(result)
+            print(f"\n   → Best S for M={M}: S={S_best:.1f} Gpc, match={match_avg_pct:.2f}%")
+            prev_best_S = S_best  # Use as hint for next M
+            if S_best == SMin_gpc or S_best == SMax_gpc:
+                print("   ⚠️  Warning: Best S is at search boundary. Consider expanding S range for better results.")
+                if S_best == SMin_gpc:
+                    break  # No point in going to lower M if S is already at minimum
+    elif SEARCH_METHOD == SearchMethod.LINEAR_SEARCH:
+        for M in Mlist:
+            print(f"\n{'='*70}")
+            print(f"Linear search for M={M}×M_obs")
+            print(f"{'='*70}")
 
-if SEARCH_METHOD == SearchMethod.BRUTE_FORCE:
-    for M in Mlist:
-        for S in Slist:
-            desc = f"M={M}×M_obs, S={S}Gpc"
-            results.append(sim_check(M, S, desc))
-elif SEARCH_METHOD == SearchMethod.TERNARY_SEARCH:
-    for M in Mlist:
-        print(f"\n{'='*70}")
-        print(f"Searching optimal S for M={M}×M_obs")
-        print(f"{'='*70}")
-        S_best, match_avg_pct, result = ternary_search_S(M, S_hint=prev_best_S, 
-                                                    S_max=prev_best_S if prev_best_S else SMax_gpc,
-                                                    hint_window=prev_best_S//4 if prev_best_S else SMax_gpc//4)  # Going from high mass to low mass, it needs to be lower
-        #results.append(result)
-        print(f"\n   → Best S for M={M}: S={S_best:.1f} Gpc, match={match_avg_pct:.2f}%")
-        prev_best_S = S_best  # Use as hint for next M
-        if S_best == SMin_gpc or S_best == SMax_gpc:
-            print("   ⚠️  Warning: Best S is at search boundary. Consider expanding S range for better results.")
-            if S_best == SMin_gpc:
+            S_min = SMin_gpc
+            S_max = prev_best_S if prev_best_S else SMax_gpc # prev_best_S+1?
+
+            current_evaluated = []
+            S_list = list(range(S_max, S_min - 1, -1)) 
+            i = 0
+            while i < len(S_list):
+                S = S_list[i]
+                desc = f"M={M}, S={S}, centerM={centerM}"
+                result = sim_check(M, S, centerM, desc)
+                results.append(result)
+                print(f"S={S}, M={M}, Match={result['match_avg_pct']}")
+                
+                if current_evaluated:
+                    if result['match_avg_pct'] <= 0:
+                        print("\tMatch below 0%, stopping search for this M.")
+                        break
+                    if current_evaluated[-1][1]['match_curve_pct'] > result['match_curve_pct']*1.0001 and current_evaluated[-1][1]['match_avg_pct'] > result['match_avg_pct']*1.00025:
+                        print("\tMatch decreasing > 0.01%, stopping search for this M.")
+                        break
+                    # if almost equal 0, skip one S
+                    diff = result['match_curve_pct'] - current_evaluated[-1][1]['match_curve_pct']
+                    print(f"\tMATCH CHANGE: {diff:.4f}%")
+                    if S > 40:  # Only skip if we have room to skip
+                        if abs(diff) < 0.002:
+                            print("\tMatch change < 0.002%, skipping S/10 S.")
+                            i += max(1,int(S/10*centerM))
+                        elif diff > 0 and diff < 0.01:
+                            print("\tMatch change < 0.01%, skipping 2 S.")
+                            i += 2
+                        elif diff > 0 and diff < 0.02:
+                            print("\tMatch change < 0.02%, skipping 1 S.")
+                            i += 1                            
+                elif result['match_avg_pct'] <= 0:
+                    print("\tMatch below 0%, trying to find a better one, skipping S/10 S.")
+                    i += max(1,int(S/10*centerM))
+                    continue# Don't add negative result
+                current_evaluated.append((S, result))
+                i += 1
+            print(f"Done i {i}, list len{len(S_list)}: {S_list} ({S_min} - {S_max})")
+            #exit(1)
+                
+            # Find best result from current evaluations
+            if prev_best_S == SMin_gpc:
                 break  # No point in going to lower M if S is already at minimum
-elif SEARCH_METHOD == SearchMethod.LINEAR_SEARCH:
-    for M in Mlist:
-        print(f"\n{'='*70}")
-        print(f"Linear search for M={M}×M_obs")
-        print(f"{'='*70}")
-
-        S_min = SMin_gpc
-        S_max = prev_best_S if prev_best_S else SMax_gpc # prev_best_S+1?
-
-        current_evaluated = []
-        S_list = range(S_max, S_min - 1, -1) 
-        i = 0
-        while i < len(S_list):
-            S = S_list[i]
-            desc = f"M={M}, S={S}"
-            result = sim_check(M, S, desc)
-            results.append(result)
-            print(f"S={S}, M={M}, Match={result['match_avg_pct']}")
-
-            if result['match_avg_pct'] <= 0:
-                print("\tMatch below 0%, stopping search for this M.")
-                break
-
-            if current_evaluated:
-                if current_evaluated[-1][1]['match_avg_pct'] > result['match_avg_pct']*1.00025:
-                    print("\tMatch decreasing > 0.025%, stopping search for this M.")
-                    break
-                # if almost equal 0, skip one S
-                diff = result['match_avg_pct'] - current_evaluated[-1][1]['match_avg_pct']
-                print(f"\tMATCH CHANGE: {diff:.4f}%")
-                if S > 40:  # Only skip if we have room to skip
-                    if abs(diff) < 0.002:
-                        print("\tMatch change < 0.002%, skipping S/10 S.")
-                        i += int(S/10)
-                    elif diff > 0 and diff < 0.01:
-                        print("\tMatch change < 0.01%, skipping 2 S.")
-                        i += 2
-                    elif diff > 0 and diff < 0.02:
-                        print("\tMatch change < 0.02%, skipping 1 S.")
-                        i += 1
-            current_evaluated.append((S, result))
-            i += 1
+            prev_best_S, best_result = max(current_evaluated, key=lambda x: x[1]['match_avg_pct'])
             
-        # Find best result from current evaluations
-        if prev_best_S == SMin_gpc:
-            break  # No point in going to lower M if S is already at minimum
-        prev_best_S, best_result = max(current_evaluated, key=lambda x: x[1]['match_avg_pct'])
-        
 print("\n" + "="*70)
 
 print("RESULTS BY MASS")
@@ -324,10 +354,10 @@ print("="*70)
 # Sort by best match
 results.reverse() # Original order was descending M
 
-print(f"\n{'Config':<20} {'M×M_obs':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'End%':<10} {'Radius%':<10} {'Hubble%':<10}")
+print(f"\n{'Config':<20} {'M×M_obs':<10} {'centerM':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'End%':<10} {'Radius%':<10} {'Hubble%':<10}")
 print("-" * 70)
 for r in results:
-    print(f"{r['desc']:<20} {r['M_factor']:<10} {r['S_gpc']:<10.1f} "
+    print(f"{r['desc']:<20} {r['M_factor']:<10} {r['centerM']:<10} {r['S_gpc']:<10.1f} "
           f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_max_pct']:<10.2f} {r['match_hubble_curve_pct']:<10.2f}")
 print("\n" + "="*70)
 
@@ -337,15 +367,16 @@ print("="*70)
 # Sort by best match
 results.sort(key=lambda x: x['diff_pct'])
 
-print(f"\n{'Config':<20} {'M×M_obs':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'End%':<10} {'Radius%':<10} {'Hubble%':<10}")
+print(f"\n{'Config':<20} {'M×M_obs':<10} {'centerM':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'End%':<10} {'Radius%':<10} {'Hubble%':<10}")
 print("-" * 70)
 for r in results:
-    print(f"{r['desc']:<20} {r['M_factor']:<10} {r['S_gpc']:<10.1f} "
+    print(f"{r['desc']:<20} {r['M_factor']:<10} {'centerM':<10} {r['S_gpc']:<10.1f} "
           f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_max_pct']:<10.2f} {r['match_hubble_curve_pct']:<10.2f}")
 best = results[0]
 print(f"\n★ BEST MATCH: {best['desc']}")
 print(f"   M = {best['M_factor']} × M_obs")
 print(f"   S = {best['S_gpc']:.1f} Gpc")
+print(f"   centerM = {best['centerM']} M_obs ")
 print(f"   Match: {best['match_avg_pct']:.1f}%")
 
 print(f"\n{'='*70}")

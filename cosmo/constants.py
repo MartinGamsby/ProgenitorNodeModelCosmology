@@ -115,8 +115,24 @@ class SimulationParameters:
     """Parameters for running cosmological simulations"""
 
     def __init__(self, M_value: float = 800, S_value: float = 24.0, n_particles: int = 300, seed: int = 42,
-                 t_start_Gyr: float = 10.8, t_duration_Gyr: float = 6.0, n_steps: int = 150, damping_factor: float = None):
-        """Initialize simulation parameters."""
+                 t_start_Gyr: float = 10.8, t_duration_Gyr: float = 6.0, n_steps: int = 150,
+                 damping_factor: float = None, center_node_mass: float = 1.0):
+        """
+        Initialize simulation parameters.
+
+        Args:
+            M_value: External node mass as multiple of M_observable
+            S_value: Node separation in Gpc
+            n_particles: Number of particles
+            seed: Random seed
+            t_start_Gyr: Start time in Gyr
+            t_duration_Gyr: Duration in Gyr
+            n_steps: Number of timesteps
+            damping_factor: Initial velocity damping (None=auto)
+            center_node_mass: Central node mass as multiple of M_observable.
+                              Default 1.0 = 1 x M_observable_kg.
+                              Affects total_mass_kg and softening scaling.
+        """
         self.M_value = M_value
         self.S_value = S_value
         self.n_particles = n_particles
@@ -125,6 +141,7 @@ class SimulationParameters:
         self.t_duration_Gyr = t_duration_Gyr
         self.n_steps = n_steps
         self.damping_factor = damping_factor
+        self.center_node_mass = center_node_mass
 
         # Calculate derived quantities
         self._calculate_derived()
@@ -140,6 +157,9 @@ class SimulationParameters:
         # Calculate end time
         self.t_end_Gyr = self.t_start_Gyr + self.t_duration_Gyr
 
+        # Calculate center node mass in kg
+        self.center_node_mass_kg = self.center_node_mass * const.M_observable_kg
+
         # Create external node parameters for this configuration
         self.external_params = ExternalNodeParameters(M_ext_kg=self.M_ext_kg, S=self.S)
 
@@ -147,6 +167,7 @@ class SimulationParameters:
         return (f"Simulation Parameters:\n"
                 f"  M = {self.M_value} × M_obs\n"
                 f"  S = {self.S_value} Gpc\n"
+                f"  Center Node Mass = {self.center_node_mass} × M_obs\n"
                 f"  Particles = {self.n_particles}\n"
                 f"  Seed = {self.seed}\n"
                 f"  Time = {self.t_start_Gyr} → {self.t_end_Gyr} Gyr ({self.t_duration_Gyr} Gyr)\n"

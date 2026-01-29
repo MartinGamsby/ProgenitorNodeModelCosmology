@@ -8,13 +8,15 @@ Creates:
 3. Multi-panel snapshots at different times
 
 Usage:
-    python visualize_3d.py [simulation.pkl] [output_dir]
+    python visualize_3d.py [simulation.pkl] [output_dir] [--M 855] [--S 25] ...
+    python visualize_3d.py --compare [output_dir] [--M 855] [--S 25] ...
 
-    If no simulation file provided, runs a quick simulation first.
+    If no simulation file provided, runs a simulation with CLI parameters.
 """
 
 import sys
 import os
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
@@ -31,28 +33,14 @@ try:
         draw_cube_edges,
         setup_3d_axes
     )
+    from cosmo.cli import add_common_arguments, args_to_sim_params
     HAS_SIM = True
 except ImportError:
     HAS_SIM = False
     print("Note: Simulation modules not found. Provide a .pkl file to visualize.")
 
-
-START_TIME = 3.8  # Gyr
-
-# Calculate initial conditions using shared function
-sim_params = SimulationParameters(
-    M_value=855,
-    S_value=25,
-    n_particles=2000,
-    seed=42,
-    t_start_Gyr=START_TIME,
-    t_duration_Gyr=10.0*5/4,
-    n_steps=500,
-    damping_factor=0.92
-)
-
-def load_or_run_simulation(sim_file=None, output_dir="."):
-    """Load existing simulation or run a quick one"""
+def load_or_run_simulation(sim_params, sim_file=None, output_dir="."):
+    """Load existing simulation or run one with given parameters"""
 
     if sim_file and os.path.exists(sim_file):
         print(f"Loading simulation from {sim_file}")
@@ -65,7 +53,7 @@ def load_or_run_simulation(sim_file=None, output_dir="."):
         print("Please provide a .pkl file or ensure src/ is in Python path")
         sys.exit(1)
 
-    print("Running quick simulation (100 particles)...")
+    print(f"Running simulation ({sim_params.n_particles} particles)...")
 
     initial_conditions = calculate_initial_conditions(sim_params.t_start_Gyr)
 
@@ -98,7 +86,7 @@ def load_or_run_simulation(sim_file=None, output_dir="."):
     return sim_data
 
 
-def create_3d_snapshot(sim_data, snapshot_idx, output_dir="."):
+def create_3d_snapshot(sim_data, snapshot_idx, start_time, output_dir="."):
     """Create a single 3D visualization at a given time"""
 
     snapshot = sim_data['snapshots'][snapshot_idx]
@@ -144,7 +132,7 @@ def create_3d_snapshot(sim_data, snapshot_idx, output_dir="."):
     draw_cube_edges(ax, S_Gpc)
 
     # Setup axes and labels
-    title = (f'External-Node Cosmology (t = {(time_Gyr+START_TIME):.2f} Gyr)\n'
+    title = (f'External-Node Cosmology (t = {(time_Gyr+start_time):.2f} Gyr)\n'
              f'Universe Radius: {current_size:.1f} Gpc | Node Distance: {S_Gpc:.0f} Gpc')
     setup_3d_axes(ax, S_Gpc * 1.2, title=title)
 
@@ -153,7 +141,7 @@ def create_3d_snapshot(sim_data, snapshot_idx, output_dir="."):
     plt.tight_layout()
 
     # Save
-    filename = os.path.join(output_dir, f'3d_snapshot_t{(time_Gyr+START_TIME):.1f}Gyr.png')
+    filename = os.path.join(output_dir, f'3d_snapshot_t{(time_Gyr+start_time):.1f}Gyr.png')
     plt.savefig(filename, dpi=150, bbox_inches='tight')
     plt.close()
 
@@ -162,7 +150,7 @@ def create_3d_snapshot(sim_data, snapshot_idx, output_dir="."):
     return filename
 
 
-def create_multi_panel_evolution(sim_data, output_dir="."):
+def create_multi_panel_evolution(sim_data, start_time, output_dir="."):
     """Create a multi-panel figure showing evolution over time"""
 
     # Select 6 evenly spaced snapshots
@@ -206,7 +194,7 @@ def create_multi_panel_evolution(sim_data, output_dir="."):
         draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc, alpha=0.08, color='cyan', resolution=30)
 
         # Setup axes
-        title = f't = {(time_Gyr+START_TIME):.1f} Gyr\nR = {current_size:.1f} Gpc'
+        title = f't = {(time_Gyr+start_time):.1f} Gyr\nR = {current_size:.1f} Gpc'
         setup_3d_axes(ax, S_Gpc * 1.1, title=title)
 
         ax.set_xlabel('X [Gpc]', fontsize=9)
@@ -228,7 +216,7 @@ def create_multi_panel_evolution(sim_data, output_dir="."):
     return filename
 
 
-def create_animation(sim_data, output_dir=".", fps=5):
+def create_animation(sim_data, start_time, output_dir=".", fps=5):
     """Create animated GIF of universe expansion"""
 
     print("Creating animation...")
@@ -291,7 +279,7 @@ def create_animation(sim_data, output_dir=".", fps=5):
 
         # Update title
         title.set_text(
-            f'External-Node Cosmology: t = {(time_Gyr+START_TIME):.2f} Gyr\n'
+            f'External-Node Cosmology: t = {(time_Gyr+start_time):.2f} Gyr\n'
             f'Universe Radius: {current_size:.1f} Gpc | Nodes at {S_Gpc:.0f} Gpc'
         )
 
@@ -345,7 +333,7 @@ def generate_sphere_positions(radius_m, n_points=100, seed=42):
     return positions
 
 
-def run_comparison_simulations(output_dir="."):
+def run_comparison_simulations(sim_params, output_dir="."):
     """
     Run three simulations for comparison:
     1. External-Node Model (tidal forces, no dark energy)
@@ -487,7 +475,7 @@ def run_comparison_simulations(output_dir="."):
     return comparison_data
 
 
-def create_comparison_multipanel(comparison_data, output_dir="."):
+def create_comparison_multipanel(comparison_data, start_time, output_dir="."):
     """Create 3-way comparison showing External-Node, Matter-Only, and ΛCDM side-by-side"""
 
     # Select 6 evenly spaced snapshots
@@ -535,7 +523,7 @@ def create_comparison_multipanel(comparison_data, output_dir="."):
                                 alpha=0.1, color=model_data['color'], resolution=20)
 
             # Setup axes
-            title = f'{model_data["name"]}\nt = {(time_Gyr+START_TIME):.1f} Gyr, R = {current_size:.1f} Gpc'
+            title = f'{model_data["name"]}\nt = {(time_Gyr+start_time):.1f} Gyr, R = {current_size:.1f} Gpc'
             setup_3d_axes(ax, S_Gpc * 1.1, title=title)
 
             ax.set_xlabel('X [Gpc]', fontsize=8)
@@ -558,7 +546,7 @@ def create_comparison_multipanel(comparison_data, output_dir="."):
     return filename
 
 
-def create_comparison_animations(comparison_data, output_dir=".", fps=10):
+def create_comparison_animations(comparison_data, start_time, output_dir=".", fps=10):
     """Create three separate animations for External-Node, Matter-Only, and ΛCDM"""
 
     const = CosmologicalConstants()
@@ -596,46 +584,49 @@ def create_comparison_animations(comparison_data, output_dir=".", fps=10):
             particles_plot._offsets3d = ([], [], [])
             return particles_plot, title
 
-        def update(frame):
-            nonlocal sphere_plot
+        def make_update(model_data, start_time):
+            """Create update function with closure over model_data and start_time"""
+            def update(frame):
+                nonlocal sphere_plot
 
-            snapshot = model_data['snapshots'][frame]
-            history = model_data['expansion_history'][frame]
+                snapshot = model_data['snapshots'][frame]
+                history = model_data['expansion_history'][frame]
 
-            positions = snapshot['positions'] / const.Gpc_to_m
-            current_size = history['diameter_m'] / const.Gpc_to_m
-            current_max_size = history['max_particle_distance'] / const.Gpc_to_m
-            time_Gyr = history['time_Gyr']
-            com_Gpc = history['com'] / const.Gpc_to_m
+                positions = snapshot['positions'] / const.Gpc_to_m
+                current_size = history['diameter_m'] / const.Gpc_to_m
+                current_max_size = history['max_particle_distance'] / const.Gpc_to_m
+                time_Gyr = history['time_Gyr']
+                com_Gpc = history['com'] / const.Gpc_to_m
 
-            # Update particles
-            particles_plot._offsets3d = (positions[:, 0], positions[:, 1], positions[:, 2])
+                # Update particles
+                particles_plot._offsets3d = (positions[:, 0], positions[:, 1], positions[:, 2])
 
-            # Update universe boundaries
-            if sphere_plot is not None:
-                sphere_plot.remove()
+                # Update universe boundaries
+                if sphere_plot is not None:
+                    sphere_plot.remove()
 
-            # External-Node and Matter-Only: both max and RMS
-            draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc,
-                                alpha=0.05, color='red')
-            sphere_plot = draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc,
-                                                alpha=0.1, color=model_data['color'])
+                # External-Node and Matter-Only: both max and RMS
+                draw_universe_sphere(ax, current_max_size, center_Gpc=com_Gpc,
+                                    alpha=0.05, color='red')
+                nonlocal_sphere = draw_universe_sphere(ax, current_size/2, center_Gpc=com_Gpc,
+                                                    alpha=0.1, color=model_data['color'])
 
-            # Update title
-            title_text = f'{model_data["name"]} Model: t = {(time_Gyr+START_TIME):.2f} Gyr\n'
-            title_text += f'Universe Radius: {current_size:.1f} Gpc'
-            if model_name == 'external_node':
-                title_text += f' | Nodes at {S_Gpc:.0f} Gpc'
-            title.set_text(title_text)
+                # Update title
+                title_text = f'{model_data["name"]} Model: t = {(time_Gyr+start_time):.2f} Gyr\n'
+                title_text += f'Universe Radius: {current_size:.1f} Gpc'
+                if model_name == 'external_node':
+                    title_text += f' | Nodes at {S_Gpc:.0f} Gpc'
+                title.set_text(title_text)
 
-            # Rotate view
-            ax.view_init(elev=20, azim=45 + frame * 2)
+                # Rotate view
+                ax.view_init(elev=20, azim=45 + frame * 2)
 
-            return particles_plot, title
+                return particles_plot, title
+            return update
 
         # Create animation
         n_frames = len(model_data['snapshots'])
-        anim = FuncAnimation(fig, update, init_func=init, frames=n_frames,
+        anim = FuncAnimation(fig, make_update(model_data, start_time), init_func=init, frames=n_frames,
                            interval=1000//fps, blit=False)
 
         # Save
@@ -650,22 +641,38 @@ def create_comparison_animations(comparison_data, output_dir=".", fps=10):
     return filenames
 
 
+def parse_visualize_arguments():
+    """Parse command-line arguments for visualization script."""
+    parser = argparse.ArgumentParser(
+        description='3D Visualization of External-Node Cosmology Simulation',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+
+    # Visualization-specific positional arguments
+    parser.add_argument('sim_file', nargs='?', default=None,
+                        help='Path to simulation .pkl file (optional)')
+    parser.add_argument('output_dir', nargs='?', default='.',
+                        help='Output directory for visualization files')
+
+    # Add common simulation arguments (includes --compare)
+    add_common_arguments(parser)
+
+    return parser.parse_args()
+
+
 def main():
     """Main visualization function"""
 
     # Parse arguments
-    # Usage: python visualize_3d.py [sim_file] [output_dir]
-    # Or:    python visualize_3d.py --compare [output_dir]
-    if len(sys.argv) > 1 and sys.argv[1] == '--compare':
-        # Comparison mode
-        compare_mode = True
-        sim_file = None
-        output_dir = sys.argv[2] if len(sys.argv) > 2 else "."
-    else:
-        # Single simulation mode
-        compare_mode = False
-        sim_file = sys.argv[1] if len(sys.argv) > 1 else None
-        output_dir = sys.argv[2] if len(sys.argv) > 2 else "."
+    args = parse_visualize_arguments()
+
+    # Build SimulationParameters from CLI args
+    sim_params = args_to_sim_params(args)
+    start_time = sim_params.t_start_Gyr
+
+    compare_mode = args.compare
+    sim_file = args.sim_file
+    output_dir = args.output_dir or "."
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -675,21 +682,23 @@ def main():
     else:
         print("3D VISUALIZATION OF EXTERNAL-NODE COSMOLOGY")
     print("="*70)
+    print(f"Parameters: M={sim_params.M_value}, S={sim_params.S_value}, "
+          f"particles={sim_params.n_particles}")
     print(f"Output directory: {os.path.abspath(output_dir)}\n")
 
     if compare_mode:
         # Run all three simulations and create comparisons
-        comparison_data = run_comparison_simulations(output_dir)
+        comparison_data = run_comparison_simulations(sim_params, output_dir)
 
         print("\n" + "="*70)
         print("CREATING COMPARISON VISUALIZATIONS")
         print("="*70)
 
         print("\n1. Three-way comparison multipanel...")
-        create_comparison_multipanel(comparison_data, output_dir)
+        create_comparison_multipanel(comparison_data, start_time, output_dir)
 
         print("\n2. Creating separate animations for each model...")
-        create_comparison_animations(comparison_data, output_dir, fps=10)
+        create_comparison_animations(comparison_data, start_time, output_dir, fps=10)
 
         print("\n" + "="*70)
         print("*** COMPARISON COMPLETE!")
@@ -703,10 +712,10 @@ def main():
 
     else:
         # Single simulation mode
-        sim_data = load_or_run_simulation(sim_file, output_dir)
+        sim_data = load_or_run_simulation(sim_params, sim_file, output_dir)
 
         print(f"\nSimulation has {len(sim_data['snapshots'])} snapshots")
-        print(f"Time range: {START_TIME} to {(sim_data['expansion_history'][-1]['time_Gyr']+START_TIME):.1f} Gyr")
+        print(f"Time range: {start_time} to {(sim_data['expansion_history'][-1]['time_Gyr']+start_time):.1f} Gyr")
 
         # Create visualizations
         print("\n" + "="*70)
@@ -715,17 +724,17 @@ def main():
 
         # 1. Multi-panel evolution
         print("\n1. Multi-panel evolution figure...")
-        create_multi_panel_evolution(sim_data, output_dir)
+        create_multi_panel_evolution(sim_data, start_time, output_dir)
 
         # 2. Key snapshots
         print("\n2. Creating key snapshots...")
         n_snapshots = len(sim_data['snapshots'])
         for idx in [0, n_snapshots//4, n_snapshots//2, 3*n_snapshots//4, n_snapshots-1]:
-            create_3d_snapshot(sim_data, idx, output_dir)
+            create_3d_snapshot(sim_data, idx, start_time, output_dir)
 
         # 3. Animation
         print("\n3. Creating animation (this may take a minute)...")
-        create_animation(sim_data, output_dir, fps=10)
+        create_animation(sim_data, start_time, output_dir, fps=10)
 
         print("\n" + "="*70)
         print("*** VISUALIZATION COMPLETE!")

@@ -6,11 +6,11 @@ Main script to run cosmology simulations with configurable parameters.
 
 import sys
 import os
-import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
 from cosmo.constants import CosmologicalConstants, LambdaCDMParameters, SimulationParameters
+from cosmo.cli import parse_arguments, args_to_sim_params
 from cosmo.simulation import CosmologicalSimulation
 from cosmo.analysis import (
     solve_friedmann_at_times,
@@ -232,95 +232,16 @@ def run_simulation(output_dir, sim_params, use_max_radius=False):
             ext_match, matter_match, max_ext_final, max_matter_final)
 
 
-def parse_arguments():
-    """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(
-        description='Run External-Node Cosmology Simulation',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-
-    parser.add_argument(
-        '--output-dir',
-        type=str,
-        default='./results',
-        help='Output directory for simulation results'
-    )
-
-    parser.add_argument(
-        '--M',
-        type=float,
-        default=855,
-        help='External mass parameter (in units of observable mass)'
-    )
-
-    parser.add_argument(
-        '--S',
-        type=float,
-        default=25.0,
-        help='Node separation distance (in Gpc)'
-    )
-
-    parser.add_argument(
-        '--particles',
-        type=int,
-        default=300,
-        help='Number of simulation particles'
-    )
-
-    parser.add_argument(
-        '--seed',
-        type=int,
-        default=42,
-        help='Random seed for reproducibility'
-    )
-
-    parser.add_argument(
-        '--t-start',
-        type=float,
-        default=3.8,
-        help='Simulation start time since Big Bang (in Gyr)'
-    )
-
-    parser.add_argument(
-        '--damping',
-        type=float,
-        default=None,
-        help='Initial velocity damping factor (0-1). If not specified, auto-calculated.'
-    )
-
-    parser.add_argument(
-        '--t-duration',
-        type=float,
-        default=10.0,
-        help='Simulation duration (in Gyr)'
-    )
-
-    parser.add_argument(
-        '--n-steps',
-        type=int,
-        default=150,
-        help='Number of simulation timesteps'
-    )
-
-    return parser.parse_args()
-
-
 if __name__ == "__main__":
-    args = parse_arguments()
+    args = parse_arguments(
+        description='Run External-Node Cosmology Simulation',
+        add_output_dir=True
+    )
 
     print(f"Output directory: {os.path.abspath(args.output_dir)}\n")
 
     # Create simulation parameters from command-line arguments
-    sim_params = SimulationParameters(
-        M_value=args.M,
-        S_value=args.S,
-        n_particles=args.particles,
-        seed=args.seed,
-        t_start_Gyr=args.t_start,
-        t_duration_Gyr=args.t_duration,
-        n_steps=args.n_steps,
-        damping_factor=args.damping
-    )
+    sim_params = args_to_sim_params(args)
 
     sim, sim_matter, ext_final, lcdm_final, matter_final, ext_match, matter_match, max_ext, max_matter = run_simulation(args.output_dir, sim_params)
 

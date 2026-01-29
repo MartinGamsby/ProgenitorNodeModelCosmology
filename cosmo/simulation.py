@@ -43,12 +43,17 @@ class CosmologicalSimulation:
         # Convert box size to meters
         box_size_m = box_size_Gpc * self.const.Gpc_to_m
 
+        # Calculate total mass from center_node_mass
+        total_mass_kg = sim_params.center_node_mass_kg
+
         # Initialize particle system
         print(f"Initializing {sim_params.n_particles} particles in {box_size_Gpc} Gpc box...")
+        if sim_params.center_node_mass != 1.0:
+            print(f"Total mass: {sim_params.center_node_mass} × M_observable")
 
         self.particles = ParticleSystem(n_particles=sim_params.n_particles,
                                        box_size_m=box_size_m,
-                                       total_mass_kg=self.const.M_observable_kg,
+                                       total_mass_kg=total_mass_kg,
                                        a_start=self.a_start,
                                        use_dark_energy=self.use_dark_energy,
                                        damping_factor_override=sim_params.damping_factor)
@@ -61,8 +66,9 @@ class CosmologicalSimulation:
         else:
             print("Running standard matter-only (no dark energy)")
 
-        # Create integrator
-        softening_m = 1.0 * self.const.Gpc_to_m  # 1Gpc softening per Mobs
+        # Calculate softening based on center_node_mass (scales with mass for stability)
+        # 1Gpc softening per Mobs
+        softening_m = sim_params.center_node_mass * 1.0 * self.const.Gpc_to_m
         self.integrator = LeapfrogIntegrator(
             self.particles,
             self.hmea_grid,

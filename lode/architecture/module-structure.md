@@ -5,6 +5,7 @@
 ```mermaid
 graph TD
     constants[constants.py<br/>Constants & Parameters]
+    cli[cli.py<br/>CLI utilities]
     particles[particles.py<br/>Particle, ParticleSystem, HMEAGrid]
     integrator[integrator.py<br/>Integrator, LeapfrogIntegrator]
     simulation[simulation.py<br/>CosmologicalSimulation]
@@ -18,6 +19,7 @@ graph TD
     sweep[parameter_sweep.py<br/>Grid search]
     viz3d[visualize_3d.py<br/>3D visualizations]
 
+    cli --> constants
     particles --> constants
     integrator --> constants
     integrator --> particles
@@ -32,6 +34,7 @@ graph TD
     factories --> simulation
     factories --> constants
     factories --> analysis
+    run --> cli
     run --> simulation
     run --> constants
     run --> analysis
@@ -39,6 +42,7 @@ graph TD
     sweep --> simulation
     sweep --> constants
     sweep --> analysis
+    viz3d --> cli
     viz3d --> simulation
     viz3d --> constants
     viz3d --> analysis
@@ -54,11 +58,23 @@ graph TD
 - `CosmologicalConstants`: G, c, Mpc_to_m, Gpc_to_m, Gyr_to_s, M_observable, etc.
 - `LambdaCDMParameters`: H₀, Ω_m, Ω_Λ, method `H_at_time(a)`
 - `ExternalNodeParameters`: M_ext, S, Ω_Λ_eff, method `calculate_required_spacing()`
-- `SimulationParameters`: Unified config (M_value, S_value, n_particles, seed, t_start_Gyr, t_duration_Gyr, n_steps, damping_factor)
+- `SimulationParameters`: Unified config (M_value, S_value, n_particles, seed, t_start_Gyr, t_duration_Gyr, n_steps, damping_factor, center_node_mass)
 
 **Exports**: All four classes.
 
-**Key feature**: SimulationParameters auto-calculates derived quantities (M_ext, S in SI units, t_end_Gyr, external_params) in `_calculate_derived()`.
+**Key feature**: SimulationParameters auto-calculates derived quantities (M_ext, S in SI units, t_end_Gyr, center_node_mass_kg, external_params) in `_calculate_derived()`.
+
+### `cosmo/cli.py`
+**Purpose**: Command-line interface utilities shared across scripts.
+
+**Functions**:
+- `add_common_arguments(parser)`: Add shared simulation args (--M, --S, --particles, --seed, --t-start, --t-duration, --n-steps, --damping, --center-node-mass, --compare)
+- `parse_arguments(description, add_output_dir)`: Create parser, add common args, parse CLI
+- `args_to_sim_params(args)`: Convert parsed args to SimulationParameters
+
+**Used by**: `run_simulation.py`, `visualize_3d.py`
+
+**Exports**: All three functions.
 
 ### `cosmo/particles.py`
 **Purpose**: Physical structures (particles and external nodes).
@@ -188,7 +204,8 @@ graph TD
 
 **Key functions**:
 - `run_simulation(output_dir, sim_params)`: Runs 3 simulations (ΛCDM analytic, External-Node N-body, Matter-only N-body), generates 4-panel plot
-- `parse_arguments()`: CLI with argparse
+
+**CLI**: Uses `cosmo.cli.parse_arguments()` and `cosmo.cli.args_to_sim_params()` for argument handling. Supports --M, --S, --particles, --seed, --t-start, --t-duration, --n-steps, --damping, --center-node-mass, --compare, --output-dir.
 
 **Workflow**:
 1. Calculate initial conditions using `analysis.calculate_initial_conditions()`
@@ -217,19 +234,20 @@ graph TD
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `cosmo/constants.py` | 154 | Parameter definitions |
+| `cosmo/constants.py` | 175 | Parameter definitions |
+| `cosmo/cli.py` | 95 | CLI argument parsing |
 | `cosmo/particles.py` | 340 | Physical structures |
 | `cosmo/integrator.py` | 316 | Force calculations + integration |
-| `cosmo/simulation.py` | 214 | High-level runner |
+| `cosmo/simulation.py` | 218 | High-level runner |
 | `cosmo/analysis.py` | 382 | Shared analysis utilities |
 | `cosmo/visualization.py` | 213 | Shared plotting utilities |
 | `cosmo/numba_direct.py` | 82 | Numba JIT O(N²) direct |
 | `cosmo/barnes_hut_numba.py` | 200 | Barnes-Hut O(N log N) octree |
 | `cosmo/tidal_forces_numba.py` | 60 | Numba JIT tidal forces |
 | `cosmo/factories.py` | 39 | Simulation utilities |
-| `run_simulation.py` | 345 | Main comparison script |
+| `run_simulation.py` | 280 | Main comparison script |
 | `parameter_sweep.py` | 363 | Parameter exploration |
-| `visualize_3d.py` | 747 | 3D visualization |
+| `visualize_3d.py` | 765 | 3D visualization |
 
 ## Import Pattern
 
@@ -237,6 +255,7 @@ All scripts import from `cosmo` package:
 ```python
 from cosmo.constants import CosmologicalConstants, LambdaCDMParameters, SimulationParameters
 from cosmo.simulation import CosmologicalSimulation
+from cosmo.cli import parse_arguments, args_to_sim_params
 ```
 
-No circular dependencies. Linear dependency chain: constants → particles → integrator → simulation → scripts.
+No circular dependencies. Linear dependency chain: constants → cli → particles → integrator → simulation → scripts.

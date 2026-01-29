@@ -27,7 +27,7 @@ class SweepConfig:
     search_center_mass: bool = True
     t_start_Gyr: float = 3.8
     t_duration_Gyr: float = 10.0
-    damping_factor: float = 0.98
+    damping_factor: float = 1
     s_min_gpc: int = 15
     s_max_gpc: int = 60
     save_interval: int = 10
@@ -79,6 +79,35 @@ class LCDMBaseline:
 # Signature: (M_factor, S_gpc, centerM, seed) -> SimResult
 SimCallback = Callable[[int, int, int, int], SimResult]
 
+def generate_increments(max_value, terms_per_decade=5, min_value=1):
+    """
+    Generates a sequence of increasing "nice" round numbers using a geometric progression
+    based on the Renard series concept. The terms_per_decade parameter controls how many
+    increments there are roughly per order of magnitude (higher value means more increments,
+    slower growth). The min_value parameter sets the starting minimum value—only values >= min_value are included.
+    
+    This is a mathematical algorithm without hardcoded segment lists—just three parameters.
+    It produces sequences with round, human-friendly numbers, growing more gradually than
+    Fibonacci or simple powers.
+    """
+    seq = []
+    k = 0
+    added_something = True
+    while added_something:
+        added_something = False
+        for i in range(terms_per_decade):
+            mantissa = 10 ** (i / terms_per_decade)
+            value = round(mantissa) * (10 ** k)
+            if value > max_value:
+                break
+            elif value >= min_value and value not in seq and value > 0:
+                seq.append(int(value))
+                added_something = True
+            elif value < min_value:
+                added_something = True
+        k += 1
+    return sorted(seq)  # Ensure sorted, though usually already is
+
 
 def build_m_list(many_search: bool = False) -> List[int]:
     """
@@ -87,23 +116,10 @@ def build_m_list(many_search: bool = False) -> List[int]:
     Returns descending list for optimization (high M searched first).
     Fine increments when many_search=True, coarse otherwise.
     """
-    m_list = []
-    M = 25
-    while M < 500:
-        m_list.append(M)
-        M += 1 if many_search else 25
-    while M < 1000:
-        m_list.append(M)
-        M += 5 if many_search else 100
-    while M < 2000:
-        m_list.append(M)
-        M += 10 if many_search else 500
-    while M < 5000:
-        m_list.append(M)
-        M += 100 if many_search else 1000
-    while M < (100001 if many_search else 25001):
-        m_list.append(M)
-        M += 1000 if many_search else 5000
+    if many_search:
+        m_list = generate_increments(100000, terms_per_decade=10, min_value=20)
+    else:
+        m_list = generate_increments(25000, terms_per_decade=6, min_value=20)
     m_list.reverse()  # Search high M first
     return m_list
 
@@ -123,20 +139,10 @@ def build_center_mass_list(search_center_mass: bool = True, many_search: bool = 
     if not search_center_mass:
         return [1]
 
-    center_masses = []
-    M = 1
-    while M < 5:
-        center_masses.append(M)
-        M += 1
-    while M < 20:
-        center_masses.append(M)
-        M += 2 if many_search else 5
-    while M < 50:
-        center_masses.append(M)
-        M += 5 if many_search else 10
-    while M < 101:
-        center_masses.append(M)
-        M += 10 if many_search else 25
+    if many_search:
+        center_masses = generate_increments(200, terms_per_decade=10, min_value=1)
+    else:
+        center_masses = generate_increments(100, terms_per_decade=6, min_value=1)
     return center_masses
 
 
@@ -331,6 +337,7 @@ def linear_search_S(
     S_list = list(range(S_start, s_min - 1, -1))
     i = 0
 
+    prev_result = None
     while i < len(S_list):
         S = S_list[i]
 
@@ -341,27 +348,42 @@ def linear_search_S(
         all_results.append(result)
 
         if current_evaluated:
+            prev_result = current_evaluated[-1][1]
+
+        print(f"\tMatch: {result['match_avg_pct']:.2f}% (curve {(result['match_curve_pct']):.2f}%, end {(result['match_end_pct']):.2f}%, radius {(result['match_max_pct']):.2f}%, Hubble {(result['match_hubble_curve_pct']):.2f}%)")
+        if prev_result:
+            diff = result['match_curve_pct'] - prev_result['match_curve_pct']
+            print(f"\tCurve Match: {result['match_curve_pct']:.4f}, CHANGE: {diff:.4f}%")
+        else:
+            print(f"\tCurve Match: {result['match_curve_pct']:.4f}")
+            
+        print("\n")
+        if current_evaluated:
             # Check for negative match
             if result['match_avg_pct'] <= 0:
+                print("\r\tMatch below 0%, stopping search for this M.")
                 break
 
             # Check for decreasing match (early stopping)
-            prev_result = current_evaluated[-1][1]
             if (prev_result['match_curve_pct'] > result['match_curve_pct'] * 1.0001 and
                 prev_result['match_avg_pct'] > result['match_avg_pct'] * 1.00025):
+                print("\r\tMatch decreasing > 0.01%, stopping search for this M.")
                 break
 
             # Adaptive skipping based on match change
-            diff = result['match_curve_pct'] - prev_result['match_curve_pct']
             if S > 40:  # Only skip if we have room
                 if abs(diff) < 0.002:
+                    print("\r\tMatch change < 0.002%, skipping S/10 S.")
                     i += max(1, int(S / 10 * centerM))
                 elif diff > 0 and diff < 0.01:
+                    print("\r\tMatch change < 0.01%, skipping 2 S.")
                     i += 2
                 elif diff > 0 and diff < 0.02:
+                    print("\r\tMatch change < 0.02%, skipping 1 S.")
                     i += 1
         elif result['match_avg_pct'] <= 0:
             # First result negative, skip ahead
+            print("\r\tMatch below 0%, trying to find a better one, skipping S/10 S.")
             i += max(1, int(S / 10 * centerM))
             continue  # Don't add to evaluated
 
@@ -452,7 +474,7 @@ def run_sweep(
                 S_best, _, _, results = ternary_search_S(
                     M, centerM, sim_callback, baseline, weights,
                     config.s_min_gpc,
-                    prev_best_S if prev_best_S else config.s_max_gpc,
+                    prev_best_S if prev_best_S else config.s_max_gpc*centerM,
                     s_hint=prev_best_S,
                     hint_window=(prev_best_S // 4) if prev_best_S else (config.s_max_gpc // 4),
                     seed=seed

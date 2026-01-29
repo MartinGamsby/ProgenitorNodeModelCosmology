@@ -28,7 +28,7 @@ const = CosmologicalConstants()
 # Configuration
 SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
 QUICK_SEARCH = True#False
-MANY_SEARCH = False
+MANY_SEARCH = False#True
 SEARCH_CENTER_MASS = True
 
 config = SweepConfig(
@@ -64,6 +64,8 @@ print(f"Using {SEARCH_METHOD.name} on S for each M value...")
 print(f"M values to test: {len(m_list)}")
 if config.search_center_mass:
     print(f"Center M values to test: {len(center_masses)}")
+    
+
 print(f"S range: [{config.s_min_gpc}, {config.s_max_gpc}]")
 print(f"(Brute force would test {nbConfigs_bruteforce} configurations)")
 
@@ -126,7 +128,8 @@ def sim_callback(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResul
         t_duration_Gyr=config.t_duration_Gyr,
         n_steps=config.n_steps,
         damping_factor=config.damping_factor,
-        center_node_mass=centerM
+        center_node_mass=centerM,
+        mass_randomize=0.0  # 0.0 for Equal masses for deterministic test
     )
 
     # Run simulation

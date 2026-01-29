@@ -41,11 +41,11 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
                         help='Simulation start time since Big Bang (in Gyr)')
     parser.add_argument('--t-duration', type=float, default=10.0,
                         help='Simulation duration (in Gyr)')
-    parser.add_argument('--n-steps', type=int, default=150,
+    parser.add_argument('--n-steps', type=int, default=500,
                         help='Number of simulation timesteps')
 
     # Physics parameters
-    parser.add_argument('--damping', type=float, default=None,
+    parser.add_argument('--damping', type=float, default=0.98,
                         help='Initial velocity damping factor (0-1). Auto-calculated if not specified.')
     parser.add_argument('--center-node-mass', type=float, default=1.0,
                         help='Central (progenitor) node mass as multiple of M_observable. '

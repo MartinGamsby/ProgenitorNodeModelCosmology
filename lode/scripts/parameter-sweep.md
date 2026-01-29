@@ -23,15 +23,17 @@ class SweepConfig:
     search_center_mass: bool = True # search 3D: M x S x centerM
     t_start_Gyr: float = 3.8
     t_duration_Gyr: float = 10.0
-    damping_factor: float = 0.98
+    damping_factor: float = 1
     s_min_gpc: int = 15
     s_max_gpc: int = 60             # 100 if many_search
     save_interval: int = 10
 
 @dataclass
 class MatchWeights:
-    hubble_curve: float = 0.05
-    size_curve: float = 0.8
+    hubble_half_curve: float = 0.025
+    hubble_curve: float = 0.025
+    size_half_curve: float = 0.4
+    size_curve: float = 0.4
     endpoint: float = 0.1
     max_radius: float = 0.05
 
@@ -91,12 +93,22 @@ Exhaustive grid: all M x all S x all centerM. Most thorough, slowest.
 
 ## Match Metric
 
-Weighted average using last-half (5 Gyr) of curves:
+Weighted average using both full curves and half curves (last 5 Gyr):
 ```python
-match_avg = (hubble_curve * 0.05) + (size_curve * 0.8) + (endpoint * 0.1) + (max_radius * 0.05)
+match_avg = (hubble_half_curve * 0.025) + (hubble_curve * 0.025) +
+            (size_half_curve * 0.4) + (size_curve * 0.4) +
+            (endpoint * 0.1) + (max_radius * 0.05)
 ```
 
-Computed by `compute_match_metrics(sim_result, baseline, weights)`.
+Metrics returned by `compute_match_metrics(sim_result, baseline, weights)`:
+- `match_curve_pct`: Full size curve R² match
+- `match_half_curve_pct`: Second-half size curve R² match
+- `match_hubble_curve_pct`: Full Hubble curve R² match
+- `match_hubble_half_curve_pct`: Second-half Hubble curve R² match
+- `match_end_pct`: Endpoint size match
+- `match_max_pct`: Max radius match
+- `match_avg_pct`: Weighted average
+- `diff_pct`: 100 - match_avg_pct
 
 ## Workflow
 
@@ -148,7 +160,8 @@ Dummy callbacks create SimResult with predictable quality based on distance from
 
 **File**: `results/sweep_results.csv` - all evaluated configurations with columns:
 - M_factor, S_gpc, centerM
-- match_avg_pct, diff_pct, match_curve_pct, match_end_pct, match_max_pct, match_hubble_curve_pct
+- match_avg_pct, diff_pct, match_curve_pct, match_half_curve_pct, match_end_pct, match_max_pct
+- match_hubble_curve_pct, match_hubble_half_curve_pct
 - a_ext, size_ext, desc
 
 ## Usage

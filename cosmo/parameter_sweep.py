@@ -46,8 +46,10 @@ class SweepConfig:
 @dataclass
 class MatchWeights:
     """Weights for computing weighted average match metric."""
-    hubble_curve: float = 0.05
-    size_curve: float = 0.8
+    hubble_half_curve: float = 0.025
+    hubble_curve: float = 0.025
+    size_half_curve: float = 0.4
+    size_curve: float = 0.4
     endpoint: float = 0.1
     max_radius: float = 0.05
 
@@ -154,23 +156,41 @@ def compute_match_metrics(
     """
     Compute match metrics between simulation result and LCDM baseline.
 
-    Uses second half of curves (last 5 Gyr) to focus on late-time acceleration.
+    Computes both full curve and half curve (last 5 Gyr) metrics.
 
     Returns dict with:
-        - match_curve_pct: size curve match (R^2 * 100)
+        - match_curve_pct: full size curve match (R^2 * 100)
+        - match_half_curve_pct: second-half size curve match
         - match_end_pct: endpoint size match
         - match_max_pct: max radius match
-        - match_hubble_curve_pct: Hubble parameter curve match
+        - match_hubble_curve_pct: full Hubble parameter curve match
+        - match_hubble_half_curve_pct: second-half Hubble curve match
         - match_avg_pct: weighted average of all metrics
         - diff_pct: 100 - match_avg_pct
     """
     half_point = len(baseline.size_Gpc) // 2
 
-    # Compare curves using second half only
+    # Full curve comparisons
     match_curve_pct = compare_expansion_histories(
+        sim_result.size_curve_Gpc,
+        baseline.size_Gpc
+    )
+    match_hubble_curve_pct = compare_expansion_histories(
+        sim_result.hubble_curve,
+        baseline.H_hubble
+    )
+
+    # Half curve comparisons (second half only, late-time acceleration)
+    match_half_curve_pct = compare_expansion_histories(
         sim_result.size_curve_Gpc[half_point:],
         baseline.size_Gpc[half_point:]
     )
+    match_hubble_half_curve_pct = compare_expansion_histories(
+        sim_result.hubble_curve[half_point:],
+        baseline.H_hubble[half_point:]
+    )
+
+    # Endpoint comparisons
     match_end_pct = compare_expansion_history(
         sim_result.size_final_Gpc,
         baseline.size_final_Gpc
@@ -179,14 +199,12 @@ def compute_match_metrics(
         sim_result.radius_max_Gpc,
         baseline.radius_max_Gpc
     )
-    match_hubble_curve_pct = compare_expansion_histories(
-        sim_result.hubble_curve[half_point:],
-        baseline.H_hubble[half_point:]
-    )
 
     # Weighted average
     match_avg_pct = (
+        weights.hubble_half_curve * match_hubble_half_curve_pct +
         weights.hubble_curve * match_hubble_curve_pct +
+        weights.size_half_curve * match_half_curve_pct +
         weights.size_curve * match_curve_pct +
         weights.endpoint * match_end_pct +
         weights.max_radius * match_max_pct
@@ -194,9 +212,11 @@ def compute_match_metrics(
 
     return {
         'match_curve_pct': match_curve_pct,
+        'match_half_curve_pct': match_half_curve_pct,
         'match_end_pct': match_end_pct,
         'match_max_pct': match_max_pct,
         'match_hubble_curve_pct': match_hubble_curve_pct,
+        'match_hubble_half_curve_pct': match_hubble_half_curve_pct,
         'match_avg_pct': match_avg_pct,
         'diff_pct': 100 - match_avg_pct
     }
@@ -350,12 +370,12 @@ def linear_search_S(
         if current_evaluated:
             prev_result = current_evaluated[-1][1]
 
-        print(f"\tMatch: {result['match_avg_pct']:.2f}% (curve {(result['match_curve_pct']):.2f}%, end {(result['match_end_pct']):.2f}%, radius {(result['match_max_pct']):.2f}%, Hubble {(result['match_hubble_curve_pct']):.2f}%)")
+        print(f"\tMatch: {result['match_avg_pct']:.2f}% (curve {result['match_curve_pct']:.2f}%, half {result['match_half_curve_pct']:.2f}%, end {result['match_end_pct']:.2f}%, radius {result['match_max_pct']:.2f}%, Hubble {result['match_hubble_curve_pct']:.2f}%)")
         if prev_result:
-            diff = result['match_curve_pct'] - prev_result['match_curve_pct']
-            print(f"\tCurve Match: {result['match_curve_pct']:.4f}, CHANGE: {diff:.4f}%")
+            diff = result['match_half_curve_pct'] - prev_result['match_half_curve_pct']
+            print(f"\tHalf Curve Match: {result['match_half_curve_pct']:.4f}, CHANGE: {diff:.4f}%")
         else:
-            print(f"\tCurve Match: {result['match_curve_pct']:.4f}")
+            print(f"\tHalf Curve Match: {result['match_half_curve_pct']:.4f}")
             
         print("\n")
         if current_evaluated:
@@ -365,7 +385,7 @@ def linear_search_S(
                 break
 
             # Check for decreasing match (early stopping)
-            if (prev_result['match_curve_pct'] > result['match_curve_pct'] * 1.0001 and
+            if (prev_result['match_half_curve_pct'] > result['match_half_curve_pct'] * 1.0001 and
                 prev_result['match_avg_pct'] > result['match_avg_pct'] * 1.00025):
                 print("\r\tMatch decreasing > 0.01%, stopping search for this M.")
                 break

@@ -170,11 +170,11 @@ print("="*70)
 # Sort by best match
 results.reverse()  # Original order was descending M
 
-print(f"\n{'Config':<20} {'M×M_obs':<10} {'centerM':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'End%':<10} {'Radius%':<10} {'Hubble%':<10}")
-print("-" * 70)
+print(f"\n{'Config':<20} {'M×M_obs':<10} {'centerM':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'Half%':<10} {'End%':<10} {'Hubble%':<10}")
+print("-" * 100)
 for r in results:
     print(f"{r['desc']:<20} {r['M_factor']:<10} {r['centerM']:<10} {r['S_gpc']:<10.1f} "
-          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_max_pct']:<10.2f} {r['match_hubble_curve_pct']:<10.2f}")
+          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_half_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_hubble_curve_pct']:<10.2f}")
 print("\n" + "="*70)
 
 print("RESULTS SUMMARY")
@@ -183,11 +183,11 @@ print("="*70)
 # Sort by best match
 results.sort(key=lambda x: x['diff_pct'])
 
-print(f"\n{'Config':<20} {'M×M_obs':<10} {'centerM':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'End%':<10} {'Radius%':<10} {'Hubble%':<10}")
-print("-" * 70)
+print(f"\n{'Config':<20} {'M×M_obs':<10} {'centerM':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'Half%':<10} {'End%':<10} {'Hubble%':<10}")
+print("-" * 100)
 for r in results:
     print(f"{r['desc']:<20} {r['M_factor']:<10} {r['centerM']:<10} {r['S_gpc']:<10.1f} "
-          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_max_pct']:<10.2f} {r['match_hubble_curve_pct']:<10.2f}")
+          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_half_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_hubble_curve_pct']:<10.2f}")
 
 best = results[0]
 print(f"\n★ BEST MATCH: {best['desc']}")
@@ -208,7 +208,8 @@ os.makedirs('./results', exist_ok=True)
 csv_path = './results/sweep_results.csv'
 
 csv_columns = ['M_factor', 'S_gpc', 'centerM', 'match_avg_pct', 'diff_pct',
-               'match_curve_pct', 'match_end_pct', 'match_max_pct', 'match_hubble_curve_pct',
+               'match_curve_pct', 'match_half_curve_pct', 'match_end_pct', 'match_max_pct',
+               'match_hubble_curve_pct', 'match_hubble_half_curve_pct',
                'a_ext', 'size_ext', 'desc']
 
 with open(csv_path, 'w', newline='') as f:

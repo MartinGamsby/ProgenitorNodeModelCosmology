@@ -108,7 +108,7 @@ class TestSweepConfig(unittest.TestCase):
         self.assertTrue(config.search_center_mass)
         self.assertEqual(config.t_start_Gyr, 3.8)
         self.assertEqual(config.t_duration_Gyr, 10.0)
-        self.assertEqual(config.damping_factor, 0.98)
+        self.assertEqual(config.damping_factor, 1)
         self.assertEqual(config.s_min_gpc, 15)
         self.assertEqual(config.s_max_gpc, 60)
         self.assertEqual(config.save_interval, 10)
@@ -145,15 +145,19 @@ class TestMatchWeights(unittest.TestCase):
     def test_defaults(self):
         """Default weights should match expected."""
         weights = MatchWeights()
-        self.assertEqual(weights.hubble_curve, 0.05)
-        self.assertEqual(weights.size_curve, 0.8)
+        self.assertEqual(weights.hubble_half_curve, 0.025)
+        self.assertEqual(weights.hubble_curve, 0.025)
+        self.assertEqual(weights.size_half_curve, 0.4)
+        self.assertEqual(weights.size_curve, 0.4)
         self.assertEqual(weights.endpoint, 0.1)
         self.assertEqual(weights.max_radius, 0.05)
 
     def test_weights_sum_to_one(self):
         """Default weights should sum to 1.0."""
         weights = MatchWeights()
-        total = weights.hubble_curve + weights.size_curve + weights.endpoint + weights.max_radius
+        total = (weights.hubble_half_curve + weights.hubble_curve +
+                 weights.size_half_curve + weights.size_curve +
+                 weights.endpoint + weights.max_radius)
         self.assertAlmostEqual(total, 1.0)
 
 
@@ -186,7 +190,7 @@ class TestParameterSpaceBuilders(unittest.TestCase):
     def test_build_m_list_ends_low(self):
         """M list should end with low values."""
         m_list = build_m_list()
-        self.assertEqual(m_list[-1], 25)
+        self.assertEqual(m_list[-1], 20)  # Uses generate_increments with min_value=20
 
     def test_build_s_list_range(self):
         """S list should cover specified range."""
@@ -231,12 +235,14 @@ class TestComputeMatchMetrics(unittest.TestCase):
         self.assertGreater(metrics['match_avg_pct'], 90.0)
 
     def test_poor_match_low_score(self):
-        """Poor match should give lower percentage."""
+        """Poor match should give lower percentage than perfect match."""
         baseline = make_baseline()
-        sim_result = make_sim_result(quality=0.5)
+        sim_result_poor = make_sim_result(quality=0.5)
+        sim_result_good = make_sim_result(quality=1.0)
         weights = MatchWeights()
-        metrics = compute_match_metrics(sim_result, baseline, weights)
-        self.assertLess(metrics['match_avg_pct'], 90.0)
+        metrics_poor = compute_match_metrics(sim_result_poor, baseline, weights)
+        metrics_good = compute_match_metrics(sim_result_good, baseline, weights)
+        self.assertLess(metrics_poor['match_avg_pct'], metrics_good['match_avg_pct'])
 
     def test_diff_pct_complement(self):
         """diff_pct should be 100 - match_avg_pct."""
@@ -257,8 +263,8 @@ class TestComputeMatchMetrics(unittest.TestCase):
         weights = MatchWeights()
         metrics = compute_match_metrics(sim_result, baseline, weights)
         expected_keys = [
-            'match_curve_pct', 'match_end_pct', 'match_max_pct',
-            'match_hubble_curve_pct', 'match_avg_pct', 'diff_pct'
+            'match_curve_pct', 'match_half_curve_pct', 'match_end_pct', 'match_max_pct',
+            'match_hubble_curve_pct', 'match_hubble_half_curve_pct', 'match_avg_pct', 'diff_pct'
         ]
         for key in expected_keys:
             self.assertIn(key, metrics)

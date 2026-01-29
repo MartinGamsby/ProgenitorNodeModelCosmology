@@ -125,6 +125,32 @@ class TestSimulationParameters(unittest.TestCase):
 
         self.assertAlmostEqual(params.t_end_Gyr, 16.0, places=10)
 
+    def test_center_node_mass_default(self):
+        """Default center_node_mass should be 1.0"""
+        params = SimulationParameters()
+        self.assertEqual(params.center_node_mass, 1.0)
+
+    def test_center_node_mass_custom(self):
+        """Should accept custom center_node_mass"""
+        params = SimulationParameters(center_node_mass=2.5)
+        self.assertEqual(params.center_node_mass, 2.5)
+
+    def test_center_node_mass_kg_calculation(self):
+        """center_node_mass_kg should be calculated from center_node_mass"""
+        const = CosmologicalConstants()
+
+        params = SimulationParameters(center_node_mass=3.0)
+        expected = 3.0 * const.M_observable_kg
+
+        self.assertAlmostEqual(params.center_node_mass_kg, expected, places=5)
+
+    def test_center_node_mass_in_str(self):
+        """center_node_mass should appear in string representation"""
+        params = SimulationParameters(center_node_mass=2.0)
+        str_repr = str(params)
+        self.assertIn("Center Node Mass", str_repr)
+        self.assertIn("2.0", str_repr)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -2,36 +2,43 @@
 
 Creates 3D visualizations of cosmological simulations showing particles and HMEA nodes.
 
+## CLI Arguments
+
+Uses shared CLI from `cosmo.cli`:
+```bash
+python visualize_3d.py [sim_file] [output_dir] [--M 855] [--S 25] [--particles 300] ...
+python visualize_3d.py --compare [output_dir] [--M 855] [--S 25] ...
+```
+
+**All arguments**:
+- `sim_file`: Path to .pkl file (optional positional)
+- `output_dir`: Output directory (optional positional, default: `.`)
+- `--M`: External mass parameter (default: 855)
+- `--S`: Node separation in Gpc (default: 25.0)
+- `--particles`: Number of particles (default: 300)
+- `--seed`: Random seed (default: 42)
+- `--t-start`: Start time in Gyr (default: 3.8)
+- `--t-duration`: Duration in Gyr (default: 10.0)
+- `--n-steps`: Number of timesteps (default: 150)
+- `--damping`: Velocity damping (default: auto)
+- `--center-node-mass`: Central node mass as multiple of M_obs (default: 1.0)
+- `--compare`: Enable 3-way comparison mode
+
 ## Modes
 
 ### Single Simulation Mode (default)
 ```bash
 python visualize_3d.py [sim_file.pkl] [output_dir]
 ```
-- If no .pkl provided, runs quick simulation first
+- If no .pkl provided, runs simulation with CLI parameters
 - Generates: multipanel evolution, snapshots, animation
 
 ### Comparison Mode
 ```bash
-python visualize_3d.py --compare [output_dir]
+python visualize_3d.py --compare [output_dir] --M 800 --S 24
 ```
 - Runs External-Node, Matter-Only, ΛCDM side-by-side
 - Generates: 3-way comparison panel, separate animations
-
-## Default Parameters
-
-```python
-sim_params = SimulationParameters(
-    M_value=644,
-    S_value=21,
-    n_particles=1400,
-    seed=42,
-    t_start_Gyr=3.8,
-    t_duration_Gyr=12.5,  # 10.0 * 5/4
-    n_steps=1000,
-    damping_factor=0.92
-)
-```
 
 ## Output Files
 
@@ -55,13 +62,14 @@ sim_params = SimulationParameters(
 - `setup_3d_axes(ax, lim, title, ...)`: Configure 3D plot
 
 ### Main Functions (visualize_3d.py)
-- `load_or_run_simulation()`: Load .pkl or run new sim
-- `create_3d_snapshot()`: Single time visualization
-- `create_multi_panel_evolution()`: 6-panel time series
-- `create_animation()`: GIF with rotating view
-- `run_comparison_simulations()`: Run all 3 models
-- `create_comparison_multipanel()`: 6×3 comparison grid
-- `create_comparison_animations()`: Separate GIFs per model
+- `parse_visualize_arguments()`: Parse CLI args using `cosmo.cli.add_common_arguments()`
+- `load_or_run_simulation(sim_params, sim_file, output_dir)`: Load .pkl or run with given params
+- `create_3d_snapshot(sim_data, idx, start_time, output_dir)`: Single time visualization
+- `create_multi_panel_evolution(sim_data, start_time, output_dir)`: 6-panel time series
+- `create_animation(sim_data, start_time, output_dir, fps)`: GIF with rotating view
+- `run_comparison_simulations(sim_params, output_dir)`: Run all 3 models
+- `create_comparison_multipanel(comparison_data, start_time, output_dir)`: 6×3 comparison grid
+- `create_comparison_animations(comparison_data, start_time, output_dir, fps)`: Separate GIFs per model
 
 ### ΛCDM Reference Generation
 For comparison mode, ΛCDM doesn't run N-body. Instead:

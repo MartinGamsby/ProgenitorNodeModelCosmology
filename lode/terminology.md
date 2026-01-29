@@ -43,3 +43,5 @@
 **Friedmann equation** - Differential equation governing cosmic expansion: ȧ = H₀√(Ω_m/a³ + Ω_Λ)×a
 
 **RMS radius** - Root-mean-square distance of particles from center of mass. Proxy for universe size.
+
+**center_node_mass** - Central progenitor node mass as multiple of M_observable_kg. Default 1.0. Controls total_mass_kg for particle system and softening_m scaling in CosmologicalSimulation. Larger values model more massive central structures.

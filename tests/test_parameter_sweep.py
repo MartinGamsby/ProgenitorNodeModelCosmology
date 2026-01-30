@@ -116,7 +116,7 @@ class TestSweepConfig(unittest.TestCase):
     def test_particle_count_quick(self):
         """Quick search uses fewer particles."""
         config = SweepConfig(quick_search=True)
-        self.assertEqual(config.particle_count, 150)
+        self.assertEqual(config.particle_count, 50)
 
     def test_particle_count_many(self):
         """Many search uses medium particles."""
@@ -126,7 +126,7 @@ class TestSweepConfig(unittest.TestCase):
     def test_particle_count_default(self):
         """Default search uses most particles."""
         config = SweepConfig()
-        self.assertEqual(config.particle_count, 10000)
+        self.assertEqual(config.particle_count, 2000)
 
     def test_n_steps_quick(self):
         """Quick search uses fewer steps."""

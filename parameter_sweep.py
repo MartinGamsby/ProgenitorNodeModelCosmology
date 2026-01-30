@@ -27,7 +27,7 @@ const = CosmologicalConstants()
 
 # Configuration
 SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
-QUICK_SEARCH = True#False
+QUICK_SEARCH = False
 MANY_SEARCH = False#True
 SEARCH_CENTER_MASS = True
 
@@ -218,3 +218,22 @@ with open(csv_path, 'w', newline='') as f:
     writer.writerows(results)
 
 print(f"\n✓ Saved {len(results)} results to {csv_path}")
+
+# Save best per S to separate CSV
+# Group by S_gpc, keep only best (highest match_avg_pct) for each S
+best_per_s = {}
+for r in results:
+    s = r['S_gpc']
+    if s not in best_per_s or r['match_avg_pct'] > best_per_s[s]['match_avg_pct']:
+        best_per_s[s] = r
+
+# Sort by S ascending
+best_per_s_list = [best_per_s[s] for s in sorted(best_per_s.keys())]
+
+csv_path_best_s = './results/sweep_best_per_S.csv'
+with open(csv_path_best_s, 'w', newline='') as f:
+    writer = csv.DictWriter(f, fieldnames=csv_columns, extrasaction='ignore')
+    writer.writeheader()
+    writer.writerows(best_per_s_list)
+
+print(f"✓ Saved {len(best_per_s_list)} best-per-S results to {csv_path_best_s}")

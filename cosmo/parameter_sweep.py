@@ -35,8 +35,8 @@ class SweepConfig:
     @property
     def particle_count(self) -> int:
         if self.quick_search:
-            return 150
-        return 1000 if self.many_search else 10000
+            return 50
+        return 1000 if self.many_search else 2000
 
     @property
     def n_steps(self) -> int:
@@ -387,23 +387,23 @@ def linear_search_S(
             # Check for decreasing match (early stopping)
             if (prev_result['match_half_curve_pct'] > result['match_half_curve_pct'] * 1.0001 and
                 prev_result['match_avg_pct'] > result['match_avg_pct'] * 1.00025):
-                print("\r\tMatch decreasing > 0.01%, stopping search for this M.")
+                print("\r\tMatch decreasing > 0.01%, stopping search for this M.", end="")
                 break
 
             # Adaptive skipping based on match change
             if S > 40:  # Only skip if we have room
                 if abs(diff) < 0.002:
-                    print("\r\tMatch change < 0.002%, skipping S/10 S.")
+                    print("\r\tMatch change < 0.002%, skipping S/10 S.", end="")
                     i += max(1, int(S / 10 * centerM))
                 elif diff > 0 and diff < 0.01:
-                    print("\r\tMatch change < 0.01%, skipping 2 S.")
+                    print("\r\tMatch change < 0.01%, skipping 2 S.", end="")
                     i += 2
                 elif diff > 0 and diff < 0.02:
-                    print("\r\tMatch change < 0.02%, skipping 1 S.")
+                    print("\r\tMatch change < 0.02%, skipping 1 S.", end="")
                     i += 1
         elif result['match_avg_pct'] <= 0:
             # First result negative, skip ahead
-            print("\r\tMatch below 0%, trying to find a better one, skipping S/10 S.")
+            print("\r\tMatch below 0%, trying to find a better one, skipping S/10 S.", end="")
             i += max(1, int(S / 10 * centerM))
             continue  # Don't add to evaluated
 

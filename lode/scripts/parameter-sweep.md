@@ -158,7 +158,11 @@ Dummy callbacks create SimResult with predictable quality based on distance from
 
 **Console**: Progress updates, match percentages per config
 
-**File**: `results/sweep_results.csv` - all evaluated configurations with columns:
+**Files**:
+- `results/sweep_results.csv` - all evaluated configurations
+- `results/sweep_best_per_S.csv` - best (M, centerM) for each S value
+
+CSV columns:
 - M_factor, S_gpc, centerM
 - match_avg_pct, diff_pct, match_curve_pct, match_half_curve_pct, match_end_pct, match_max_pct
 - match_hubble_curve_pct, match_hubble_half_curve_pct

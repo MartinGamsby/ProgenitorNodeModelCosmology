@@ -35,7 +35,7 @@ class SweepConfig:
     @property
     def particle_count(self) -> int:
         if self.quick_search:
-            return 50
+            return 40
         return 1000 if self.many_search else 2000
 
     @property
@@ -111,7 +111,7 @@ def generate_increments(max_value, terms_per_decade=5, min_value=1):
     return sorted(seq)  # Ensure sorted, though usually already is
 
 
-def build_m_list(many_search: bool = False) -> List[int]:
+def build_m_list(many_search: bool = False, multiplier=1) -> List[int]:
     """
     Build list of M values (external node mass factors) to search.
 
@@ -119,9 +119,9 @@ def build_m_list(many_search: bool = False) -> List[int]:
     Fine increments when many_search=True, coarse otherwise.
     """
     if many_search:
-        m_list = generate_increments(100000, terms_per_decade=10, min_value=20)
+        m_list = generate_increments(1000000*multiplier, terms_per_decade=10, min_value=20)
     else:
-        m_list = generate_increments(25000, terms_per_decade=6, min_value=20)
+        m_list = generate_increments(25000*multiplier, terms_per_decade=6, min_value=20)
     m_list.reverse()  # Search high M first
     return m_list
 
@@ -394,7 +394,7 @@ def linear_search_S(
             if S > 40:  # Only skip if we have room
                 if abs(diff) < 0.002:
                     print("\r\tMatch change < 0.002%, skipping S/10 S.", end="")
-                    i += max(1, int(S / 10 * centerM))
+                    i += max(1, int(S / 10))
                 elif diff > 0 and diff < 0.01:
                     print("\r\tMatch change < 0.01%, skipping 2 S.", end="")
                     i += 2
@@ -404,7 +404,7 @@ def linear_search_S(
         elif result['match_avg_pct'] <= 0:
             # First result negative, skip ahead
             print("\r\tMatch below 0%, trying to find a better one, skipping S/10 S.", end="")
-            i += max(1, int(S / 10 * centerM))
+            i += max(1, int(S / 10 ))
             continue  # Don't add to evaluated
 
         current_evaluated.append((S, result))
@@ -424,7 +424,7 @@ def linear_search_S(
 
 
 def brute_force_search(
-    m_list: List[int],
+    many_search: bool,
     s_list: List[int],
     center_masses: List[int],
     sim_callback: SimCallback,
@@ -440,6 +440,7 @@ def brute_force_search(
     results: List[Dict[str, Any]] = []
 
     for centerM in center_masses:
+        m_list = build_m_list(many_search, multiplier=centerM)
         for M in m_list:
             for S in s_list:
                 sim_result = sim_callback(M, S, centerM, seed)
@@ -475,7 +476,6 @@ def run_sweep(
     if weights is None:
         weights = MatchWeights()
 
-    m_list = build_m_list(config.many_search)
     s_list = build_s_list(config.s_min_gpc, config.s_max_gpc)
     center_masses = build_center_mass_list(config.search_center_mass, config.many_search)
 
@@ -483,18 +483,19 @@ def run_sweep(
 
     if search_method == SearchMethod.BRUTE_FORCE:
         all_results = brute_force_search(
-            m_list, s_list, center_masses,
+            config.many_search, s_list, center_masses,
             sim_callback, baseline, weights, seed
         )
 
     elif search_method == SearchMethod.TERNARY_SEARCH:
         for centerM in center_masses:
-            prev_best_S = None
+            prev_best_S = None            
+            m_list = build_m_list(config.many_search, multiplier=centerM)
             for M in m_list:
                 S_best, _, _, results = ternary_search_S(
                     M, centerM, sim_callback, baseline, weights,
                     config.s_min_gpc,
-                    prev_best_S if prev_best_S else config.s_max_gpc*centerM,
+                    prev_best_S if prev_best_S else config.s_max_gpc,
                     s_hint=prev_best_S,
                     hint_window=(prev_best_S // 4) if prev_best_S else (config.s_max_gpc // 4),
                     seed=seed
@@ -509,6 +510,7 @@ def run_sweep(
     elif search_method == SearchMethod.LINEAR_SEARCH:
         for centerM in center_masses:
             prev_best_S = None
+            m_list = build_m_list(config.many_search, multiplier=centerM)
             for M in m_list:
                 best_S, _, should_stop, results = linear_search_S(
                     M, centerM, sim_callback, baseline, weights,

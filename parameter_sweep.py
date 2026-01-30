@@ -8,6 +8,7 @@ This script handles simulation setup, callback wiring, and output formatting.
 """
 
 import numpy as np
+import math
 import csv
 import os
 from cosmo.constants import CosmologicalConstants, SimulationParameters
@@ -27,8 +28,8 @@ const = CosmologicalConstants()
 
 # Configuration
 SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
-QUICK_SEARCH = False
-MANY_SEARCH = False#True
+QUICK_SEARCH = True
+MANY_SEARCH = True
 SEARCH_CENTER_MASS = True
 
 config = SweepConfig(
@@ -37,7 +38,7 @@ config = SweepConfig(
     search_center_mass=SEARCH_CENTER_MASS,
     t_start_Gyr=3.8,
     t_duration_Gyr=10.0,
-    damping_factor=0.98,
+    damping_factor=1,
     s_min_gpc=15,
     s_max_gpc=(100 if MANY_SEARCH else 60),
     save_interval=10
@@ -122,7 +123,7 @@ def sim_callback(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResul
     sim_params = SimulationParameters(
         M_value=M_factor,
         S_value=S_gpc,
-        n_particles=config.particle_count,
+        n_particles=config.particle_count*int(math.log(centerM*centerM, 2)+1),
         seed=seed,
         t_start_Gyr=config.t_start_Gyr,
         t_duration_Gyr=config.t_duration_Gyr,
@@ -162,47 +163,6 @@ def sim_callback(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResul
 # Run the sweep
 results = run_sweep(config, SEARCH_METHOD, sim_callback, baseline, weights, seed=42)
 
-print("\n" + "="*70)
-
-print("RESULTS BY MASS")
-print("="*70)
-
-# Sort by best match
-results.reverse()  # Original order was descending M
-
-print(f"\n{'Config':<20} {'M×M_obs':<10} {'centerM':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'Half%':<10} {'End%':<10} {'Hubble%':<10}")
-print("-" * 100)
-for r in results:
-    print(f"{r['desc']:<20} {r['M_factor']:<10} {r['centerM']:<10} {r['S_gpc']:<10.1f} "
-          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_half_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_hubble_curve_pct']:<10.2f}")
-print("\n" + "="*70)
-
-print("RESULTS SUMMARY")
-print("="*70)
-
-# Sort by best match
-results.sort(key=lambda x: x['diff_pct'])
-
-print(f"\n{'Config':<20} {'M×M_obs':<10} {'centerM':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'Half%':<10} {'End%':<10} {'Hubble%':<10}")
-print("-" * 100)
-for r in results:
-    print(f"{r['desc']:<20} {r['M_factor']:<10} {r['centerM']:<10} {r['S_gpc']:<10.1f} "
-          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_half_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_hubble_curve_pct']:<10.2f}")
-
-best = results[0]
-print(f"\n★ BEST MATCH: {best['desc']}")
-print(f"   M = {best['M_factor']} × M_obs")
-print(f"   S = {best['S_gpc']:.1f} Gpc")
-print(f"   centerM = {best['centerM']} M_obs ")
-print(f"   Match: {best['match_avg_pct']:.1f}%")
-
-print(f"\n{'='*70}")
-print(f"EFFICIENCY SUMMARY")
-print(f"{'='*70}")
-print(f"Total simulations run: {sim_count}")
-print(f"Brute force would require: {nbConfigs_bruteforce}")
-print(f"Speedup: {nbConfigs_bruteforce/sim_count:.1f}×")
-
 # Save all results to CSV
 os.makedirs('./results', exist_ok=True)
 csv_path = './results/sweep_results.csv'
@@ -219,8 +179,7 @@ with open(csv_path, 'w', newline='') as f:
 
 print(f"\n✓ Saved {len(results)} results to {csv_path}")
 
-# Save best per S to separate CSV
-# Group by S_gpc, keep only best (highest match_avg_pct) for each S
+# Build best per S
 best_per_s = {}
 for r in results:
     s = r['S_gpc']
@@ -230,10 +189,37 @@ for r in results:
 # Sort by S ascending
 best_per_s_list = [best_per_s[s] for s in sorted(best_per_s.keys())]
 
+# Print best per S results
+print("\n" + "="*70)
+print("BEST PER S")
+print("="*70)
+
+print(f"\n{'Config':<20} {'M×M_obs':<10} {'centerM':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'Half%':<10} {'End%':<10} {'Hubble%':<10}")
+print("-" * 100)
+for r in best_per_s_list:
+    print(f"{r['desc']:<20} {r['M_factor']:<10} {r['centerM']:<10} {r['S_gpc']:<10.1f} "
+          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_half_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_hubble_curve_pct']:<10.2f}")
+
+# Find overall best
+best = max(results, key=lambda x: x['match_avg_pct'])
+print(f"\n★ BEST MATCH: {best['desc']}")
+print(f"   M = {best['M_factor']} × M_obs")
+print(f"   S = {best['S_gpc']:.1f} Gpc")
+print(f"   centerM = {best['centerM']} M_obs ")
+print(f"   Match: {best['match_avg_pct']:.1f}%")
+
+print(f"\n{'='*70}")
+print(f"EFFICIENCY SUMMARY")
+print(f"{'='*70}")
+print(f"Total simulations run: {sim_count}")
+print(f"Brute force would require: {nbConfigs_bruteforce}")
+print(f"Speedup: {nbConfigs_bruteforce/sim_count:.1f}×")
+
+# Save best per S to CSV
 csv_path_best_s = './results/sweep_best_per_S.csv'
 with open(csv_path_best_s, 'w', newline='') as f:
     writer = csv.DictWriter(f, fieldnames=csv_columns, extrasaction='ignore')
     writer.writeheader()
     writer.writerows(best_per_s_list)
 
-print(f"✓ Saved {len(best_per_s_list)} best-per-S results to {csv_path_best_s}")
+print(f"\n✓ Saved {len(best_per_s_list)} best-per-S results to {csv_path_best_s}")

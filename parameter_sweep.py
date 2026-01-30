@@ -2,125 +2,89 @@
 """
 Parameter Sweep - Find Best Fit to ΛCDM
 Test multiple External-Node configurations
+
+Uses cosmo.parameter_sweep module for search algorithms.
+This script handles simulation setup, callback wiring, and output formatting.
 """
 
 import numpy as np
-import pickle
+import math
+import csv
 import os
-from enum import Enum
 from cosmo.constants import CosmologicalConstants, SimulationParameters
 from cosmo.simulation import CosmologicalSimulation
 from cosmo.analysis import (
     calculate_initial_conditions,
-    compare_expansion_histories,
-    compare_expansion_history,
     solve_friedmann_at_times,
     calculate_hubble_parameters
 )
 from cosmo.factories import run_and_extract_results
+from cosmo.parameter_sweep import (
+    SearchMethod, SweepConfig, MatchWeights, SimResult, LCDMBaseline,
+    build_m_list, build_s_list, build_center_mass_list, run_sweep
+)
 
 const = CosmologicalConstants()
 
-# Search method enum
-class SearchMethod(Enum):
-    BRUTE_FORCE = 1
-    TERNARY_SEARCH = 2
-    LINEAR_SEARCH = 3
-
-# Configuration defaults
+# Configuration
 SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
-QUICK_SEARCH = False
-MANY_SEARCH = False
-T_START_GYR = 3.8
-T_DURATION_GYR = 10.0
-DAMPING_FACTOR = 0.98
-PARTICLE_COUNT = 150 if QUICK_SEARCH else (1000 if MANY_SEARCH else 10000)
-N_STEPS = 250 if QUICK_SEARCH else 300
-SAVE_INTERVAL = 10  # Must match value used in sim() function
-
+QUICK_SEARCH = True
+MANY_SEARCH = True
 SEARCH_CENTER_MASS = True
 
+config = SweepConfig(
+    quick_search=QUICK_SEARCH,
+    many_search=MANY_SEARCH,
+    search_center_mass=SEARCH_CENTER_MASS,
+    t_start_Gyr=3.8,
+    t_duration_Gyr=10.0,
+    damping_factor=1,
+    s_min_gpc=15,
+    s_max_gpc=(100 if MANY_SEARCH else 60),
+    save_interval=10
+)
+
+weights = MatchWeights()
 
 print("="*70)
 print("PARAMETER SWEEP: Finding Best Match to ΛCDM")
 print("="*70)
 
 # Calculate initial conditions once (reused for all configs)
-initial_conditions = calculate_initial_conditions(T_START_GYR)
+initial_conditions = calculate_initial_conditions(config.t_start_Gyr)
 BOX_SIZE = initial_conditions['box_size_Gpc']
 A_START = initial_conditions['a_start']
 
-# Test different configurations
-configs = []
+# Build parameter lists for info display
+m_list = build_m_list(config.many_search)
+s_list = build_s_list(config.s_min_gpc, config.s_max_gpc)
+center_masses = build_center_mass_list(config.search_center_mass, config.many_search)
+nbConfigs_bruteforce = len(m_list) * len(s_list) * len(center_masses)
 
-Mlist = []
-M = 25
-while M < 500:
-    Mlist.append(M)
-    M += 1 if MANY_SEARCH else 25#10
-while M < 1000:
-    Mlist.append(M)
-    M += 5 if MANY_SEARCH else 100#50
-while M < 2000:
-    Mlist.append(M)
-    M += 10 if MANY_SEARCH else 500#100
-while M < 5000:
-    Mlist.append(M)
-    M += 100 if MANY_SEARCH else 1000#500
-while M < (100001 if MANY_SEARCH else 25001):
-    Mlist.append(M)
-    M += 1000 if MANY_SEARCH else 5000
+print(f"Using {SEARCH_METHOD.name} on S for each M value...")
+print(f"M values to test: {len(m_list)}")
+if config.search_center_mass:
+    print(f"Center M values to test: {len(center_masses)}")
+    
 
-Mlist.reverse()
-if SEARCH_CENTER_MASS:
-    #centerMasses = range(1,20)
-    centerMasses = []
-    M = 1
-    while M < 5:
-        centerMasses.append(M)
-        M += 1
-    while M < 20:
-        centerMasses.append(M)
-        M += 2 if MANY_SEARCH else 5
-    while M < 50:
-        centerMasses.append(M)
-        M += 5 if MANY_SEARCH else 10
-    while M < 101:
-        centerMasses.append(M)
-        M += 10 if MANY_SEARCH else 25
-else:
-    centerMasses = [1]
-
-SMin_gpc = 15    # Min box size to test
-SMax_gpc = 100 if MANY_SEARCH else 60   # Max box size to test
-
-Slist = [i for i in range(SMin_gpc, SMax_gpc+1, 1)]
-nbConfigs_bruteforce = len(Mlist)*len(Slist)*len(centerMasses)
-
-
-print(f"Using ternary search on S for each M value...")
-print(f"M values to test: {len(Mlist)}")
-if SEARCH_CENTER_MASS:
-    print(f"Center M values to test: {len(centerMasses)}")
-print(f"S range: [{SMin_gpc}, {SMax_gpc}]")
+print(f"S range: [{config.s_min_gpc}, {config.s_max_gpc}]")
 print(f"(Brute force would test {nbConfigs_bruteforce} configurations)")
-
 
 # First, solve ΛCDM baseline (analytic solution, not N-body simulation)
 print("\n1. Computing ΛCDM baseline...")
 
 # Compute time array matching N-body snapshot times
 # N-body saves initial snapshot + every SAVE_INTERVAL steps
-snapshot_steps = np.arange(0, N_STEPS + 1, SAVE_INTERVAL)
-t_relative_Gyr = (snapshot_steps / N_STEPS) * T_DURATION_GYR
-t_absolute_Gyr = T_START_GYR + t_relative_Gyr
+snapshot_steps = np.arange(0, config.n_steps + 1, config.save_interval)
+t_relative_Gyr = (snapshot_steps / config.n_steps) * config.t_duration_Gyr
+t_absolute_Gyr = config.t_start_Gyr + t_relative_Gyr
 
 # Solve ΛCDM at exact N-body snapshot times
 lcdm_solution = solve_friedmann_at_times(t_absolute_Gyr, Omega_Lambda=None)
 H_lcdm_hubble = lcdm_solution['H_hubble']
 
 # Extract expansion history
-t_lcdm = lcdm_solution['t_Gyr'] - T_START_GYR  # Offset to start at 0
+t_lcdm = lcdm_solution['t_Gyr'] - config.t_start_Gyr  # Offset to start at 0
 a_lcdm_array = lcdm_solution['a']
 size_lcdm_full = BOX_SIZE * (a_lcdm_array / A_START)  # Full resolution curve
 a_lcdm = a_lcdm_array[-1]
@@ -128,251 +92,116 @@ size_lcdm_final = size_lcdm_full[-1]
 
 # Scale box_size so that the RMS radius matches the target
 # For a uniform sphere of radius R, RMS radius = R * sqrt(3/5) ≈ 0.775*R
-# We want RMS = size_lcdm_Gpc, so R_sphere = size_lcdm_Gpc / 0.775
-# This means we need to use a sphere of radius: size_lcdm_Gpc/2 / sqrt(3/5)
 radius_lcdm_max = size_lcdm_final / 2 / np.sqrt(3/5)
 print(f"   ΛCDM final a(t) = {a_lcdm:.4f}, size = {size_lcdm_final:.2f} Gpc")
 
-results = []
-sim_count = 0  # Track total simulations
+# Create baseline object for parameter sweep module
+baseline = LCDMBaseline(
+    t_Gyr=t_lcdm,
+    size_Gpc=size_lcdm_full,
+    H_hubble=H_lcdm_hubble,
+    size_final_Gpc=size_lcdm_final,
+    radius_max_Gpc=radius_lcdm_max,
+    a_final=a_lcdm
+)
 
-def sim(M_factor, S_gpc, centerM, desc, seed):
+# Track simulation count for efficiency reporting
+sim_count = 0
+
+def sim_callback(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResult:
+    """
+    Run a single External-Node simulation and return raw results.
+
+    This callback is passed to the parameter sweep module.
+    """
     global sim_count
     sim_count += 1
+    desc = f"M={M_factor}, S={S_gpc}, centerM={centerM}"
     print(f"\n2. Testing {desc} (sim #{sim_count})")
 
     # Create simulation parameters
     sim_params = SimulationParameters(
         M_value=M_factor,
         S_value=S_gpc,
-        n_particles=PARTICLE_COUNT,
+        n_particles=config.particle_count*int(math.log(centerM*centerM, 2)+1),
         seed=seed,
-        t_start_Gyr=T_START_GYR,
-        t_duration_Gyr=T_DURATION_GYR,
-        n_steps=N_STEPS,
-        damping_factor=DAMPING_FACTOR,
-        center_node_mass=centerM
+        t_start_Gyr=config.t_start_Gyr,
+        t_duration_Gyr=config.t_duration_Gyr,
+        n_steps=config.n_steps,
+        damping_factor=config.damping_factor,
+        center_node_mass=centerM,
+        mass_randomize=0.0  # 0.0 for Equal masses for deterministic test
     )
 
     # Run simulation
     sim_ext = CosmologicalSimulation(sim_params, BOX_SIZE, A_START,
                                       use_external_nodes=True, use_dark_energy=False)
-    ext_results = run_and_extract_results(sim_ext, T_DURATION_GYR, N_STEPS, save_interval=SAVE_INTERVAL)
+    ext_results = run_and_extract_results(sim_ext, config.t_duration_Gyr, config.n_steps,
+                                           save_interval=config.save_interval)
+
     a_ext = ext_results['a'][-1]
     size_ext_final = ext_results['diameter_Gpc'][-1]
-    size_ext_curve = ext_results['diameter_Gpc']  # Full expansion history
+    size_ext_curve = ext_results['diameter_Gpc']
     radius_max_final = ext_results['max_radius_Gpc'][-1]
-    t_ext = ext_results['t_Gyr']  # Time points from simulation
+    t_ext = ext_results['t_Gyr']
 
     hubble_ext = calculate_hubble_parameters(t_ext, ext_results['a'], smooth_sigma=0.0)
 
-    # LCDM curve should now match N-body time points exactly (no interpolation needed)
-    size_lcdm_curve = size_lcdm_full
-
-
-    half_point = len(size_lcdm_curve)//2
-
-    # Calculate match using full curve comparison
-    match_curve_pct = compare_expansion_histories(size_ext_curve[half_point:], size_lcdm_curve[half_point:])
-    match_end_pct = compare_expansion_history(size_ext_final, size_lcdm_final)
-    match_max_pct = compare_expansion_history(radius_max_final, radius_lcdm_max)
-    match_hubble_curve_pct = compare_expansion_histories(hubble_ext[half_point:], H_lcdm_hubble[half_point:])
-
-    # Weighted average: curve shape (50%) + endpoint (30%) + Hubble rate (10%) + max radius (10%)
-    #match_avg_pct = (match_hubble_curve_pct*0.1 + match_curve_pct*0.5 + match_end_pct*0.3 + match_max_pct*0.1)
-    match_avg_pct = (match_hubble_curve_pct*0.05 + match_curve_pct*0.8 + match_end_pct*0.1 + match_max_pct*0.05)
-    diff_pct = 100 - match_avg_pct
-
     print(f"   External-Node final a(t) = {a_ext:.4f}, size = {size_ext_final:.2f} Gpc")
-    print(f"   Match: {match_avg_pct:.2f}% (curve {(match_curve_pct):.2f}%, end {(match_end_pct):.2f}%, radius {(match_max_pct):.2f}%, Hubble {(match_hubble_curve_pct):.2f}%)")
 
-    return {
-        'M_factor': M_factor,
-        'S_gpc': S_gpc,
-        'centerM': centerM,
-        'desc': desc,
-        'a_ext': a_ext,
-        'size_ext': size_ext_final,
-        'match_curve_pct': match_curve_pct,
-        'match_avg_pct': match_avg_pct,
-        'match_end_pct': match_end_pct,
-        'match_max_pct': match_max_pct,
-        'match_hubble_curve_pct': match_hubble_curve_pct,
-        'diff_pct': diff_pct,
-        'params': sim_params.external_params
-    }
-
-def sim_check(M_factor, S_gpc, centerM, desc):
-    return sim(M_factor, S_gpc, centerM, desc, seed=42)
-    # Take the worst of 2 seeds to avoid lucky runs
-    result1 = sim(M_factor, S_gpc, centerM, desc, seed=42)
-    result2 = sim(M_factor, S_gpc, centerM, desc, seed=123)
-    if result1['match_avg_pct'] < result2['match_avg_pct']:
-        return result1
-    return result2    
-
-def ternary_search_S(M_factor, S_min=SMin_gpc, S_max=SMax_gpc, S_hint=None, hint_window=10, centerM=1):
-    """
-    Ternary search for optimal S given fixed M.
-    Assumes unimodal (bell curve) match quality.
-
-    Args:
-        M_factor: Mass factor to test
-        S_min: Minimum S value
-        S_max: Maximum S value
-        S_hint: Previous best S (warm start)
-        hint_window: Search within ±hint_window of S_hint first
-
-    Returns: (best_S, best_match_pct, best_result_dict)
-    """
-    # Track all evaluated results to return the best
-    evaluated = {}
-
-    def evaluate_S(S_val):
-        """Evaluate and cache simulation result for given S"""
-        S_val = round(S_val)  # Round to integer
-        if S_val not in evaluated:
-            result = sim_check(M_factor, S_val, centerM, f"M={M_factor}, S={S_val}, centerM={centerM}")
-            results.append(result)
-            evaluated[S_val] = result
-        return evaluated[S_val]['match_avg_pct']
-
-    # Warm start: if we have a hint, search locally first
-    if S_hint is not None:
-        begin = max(S_min, S_hint - hint_window)
-        end = min(S_max, S_hint + hint_window)
-        print(f"   Warm start: searching [{begin}, {end}] around S={S_hint}")
-    else:
-        begin = S_min
-        end = S_max
-
-    while end - begin > 3:
-        # Ternary search: divide range into thirds
-        low = (begin * 2 + end) // 3
-        high = (begin + end * 2) // 3
-
-        if evaluate_S(low) > evaluate_S(high):
-            # Maximum is in [begin, high)
-            end = high - 1
-        else:
-            # Maximum is in (low, end]
-            begin = low + 1
-
-    # Exhaustively check remaining small range
-    for S_val in range(begin, end + 1):
-        evaluate_S(S_val)
-
-    # Find best result from all evaluations
-    best_S = max(evaluated.keys(), key=lambda s: evaluated[s]['match_avg_pct'])
-    best_result = evaluated[best_S]
-    best_match = best_result['match_avg_pct']
-
-    return best_S, best_match, best_result
+    return SimResult(
+        size_curve_Gpc=size_ext_curve,
+        hubble_curve=hubble_ext,
+        size_final_Gpc=size_ext_final,
+        radius_max_Gpc=radius_max_final,
+        a_final=a_ext,
+        t_Gyr=t_ext,
+        params=sim_params.external_params
+    )
 
 
-for centerM in centerMasses:
-    # Ternary search for each M
-    prev_best_S = None
-    if SEARCH_METHOD == SearchMethod.BRUTE_FORCE:
-        for M in Mlist:
-            for S in Slist:
-                desc = f"M={M}×M_obs, S={S}Gpc, centerM={centerM}"
-                results.append(sim_check(M, S, centerM, desc))
-    elif SEARCH_METHOD == SearchMethod.TERNARY_SEARCH:
-        for M in Mlist:
-            print(f"\n{'='*70}")
-            print(f"Searching optimal S for M={M}×M_obs")
-            print(f"{'='*70}")
-            S_best, match_avg_pct, result = ternary_search_S(M, S_hint=prev_best_S, 
-                                                        S_max=prev_best_S if prev_best_S else SMax_gpc,
-                                                        hint_window=prev_best_S//4 if prev_best_S else SMax_gpc//4, centerM=centerM)  # Going from high mass to low mass, it needs to be lower
-            #results.append(result)
-            print(f"\n   → Best S for M={M}: S={S_best:.1f} Gpc, match={match_avg_pct:.2f}%")
-            prev_best_S = S_best  # Use as hint for next M
-            if S_best == SMin_gpc or S_best == SMax_gpc:
-                print("   ⚠️  Warning: Best S is at search boundary. Consider expanding S range for better results.")
-                if S_best == SMin_gpc:
-                    break  # No point in going to lower M if S is already at minimum
-    elif SEARCH_METHOD == SearchMethod.LINEAR_SEARCH:
-        for M in Mlist:
-            print(f"\n{'='*70}")
-            print(f"Linear search for M={M}×M_obs")
-            print(f"{'='*70}")
+# Run the sweep
+results = run_sweep(config, SEARCH_METHOD, sim_callback, baseline, weights, seed=42)
 
-            S_min = SMin_gpc
-            S_max = prev_best_S if prev_best_S else SMax_gpc # prev_best_S+1?
+# Save all results to CSV
+os.makedirs('./results', exist_ok=True)
+csv_path = './results/sweep_results.csv'
 
-            current_evaluated = []
-            S_list = list(range(S_max, S_min - 1, -1)) 
-            i = 0
-            while i < len(S_list):
-                S = S_list[i]
-                desc = f"M={M}, S={S}, centerM={centerM}"
-                result = sim_check(M, S, centerM, desc)
-                results.append(result)
-                print(f"S={S}, M={M}, Match={result['match_avg_pct']}")
-                
-                if current_evaluated:
-                    if result['match_avg_pct'] <= 0:
-                        print("\tMatch below 0%, stopping search for this M.")
-                        break
-                    if current_evaluated[-1][1]['match_curve_pct'] > result['match_curve_pct']*1.0001 and current_evaluated[-1][1]['match_avg_pct'] > result['match_avg_pct']*1.00025:
-                        print("\tMatch decreasing > 0.01%, stopping search for this M.")
-                        break
-                    # if almost equal 0, skip one S
-                    diff = result['match_curve_pct'] - current_evaluated[-1][1]['match_curve_pct']
-                    print(f"\tMATCH CHANGE: {diff:.4f}%")
-                    if S > 40:  # Only skip if we have room to skip
-                        if abs(diff) < 0.002:
-                            print("\tMatch change < 0.002%, skipping S/10 S.")
-                            i += max(1,int(S/10*centerM))
-                        elif diff > 0 and diff < 0.01:
-                            print("\tMatch change < 0.01%, skipping 2 S.")
-                            i += 2
-                        elif diff > 0 and diff < 0.02:
-                            print("\tMatch change < 0.02%, skipping 1 S.")
-                            i += 1                            
-                elif result['match_avg_pct'] <= 0:
-                    print("\tMatch below 0%, trying to find a better one, skipping S/10 S.")
-                    i += max(1,int(S/10*centerM))
-                    continue# Don't add negative result
-                current_evaluated.append((S, result))
-                i += 1
-            print(f"Done i {i}, list len{len(S_list)}: {S_list} ({S_min} - {S_max})")
-            #exit(1)
-                
-            # Find best result from current evaluations
-            if prev_best_S == SMin_gpc:
-                break  # No point in going to lower M if S is already at minimum
-            prev_best_S, best_result = max(current_evaluated, key=lambda x: x[1]['match_avg_pct'])
-            
+csv_columns = ['M_factor', 'S_gpc', 'centerM', 'match_avg_pct', 'diff_pct',
+               'match_curve_pct', 'match_half_curve_pct', 'match_end_pct', 'match_max_pct',
+               'match_hubble_curve_pct', 'match_hubble_half_curve_pct',
+               'a_ext', 'size_ext', 'desc']
+
+with open(csv_path, 'w', newline='') as f:
+    writer = csv.DictWriter(f, fieldnames=csv_columns, extrasaction='ignore')
+    writer.writeheader()
+    writer.writerows(results)
+
+print(f"\n✓ Saved {len(results)} results to {csv_path}")
+
+# Build best per S
+best_per_s = {}
+for r in results:
+    s = r['S_gpc']
+    if s not in best_per_s or r['match_avg_pct'] > best_per_s[s]['match_avg_pct']:
+        best_per_s[s] = r
+
+# Sort by S ascending
+best_per_s_list = [best_per_s[s] for s in sorted(best_per_s.keys())]
+
+# Print best per S results
 print("\n" + "="*70)
-
-print("RESULTS BY MASS")
+print("BEST PER S")
 print("="*70)
 
-# Sort by best match
-results.reverse() # Original order was descending M
-
-print(f"\n{'Config':<20} {'M×M_obs':<10} {'centerM':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'End%':<10} {'Radius%':<10} {'Hubble%':<10}")
-print("-" * 70)
-for r in results:
+print(f"\n{'Config':<20} {'M×M_obs':<10} {'centerM':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'Half%':<10} {'End%':<10} {'Hubble%':<10}")
+print("-" * 100)
+for r in best_per_s_list:
     print(f"{r['desc']:<20} {r['M_factor']:<10} {r['centerM']:<10} {r['S_gpc']:<10.1f} "
-          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_max_pct']:<10.2f} {r['match_hubble_curve_pct']:<10.2f}")
-print("\n" + "="*70)
+          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_half_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_hubble_curve_pct']:<10.2f}")
 
-print("RESULTS SUMMARY")
-print("="*70)
-
-# Sort by best match
-results.sort(key=lambda x: x['diff_pct'])
-
-print(f"\n{'Config':<20} {'M×M_obs':<10} {'centerM':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'End%':<10} {'Radius%':<10} {'Hubble%':<10}")
-print("-" * 70)
-for r in results:
-    print(f"{r['desc']:<20} {r['M_factor']:<10} {'centerM':<10} {r['S_gpc']:<10.1f} "
-          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_max_pct']:<10.2f} {r['match_hubble_curve_pct']:<10.2f}")
-best = results[0]
+# Find overall best
+best = max(results, key=lambda x: x['match_avg_pct'])
 print(f"\n★ BEST MATCH: {best['desc']}")
 print(f"   M = {best['M_factor']} × M_obs")
 print(f"   S = {best['S_gpc']:.1f} Gpc")
@@ -386,9 +215,11 @@ print(f"Total simulations run: {sim_count}")
 print(f"Brute force would require: {nbConfigs_bruteforce}")
 print(f"Speedup: {nbConfigs_bruteforce/sim_count:.1f}×")
 
-# Save best configuration
-os.makedirs('./results', exist_ok=True)
-with open('./results/best_config.pkl', 'wb') as f:
-    pickle.dump(best, f)
+# Save best per S to CSV
+csv_path_best_s = './results/sweep_best_per_S.csv'
+with open(csv_path_best_s, 'w', newline='') as f:
+    writer = csv.DictWriter(f, fieldnames=csv_columns, extrasaction='ignore')
+    writer.writeheader()
+    writer.writerows(best_per_s_list)
 
-print(f"\n✓ Saved best configuration to results/best_config.pkl")
+print(f"\n✓ Saved {len(best_per_s_list)} best-per-S results to {csv_path_best_s}")

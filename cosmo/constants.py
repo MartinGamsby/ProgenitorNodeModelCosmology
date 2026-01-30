@@ -116,7 +116,8 @@ class SimulationParameters:
 
     def __init__(self, M_value: float = 800, S_value: float = 24.0, n_particles: int = 300, seed: int = 42,
                  t_start_Gyr: float = 10.8, t_duration_Gyr: float = 6.0, n_steps: int = 150,
-                 damping_factor: float = None, center_node_mass: float = 1.0):
+                 damping_factor: float = None, center_node_mass: float = 1.0,
+                 mass_randomize: float = 0.5):
         """
         Initialize simulation parameters.
 
@@ -132,6 +133,8 @@ class SimulationParameters:
             center_node_mass: Central node mass as multiple of M_observable.
                               Default 1.0 = 1 x M_observable_kg.
                               Affects total_mass_kg and softening scaling.
+            mass_randomize: Particle mass randomization (0.0=equal masses,
+                           1.0=masses from 0 to 2x mean). Default 0.5.
         """
         self.M_value = M_value
         self.S_value = S_value
@@ -142,6 +145,7 @@ class SimulationParameters:
         self.n_steps = n_steps
         self.damping_factor = damping_factor
         self.center_node_mass = center_node_mass
+        self.mass_randomize = mass_randomize
 
         # Calculate derived quantities
         self._calculate_derived()

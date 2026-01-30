@@ -50,6 +50,9 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--center-node-mass', type=float, default=1.0,
                         help='Central (progenitor) node mass as multiple of M_observable. '
                              'Affects total_mass_kg and softening_m scaling.')
+    parser.add_argument('--mass-randomize', type=float, default=0.5,
+                        help='Particle mass randomization (0.0=equal, 1.0=0 to 2x mean). '
+                             'Total mass is preserved.')
 
     # Mode flags
     parser.add_argument('--compare', action='store_true',
@@ -101,5 +104,6 @@ def args_to_sim_params(args: argparse.Namespace) -> SimulationParameters:
         t_duration_Gyr=args.t_duration,
         n_steps=args.n_steps,
         damping_factor=args.damping,
-        center_node_mass=args.center_node_mass
+        center_node_mass=args.center_node_mass,
+        mass_randomize=args.mass_randomize
     )

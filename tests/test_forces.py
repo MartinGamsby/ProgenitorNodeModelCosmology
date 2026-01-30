@@ -23,7 +23,8 @@ class TestGravitationalForces(unittest.TestCase):
             n_particles=2,
             box_size_m=1.0 * self.const.Gpc_to_m,
             total_mass_kg=2e53,
-            damping_factor_override=0.0
+            damping_factor_override=0.0,
+            mass_randomize=0.0  # Equal masses for deterministic test
         )
 
         # Place particles along x-axis
@@ -64,7 +65,8 @@ class TestGravitationalForces(unittest.TestCase):
             n_particles=2,
             box_size_m=1.0 * self.const.Gpc_to_m,
             total_mass_kg=3e53,
-            damping_factor_override=0.0
+            damping_factor_override=0.0,
+            mass_randomize=0.0  # Equal masses for deterministic test
         )
 
         # Known configuration

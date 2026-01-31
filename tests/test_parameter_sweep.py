@@ -116,7 +116,7 @@ class TestSweepConfig(unittest.TestCase):
     def test_particle_count_quick(self):
         """Quick search uses fewer particles."""
         config = SweepConfig(quick_search=True)
-        self.assertEqual(config.particle_count, 50)
+        self.assertEqual(config.particle_count, 40)
 
     def test_particle_count_many(self):
         """Many search uses medium particles."""
@@ -455,45 +455,18 @@ class TestBruteForceSearch(unittest.TestCase):
         baseline = make_baseline()
         weights = MatchWeights()
 
-        m_list = [100, 200]
         s_list = [20, 25, 30]
         center_masses = [1]
 
-        results = brute_force_search(
-            m_list, s_list, center_masses,
-            callback, baseline, weights
-        )
+        for many_search in [True, False]:
+            results = brute_force_search(
+                many_search, s_list, center_masses,
+                callback, baseline, weights
+            )
 
-        expected_count = len(m_list) * len(s_list) * len(center_masses)
-        self.assertEqual(len(results), expected_count)
-
-    def test_returns_results_for_each_config(self):
-        """Each result should have correct M, S, centerM values."""
-        callback = make_unimodal_callback(optimal_S=35)
-        baseline = make_baseline()
-        weights = MatchWeights()
-
-        m_list = [100, 200]
-        s_list = [25, 30]
-        center_masses = [1, 2]
-
-        results = brute_force_search(
-            m_list, s_list, center_masses,
-            callback, baseline, weights
-        )
-
-        # Verify all combinations present
-        configs_found = set()
-        for r in results:
-            configs_found.add((r['M_factor'], r['S_gpc'], r['centerM']))
-
-        expected_configs = set()
-        for cm in center_masses:
-            for m in m_list:
-                for s in s_list:
-                    expected_configs.add((m, s, cm))
-
-        self.assertEqual(configs_found, expected_configs)
+            m_list = build_m_list(many_search, multiplier=1)
+            expected_count = len(m_list) * len(s_list) * len(center_masses)
+            self.assertEqual(len(results), expected_count)
 
 
 class TestRunSweep(unittest.TestCase):

@@ -126,18 +126,12 @@ def calculate_initial_conditions(t_start_Gyr: float, reference_size_today_Gpc: f
     const = CosmologicalConstants()
     lcdm = LambdaCDMParameters()
 
-    # Solve ΛCDM to get scale factors at both t_start and t_today=13.8 Gyr
-    # Must solve to at least 13.8 Gyr to get accurate a_today
-    t_end_solve = max(t_start_Gyr, 13.8) + 1.0  # Add buffer
-    solution = solve_friedmann_equation(0.0, t_end_solve, n_points=400)
-
-    # Find scale factor at t_start
-    idx_start = np.argmin(np.abs(solution['_t_Gyr_full'] - t_start_Gyr))
-    a_start = solution['_a_full'][idx_start]
-
-    # Find scale factor today (13.8 Gyr)
-    idx_today = np.argmin(np.abs(solution['_t_Gyr_full'] - 13.8))
-    a_today = solution['_a_full'][idx_today]
+    # Use solve_friedmann_at_times for consistency with LCDM baseline calculation
+    # This ensures a_start matches exactly what the baseline will use
+    t_today_Gyr = 13.8
+    solution = solve_friedmann_at_times(np.array([t_start_Gyr, t_today_Gyr]))
+    a_start = solution['a'][0]
+    a_today = solution['a'][1]
 
     # Scale box size from today
     box_size_Gpc = reference_size_today_Gpc * (a_start / a_today)

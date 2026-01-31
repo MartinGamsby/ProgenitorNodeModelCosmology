@@ -86,23 +86,22 @@ damping = clip(0.4 - 0.25×q, 0.1, 0.7)
 
 ## Scale Factor at t_start
 
-**File**: run_simulation.py:62-73
+**File**: analysis.py:calculate_initial_conditions
 
-Solve Friedmann ODE from Big Bang → present. Extract a(t_start), calculate initial box_size via:
-```
-box_size_initial = 14.5 Gpc × (a_start / a_today)
+Uses `solve_friedmann_at_times` to get exact a_start, ensuring consistency with LCDM baseline:
+```python
+solution = solve_friedmann_at_times(np.array([t_start_Gyr, t_today_Gyr]))
+a_start = solution['a'][0]
+box_size_Gpc = 14.5 * (a_start / a_today)
 ```
 
-Example: t_start=10.8 Gyr → a≈0.839 → box_size≈12.2 Gpc
+Example: t_start=3.8 Gyr → a≈0.373 → box_size≈5.28 Gpc
 
 ## ΛCDM Baseline Time Alignment
 
-**File**: run_simulation.py:34-100, analysis.py:45-100
+**File**: run_simulation.py:34-100, analysis.py:30-70
 
-**Problem**: Original approach used solve_friedmann_equation with 400-point grid that didn't align with N-body snapshot times, causing:
-- t_lcdm[0] ≈ 0.0028 instead of exactly 0.0
-- a_lcdm[0] differed from a_start by ~0.3%
-- Created "bump" pattern in relative expansion: 0.997, 0.9996, 0.9996...
+**Critical**: Both `calculate_initial_conditions` and `solve_lcdm_baseline` must use `solve_friedmann_at_times` to ensure `a_start` matches exactly. Otherwise relative expansion starts at ~0.998 instead of 1.0.
 
 **Solution**: solve_friedmann_at_times evaluates at **exact** N-body snapshot times:
 

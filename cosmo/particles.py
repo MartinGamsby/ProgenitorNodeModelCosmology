@@ -69,10 +69,10 @@ class ParticleSystem:
         # This ensures each model's N-body matches its own Friedmann solution
         if self.use_dark_energy:
             H_start = lcdm.H_at_time(self.a_start)
-            print(f"[ParticleSystem] Using ΛCDM H(a={self.a_start:.3f}) = {H_start:.3e} s⁻¹")
+            print(f"[ParticleSystem] Using LCDM H(a={self.a_start:.3f}) = {H_start:.3e} /s")
         else:
             H_start = lcdm.H_matter_only(self.a_start)
-            print(f"[ParticleSystem] Using matter-only H(a={self.a_start:.3f}) = {H_start:.3e} s⁻¹")
+            print(f"[ParticleSystem] Using matter-only H(a={self.a_start:.3f}) = {H_start:.3e} /s")
 
         if self.damping_factor is not None:
             damping_factor = self.damping_factor

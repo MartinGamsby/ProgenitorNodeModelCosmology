@@ -70,6 +70,9 @@ class CosmologicalSimulation:
         # Calculate softening based on center_node_mass (scales with mass for stability)
         # 1Gpc softening per Mobs
         softening_m = sim_params.center_node_mass * 1.0 * self.const.Gpc_to_m
+        # Enable Hubble drag for matter-only to match Friedmann expansion
+        use_hubble_drag = not self.use_dark_energy and not use_external_nodes
+
         self.integrator = LeapfrogIntegrator(
             self.particles,
             self.hmea_grid,
@@ -77,7 +80,8 @@ class CosmologicalSimulation:
             use_external_nodes=use_external_nodes,
             use_dark_energy=self.use_dark_energy,
             force_method=force_method,
-            barnes_hut_theta=barnes_hut_theta
+            barnes_hut_theta=barnes_hut_theta,
+            use_hubble_drag=use_hubble_drag
         )
         
         # Simulation results

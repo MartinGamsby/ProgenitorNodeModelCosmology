@@ -63,6 +63,19 @@ class ParticleSystem:
         """Create initial particle distribution with Hubble flow."""
         lcdm = LambdaCDMParameters()
 
+        # ALL models use LCDM Hubble parameter for initial velocity
+        # This ensures identical initial conditions (same position AND velocity)
+        # Divergence comes from different physics during evolution:
+        # - LCDM: gravity + dark energy push
+        # - Matter-only: gravity only (decelerates)
+        # - External-node: gravity + tidal forces
+        #
+        # NOTE: Comparing N-body matter-only against ANALYTIC LCDM will show
+        # immediate divergence because they have different physics. To see
+        # "flat then drop", compare against N-body LCDM or analytic matter-only.
+        #H_start = lcdm.H_at_time(self.a_start)
+        #print(f"[ParticleSystem] H(a={self.a_start:.3f}) = {H_start:.3e} /s")
+
         # Use model-appropriate Hubble parameter for initial velocity
         # ΛCDM: H includes dark energy (Ω_Λ) → higher expansion rate
         # Matter-only: H without dark energy → lower expansion rate
@@ -203,6 +216,11 @@ class ParticleSystem:
         """Set accelerations for all particles."""
         for i, particle in enumerate(self.particles):
             particle.acc = accelerations[i]
+
+    def set_velocities(self, velocities: np.ndarray) -> None:
+        """Set velocities for all particles."""
+        for i, particle in enumerate(self.particles):
+            particle.vel = velocities[i]
 
     def update_positions(self, dt_s: float) -> None:
         """Update positions using current velocities."""

@@ -44,9 +44,14 @@ class LambdaCDMParameters:
         self.t_universe_s = self.t_universe * 365.25 * 24 * 3600  # seconds
         
     def H_at_time(self, a: float) -> float:
-        """Calculate Hubble parameter: H(a) = H₀ √(Ω_m a⁻³ + Ω_Λ)"""
+        """Calculate ΛCDM Hubble parameter: H(a) = H₀ √(Ω_m a⁻³ + Ω_Λ)"""
         import numpy as np
         return self.H0_si * np.sqrt(self.Omega_m / a**3 + self.Omega_Lambda)
+
+    def H_matter_only(self, a: float) -> float:
+        """Calculate matter-only Hubble parameter: H(a) = H₀ √(Ω_m a⁻³) [no dark energy]"""
+        import numpy as np
+        return self.H0_si * np.sqrt(self.Omega_m / a**3)
 
     def __str__(self):
         return (f"ΛCDM Parameters:\n"

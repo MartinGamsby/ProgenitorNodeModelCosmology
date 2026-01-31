@@ -33,11 +33,20 @@ centered_positions *= scale_factor
 
 ## Velocity Initialization
 
-**File**: particles.py:73-130
+**File**: particles.py:66-130
+
+Each model uses its **own** Hubble parameter for initial velocity:
+
+```python
+if self.use_dark_energy:
+    H_start = lcdm.H_at_time(self.a_start)      # ΛCDM: H with Ω_Λ
+else:
+    H_start = lcdm.H_matter_only(self.a_start)  # Matter-only: H without Ω_Λ
+```
 
 `v = damping × H(a_start) × pos + v_peculiar`
 
-Then **COM velocity is removed** (particles.py:118-130):
+Then **COM velocity is removed** (particles.py:190-200):
 ```python
 velocities = np.array([p.vel for p in self.particles])
 com_velocity = np.mean(velocities, axis=0)
@@ -45,10 +54,14 @@ for particle in self.particles:
     particle.vel -= com_velocity
 ```
 
+**Key parameters:**
+- **H(a_start)**: Model-appropriate Hubble parameter
+  - ΛCDM: `H_lcdm(a) = H₀√(Ω_m/a³ + Ω_Λ)` (includes dark energy)
+  - Matter-only: `H_matter(a) = H₀√(Ω_m/a³)` (no dark energy)
+  - At a=0.839: H_lcdm ≈ 2.57e-18 s⁻¹, H_matter ≈ 2.02e-18 s⁻¹ (21% lower)
 - **v_peculiar**: Gaussian noise, σ=100 km/s (realistic galaxy peculiar velocities)
-- **H(a_start)**: Hubble parameter at simulation start from LambdaCDMParameters.H_at_time(a)
-- **damping**: See below
-- **COM removal**: CRITICAL for preventing bulk motion. With random particle positions, Hubble flow v=H×r creates non-zero COM velocity, causing spurious expansion.
+- **damping**: Multiplier on Hubble flow (see below)
+- **COM removal**: CRITICAL for preventing bulk motion
 
 ## Damping Factor Calculation
 
@@ -130,16 +143,17 @@ Enables apples-to-apples comparison.
 
 | Parameter | ΛCDM | External-Node | Matter-only |
 |-----------|------|---------------|-------------|
+| Initial H | H₀√(Ω_m/a³ + Ω_Λ) | H₀√(Ω_m/a³) | H₀√(Ω_m/a³) |
 | Damping | 1.0 benchmark | 1.0 benchmark | 1.0 benchmark |
-| v_init | d×Hr + v_pec - v_COM | d×Hr + v_pec - v_COM | d×Hr + v_pec - v_COM |
-| Ongoing drag | **NO** (proper coords) | None | None |
+| v_init | d×H_lcdm×r + v_pec | d×H_matter×r + v_pec | d×H_matter×r + v_pec |
 | External nodes | No | 26 HMEAs | No |
 | Dark energy | H₀²Ω_Λr | No | No |
 
-**Key changes** (fixing instability bugs):
-- Damping=1.0 is now the benchmark (full Hubble flow)
+**Key changes**:
+- Model-appropriate H: ΛCDM uses H_lcdm (with Ω_Λ), matter-only uses H_matter (no Ω_Λ)
+- Damping=1.0 is the benchmark (full Hubble flow)
 - COM velocity removal prevents bulk drift
-- Hubble drag NOT applied in proper-coordinate ΛCDM (dark energy acceleration handles expansion)
+- Each model's N-body matches its own analytic Friedmann
 
 ## Diagram
 
@@ -158,6 +172,36 @@ graph TD
     I -->|External| K[+HMEA tidal]
     I -->|Matter| L[gravity only]
 ```
+
+## Model-Appropriate Initial Conditions
+
+**KEY PRINCIPLE**: Each model uses its own Hubble parameter for initial velocity.
+
+**Why**: H_lcdm(a) already includes dark energy (Ω_Λ=0.7), giving higher expansion rate.
+If matter-only started with H_lcdm velocities, it would overexpand initially.
+Using H_matter ensures each model's N-body matches its own analytic Friedmann.
+
+**Initial conditions**:
+- Same positions (same seed, RMS normalized to box_size/2)
+- Different velocities:
+  - ΛCDM: v = H_lcdm(a) × r
+  - Matter-only: v = H_matter(a) × r (21% lower at a=0.839)
+  - External-node: v = H_matter(a) × r (matches matter-only start)
+
+**Divergence** from different forces during evolution:
+- ΛCDM: a = a_gravity + a_dark_energy (outward push)
+- Matter-only: a = a_gravity only (inward pull)
+- External-node: a = a_gravity + a_tidal (outward push from HMEAs)
+
+**Expected behavior**:
+- Matter-only expands, but slower than ΛCDM
+- Matter-only decelerates over time (expansion rate decreases)
+- Matter-only NEVER exceeds ΛCDM at any timestep
+
+**Tests enforcing this** (test_early_time_behavior.py):
+- test_identical_initial_positions_different_velocities
+- test_models_use_appropriate_hubble
+- test_matter_only_decelerates_correctly
 
 ## References
 

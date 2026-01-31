@@ -14,7 +14,7 @@
 
 **Tidal acceleration** - Force from external nodes: a = GM_ext × r / |r_node - r|³
 
-**Damping factor** - Coefficient multiplying initial Hubble flow velocities. Compensates for no ongoing Hubble drag in matter-only evolution. Auto-calculated from deceleration parameter (d=0.4-0.25×q, clipped to 0.1-0.7) unless explicitly overridden. Empirical best-fit: 0.91.
+**Damping factor** - Coefficient multiplying initial Hubble flow velocities. With damping=1.0, each model starts with v = H × r where H is model-appropriate (H_lcdm for ΛCDM, H_matter for matter-only). Auto-calculated from deceleration parameter unless explicitly overridden. For physics tests, use damping=1.0.
 
 **Deceleration parameter (q)** - Measure of expansion deceleration: q = 0.5×Ω_m(a)/[Ω_m(a)+Ω_Λ] - 1.0. Positive q means deceleration (matter-dominated), negative q means acceleration (Λ-dominated). Used to auto-calculate damping factor.
 
@@ -31,6 +31,9 @@
 **Scale factor (a)** - Cosmic expansion parameter. a=1 at present, a<1 in past, a>1 in future.
 
 **Hubble parameter (H)** - Expansion rate H = ȧ/a. Current: H₀ ≈ 70 km/s/Mpc.
+  - H_lcdm(a) = H₀√(Ω_m/a³ + Ω_Λ) - includes dark energy
+  - H_matter(a) = H₀√(Ω_m/a³) - matter-only, no dark energy
+  - At a=0.839: H_lcdm ≈ 2.57e-18 s⁻¹, H_matter ≈ 2.02e-18 s⁻¹ (21% lower)
 
 **Leapfrog** - Symplectic integrator using Kick-Drift-Kick algorithm. Energy-conserving.
 

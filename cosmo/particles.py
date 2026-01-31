@@ -28,7 +28,7 @@ class ParticleSystem:
     
     def __init__(self, n_particles: int = 1000, box_size_m: Optional[float] = None,
                  total_mass_kg: Optional[float] = None, a_start: float = 1.0,
-                 use_dark_energy: bool = True, damping_factor_override: float = 0.91,
+                 use_dark_energy: bool = True, damping_factor_override: float = None,
                  mass_randomize: float = 0.5):
         """
         Initialize particle system with damped Hubble flow initial conditions.
@@ -63,29 +63,22 @@ class ParticleSystem:
         """Create initial particle distribution with Hubble flow."""
         lcdm = LambdaCDMParameters()
 
-        H_start = lcdm.H_at_time(self.a_start)
+        # Use model-appropriate Hubble parameter for initial velocity
+        # ΛCDM: H includes dark energy (Ω_Λ) → higher expansion rate
+        # Matter-only: H without dark energy → lower expansion rate
+        # This ensures each model's N-body matches its own Friedmann solution
+        if self.use_dark_energy:
+            H_start = lcdm.H_at_time(self.a_start)
+            print(f"[ParticleSystem] Using ΛCDM H(a={self.a_start:.3f}) = {H_start:.3e} s⁻¹")
+        else:
+            H_start = lcdm.H_matter_only(self.a_start)
+            print(f"[ParticleSystem] Using matter-only H(a={self.a_start:.3f}) = {H_start:.3e} s⁻¹")
 
         if self.damping_factor is not None:
             damping_factor = self.damping_factor
         else:
-            # where Omega_m(a) = Omega_m / a^3 / [Omega_m / a^3 + Omega_Lambda]
-            Omega_m_eff = lcdm.Omega_m / self.a_start**3
-            Omega_Lambda_eff = lcdm.Omega_Lambda
-            total_omega = Omega_m_eff + Omega_Lambda_eff
-
-            if total_omega > 0:
-                q = 0.5 * Omega_m_eff / total_omega - 1.0
-            else:
-                q = 0.5  # Default to matter-dominated if something goes wrong
-
-            # Damping factor based on deceleration parameter
-            # q > 0 (decelerating) → more damping needed
-            # q < 0 (accelerating) → less damping needed
-            # Range: ~0.15 (strong deceleration) to ~0.65 (acceleration)
-            damping_factor = 0.4 - 0.25 * q
-
-            # Clamp to reasonable range
-            damping_factor = np.clip(damping_factor, 0.1, 0.7)
+            damping_factor = 1
+        damping_factor = np.clip(damping_factor, 0.0, 1.0)
 
         print("[ParticleSystem] Damping factor for initial:", damping_factor)
 

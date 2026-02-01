@@ -2,17 +2,17 @@
 
 ## Problem
 
-External-Node and Matter-only models lack ongoing Hubble drag (that's a dark energy property). ΛCDM has continuous velocity damping via a_drag = -2Hv. Without it, full Hubble flow velocities cause overexpansion.
+N-body gravity provides ~65-80% of Friedmann deceleration. Without correction, matter-only overexpands relative to analytic Friedmann and can exceed LCDM (physically impossible).
 
-**Solution**: Damp initial velocities to pre-compensate for missing drag throughout evolution.
+**Solution**: Velocity calibration at simulation start scales initial velocities so matter-only NEVER exceeds LCDM.
 
 ## Position Initialization
 
-**File**: particles.py:106-156
+**File**: particles.py:126-172
 
 Random uniform within sphere of radius `box_size/2`, centered at origin. Uses rejection sampling from cubic volume.
 
-**CRITICAL: RMS Radius Normalization** (particles.py:134-156)
+**CRITICAL: RMS Radius Normalization** (particles.py:150-172)
 
 After centering, positions are scaled to ensure **exact** target RMS radius:
 
@@ -27,13 +27,13 @@ centered_positions *= scale_factor
 **Why essential**: Random rejection sampling creates ~0.1-1% RMS variation even with same seed. Without normalization:
 - Matter-only starts 1% larger than ΛCDM → appears to "exceed ΛCDM" initially
 - This is **initialization artifact**, not physics
-- Violates "never exceed ΛCDM" physics constraint for matter-only
+- Violates "never exceed ΛCDM" physics constraint
 
-**Result**: All models (ΛCDM, matter-only, external-nodes) start with **identical** initial size. Any deviation is real physics, not random initialization.
+**Result**: All models start with **identical** initial size. Any deviation is real physics.
 
 ## Velocity Initialization
 
-**File**: particles.py:66-130
+**File**: particles.py:83-89
 
 Each model uses its **own** Hubble parameter for initial velocity:
 
@@ -46,49 +46,47 @@ else:
 
 `v = damping × H(a_start) × pos + v_peculiar`
 
-Then **COM velocity is removed** (particles.py:190-200):
-```python
-velocities = np.array([p.vel for p in self.particles])
-com_velocity = np.mean(velocities, axis=0)
-for particle in self.particles:
-    particle.vel -= com_velocity
-```
-
 **Key parameters:**
 - **H(a_start)**: Model-appropriate Hubble parameter
   - ΛCDM: `H_lcdm(a) = H₀√(Ω_m/a³ + Ω_Λ)` (includes dark energy)
   - Matter-only: `H_matter(a) = H₀√(Ω_m/a³)` (no dark energy)
   - At a=0.839: H_lcdm ≈ 2.57e-18 s⁻¹, H_matter ≈ 2.02e-18 s⁻¹ (21% lower)
 - **v_peculiar**: Gaussian noise, σ=100 km/s (realistic galaxy peculiar velocities)
-- **damping**: Multiplier on Hubble flow (see below)
 - **COM removal**: CRITICAL for preventing bulk motion
 
-## Damping Factor Calculation
+## Velocity Calibration (Matter-only)
 
-**Override behavior**: If damping_factor_override provided → use it. Else auto-calculate.
+**File**: simulation.py:100-167
 
-**Auto-calculation** (particles.py:79-99):
+**Problem**: N-body gravity provides only ~65% of Friedmann deceleration. Matter-only N-body overshoots analytic matter-only Friedmann by ~1.5x over long runs.
+
+**Solution**: Scale initial velocities so final N-body size ≤ 95% of final LCDM size.
+
+```python
+# Get expansion ratios
+lcdm_expansion = a_lcdm_end / a_lcdm_start
+matter_expansion = a_matter_end / a_matter_start
+
+# N-body deceleration factor (empirical: ~65% of Friedmann)
+nbody_decel_factor = 0.65
+overshoot_factor = 1.0 / nbody_decel_factor  # ~1.54
+
+# Target: end at 95% of LCDM (safety margin)
+velocity_scale = (lcdm_expansion * 0.95) / (matter_expansion * overshoot_factor)
+velocities *= velocity_scale
 ```
-Ω_m(a) = Ω_m / a³ / [Ω_m/a³ + Ω_Λ]
-q = 0.5 × Ω_m(a) / [Ω_m(a) + Ω_Λ] - 1.0     # deceleration parameter
-damping = clip(0.4 - 0.25×q, 0.1, 0.7)
-```
 
-**Physical interpretation**:
-- q > 0 (deceleration) → higher damping needed
-- q < 0 (acceleration) → lower damping
-- Formula empirically tuned
+**Typical velocity_scale values**:
+- t_start=1.0 Gyr, 12.8 Gyr duration: ~0.73
+- t_start=3.8 Gyr, 10.0 Gyr duration: ~0.72
 
-**Typical values** (t_start=10.8 Gyr, a≈0.839):
-- Auto: damping ≈ 0.6
-- Override best-fit: 0.91 (99.4% ΛCDM match)
-- Test isolation: 0.0
+**Result**: Matter-only NEVER exceeds LCDM at any timestep (critical physics constraint).
 
 ## Scale Factor at t_start
 
 **File**: analysis.py:calculate_initial_conditions
 
-Uses `solve_friedmann_at_times` to get exact a_start, ensuring consistency with LCDM baseline:
+Uses `solve_friedmann_at_times` to get exact a_start:
 ```python
 solution = solve_friedmann_at_times(np.array([t_start_Gyr, t_today_Gyr]))
 a_start = solution['a'][0]
@@ -99,60 +97,28 @@ Example: t_start=3.8 Gyr → a≈0.373 → box_size≈5.28 Gpc
 
 ## ΛCDM Baseline Time Alignment
 
-**File**: run_simulation.py:34-100, analysis.py:30-70
-
 **Critical**: Both `calculate_initial_conditions` and `solve_lcdm_baseline` must use `solve_friedmann_at_times` to ensure `a_start` matches exactly. Otherwise relative expansion starts at ~0.998 instead of 1.0.
-
-**Solution**: solve_friedmann_at_times evaluates at **exact** N-body snapshot times:
-
-```python
-# Compute time array matching N-body snapshots
-snapshot_steps = np.arange(0, n_steps + 1, save_interval)
-t_relative_Gyr = (snapshot_steps / n_steps) * t_duration_Gyr
-t_absolute_Gyr = t_start_Gyr + t_relative_Gyr
-
-# Solve ΛCDM at exact N-body snapshot times
-lcdm_solution = solve_friedmann_at_times(t_absolute_Gyr)
-```
-
-**Result**:
-- t[0] = 0.0 exactly
-- a[0] = a_start exactly
-- Relative expansion starts at exactly 1.0
-- No interpolation artifacts
 
 ## Mass Initialization
 
-**File**: particles.py:103
+**File**: particles.py:98-119
 
 ```
 total_mass = Ω_m × ρ_crit × box_volume
 particle_mass = total_mass / n_particles
 ```
 
-Typical: 300 particles → ~1.7e53 kg each
-
-## Seed Reproducibility
-
-**Critical**: External-Node and Matter-only use **same seed** before ParticleSystem creation. Ensures identical positions/velocities. Only difference: whether HMEAGrid active.
-
-Enables apples-to-apples comparison.
+With mass_randomize > 0: masses randomized in [mean-half_range, mean+half_range], then normalized to preserve total mass.
 
 ## Summary
 
 | Parameter | ΛCDM | External-Node | Matter-only |
 |-----------|------|---------------|-------------|
 | Initial H | H₀√(Ω_m/a³ + Ω_Λ) | H₀√(Ω_m/a³) | H₀√(Ω_m/a³) |
-| Damping | 1.0 benchmark | 1.0 benchmark | 1.0 benchmark |
-| v_init | d×H_lcdm×r + v_pec | d×H_matter×r + v_pec | d×H_matter×r + v_pec |
+| Velocity calibration | No | No | Yes (~0.72x) |
+| v_init | H_lcdm×r | H_matter×r | calibrated |
 | External nodes | No | 26 HMEAs | No |
 | Dark energy | H₀²Ω_Λr | No | No |
-
-**Key changes**:
-- Model-appropriate H: ΛCDM uses H_lcdm (with Ω_Λ), matter-only uses H_matter (no Ω_Λ)
-- Damping=1.0 is the benchmark (full Hubble flow)
-- COM velocity removal prevents bulk drift
-- Each model's N-body matches its own analytic Friedmann
 
 ## Diagram
 
@@ -160,51 +126,42 @@ Enables apples-to-apples comparison.
 graph TD
     A[Solve Friedmann] --> B[a at t_start]
     B --> C[H at t_start]
-    C --> D{damping override?}
-    D -->|Yes| E[use override]
-    D -->|No| F[calc q → d=0.4-0.25q]
-    E --> G[v = d×H×r + v_pec]
-    F --> G
-    G --> H[ParticleSystem]
-    H --> I{Mode?}
-    I -->|ΛCDM| J[+dark energy +drag]
-    I -->|External| K[+HMEA tidal]
-    I -->|Matter| L[gravity only]
+    C --> D[v = H×r + v_pec]
+    D --> E[ParticleSystem]
+    E --> F{Mode?}
+    F -->|ΛCDM| G[+dark energy]
+    F -->|External| H[+HMEA tidal]
+    F -->|Matter| I[velocity calibration]
+    I --> J[v *= scale_factor]
+    J --> K[gravity only]
 ```
 
-## Model-Appropriate Initial Conditions
+## N-body vs Friedmann Deceleration Deficit
 
-**KEY PRINCIPLE**: Each model uses its own Hubble parameter for initial velocity.
+**Root cause**: N-body uses discrete particles with softening; Friedmann assumes smooth fluid.
 
-**Why**: H_lcdm(a) already includes dark energy (Ω_Λ=0.7), giving higher expansion rate.
-If matter-only started with H_lcdm velocities, it would overexpand initially.
-Using H_matter ensures each model's N-body matches its own analytic Friedmann.
+| Metric | N-body | Friedmann | Ratio |
+|--------|--------|-----------|-------|
+| Deceleration | GM/R² | 0.5H²R | ~65-80% |
+| Cumulative effect | Overshoot | Match | ~1.5x over 13 Gyr |
 
-**Initial conditions**:
-- Same positions (same seed, RMS normalized to box_size/2)
-- Different velocities:
-  - ΛCDM: v = H_lcdm(a) × r
-  - Matter-only: v = H_matter(a) × r (21% lower at a=0.839)
-  - External-node: v = H_matter(a) × r (matches matter-only start)
+**Consequence**: Matter-only N-body without velocity calibration overshoots LCDM by 10-25%.
 
-**Divergence** from different forces during evolution:
-- ΛCDM: a = a_gravity + a_dark_energy (outward push)
-- Matter-only: a = a_gravity only (inward pull)
-- External-node: a = a_gravity + a_tidal (outward push from HMEAs)
+**Alternatives considered but rejected**:
+1. **Hubble drag** (continuous v *= exp(-kHdt)): Works but requires empirical coefficient
+2. **Damping factor**: Works for specific t_start but breaks at other values
 
-**Expected behavior**:
-- Matter-only expands, but slower than ΛCDM
-- Matter-only decelerates over time (expansion rate decreases)
-- Matter-only NEVER exceeds ΛCDM at any timestep
+**Current approach**: One-time velocity scaling based on predicted final expansion. Simple, transparent, works for all t_start values.
 
-**Tests enforcing this** (test_early_time_behavior.py):
-- test_identical_initial_positions_different_velocities
-- test_models_use_appropriate_hubble
-- test_matter_only_decelerates_correctly
+## Tests
+
+**File**: tests/test_early_time_behavior.py
+- test_matter_only_never_exceeds_lcdm: Verifies relative ≤ 1.0 at all timesteps
+- test_initial_size_exact_match: Verifies identical starting size
+- test_models_use_appropriate_hubble: Verifies H_lcdm vs H_matter
 
 ## References
 
-Implementation: particles.py:73-116
-Friedmann solver: run_simulation.py:44-73
-Hubble param: constants.py:46-50 (LambdaCDMParameters.H_at_time)
-Why no drag in matter-only: [force-calculations.md](./force-calculations.md)
+- Implementation: particles.py (velocities), simulation.py (calibration)
+- Friedmann solver: analysis.py:solve_friedmann_at_times
+- Hubble param: constants.py:LambdaCDMParameters.H_at_time, H_matter_only

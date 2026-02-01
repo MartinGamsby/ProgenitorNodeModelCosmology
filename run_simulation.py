@@ -217,7 +217,7 @@ def run_simulation(output_dir, sim_params, use_max_radius=False):
     )
 
     # Save outputs
-    plot_path = generate_output_filename('figure_simulation_results', sim_params, 'png', output_dir)
+    plot_path = generate_output_filename('sim_plots', sim_params, 'png', output_dir)
     sim_path = generate_output_filename('simulation', sim_params, 'pkl', output_dir)
 
     plt.savefig(plot_path, dpi=150)

@@ -99,7 +99,7 @@ def generate_output_filename(
     sim_params,
     extension='png',
     output_dir='.',
-    include_timestamp=True
+    include_timestamp=False
 ):
     """Generate standardized output filename with parameters."""
     parts = [base_name]
@@ -110,6 +110,7 @@ def generate_output_filename(
     parts.append(f"{sim_params.n_particles}p")
     parts.append(f"{sim_params.t_start_Gyr}-{sim_params.t_end_Gyr}Gyr")
     parts.append(f"{sim_params.M_value}M")
+    parts.append(f"{sim_params.center_node_mass}centerM")
     parts.append(f"{sim_params.S_value}S")
     parts.append(f"{sim_params.n_steps}steps")
 

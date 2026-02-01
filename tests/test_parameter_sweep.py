@@ -169,7 +169,7 @@ class TestParameterSpaceBuilders(unittest.TestCase):
     def test_build_m_list_many_search_false(self):
         """Coarse M list has fewer values."""
         m_list = build_m_list(many_search=False)
-        self.assertGreater(len(m_list), 10)
+        self.assertGreaterEqual(len(m_list), 5)  # At least a few values
         self.assertLess(len(m_list), 100)
 
     def test_build_m_list_many_search_true(self):

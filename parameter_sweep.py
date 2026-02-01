@@ -13,13 +13,14 @@ import csv
 import os
 from typing import List
 from cosmo.constants import CosmologicalConstants, SimulationParameters
-from cosmo.simulation import CosmologicalSimulation
 from cosmo.analysis import (
     calculate_initial_conditions,
-    solve_friedmann_at_times,
     calculate_hubble_parameters
 )
-from cosmo.factories import run_and_extract_results
+from cosmo.factories import (
+    solve_lcdm_baseline,
+    run_external_node_simulation
+)
 from cosmo.parameter_sweep import (
     SearchMethod, SweepConfig, MatchWeights, SimResult, LCDMBaseline,
     build_m_list, build_s_list, build_center_mass_list, run_sweep, compute_match_metrics
@@ -75,33 +76,29 @@ print(f"(Brute force would test {nbConfigs_bruteforce} configurations)")
 # First, solve ΛCDM baseline (analytic solution, not N-body simulation)
 print("\n1. Computing ΛCDM baseline...")
 
-# Compute time array matching N-body snapshot times
-# N-body saves initial snapshot + every SAVE_INTERVAL steps
-snapshot_steps = np.arange(0, config.n_steps + 1, config.save_interval)
-t_relative_Gyr = (snapshot_steps / config.n_steps) * config.t_duration_Gyr
-t_absolute_Gyr = config.t_start_Gyr + t_relative_Gyr
+# Create a dummy SimulationParameters for baseline computation
+# (only time parameters are used by solve_lcdm_baseline)
+baseline_sim_params = SimulationParameters(
+    M_value=1, S_value=1,  # Unused for baseline
+    t_start_Gyr=config.t_start_Gyr,
+    t_duration_Gyr=config.t_duration_Gyr,
+    n_steps=config.n_steps
+)
 
-# Solve ΛCDM at exact N-body snapshot times
-lcdm_solution = solve_friedmann_at_times(t_absolute_Gyr, Omega_Lambda=None)
-H_lcdm_hubble = lcdm_solution['H_hubble']
+# Use shared function for LCDM baseline (same as run_simulation.py)
+lcdm_result = solve_lcdm_baseline(baseline_sim_params, BOX_SIZE, A_START, config.save_interval)
 
-# Extract expansion history
-t_lcdm = lcdm_solution['t_Gyr'] - config.t_start_Gyr  # Offset to start at 0
-a_lcdm_array = lcdm_solution['a']
-size_lcdm_full = BOX_SIZE * (a_lcdm_array / A_START)  # Full resolution curve
-a_lcdm = a_lcdm_array[-1]
-size_lcdm_final = size_lcdm_full[-1]
-
-# Scale box_size so that the RMS radius matches the target
-# For a uniform sphere of radius R, RMS radius = R * sqrt(3/5) ≈ 0.775*R
+# Extract values for LCDMBaseline object
+size_lcdm_final = lcdm_result['diameter_Gpc'][-1]
 radius_lcdm_max = size_lcdm_final / 2 / np.sqrt(3/5)
+a_lcdm = lcdm_result['a'][-1]
 print(f"   ΛCDM final a(t) = {a_lcdm:.4f}, size = {size_lcdm_final:.2f} Gpc")
 
 # Create baseline object for parameter sweep module
 baseline = LCDMBaseline(
-    t_Gyr=t_lcdm,
-    size_Gpc=size_lcdm_full,
-    H_hubble=H_lcdm_hubble,
+    t_Gyr=lcdm_result['t'],
+    size_Gpc=lcdm_result['diameter_Gpc'],
+    H_hubble=lcdm_result['H_hubble'],
     size_final_Gpc=size_lcdm_final,
     radius_max_Gpc=radius_lcdm_max,
     a_final=a_lcdm
@@ -115,13 +112,14 @@ def sim(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResult:
     Run a single External-Node simulation and return raw results.
 
     This callback is passed to the parameter sweep module.
+    Uses shared run_external_node_simulation for consistency with run_simulation.py.
     """
     global sim_count
     sim_count += 1
     desc = f"M={M_factor}, S={S_gpc}, centerM={centerM}"
     print(f"\n2. Testing {desc} (sim #{sim_count})")
 
-    # Create simulation parameters
+    # Create simulation parameters (mass_randomize=0.0 matches CLI default)
     sim_params = SimulationParameters(
         M_value=M_factor,
         S_value=S_gpc,
@@ -132,15 +130,11 @@ def sim(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResult:
         n_steps=config.n_steps,
         damping_factor=config.damping_factor,
         center_node_mass=centerM,
-        mass_randomize=0.0  # 0.0 for Equal masses for deterministic test
+        mass_randomize=0.0  # Matches CLI default for deterministic results
     )
 
-    # Run simulation
-    sim_ext = CosmologicalSimulation(sim_params, BOX_SIZE, A_START,
-                                      use_external_nodes=True, use_dark_energy=False)
-    ext_results = run_and_extract_results(sim_ext, config.t_duration_Gyr, config.n_steps,
-                                           save_interval=config.save_interval,
-                                           damping=config.damping_factor)
+    # Run simulation using shared factory function
+    ext_results = run_external_node_simulation(sim_params, BOX_SIZE, A_START, config.save_interval)
 
     a_ext = ext_results['a'][-1]
     size_ext_final = ext_results['diameter_Gpc'][-1]

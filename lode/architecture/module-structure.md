@@ -147,12 +147,15 @@ graph TD
 **Used by**: `integrator.py` for external force calculations
 
 ### `cosmo/factories.py`
-**Purpose**: Utility functions for running simulations and extracting results.
+**Purpose**: Shared simulation functions used by both run_simulation.py and parameter_sweep.py for consistency.
 
 **Functions**:
 - `run_and_extract_results(sim, t_duration_Gyr, n_steps, save_interval, damping=None)`: Runs simulation with damping parameter, returns dict with t_Gyr, a, diameter_Gpc, max_radius_Gpc, sim
+- `solve_lcdm_baseline(sim_params, box_size_Gpc, a_start, save_interval)`: Compute ΛCDM analytic baseline at N-body snapshot times. Single source of truth for LCDM baseline.
+- `run_external_node_simulation(sim_params, box_size_Gpc, a_start, save_interval)`: Run External-Node N-body simulation
+- `run_matter_only_simulation(sim_params, box_size_Gpc, a_start, save_interval)`: Run matter-only N-body simulation
 
-**Used by**: Scripts needing streamlined simulation execution
+**Used by**: `run_simulation.py`, `parameter_sweep.py`
 
 ### `cosmo/simulation.py`
 **Purpose**: High-level simulation orchestration.
@@ -205,18 +208,22 @@ graph TD
 **Exports**: All functions listed above.
 
 ### `run_simulation.py`
-**Purpose**: Main script orchestrating full comparison workflow.
+**Purpose**: Main script orchestrating full comparison workflow. Uses shared functions from factories.py for consistency with parameter_sweep.py.
 
 **Key functions**:
 - `run_simulation(output_dir, sim_params)`: Runs 3 simulations (ΛCDM analytic, External-Node N-body, Matter-only N-body), generates 4-panel plot
 
-**CLI**: Uses `cosmo.cli.parse_arguments()` and `cosmo.cli.args_to_sim_params()` for argument handling. Supports --M, --S, --particles, --seed, --t-start, --t-duration, --n-steps, --damping, --center-node-mass, --compare, --output-dir.
+**CLI**: Uses `cosmo.cli.parse_arguments()` and `cosmo.cli.args_to_sim_params()` for argument handling. Supports --M, --S, --particles, --seed, --t-start, --t-duration, --n-steps, --damping, --center-node-mass, --mass-randomize, --compare, --output-dir.
+
+**Default values** (aligned with parameter_sweep.py):
+- n_steps=300 (sufficient for accuracy)
+- mass_randomize=0.0 (deterministic for reproducibility)
 
 **Workflow**:
 1. Calculate initial conditions using `analysis.calculate_initial_conditions()`
-2. Solve Friedmann equation for ΛCDM and Matter-only using `analysis.solve_friedmann_equation()`
-3. Run External-Node N-body simulation
-4. Run Matter-only N-body simulation
+2. Solve ΛCDM baseline using `factories.solve_lcdm_baseline()` (shared with parameter_sweep.py)
+3. Run External-Node N-body using `factories.run_external_node_simulation()`
+4. Run Matter-only N-body using `factories.run_matter_only_simulation()`
 5. Compare using `analysis.compare_expansion_histories()`, detect runaways with `analysis.detect_runaway_particles()`
 6. Generate plot using `visualization.format_simulation_title()`
 7. Save using `visualization.generate_output_filename()`
@@ -246,15 +253,16 @@ graph TD
 **Exports**: All classes and functions.
 
 ### `parameter_sweep.py`
-**Purpose**: Script wiring simulation callback to sweep module, handling output formatting.
+**Purpose**: Script wiring simulation callback to sweep module, handling output formatting. Uses shared functions from factories.py for consistency with run_simulation.py.
 
 **Workflow**:
-1. Create SweepConfig and LCDMBaseline from analysis utilities
-2. Define sim_callback that runs real simulations, returns SimResult
-3. Call run_sweep() from cosmo.parameter_sweep module
-4. Format and display results, save best config
+1. Calculate initial conditions using `analysis.calculate_initial_conditions()`
+2. Compute ΛCDM baseline using `factories.solve_lcdm_baseline()` (shared with run_simulation.py)
+3. Define sim_callback that uses `factories.run_external_node_simulation()`, returns SimResult
+4. Call run_sweep() from cosmo.parameter_sweep module
+5. Format and display results, save best config
 
-**Uses**: `cosmo.parameter_sweep.run_sweep()` for search algorithms.
+**Uses**: `cosmo.parameter_sweep.run_sweep()` for search algorithms, `cosmo.factories` for simulation consistency.
 
 ## File Locations
 
@@ -270,7 +278,7 @@ graph TD
 | `cosmo/numba_direct.py` | 82 | Numba JIT O(N²) direct |
 | `cosmo/barnes_hut_numba.py` | 200 | Barnes-Hut O(N log N) octree |
 | `cosmo/tidal_forces_numba.py` | 60 | Numba JIT tidal forces |
-| `cosmo/factories.py` | 39 | Simulation utilities |
+| `cosmo/factories.py` | 120 | Shared simulation functions |
 | `cosmo/parameter_sweep.py` | 350 | Search algorithms, dataclasses |
 | `run_simulation.py` | 280 | Main comparison script |
 | `parameter_sweep.py` | 210 | Parameter exploration script |

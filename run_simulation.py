@@ -9,11 +9,10 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from cosmo.constants import CosmologicalConstants, LambdaCDMParameters, SimulationParameters
+from cosmo.constants import CosmologicalConstants, SimulationParameters
 from cosmo.cli import parse_arguments, args_to_sim_params
 from cosmo.simulation import CosmologicalSimulation
 from cosmo.analysis import (
-    solve_friedmann_at_times,
     calculate_initial_conditions,
     compare_expansion_history,
     compare_expansion_histories,
@@ -25,73 +24,28 @@ from cosmo.visualization import (
     generate_output_filename,
     create_comparison_plot
 )
-from cosmo.factories import run_and_extract_results
-
-
-def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start, save_interval=10):
-    """
-    Solve analytic ΛCDM and matter-only evolution at N-body simulation times.
-
-    Uses exact time alignment with N-body snapshots to eliminate interpolation artifacts.
-    """
-    lcdm_params = LambdaCDMParameters()
-
-    # Compute time array matching N-body snapshots
-    # N-body saves initial snapshot + every save_interval steps
-    n_snapshots = (sim_params.n_steps // save_interval) + 1  # +1 for initial snapshot
-
-    # Time points: 0, dt*save_interval, 2*dt*save_interval, ..., t_duration
-    # This matches exactly what the N-body simulation records
-    snapshot_steps = np.arange(0, sim_params.n_steps + 1, save_interval)
-    t_relative_Gyr = (snapshot_steps / sim_params.n_steps) * sim_params.t_duration_Gyr
-    t_absolute_Gyr = sim_params.t_start_Gyr + t_relative_Gyr
-
-    # Solve ΛCDM at exact N-body snapshot times
-    lcdm_solution = solve_friedmann_at_times(t_absolute_Gyr, Omega_Lambda=lcdm_params.Omega_Lambda)
-    a_lcdm = lcdm_solution['a']
-    H_lcdm_hubble = lcdm_solution['H_hubble']
-
-    # Normalize using the EXACT a_start for consistency with N-body sims
-    # NOTE: lcdm_initial_size = box_size (diameter), matching N-body convention
-    diameter_lcdm_Gpc = lcdm_initial_size * (a_lcdm / a_start)
-
-    print(f"LCDM: {lcdm_initial_size:.3f} -> {diameter_lcdm_Gpc[-1]:.2f} Gpc")
-
-    # Scale box_size so that the RMS radius matches the target
-    # For a uniform sphere of radius R, RMS radius = R * sqrt(3/5) ≈ 0.775*R
-    # We want RMS = size_lcdm_Gpc, so R_sphere = size_lcdm_Gpc / 0.775
-    # This means we need to use a sphere of radius: size_lcdm_Gpc/2 / sqrt(3/5)
-    max_diameter_lcdm_Gpc = diameter_lcdm_Gpc / np.sqrt(3/5)
-    
-    return {
-        't': t_relative_Gyr,  # Time relative to simulation start (starts at exactly 0.0)
-        'a': a_lcdm,
-        'diameter_Gpc': diameter_lcdm_Gpc,  # Diameter in Gpc (matches N-body convention)
-        'max_diameter_Gpc': max_diameter_lcdm_Gpc,
-        'H_hubble': H_lcdm_hubble
-    }
+from cosmo.factories import (
+    run_and_extract_results,
+    solve_lcdm_baseline,
+    run_external_node_simulation,
+    run_matter_only_simulation
+)
 
 
 def run_nbody_simulations(sim_params, box_size, a_start):
     """
-    Run External-Node and Matter-only N-body simulations.
+    Run External-Node and Matter-only N-body simulations using shared factory functions.
     """
     print(f"\nM={sim_params.M_value}, S={sim_params.S_value}, Omega_Lambda_eff={sim_params.external_params.Omega_Lambda_eff:.3f}")
     print(f"{sim_params.n_particles} particles, seed={sim_params.seed}")
 
     # Run External-Node simulation
     print("\nRunning External-Node simulation...")
-    sim_ext = CosmologicalSimulation(sim_params, box_size, a_start,
-                                     use_external_nodes=True, use_dark_energy=False)
-    ext_results = run_and_extract_results(sim_ext, sim_params.t_duration_Gyr, sim_params.n_steps,
-                                          damping=sim_params.damping_factor)
+    ext_results = run_external_node_simulation(sim_params, box_size, a_start)
 
     # Run matter-only simulation
     print("\nRunning Matter-only simulation...")
-    sim_matter = CosmologicalSimulation(sim_params, box_size, a_start,
-                                        use_external_nodes=False, use_dark_energy=False)
-    matter_results = run_and_extract_results(sim_matter, sim_params.t_duration_Gyr, sim_params.n_steps,
-                                             damping=sim_params.damping_factor)
+    matter_results = run_matter_only_simulation(sim_params, box_size, a_start)
 
     return {
         'ext': {
@@ -166,6 +120,7 @@ def run_simulation(output_dir, sim_params, use_max_radius=False):
 
     # Solve analytic baselines (ΛCDM and matter-only)
     baseline = solve_lcdm_baseline(sim_params, box_size, a_at_start)
+    print(f"LCDM: {box_size:.3f} -> {baseline['diameter_Gpc'][-1]:.2f} Gpc")
 
     # Run N-body simulations (External-Node and Matter-only)
     # TODO: Maybe slightly bigger initial size?? (for non-lcdm) (Because it accelerates slower at the beginning...)

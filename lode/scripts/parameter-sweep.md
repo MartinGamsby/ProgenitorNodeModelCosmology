@@ -6,7 +6,11 @@ Grid search over M (mass factor), S (spacing), and centerM (center node mass) to
 
 Logic split between:
 - `cosmo/parameter_sweep.py` - reusable search algorithms, dataclasses, parameter builders
-- `parameter_sweep.py` - script handling simulation setup, callback wiring, output formatting
+- `cosmo/factories.py` - shared simulation functions (solve_lcdm_baseline, run_external_node_simulation)
+- `parameter_sweep.py` - script handling callback wiring, output formatting
+- `run_simulation.py` - single-run CLI using same shared functions
+
+Both `parameter_sweep.py` and `run_simulation.py` use shared functions from `cosmo/factories.py` to ensure identical simulation behavior.
 
 ## Core Types (cosmo/parameter_sweep.py)
 

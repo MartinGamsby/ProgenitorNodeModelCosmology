@@ -41,7 +41,7 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
                         help='Simulation start time since Big Bang (in Gyr)')
     parser.add_argument('--t-duration', type=float, default=10.0,
                         help='Simulation duration (in Gyr)')
-    parser.add_argument('--n-steps', type=int, default=500,
+    parser.add_argument('--n-steps', type=int, default=300,
                         help='Number of simulation timesteps')
 
     # Physics parameters
@@ -50,9 +50,9 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--center-node-mass', type=float, default=1.0,
                         help='Central (progenitor) node mass as multiple of M_observable. '
                              'Affects total_mass_kg and softening_m scaling.')
-    parser.add_argument('--mass-randomize', type=float, default=0.5,
+    parser.add_argument('--mass-randomize', type=float, default=0.0,
                         help='Particle mass randomization (0.0=equal, 1.0=0 to 2x mean). '
-                             'Total mass is preserved.')
+                             'Total mass is preserved. Default 0.0 for deterministic results.')
 
     # Mode flags
     parser.add_argument('--compare', action='store_true',

@@ -31,7 +31,7 @@ const = CosmologicalConstants()
 SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
 QUICK_SEARCH = True
 MULTIPLY_PARTICLES = False
-MANY_SEARCH = False
+MANY_SEARCH = True
 SEARCH_CENTER_MASS = True
 
 config = SweepConfig(

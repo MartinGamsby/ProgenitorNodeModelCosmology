@@ -166,6 +166,10 @@ def run_simulation(output_dir, sim_params, use_max_radius=False):
     baseline = solve_lcdm_baseline(sim_params, box_size, a_at_start)
 
     # Run N-body simulations (External-Node and Matter-only)
+    # TODO: Maybe slightly bigger initial size?? (for non-lcdm) (Because it accelerates slower at the beginning...)
+    # (NOT THAT VALUE! THIS IS ONLY TO TEST!)
+    # PROBABLY DEPENDS ON INITIAL VALUES, M, CenterM, start year, ETC.
+    #box_size*= 1.003
     nbody = run_nbody_simulations(sim_params, box_size, a_at_start)
 
     # Calculate match statistics

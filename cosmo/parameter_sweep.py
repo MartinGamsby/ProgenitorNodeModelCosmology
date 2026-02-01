@@ -35,7 +35,7 @@ class SweepConfig:
     @property
     def particle_count(self) -> int:
         if self.quick_search:
-            return 40
+            return 200#40?
         return 1000 if self.many_search else 2000
 
     @property
@@ -142,7 +142,7 @@ def build_center_mass_list(search_center_mass: bool = True, many_search: bool = 
         return [1]
 
     if many_search:
-        center_masses = generate_increments(200, terms_per_decade=10, min_value=1)
+        center_masses = generate_increments(500, terms_per_decade=10, min_value=1)
     else:
         center_masses = generate_increments(100, terms_per_decade=6, min_value=1)
     return center_masses

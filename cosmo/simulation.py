@@ -57,7 +57,6 @@ class CosmologicalSimulation:
                                        total_mass_kg=total_mass_kg,
                                        a_start=self.a_start,
                                        use_dark_energy=self.use_dark_energy,
-                                       damping_factor_override=sim_params.damping_factor,
                                        mass_randomize=sim_params.mass_randomize)
 
         # Initialize HMEA grid if using External-Node Model
@@ -89,7 +88,7 @@ class CosmologicalSimulation:
         self.snapshots = []
         self.expansion_history = []
 
-    def _calibrate_velocity_for_lcdm_match(self, t_duration_Gyr: float, n_steps: int) -> None:
+    def _calibrate_velocity_for_lcdm_match(self, t_duration_Gyr: float, n_steps: int, damping: float = None) -> None:
         """
         Calibrate initial velocity so matter-only NEVER exceeds LCDM.
 
@@ -130,7 +129,16 @@ class CosmologicalSimulation:
         # N-body deceleration factor: empirically ~65-70% of Friedmann for long runs
         # This means N-body overshoots matter-only Friedmann by ~1/0.65 = 1.54x
         # The deficit compounds over time, so longer runs need larger correction
-        nbody_decel_factor = 0.65
+        
+        if damping is not None:
+            nbody_decel_factor = damping
+        else:
+            # **0.2 to have higher factor faster, but still cap at 1
+            nbody_decel_factor = (self.t_start_Gyr/13.8)**0.13
+        nbody_decel_factor = np.clip(nbody_decel_factor, 0.0, 1.0)
+        print("[Velocity Calibration] Damping factor for initial:", nbody_decel_factor)
+        #print(self.t_start_Gyr, self.t_start_Gyr/13.8, nbody_decel_factor)
+        #exit(1)
 
         # Predicted N-body expansion if starting with full velocity
         # N-body decelerates less, so expands more than matter-only Friedmann
@@ -139,7 +147,7 @@ class CosmologicalSimulation:
 
         # We want: final N-body size ≤ final LCDM size
         # Target: N-body ends at ~95% of LCDM (margin for safety)
-        target_final_relative = 0.95
+        target_final_relative = 1.0
 
         # Required velocity damping to achieve target
         # If full velocity gives expansion E, damped velocity gives ~E * damping
@@ -237,9 +245,8 @@ class CosmologicalSimulation:
         print("="*60 + "\n")
 
         # Velocity calibration for matter-only: find initial velocity so step 2 matches LCDM
-        # This replaces damping factors and Hubble drag with a physics-based calibration
         if not self.use_dark_energy:# and not self.use_external_nodes:
-            self._calibrate_velocity_for_lcdm_match(t_end_Gyr, n_steps)
+            self._calibrate_velocity_for_lcdm_match(t_end_Gyr, n_steps, )
 
         # Run integration
         self.snapshots = self.integrator.evolve(t_end, n_steps, save_interval)

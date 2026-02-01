@@ -28,7 +28,7 @@ class ParticleSystem:
     
     def __init__(self, n_particles: int = 1000, box_size_m: Optional[float] = None,
                  total_mass_kg: Optional[float] = None, a_start: float = 1.0,
-                 use_dark_energy: bool = True, damping_factor_override: float = None,
+                 use_dark_energy: bool = True,
                  mass_randomize: float = 0.5):
         """
         Initialize particle system with damped Hubble flow initial conditions.
@@ -39,7 +39,6 @@ class ParticleSystem:
             total_mass_kg: Total mass in kg (default: M_observable)
             a_start: Initial scale factor
             use_dark_energy: Whether dark energy is enabled
-            damping_factor_override: Damping factor for initial Hubble flow
             mass_randomize: Mass distribution randomness (0.0 = equal masses,
                            1.0 = masses from 0 to 2x mean, 0.5 = default)
         """
@@ -50,7 +49,6 @@ class ParticleSystem:
         self.total_mass_kg = total_mass_kg if total_mass_kg is not None else const.M_observable_kg
         self.a_start = a_start
         self.use_dark_energy = use_dark_energy
-        self.damping_factor = damping_factor_override
         self.mass_randomize = np.clip(mass_randomize, 0.0, 1.0)
 
         self.particles = []
@@ -63,19 +61,6 @@ class ParticleSystem:
         """Create initial particle distribution with Hubble flow."""
         lcdm = LambdaCDMParameters()
 
-        # ALL models use LCDM Hubble parameter for initial velocity
-        # This ensures identical initial conditions (same position AND velocity)
-        # Divergence comes from different physics during evolution:
-        # - LCDM: gravity + dark energy push
-        # - Matter-only: gravity only (decelerates)
-        # - External-node: gravity + tidal forces
-        #
-        # NOTE: Comparing N-body matter-only against ANALYTIC LCDM will show
-        # immediate divergence because they have different physics. To see
-        # "flat then drop", compare against N-body LCDM or analytic matter-only.
-        #H_start = lcdm.H_at_time(self.a_start)
-        #print(f"[ParticleSystem] H(a={self.a_start:.3f}) = {H_start:.3e} /s")
-
         # Use model-appropriate Hubble parameter for initial velocity
         # ΛCDM: H includes dark energy (Ω_Λ) → higher expansion rate
         # Matter-only: H without dark energy → lower expansion rate
@@ -87,13 +72,6 @@ class ParticleSystem:
             H_start = lcdm.H_matter_only(self.a_start)
             print(f"[ParticleSystem] Using matter-only H(a={self.a_start:.3f}) = {H_start:.3e} /s")
 
-        if self.damping_factor is not None:
-            damping_factor = self.damping_factor
-        else:
-            damping_factor = 1
-        damping_factor = np.clip(damping_factor, 0.0, 1.0)
-
-        print("[ParticleSystem] Damping factor for initial:", damping_factor)
 
         # Generate particle masses
         mean_mass_kg = self.total_mass_kg / self.n_particles
@@ -177,7 +155,7 @@ class ParticleSystem:
 
             # Initial velocity: Damped Hubble flow + small peculiar velocity
             # Damping compensates for lack of ongoing Hubble drag during integration
-            v_hubble = damping_factor * H_start * pos
+            v_hubble = H_start * pos
             v_peculiar = np.random.normal(0, 1e5, 3)  # ~100 km/s peculiar velocity
             vel = v_hubble + v_peculiar
 

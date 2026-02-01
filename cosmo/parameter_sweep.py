@@ -27,7 +27,7 @@ class SweepConfig:
     search_center_mass: bool = True
     t_start_Gyr: float = 3.8
     t_duration_Gyr: float = 10.0
-    damping_factor: float = 1
+    damping_factor: float = None
     s_min_gpc: int = 15
     s_max_gpc: int = 60
     save_interval: int = 10
@@ -79,7 +79,7 @@ class LCDMBaseline:
 
 # Type alias for simulation callback
 # Signature: (M_factor, S_gpc, centerM, seed) -> SimResult
-SimCallback = Callable[[int, int, int, int], SimResult]
+SimCallback = Callable[[int, int, int, List[int]], List[SimResult]]
 
 def generate_increments(max_value, terms_per_decade=5, min_value=1):
     """
@@ -119,7 +119,7 @@ def build_m_list(many_search: bool = False, multiplier=1) -> List[int]:
     Fine increments when many_search=True, coarse otherwise.
     """
     if many_search:
-        m_list = generate_increments(1000000*multiplier, terms_per_decade=10, min_value=20)
+        m_list = generate_increments(100000*multiplier, terms_per_decade=10, min_value=20)
     else:
         m_list = generate_increments(25000*multiplier, terms_per_decade=6, min_value=20)
     m_list.reverse()  # Search high M first
@@ -242,6 +242,21 @@ def _build_result_dict(
     }
 
 
+def worst_callback(sim_callback, M_factor, S_val, centerM, seeds, baseline, weights):
+    sim_results = sim_callback(M_factor, S_val, centerM, seeds)
+
+    worst_result = None
+    worst_metrics = None
+    for result in sim_results:
+        metrics = compute_match_metrics(result, baseline, weights)
+        if not worst_result:
+            worst_result = result
+            worst_metrics = metrics
+        elif metrics['match_avg_pct'] < worst_metrics['match_avg_pct']:
+            worst_result = result
+            worst_metrics = metrics
+    return worst_result, worst_metrics
+
 def ternary_search_S(
     M_factor: int,
     centerM: int,
@@ -252,7 +267,7 @@ def ternary_search_S(
     s_max: int,
     s_hint: Optional[int] = None,
     hint_window: int = 10,
-    seed: int = 42
+    seeds: List[int] = [42]
 ) -> Tuple[int, float, Dict[str, Any], List[Dict[str, Any]]]:
     """
     Ternary search for optimal S given fixed M.
@@ -281,8 +296,8 @@ def ternary_search_S(
         """Evaluate and cache simulation result for given S."""
         S_val = round(S_val)
         if S_val not in evaluated:
-            sim_result = sim_callback(M_factor, S_val, centerM, seed)
-            metrics = compute_match_metrics(sim_result, baseline, weights)
+            sim_result, metrics = worst_callback(sim_callback, M_factor, S_val, centerM, seeds, baseline, weights)
+
             evaluated[S_val] = (sim_result, metrics)
             result_dict = _build_result_dict(M_factor, S_val, centerM, sim_result, metrics)
             all_results.append(result_dict)
@@ -328,7 +343,7 @@ def linear_search_S(
     s_min: int,
     s_max: int,
     prev_best_S: Optional[int] = None,
-    seed: int = 42
+    seeds: List[int] = [42]
 ) -> Tuple[int, Dict[str, Any], bool, List[Dict[str, Any]]]:
     """
     Linear search for optimal S given fixed M.
@@ -362,8 +377,7 @@ def linear_search_S(
         S = S_list[i]
 
         # Run simulation
-        sim_result = sim_callback(M_factor, S, centerM, seed)
-        metrics = compute_match_metrics(sim_result, baseline, weights)
+        sim_result, metrics = worst_callback(sim_callback, M_factor, S, centerM, seeds, baseline, weights)
         result = _build_result_dict(M_factor, S, centerM, sim_result, metrics)
         all_results.append(result)
 
@@ -413,13 +427,12 @@ def linear_search_S(
     # Find best from evaluated
     if not current_evaluated:
         # No valid results, return placeholder
-        return s_min, {'match_avg_pct': 0, 'diff_pct': 100}, True, all_results
+        return None, {'match_avg_pct': 0, 'diff_pct': 100}, True, all_results
 
     best_S, best_result = max(current_evaluated, key=lambda x: x[1]['match_avg_pct'])
 
     # Signal to stop M search if we've hit S minimum
     should_stop = (best_S == s_min)
-
     return best_S, best_result, should_stop, all_results
 
 
@@ -430,7 +443,7 @@ def brute_force_search(
     sim_callback: SimCallback,
     baseline: LCDMBaseline,
     weights: MatchWeights,
-    seed: int = 42
+    seeds: List[int] = [42]
 ) -> List[Dict[str, Any]]:
     """
     Exhaustive search over all M x S x centerM combinations.
@@ -443,8 +456,7 @@ def brute_force_search(
         m_list = build_m_list(many_search, multiplier=centerM)
         for M in m_list:
             for S in s_list:
-                sim_result = sim_callback(M, S, centerM, seed)
-                metrics = compute_match_metrics(sim_result, baseline, weights)
+                sim_result, metrics = worst_callback(sim_callback, M, S, centerM, seeds, baseline, weights)
                 result = _build_result_dict(M, S, centerM, sim_result, metrics)
                 results.append(result)
 
@@ -457,7 +469,7 @@ def run_sweep(
     sim_callback: SimCallback,
     baseline: LCDMBaseline,
     weights: Optional[MatchWeights] = None,
-    seed: int = 42
+    seeds = [42,123]
 ) -> List[Dict[str, Any]]:
     """
     Run parameter sweep using specified search method.
@@ -484,7 +496,7 @@ def run_sweep(
     if search_method == SearchMethod.BRUTE_FORCE:
         all_results = brute_force_search(
             config.many_search, s_list, center_masses,
-            sim_callback, baseline, weights, seed
+            sim_callback, baseline, weights, seeds
         )
 
     elif search_method == SearchMethod.TERNARY_SEARCH:
@@ -498,7 +510,7 @@ def run_sweep(
                     prev_best_S if prev_best_S else config.s_max_gpc,
                     s_hint=prev_best_S,
                     hint_window=(prev_best_S // 4) if prev_best_S else (config.s_max_gpc // 4),
-                    seed=seed
+                    seeds=seeds
                 )
                 all_results.extend(results)
                 prev_best_S = S_best
@@ -517,7 +529,7 @@ def run_sweep(
                     config.s_min_gpc,
                     prev_best_S if prev_best_S else config.s_max_gpc,
                     prev_best_S=prev_best_S,
-                    seed=seed
+                    seeds=seeds
                 )
                 all_results.extend(results)
 

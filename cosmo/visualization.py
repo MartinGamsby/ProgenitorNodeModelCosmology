@@ -99,7 +99,7 @@ def generate_output_filename(
     sim_params,
     extension='png',
     output_dir='.',
-    include_timestamp=False
+    include_timestamp=True
 ):
     """Generate standardized output filename with parameters."""
     parts = [base_name]

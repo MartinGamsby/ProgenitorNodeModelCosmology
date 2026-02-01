@@ -83,13 +83,15 @@ def run_nbody_simulations(sim_params, box_size, a_start):
     print("\nRunning External-Node simulation...")
     sim_ext = CosmologicalSimulation(sim_params, box_size, a_start,
                                      use_external_nodes=True, use_dark_energy=False)
-    ext_results = run_and_extract_results(sim_ext, sim_params.t_duration_Gyr, sim_params.n_steps)
+    ext_results = run_and_extract_results(sim_ext, sim_params.t_duration_Gyr, sim_params.n_steps,
+                                          damping=sim_params.damping_factor)
 
     # Run matter-only simulation
     print("\nRunning Matter-only simulation...")
     sim_matter = CosmologicalSimulation(sim_params, box_size, a_start,
                                         use_external_nodes=False, use_dark_energy=False)
-    matter_results = run_and_extract_results(sim_matter, sim_params.t_duration_Gyr, sim_params.n_steps)
+    matter_results = run_and_extract_results(sim_matter, sim_params.t_duration_Gyr, sim_params.n_steps,
+                                             damping=sim_params.damping_factor)
 
     return {
         'ext': {
@@ -166,6 +168,10 @@ def run_simulation(output_dir, sim_params, use_max_radius=False):
     baseline = solve_lcdm_baseline(sim_params, box_size, a_at_start)
 
     # Run N-body simulations (External-Node and Matter-only)
+    # TODO: Maybe slightly bigger initial size?? (for non-lcdm) (Because it accelerates slower at the beginning...)
+    # (NOT THAT VALUE! THIS IS ONLY TO TEST!)
+    # PROBABLY DEPENDS ON INITIAL VALUES, M, CenterM, start year, ETC.
+    #box_size*= 1.003
     nbody = run_nbody_simulations(sim_params, box_size, a_at_start)
 
     # Calculate match statistics
@@ -217,7 +223,7 @@ def run_simulation(output_dir, sim_params, use_max_radius=False):
     )
 
     # Save outputs
-    plot_path = generate_output_filename('figure_simulation_results', sim_params, 'png', output_dir)
+    plot_path = generate_output_filename('sim_plots', sim_params, 'png', output_dir)
     sim_path = generate_output_filename('simulation', sim_params, 'pkl', output_dir)
 
     plt.savefig(plot_path, dpi=150)

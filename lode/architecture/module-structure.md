@@ -88,10 +88,10 @@ graph TD
 - `HMEAGrid`: 26-node cubic lattice (3×3×3-1), vectorized tidal force calculation
 
 **Key methods**:
-- `ParticleSystem._initialize_particles()`: Sets up particles with damped Hubble flow + peculiar velocities (particles.py:73-116)
-  - Auto-calculates damping from deceleration parameter q if damping_factor_override=None
-  - Uses override if provided (e.g., 0.0 for tests, 0.91 for best-fit)
+- `ParticleSystem._initialize_particles()`: Sets up particles with Hubble flow + peculiar velocities (particles.py:60-175)
+  - Velocity uses model-appropriate H (H_lcdm for dark energy, H_matter for non-LCDM)
   - `mass_randomize` parameter (0.0=equal masses, 1.0=masses from 0 to 2x mean). Default 0.5. Total mass preserved via normalization.
+  - No damping applied here; damping is applied at sim.run() via velocity calibration
 - `HMEAGrid.calculate_tidal_acceleration_batch()`: Vectorized tidal forces across all 26 nodes
 
 **Exports**: All three classes.
@@ -150,7 +150,7 @@ graph TD
 **Purpose**: Utility functions for running simulations and extracting results.
 
 **Functions**:
-- `run_and_extract_results(sim, t_duration_Gyr, n_steps, save_interval)`: Runs simulation, returns dict with t_Gyr, a, diameter_Gpc, max_radius_Gpc, sim
+- `run_and_extract_results(sim, t_duration_Gyr, n_steps, save_interval, damping=None)`: Runs simulation with damping parameter, returns dict with t_Gyr, a, diameter_Gpc, max_radius_Gpc, sim
 
 **Used by**: Scripts needing streamlined simulation execution
 
@@ -162,7 +162,8 @@ graph TD
 
 **Key methods**:
 - `__init__()`: Sets up particles, HMEA grid, integrator based on mode flags
-- `run(t_end_Gyr, n_steps, save_interval)`: Executes integration, calculates expansion metrics
+- `run(t_end_Gyr, n_steps, save_interval, damping=None)`: Executes integration, calculates expansion metrics. For non-LCDM models, applies velocity calibration at start based on damping parameter (auto-calculated from t_start if None).
+- `_calibrate_velocity_for_lcdm_match()`: Scales initial velocities so non-LCDM models never exceed LCDM
 - `save(filename)`, `load(filename)`: Pickle persistence
 
 **Mode flags**:

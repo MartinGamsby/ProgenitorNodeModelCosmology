@@ -23,7 +23,7 @@ class TestGravitationalForces(unittest.TestCase):
             n_particles=2,
             box_size_m=1.0 * self.const.Gpc_to_m,
             total_mass_kg=2e53,
-            damping_factor_override=0.0,
+            
             mass_randomize=0.0  # Equal masses for deterministic test
         )
 
@@ -65,7 +65,7 @@ class TestGravitationalForces(unittest.TestCase):
             n_particles=2,
             box_size_m=1.0 * self.const.Gpc_to_m,
             total_mass_kg=3e53,
-            damping_factor_override=0.0,
+            
             mass_randomize=0.0  # Equal masses for deterministic test
         )
 
@@ -95,7 +95,7 @@ class TestGravitationalForces(unittest.TestCase):
             n_particles=2,
             box_size_m=1.0 * self.const.Gpc_to_m,
             total_mass_kg=2e53,
-            damping_factor_override=0.0
+            
         )
 
         # Place particles very close (but not exactly on top)
@@ -219,7 +219,7 @@ class TestDarkEnergyForces(unittest.TestCase):
         particles = ParticleSystem(
             n_particles=1,
             box_size_m=10.0 * self.const.Gpc_to_m,
-            damping_factor_override=0.0
+            
         )
 
         # Place particle at arbitrary position
@@ -243,7 +243,7 @@ class TestDarkEnergyForces(unittest.TestCase):
         particles = ParticleSystem(
             n_particles=1,
             box_size_m=10.0 * self.const.Gpc_to_m,
-            damping_factor_override=0.0
+            
         )
 
         R = 10 * self.const.Gpc_to_m
@@ -265,7 +265,7 @@ class TestDarkEnergyForces(unittest.TestCase):
         particles = ParticleSystem(
             n_particles=1,
             box_size_m=10.0 * self.const.Gpc_to_m,
-            damping_factor_override=0.0
+            
         )
         particles.particles[0].pos = np.array([1e25, 0.0, 0.0])
 

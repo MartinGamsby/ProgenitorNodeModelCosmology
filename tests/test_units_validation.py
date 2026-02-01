@@ -21,7 +21,7 @@ class TestUnitsValidation(unittest.TestCase):
             n_particles=2,
             box_size_m=1e25,
             total_mass_kg=2e53,
-            damping_factor_override=0.0
+            
         )
 
         # Known configuration: 1 Gpc separation
@@ -62,7 +62,7 @@ class TestUnitsValidation(unittest.TestCase):
             n_particles=10,
             box_size_m=1e26,
             total_mass_kg=1e54,
-            damping_factor_override=0.0,
+            
             use_dark_energy=True
         )
 
@@ -95,7 +95,7 @@ class TestUnitsValidation(unittest.TestCase):
             n_particles=10,
             box_size_m=1e26,
             total_mass_kg=1e54,
-            damping_factor_override=0.0
+            
         )
 
         integrator = LeapfrogIntegrator(
@@ -127,7 +127,7 @@ class TestUnitsValidation(unittest.TestCase):
             n_particles=10,
             box_size_m=1e26,  # 10 Gpc in meters
             total_mass_kg=1e54,
-            damping_factor_override=0.0
+            
         )
 
         positions = particles.get_positions()

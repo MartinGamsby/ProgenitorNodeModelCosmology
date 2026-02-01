@@ -10,16 +10,24 @@ from .simulation import CosmologicalSimulation
 
 
 def run_and_extract_results(sim: CosmologicalSimulation, t_duration_Gyr: float,
-                            n_steps: int, save_interval: int = 10) -> Dict:
+                            n_steps: int, save_interval: int = 10,
+                            damping: float = None) -> Dict:
     """
     Run simulation and extract common results.
+
+    Args:
+        sim: Initialized CosmologicalSimulation
+        t_duration_Gyr: Duration in Gyr
+        n_steps: Number of timesteps
+        save_interval: Save every N steps
+        damping: Velocity damping factor (None = auto-calculate)
 
     Returns dict with keys: 't_Gyr', 'a', 'diameter_Gpc', 'max_radius_Gpc', 'sim'.
     """
     from .constants import CosmologicalConstants
     from .analysis import extract_expansion_history
 
-    sim.run(t_end_Gyr=t_duration_Gyr, n_steps=n_steps, save_interval=save_interval)
+    sim.run(t_end_Gyr=t_duration_Gyr, n_steps=n_steps, save_interval=save_interval, damping=damping)
 
     const = CosmologicalConstants()
 

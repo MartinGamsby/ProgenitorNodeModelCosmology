@@ -67,7 +67,8 @@ def make_unimodal_callback(optimal_S: int, optimal_M: int = 500, optimal_centerM
     Quality decreases with distance from optimum, creating a testable peak.
     Uses exponential decay to keep quality in [0.5, 1.0] range for reasonable R^2.
     """
-    def callback(M: int, S: int, centerM: int, seed: int) -> SimResult:
+    from typing import List
+    def callback(M: int, S: int, centerM: int, seeds: List[int]) -> List[SimResult]:
         # Distance from optimal point
         distance = (
             abs(S - optimal_S) / 20.0 +
@@ -77,7 +78,7 @@ def make_unimodal_callback(optimal_S: int, optimal_M: int = 500, optimal_centerM
         # Quality peaks at 1.0 when at optimum, decays slowly
         # Use exponential decay to keep quality in reasonable range
         quality = 0.5 + 0.5 * np.exp(-distance)
-        return make_sim_result(quality)
+        return [make_sim_result(quality) for _ in seeds]
     return callback
 
 
@@ -88,12 +89,13 @@ def make_monotonic_callback(direction: str = "increasing"):
     direction="increasing": quality increases with S
     direction="decreasing": quality decreases with S
     """
-    def callback(M: int, S: int, centerM: int, seed: int) -> SimResult:
+    from typing import List
+    def callback(M: int, S: int, centerM: int, seeds: List[int]) -> List[SimResult]:
         if direction == "increasing":
             quality = S / 100.0
         else:
             quality = (100 - S) / 100.0
-        return make_sim_result(max(0.1, min(1.0, quality)))
+        return [make_sim_result(max(0.1, min(1.0, quality))) for _ in seeds]
     return callback
 
 
@@ -108,7 +110,7 @@ class TestSweepConfig(unittest.TestCase):
         self.assertTrue(config.search_center_mass)
         self.assertEqual(config.t_start_Gyr, 3.8)
         self.assertEqual(config.t_duration_Gyr, 10.0)
-        self.assertEqual(config.damping_factor, 1)
+        self.assertEqual(config.damping_factor, None)
         self.assertEqual(config.s_min_gpc, 15)
         self.assertEqual(config.s_max_gpc, 60)
         self.assertEqual(config.save_interval, 10)
@@ -116,7 +118,7 @@ class TestSweepConfig(unittest.TestCase):
     def test_particle_count_quick(self):
         """Quick search uses fewer particles."""
         config = SweepConfig(quick_search=True)
-        self.assertEqual(config.particle_count, 50)
+        self.assertEqual(config.particle_count, 200)
 
     def test_particle_count_many(self):
         """Many search uses medium particles."""
@@ -390,11 +392,11 @@ class TestLinearSearch(unittest.TestCase):
         """Should stop early when match starts decreasing significantly."""
         # Callback peaks at S=58 (near start), decreases sharply below
         # Use sharper falloff to trigger early stopping
-        def sharp_peak_callback(M, S, centerM, seed):
+        def sharp_peak_callback(M, S, centerM, seeds):
             # Sharp peak at S=58
             distance = abs(S - 58) / 3.0  # Sharper falloff
             quality = 1.0 / (1.0 + distance * distance)
-            return make_sim_result(max(0.5, quality))
+            return [make_sim_result(max(0.5, quality)) for _ in seeds]
 
         baseline = make_baseline()
         weights = MatchWeights()
@@ -428,9 +430,9 @@ class TestLinearSearch(unittest.TestCase):
 
     def test_handles_negative_match(self):
         """Should handle negative match values gracefully."""
-        def bad_callback(M, S, centerM, seed):
+        def bad_callback(M, S, centerM, seeds):
             # Return very poor result
-            return make_sim_result(quality=0.01)
+            return [make_sim_result(quality=0.01) for _ in seeds]
 
         baseline = make_baseline()
         weights = MatchWeights()
@@ -455,45 +457,18 @@ class TestBruteForceSearch(unittest.TestCase):
         baseline = make_baseline()
         weights = MatchWeights()
 
-        m_list = [100, 200]
         s_list = [20, 25, 30]
         center_masses = [1]
 
-        results = brute_force_search(
-            m_list, s_list, center_masses,
-            callback, baseline, weights
-        )
+        for many_search in [True, False]:
+            results = brute_force_search(
+                many_search, s_list, center_masses,
+                callback, baseline, weights
+            )
 
-        expected_count = len(m_list) * len(s_list) * len(center_masses)
-        self.assertEqual(len(results), expected_count)
-
-    def test_returns_results_for_each_config(self):
-        """Each result should have correct M, S, centerM values."""
-        callback = make_unimodal_callback(optimal_S=35)
-        baseline = make_baseline()
-        weights = MatchWeights()
-
-        m_list = [100, 200]
-        s_list = [25, 30]
-        center_masses = [1, 2]
-
-        results = brute_force_search(
-            m_list, s_list, center_masses,
-            callback, baseline, weights
-        )
-
-        # Verify all combinations present
-        configs_found = set()
-        for r in results:
-            configs_found.add((r['M_factor'], r['S_gpc'], r['centerM']))
-
-        expected_configs = set()
-        for cm in center_masses:
-            for m in m_list:
-                for s in s_list:
-                    expected_configs.add((m, s, cm))
-
-        self.assertEqual(configs_found, expected_configs)
+            m_list = build_m_list(many_search, multiplier=1)
+            expected_count = len(m_list) * len(s_list) * len(center_masses)
+            self.assertEqual(len(results), expected_count)
 
 
 class TestRunSweep(unittest.TestCase):

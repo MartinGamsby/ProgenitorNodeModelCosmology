@@ -11,6 +11,7 @@ import numpy as np
 import math
 import csv
 import os
+from typing import List
 from cosmo.constants import CosmologicalConstants, SimulationParameters
 from cosmo.simulation import CosmologicalSimulation
 from cosmo.analysis import (
@@ -21,7 +22,7 @@ from cosmo.analysis import (
 from cosmo.factories import run_and_extract_results
 from cosmo.parameter_sweep import (
     SearchMethod, SweepConfig, MatchWeights, SimResult, LCDMBaseline,
-    build_m_list, build_s_list, build_center_mass_list, run_sweep
+    build_m_list, build_s_list, build_center_mass_list, run_sweep, compute_match_metrics
 )
 
 const = CosmologicalConstants()
@@ -29,7 +30,8 @@ const = CosmologicalConstants()
 # Configuration
 SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
 QUICK_SEARCH = True
-MANY_SEARCH = True
+MULTIPLY_PARTICLES = False
+MANY_SEARCH = False
 SEARCH_CENTER_MASS = True
 
 config = SweepConfig(
@@ -38,7 +40,7 @@ config = SweepConfig(
     search_center_mass=SEARCH_CENTER_MASS,
     t_start_Gyr=3.8,
     t_duration_Gyr=10.0,
-    damping_factor=1,
+    damping_factor=None,
     s_min_gpc=15,
     s_max_gpc=(100 if MANY_SEARCH else 60),
     save_interval=10
@@ -108,7 +110,7 @@ baseline = LCDMBaseline(
 # Track simulation count for efficiency reporting
 sim_count = 0
 
-def sim_callback(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResult:
+def sim(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResult:
     """
     Run a single External-Node simulation and return raw results.
 
@@ -123,7 +125,7 @@ def sim_callback(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResul
     sim_params = SimulationParameters(
         M_value=M_factor,
         S_value=S_gpc,
-        n_particles=config.particle_count*int(math.log(centerM*centerM, 2)+1),
+        n_particles=config.particle_count*(int(math.log(centerM*centerM, 2)+1) if MULTIPLY_PARTICLES else 1),
         seed=seed,
         t_start_Gyr=config.t_start_Gyr,
         t_duration_Gyr=config.t_duration_Gyr,
@@ -137,7 +139,8 @@ def sim_callback(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResul
     sim_ext = CosmologicalSimulation(sim_params, BOX_SIZE, A_START,
                                       use_external_nodes=True, use_dark_energy=False)
     ext_results = run_and_extract_results(sim_ext, config.t_duration_Gyr, config.n_steps,
-                                           save_interval=config.save_interval)
+                                           save_interval=config.save_interval,
+                                           damping=config.damping_factor)
 
     a_ext = ext_results['a'][-1]
     size_ext_final = ext_results['diameter_Gpc'][-1]
@@ -159,9 +162,15 @@ def sim_callback(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResul
         params=sim_params.external_params
     )
 
+def sim_callback(M_factor: int, S_gpc: int, centerM: int, seeds: List[int] = [42]) -> List[SimResult]:
+    results = []
+    for seed in seeds:
+        results.append(sim(M_factor, S_gpc, centerM, seed))
+    return results
+   
 
 # Run the sweep
-results = run_sweep(config, SEARCH_METHOD, sim_callback, baseline, weights, seed=42)
+results = run_sweep(config, SEARCH_METHOD, sim_callback, baseline, weights, seeds=[123] if QUICK_SEARCH else [42,123])
 
 # Save all results to CSV
 os.makedirs('./results', exist_ok=True)

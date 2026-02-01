@@ -45,7 +45,7 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
                         help='Number of simulation timesteps')
 
     # Physics parameters
-    parser.add_argument('--damping', type=float, default=0.98,
+    parser.add_argument('--damping', type=float, default=None,
                         help='Initial velocity damping factor (0-1). Auto-calculated if not specified.')
     parser.add_argument('--center-node-mass', type=float, default=1.0,
                         help='Central (progenitor) node mass as multiple of M_observable. '

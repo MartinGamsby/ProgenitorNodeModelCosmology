@@ -20,7 +20,7 @@ class TestLeapfrogIntegrator(unittest.TestCase):
             n_particles=10,
             box_size_m=1e26,
             total_mass_kg=1e54,
-            damping_factor_override=0.0
+            
         )
 
         integrator = LeapfrogIntegrator(
@@ -57,7 +57,7 @@ class TestLeapfrogIntegrator(unittest.TestCase):
             n_particles=20,
             box_size_m=1e26,
             total_mass_kg=1e54,
-            damping_factor_override=0.0
+            
         )
 
         integrator = LeapfrogIntegrator(
@@ -90,7 +90,7 @@ class TestLeapfrogIntegrator(unittest.TestCase):
             n_particles=10,
             box_size_m=1e26,
             total_mass_kg=1e54,
-            damping_factor_override=0.0
+            
         )
 
         integrator = LeapfrogIntegrator(
@@ -119,7 +119,7 @@ class TestLeapfrogIntegrator(unittest.TestCase):
             n_particles=10,
             box_size_m=1e26,
             total_mass_kg=1e54,
-            damping_factor_override=0.0
+            
         )
 
         integrator = LeapfrogIntegrator(
@@ -160,7 +160,7 @@ class TestLeapfrogIntegrator(unittest.TestCase):
             n_particles=10,
             box_size_m=1e26,
             total_mass_kg=1e54,
-            damping_factor_override=0.0
+            
         )
 
         integrator = LeapfrogIntegrator(
@@ -199,7 +199,7 @@ class TestLeapfrogIntegrator(unittest.TestCase):
             n_particles=10,
             box_size_m=1e26,
             total_mass_kg=1e54,
-            damping_factor_override=0.0,
+            
             use_dark_energy=True
         )
 
@@ -234,7 +234,7 @@ class TestLeapfrogIntegrator(unittest.TestCase):
             n_particles=2,
             box_size_m=1e25,
             total_mass_kg=2e53,
-            damping_factor_override=0.0
+            
         )
 
         # Place particles at specific locations
@@ -300,7 +300,7 @@ class TestBothForceMethods:
             n_particles=2,
             box_size_m=1e25,
             total_mass_kg=2e53,
-            damping_factor_override=0.0
+            
         )
 
         # Place particles
@@ -351,7 +351,7 @@ class TestBothForceMethods:
             n_particles=20,
             box_size_m=1e26,
             total_mass_kg=2e54,
-            damping_factor_override=0.0,
+            
             mass_randomize=0.0  # Equal masses for deterministic test
         )
 

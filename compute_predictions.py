@@ -60,7 +60,7 @@ def compute_phantom_w():
         M_value=M_VALUE, S_value=S_VALUE,
         n_particles=N_PARTICLES, seed=42,
         t_start_Gyr=T_START, t_duration_Gyr=T_DURATION,
-        n_steps=N_STEPS, damping_factor=0.98
+        n_steps=N_STEPS, damping_factor=None
     )
 
     initial_conditions = calculate_initial_conditions(T_START)
@@ -70,7 +70,8 @@ def compute_phantom_w():
         sim_params, initial_conditions['box_size_Gpc'], initial_conditions['a_start'],
         use_external_nodes=True, use_dark_energy=False
     )
-    ext_results = run_and_extract_results(sim_ext, T_DURATION, N_STEPS, save_interval=SAVE_INTERVAL)
+    ext_results = run_and_extract_results(sim_ext, T_DURATION, N_STEPS, save_interval=SAVE_INTERVAL,
+                                          damping=sim_params.damping_factor)
 
     t_ext = ext_results['t_Gyr']
     a_ext = ext_results['a']

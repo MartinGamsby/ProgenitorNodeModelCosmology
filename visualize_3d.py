@@ -65,7 +65,7 @@ def load_or_run_simulation(sim_params, sim_file=None, output_dir="."):
         use_dark_energy=False
     )
 
-    sim.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=50)
+    sim.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=50, damping=None)
 
     # Save for future use
     sim_file = os.path.join(output_dir, 'visualization_sim.pkl')
@@ -360,7 +360,7 @@ def run_comparison_simulations(sim_params, output_dir="."):
         use_external_nodes=True,
         use_dark_energy=False
     )
-    sim_ext.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=50)
+    sim_ext.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=50, damping=None)
 
     # 2. Matter-Only
     print("2/3: Running Matter-Only simulation...")
@@ -371,7 +371,7 @@ def run_comparison_simulations(sim_params, output_dir="."):
         use_external_nodes=False,
         use_dark_energy=False
     )
-    sim_matter.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=50)
+    sim_matter.run(t_end_Gyr=sim_params.t_duration_Gyr, n_steps=sim_params.n_steps, save_interval=50, damping=None)
 
     # 3. ΛCDM reference (compute expected sizes from theory)
     print("3/3: Computing ΛCDM reference evolution...")

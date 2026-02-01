@@ -183,7 +183,7 @@ class TestInitialSizeConsistency:
                                        total_mass_kg=CosmologicalConstants().M_observable_kg,
                                        a_start=1.0,
                                        use_dark_energy=False,
-                                       damping_factor_override=1.0)
+                                       )
         # Initial RMS radius should equal box_size/2
         # Particles are distributed in a sphere scaled so RMS radius = box_size/2
         initial_positions = particles.get_positions()

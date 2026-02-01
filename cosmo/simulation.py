@@ -134,8 +134,8 @@ class CosmologicalSimulation:
             nbody_decel_factor = damping
         else:
             # **0.2 to have higher factor faster, but still cap at 1
-            nbody_decel_factor = (self.t_start_Gyr/13.8)**0.13
-        nbody_decel_factor = np.clip(nbody_decel_factor, 0.0, 1.0)
+            nbody_decel_factor = (self.t_start_Gyr/13.8)**0.135
+        nbody_decel_factor = np.clip(nbody_decel_factor, 0.01, 1.0)  # min 0.01 to avoid divide by zero
         print("[Velocity Calibration] Damping factor for initial:", nbody_decel_factor)
         #print(self.t_start_Gyr, self.t_start_Gyr/13.8, nbody_decel_factor)
         #exit(1)
@@ -226,7 +226,7 @@ class CosmologicalSimulation:
             print(f"For better stability, consider using {n_steps_recommended} steps or more")
             print("!"*70 + "\n")
 
-    def run(self, t_end_Gyr: float = 13.8, n_steps: int = 1000, save_interval: int = 10) -> List[Dict]:
+    def run(self, t_end_Gyr: float = 13.8, n_steps: int = 1000, save_interval: int = 10, damping=None) -> List[Dict]:
         """Run the simulation and return snapshots."""
         # Set random seed for reproducibility
         np.random.seed(self.seed)
@@ -246,7 +246,7 @@ class CosmologicalSimulation:
 
         # Velocity calibration for matter-only: find initial velocity so step 2 matches LCDM
         if not self.use_dark_energy:# and not self.use_external_nodes:
-            self._calibrate_velocity_for_lcdm_match(t_end_Gyr, n_steps, )
+            self._calibrate_velocity_for_lcdm_match(t_end_Gyr, n_steps, damping)
 
         # Run integration
         self.snapshots = self.integrator.evolve(t_end, n_steps, save_interval)

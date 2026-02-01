@@ -23,7 +23,7 @@ class SweepConfig:
     search_center_mass: bool = True # search 3D: M x S x centerM
     t_start_Gyr: float = 3.8
     t_duration_Gyr: float = 10.0
-    damping_factor: float = 1
+    damping_factor: float = None
     s_min_gpc: int = 15
     s_max_gpc: int = 60             # 100 if many_search
     save_interval: int = 10

@@ -35,7 +35,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             box_size_m=10.0 * self.const.Gpc_to_m,
             total_mass_kg=1e54,
             a_start=a_start,
-            damping_factor_override=1.0,  # Same damping for fair comparison
+              # Same damping for fair comparison
             use_dark_energy=True
         )
 
@@ -45,7 +45,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             box_size_m=10.0 * self.const.Gpc_to_m,
             total_mass_kg=1e54,
             a_start=a_start,
-            damping_factor_override=1.0,  # Same damping
+              # Same damping
             use_dark_energy=False
         )
 
@@ -126,7 +126,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             n_particles=10,
             box_size_m=10.0 * self.const.Gpc_to_m,
             total_mass_kg=1e54,
-            damping_factor_override=1.0,
+            
             use_dark_energy=True
         )
 
@@ -143,7 +143,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             n_particles=10,
             box_size_m=10.0 * self.const.Gpc_to_m,
             total_mass_kg=1e54,
-            damping_factor_override=1.0,
+            
             use_dark_energy=True
         )
 
@@ -193,7 +193,7 @@ class TestMatterVsLCDM(unittest.TestCase):
                     n_particles=10,
                     box_size_m=10.0 * self.const.Gpc_to_m,
                     total_mass_kg=1e54,
-                    damping_factor_override=1.0,
+                    
                     use_dark_energy=False
                 )
                 integrator_matter = LeapfrogIntegrator(
@@ -208,7 +208,7 @@ class TestMatterVsLCDM(unittest.TestCase):
                     n_particles=10,
                     box_size_m=10.0 * self.const.Gpc_to_m,
                     total_mass_kg=1e54,
-                    damping_factor_override=1.0,
+                    
                     use_dark_energy=True
                 )
                 integrator_lcdm = LeapfrogIntegrator(
@@ -247,7 +247,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             n_particles=10,
             box_size_m=10.0 * self.const.Gpc_to_m,
             total_mass_kg=1e54,
-            damping_factor_override=1.0,
+            
             use_dark_energy=True
         )
 
@@ -263,7 +263,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             n_particles=10,
             box_size_m=10.0 * self.const.Gpc_to_m,
             total_mass_kg=1e54,
-            damping_factor_override=1.0,
+            
             use_dark_energy=True
         )
 
@@ -312,7 +312,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             n_particles=10,
             box_size_m=10.0 * self.const.Gpc_to_m,
             total_mass_kg=1e54,
-            damping_factor_override=1.0,
+            
             use_dark_energy=False
         )
 
@@ -333,7 +333,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             n_particles=10,
             box_size_m=10.0 * self.const.Gpc_to_m,
             total_mass_kg=1e54,
-            damping_factor_override=1.0,
+            
             use_dark_energy=False
         )
 
@@ -404,7 +404,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             box_size_m=10.0 * self.const.Gpc_to_m,
             total_mass_kg=1e54,
             a_start=a_start,
-            damping_factor_override=1.0,
+            
             use_dark_energy=False,
             mass_randomize=0.0  # Equal masses for deterministic test
         )
@@ -427,7 +427,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             box_size_m=10.0 * self.const.Gpc_to_m,
             total_mass_kg=1e54,
             a_start=a_start,
-            damping_factor_override=1.0,
+            
             use_dark_energy=False,
             mass_randomize=0.0  # Equal masses for deterministic test
         )
@@ -510,7 +510,7 @@ class TestMatterVsLCDM(unittest.TestCase):
             n_particles=50,#40,
             box_size_m=10.0 * self.const.Gpc_to_m,
             total_mass_kg=self.const.M_observable_kg,
-            damping_factor_override=1.0,
+            
             use_dark_energy=False
         )
 

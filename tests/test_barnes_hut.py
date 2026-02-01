@@ -23,7 +23,7 @@ class TestNumbaDirectPerformance(unittest.TestCase):
             n_particles=10,
             box_size_m=20.0 * self.const.Gpc_to_m,
             total_mass_kg=10 * 1e53,
-            damping_factor_override=0.0
+            
         )
 
         integrator_numpy = LeapfrogIntegrator(
@@ -50,7 +50,7 @@ class TestNumbaDirectPerformance(unittest.TestCase):
             n_particles=300,
             box_size_m=20.0 * self.const.Gpc_to_m,
             total_mass_kg=300 * 1e53,
-            damping_factor_override=0.0
+            
         )
 
         # Time NumPy direct
@@ -96,7 +96,7 @@ class TestBarnesHutOctree(unittest.TestCase):
             n_particles=50,
             box_size_m=20.0 * self.const.Gpc_to_m,
             total_mass_kg=50 * 1e53,
-            damping_factor_override=0.0
+            
         )
 
         integrator_direct = LeapfrogIntegrator(
@@ -122,7 +122,7 @@ class TestBarnesHutOctree(unittest.TestCase):
             n_particles=30,
             box_size_m=20.0 * self.const.Gpc_to_m,
             total_mass_kg=30 * 1e53,
-            damping_factor_override=0.0
+            
         )
 
         integrator_direct = LeapfrogIntegrator(
@@ -151,7 +151,7 @@ class TestBarnesHutOctree(unittest.TestCase):
             n_particles=2,
             box_size_m=1e25,
             total_mass_kg=2e53,
-            damping_factor_override=0.0
+            
         )
 
         r_sep = 5e24

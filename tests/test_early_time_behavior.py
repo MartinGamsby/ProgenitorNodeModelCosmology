@@ -32,7 +32,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             n_particles=50,
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
-            damping_factor_override=1.0,
+            
             use_dark_energy=True
         )
 
@@ -41,7 +41,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             n_particles=50,
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
-            damping_factor_override=1.0,
+            
             use_dark_energy=False
         )
 
@@ -50,7 +50,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             n_particles=50,
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
-            damping_factor_override=1.0,
+            
             use_dark_energy=False
         )
 
@@ -93,7 +93,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
             a_start=a_start,
-            damping_factor_override=1.0,
+            
             use_dark_energy=True
         )
 
@@ -103,7 +103,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
             a_start=a_start,
-            damping_factor_override=1.0,
+            
             use_dark_energy=False
         )
 
@@ -140,7 +140,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             n_particles=30,
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
-            damping_factor_override=1.0,
+            
             use_dark_energy=True
         )
 
@@ -149,7 +149,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             n_particles=30,
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
-            damping_factor_override=1.0,
+            
             use_dark_energy=False
         )
 
@@ -204,7 +204,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             n_particles=30,
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
-            damping_factor_override=1.0,
+            
             use_dark_energy=True
         )
 
@@ -213,7 +213,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             n_particles=30,
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
-            damping_factor_override=1.0,
+            
             use_dark_energy=False
         )
 
@@ -277,7 +277,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             n_particles=30,
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
-            damping_factor_override=1.0,
+            
             use_dark_energy=False
         )
 
@@ -329,7 +329,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             n_particles=20,  # Small for speed
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
-            damping_factor_override=1.0,
+            
             use_dark_energy=False
         )
 
@@ -382,7 +382,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             n_particles=50,
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
-            damping_factor_override=1.0,
+            
             use_dark_energy=True
         )
 
@@ -391,7 +391,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             n_particles=50,
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
-            damping_factor_override=1.0,
+            
             use_dark_energy=False
         )
 
@@ -434,7 +434,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
             a_start=a_start,
-            damping_factor_override=1.0,
+            
             use_dark_energy=True
         )
 
@@ -494,7 +494,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             n_particles=50,
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
-            damping_factor_override=1.0,
+            
             use_dark_energy=True
         )
 
@@ -503,7 +503,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             n_particles=50,
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
-            damping_factor_override=1.0,
+            
             use_dark_energy=False
         )
 
@@ -564,7 +564,7 @@ class TestEarlyTimeBehavior(unittest.TestCase):
             box_size_m=box_size_m,
             total_mass_kg=total_mass_kg,
             a_start=a_start,  # CRITICAL: pass a_start to get correct H_matter
-            damping_factor_override=1.0,
+            
             use_dark_energy=False
         )
 

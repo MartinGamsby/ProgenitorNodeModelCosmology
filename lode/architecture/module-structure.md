@@ -150,7 +150,7 @@ graph TD
 **Purpose**: Utility functions for running simulations and extracting results.
 
 **Functions**:
-- `run_and_extract_results(sim, t_duration_Gyr, n_steps, save_interval)`: Runs simulation, returns dict with t_Gyr, a, diameter_Gpc, max_radius_Gpc, sim
+- `run_and_extract_results(sim, t_duration_Gyr, n_steps, save_interval, damping=None)`: Runs simulation with damping parameter, returns dict with t_Gyr, a, diameter_Gpc, max_radius_Gpc, sim
 
 **Used by**: Scripts needing streamlined simulation execution
 

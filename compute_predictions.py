@@ -70,7 +70,8 @@ def compute_phantom_w():
         sim_params, initial_conditions['box_size_Gpc'], initial_conditions['a_start'],
         use_external_nodes=True, use_dark_energy=False
     )
-    ext_results = run_and_extract_results(sim_ext, T_DURATION, N_STEPS, save_interval=SAVE_INTERVAL)
+    ext_results = run_and_extract_results(sim_ext, T_DURATION, N_STEPS, save_interval=SAVE_INTERVAL,
+                                          damping=sim_params.damping_factor)
 
     t_ext = ext_results['t_Gyr']
     a_ext = ext_results['a']

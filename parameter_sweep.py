@@ -31,7 +31,7 @@ const = CosmologicalConstants()
 SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
 QUICK_SEARCH = True
 MULTIPLY_PARTICLES = False
-MANY_SEARCH = True
+MANY_SEARCH = False
 SEARCH_CENTER_MASS = True
 
 config = SweepConfig(
@@ -139,7 +139,8 @@ def sim(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResult:
     sim_ext = CosmologicalSimulation(sim_params, BOX_SIZE, A_START,
                                       use_external_nodes=True, use_dark_energy=False)
     ext_results = run_and_extract_results(sim_ext, config.t_duration_Gyr, config.n_steps,
-                                           save_interval=config.save_interval)
+                                           save_interval=config.save_interval,
+                                           damping=config.damping_factor)
 
     a_ext = ext_results['a'][-1]
     size_ext_final = ext_results['diameter_Gpc'][-1]

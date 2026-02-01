@@ -121,7 +121,8 @@ def build_m_list(many_search: bool = False, multiplier=1) -> List[int]:
     if many_search:
         m_list = generate_increments(100000*multiplier, terms_per_decade=10, min_value=20)
     else:
-        m_list = generate_increments(25000*multiplier, terms_per_decade=6, min_value=20)
+        m_list = generate_increments(25000*multiplier, terms_per_decade=3, min_value=20)#6
+
     m_list.reverse()  # Search high M first
     return m_list
 
@@ -144,7 +145,7 @@ def build_center_mass_list(search_center_mass: bool = True, many_search: bool = 
     if many_search:
         center_masses = generate_increments(500, terms_per_decade=10, min_value=1)
     else:
-        center_masses = generate_increments(100, terms_per_decade=6, min_value=1)
+        center_masses = generate_increments(100, terms_per_decade=3, min_value=1)#6
     return center_masses
 
 

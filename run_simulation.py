@@ -83,13 +83,15 @@ def run_nbody_simulations(sim_params, box_size, a_start):
     print("\nRunning External-Node simulation...")
     sim_ext = CosmologicalSimulation(sim_params, box_size, a_start,
                                      use_external_nodes=True, use_dark_energy=False)
-    ext_results = run_and_extract_results(sim_ext, sim_params.t_duration_Gyr, sim_params.n_steps)
+    ext_results = run_and_extract_results(sim_ext, sim_params.t_duration_Gyr, sim_params.n_steps,
+                                          damping=sim_params.damping_factor)
 
     # Run matter-only simulation
     print("\nRunning Matter-only simulation...")
     sim_matter = CosmologicalSimulation(sim_params, box_size, a_start,
                                         use_external_nodes=False, use_dark_energy=False)
-    matter_results = run_and_extract_results(sim_matter, sim_params.t_duration_Gyr, sim_params.n_steps)
+    matter_results = run_and_extract_results(sim_matter, sim_params.t_duration_Gyr, sim_params.n_steps,
+                                             damping=sim_params.damping_factor)
 
     return {
         'ext': {

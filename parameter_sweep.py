@@ -13,17 +13,14 @@ import csv
 import os
 from typing import List
 from cosmo.constants import CosmologicalConstants, SimulationParameters
-from cosmo.analysis import (
-    calculate_initial_conditions,
-    calculate_hubble_parameters
-)
 from cosmo.factories import (
-    solve_lcdm_baseline,
-    run_external_node_simulation
+    setup_simulation_context,
+    run_external_node_simulation,
+    results_to_sim_result
 )
 from cosmo.parameter_sweep import (
     SearchMethod, SweepConfig, MatchWeights, SimResult, LCDMBaseline,
-    build_m_list, build_s_list, build_center_mass_list, run_sweep, compute_match_metrics
+    build_m_list, build_s_list, build_center_mass_list, run_sweep
 )
 
 const = CosmologicalConstants()
@@ -53,10 +50,11 @@ print("="*70)
 print("PARAMETER SWEEP: Finding Best Match to ΛCDM")
 print("="*70)
 
-# Calculate initial conditions once (reused for all configs)
-initial_conditions = calculate_initial_conditions(config.t_start_Gyr)
-BOX_SIZE = initial_conditions['box_size_Gpc']
-A_START = initial_conditions['a_start']
+# Setup initial conditions and LCDM baseline (shared with run_simulation.py)
+print("\n1. Computing initial conditions and ΛCDM baseline...")
+BOX_SIZE, A_START, lcdm_result = setup_simulation_context(
+    config.t_start_Gyr, config.t_duration_Gyr, config.n_steps, config.save_interval
+)
 
 # Build parameter lists for info display
 m_list = build_m_list(config.many_search)
@@ -68,33 +66,16 @@ print(f"Using {SEARCH_METHOD.name} on S for each M value...")
 print(f"M values to test: {len(m_list)}")
 if config.search_center_mass:
     print(f"Center M values to test: {len(center_masses)}")
-    
 
 print(f"S range: [{config.s_min_gpc}, {config.s_max_gpc}]")
 print(f"(Brute force would test {nbConfigs_bruteforce} configurations)")
 
-# First, solve ΛCDM baseline (analytic solution, not N-body simulation)
-print("\n1. Computing ΛCDM baseline...")
-
-# Create a dummy SimulationParameters for baseline computation
-# (only time parameters are used by solve_lcdm_baseline)
-baseline_sim_params = SimulationParameters(
-    M_value=1, S_value=1,  # Unused for baseline
-    t_start_Gyr=config.t_start_Gyr,
-    t_duration_Gyr=config.t_duration_Gyr,
-    n_steps=config.n_steps
-)
-
-# Use shared function for LCDM baseline (same as run_simulation.py)
-lcdm_result = solve_lcdm_baseline(baseline_sim_params, BOX_SIZE, A_START, config.save_interval)
-
-# Extract values for LCDMBaseline object
+# Create baseline object for parameter sweep module
 size_lcdm_final = lcdm_result['diameter_Gpc'][-1]
 radius_lcdm_max = size_lcdm_final / 2 / np.sqrt(3/5)
 a_lcdm = lcdm_result['a'][-1]
 print(f"   ΛCDM final a(t) = {a_lcdm:.4f}, size = {size_lcdm_final:.2f} Gpc")
 
-# Create baseline object for parameter sweep module
 baseline = LCDMBaseline(
     t_Gyr=lcdm_result['t'],
     size_Gpc=lcdm_result['diameter_Gpc'],
@@ -111,8 +92,7 @@ def sim(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResult:
     """
     Run a single External-Node simulation and return raw results.
 
-    This callback is passed to the parameter sweep module.
-    Uses shared run_external_node_simulation for consistency with run_simulation.py.
+    Uses shared factory functions for consistency with run_simulation.py.
     """
     global sim_count
     sim_count += 1
@@ -133,28 +113,11 @@ def sim(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResult:
         mass_randomize=0.0  # Matches CLI default for deterministic results
     )
 
-    # Run simulation using shared factory function
+    # Run simulation and convert to SimResult (both use shared factory functions)
     ext_results = run_external_node_simulation(sim_params, BOX_SIZE, A_START, config.save_interval)
+    print(f"   External-Node final a(t) = {ext_results['a'][-1]:.4f}, size = {ext_results['diameter_Gpc'][-1]:.2f} Gpc")
 
-    a_ext = ext_results['a'][-1]
-    size_ext_final = ext_results['diameter_Gpc'][-1]
-    size_ext_curve = ext_results['diameter_Gpc']
-    radius_max_final = ext_results['max_radius_Gpc'][-1]
-    t_ext = ext_results['t_Gyr']
-
-    hubble_ext = calculate_hubble_parameters(t_ext, ext_results['a'], smooth_sigma=0.0)
-
-    print(f"   External-Node final a(t) = {a_ext:.4f}, size = {size_ext_final:.2f} Gpc")
-
-    return SimResult(
-        size_curve_Gpc=size_ext_curve,
-        hubble_curve=hubble_ext,
-        size_final_Gpc=size_ext_final,
-        radius_max_Gpc=radius_max_final,
-        a_final=a_ext,
-        t_Gyr=t_ext,
-        params=sim_params.external_params
-    )
+    return results_to_sim_result(ext_results, sim_params)
 
 def sim_callback(M_factor: int, S_gpc: int, centerM: int, seeds: List[int] = [42]) -> List[SimResult]:
     results = []

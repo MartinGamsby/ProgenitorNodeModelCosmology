@@ -147,13 +147,15 @@ graph TD
 **Used by**: `integrator.py` for external force calculations
 
 ### `cosmo/factories.py`
-**Purpose**: Shared simulation functions used by both run_simulation.py and parameter_sweep.py for consistency.
+**Purpose**: Shared simulation functions used by both run_simulation.py and parameter_sweep.py for consistency. Single source of truth for simulation execution.
 
 **Functions**:
-- `run_and_extract_results(sim, t_duration_Gyr, n_steps, save_interval, damping=None)`: Runs simulation with damping parameter, returns dict with t_Gyr, a, diameter_Gpc, max_radius_Gpc, sim
-- `solve_lcdm_baseline(sim_params, box_size_Gpc, a_start, save_interval)`: Compute ΛCDM analytic baseline at N-body snapshot times. Single source of truth for LCDM baseline.
+- `run_and_extract_results(sim, t_duration_Gyr, n_steps, save_interval, damping=None)`: Runs simulation, returns dict with t_Gyr, a, diameter_Gpc, max_radius_Gpc, H_hubble, sim
+- `solve_lcdm_baseline(sim_params, box_size_Gpc, a_start, save_interval)`: Compute ΛCDM analytic baseline at N-body snapshot times
 - `run_external_node_simulation(sim_params, box_size_Gpc, a_start, save_interval)`: Run External-Node N-body simulation
 - `run_matter_only_simulation(sim_params, box_size_Gpc, a_start, save_interval)`: Run matter-only N-body simulation
+- `setup_simulation_context(t_start_Gyr, t_duration_Gyr, n_steps, save_interval)`: Combined initial conditions + LCDM baseline setup, returns (box_size, a_start, baseline_dict)
+- `results_to_sim_result(ext_results, sim_params)`: Convert factory results dict to SimResult for parameter_sweep
 
 **Used by**: `run_simulation.py`, `parameter_sweep.py`
 

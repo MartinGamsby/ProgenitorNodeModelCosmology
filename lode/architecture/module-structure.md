@@ -90,8 +90,10 @@ graph TD
 **Key methods**:
 - `ParticleSystem._initialize_particles()`: Sets up particles with Hubble flow + peculiar velocities (particles.py:60-175)
   - Velocity uses model-appropriate H (H_lcdm for dark energy, H_matter for non-LCDM)
-  - `mass_randomize` parameter (0.0=equal masses, 1.0=masses from 0 to 2x mean). Default 0.5. Total mass preserved via normalization.
+  - `mass_randomize` parameter (0.0=equal masses, 1.0=masses from 0 to 2x mean). Default 0.0. Total mass preserved via normalization.
   - No damping applied here; damping is applied at sim.run() via velocity calibration
+- `ParticleSystem.set_positions(positions)`: Set positions for all particles (used by velocity calibration state restore)
+- `ParticleSystem.set_velocities(velocities)`: Set velocities for all particles
 - `HMEAGrid.calculate_tidal_acceleration_batch()`: Vectorized tidal forces across all 26 nodes
 
 **Exports**: All three classes.
@@ -167,8 +169,8 @@ graph TD
 
 **Key methods**:
 - `__init__()`: Sets up particles, HMEA grid, integrator based on mode flags
-- `run(t_end_Gyr, n_steps, save_interval, damping=None)`: Executes integration, calculates expansion metrics. For non-LCDM models, applies velocity calibration at start based on damping parameter (auto-calculated from t_start if None).
-- `_calibrate_velocity_for_lcdm_match()`: Scales initial velocities so non-LCDM models never exceed LCDM
+- `run(t_end_Gyr, n_steps, save_interval, damping=None)`: Executes integration, calculates expansion metrics. For non-LCDM models, applies velocity calibration at start.
+- `_calibrate_velocity_for_lcdm_match()`: Runs 50% N-body test to measure actual deceleration deficit vs Friedmann matter-only, extrapolates with squared ratio, scales initial velocity to hit LCDM target. Temporarily disables external nodes during calibration test to measure pure N-body deficit.
 - `save(filename)`, `load(filename)`: Pickle persistence
 
 **Mode flags**:

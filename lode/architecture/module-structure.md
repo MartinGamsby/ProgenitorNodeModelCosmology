@@ -170,7 +170,7 @@ graph TD
 **Key methods**:
 - `__init__()`: Sets up particles, HMEA grid, integrator based on mode flags
 - `run(t_end_Gyr, n_steps, save_interval, damping=None)`: Executes integration, calculates expansion metrics. For non-LCDM models, applies velocity calibration at start.
-- `_calibrate_velocity_for_lcdm_match()`: Runs 50% N-body test to measure actual deceleration deficit vs Friedmann matter-only, extrapolates with squared ratio, scales initial velocity to hit LCDM target. Temporarily disables external nodes during calibration test to measure pure N-body deficit.
+- `_calibrate_velocity_for_lcdm_match()`: Runs ~2 Gyr N-body test to measure expansion vs LCDM, scales initial velocity to match LCDM in early phase. Includes 1% safety margin to ensure matter-only never exceeds LCDM. Temporarily disables external nodes during calibration test.
 - `save(filename)`, `load(filename)`: Pickle persistence
 
 **Mode flags**:

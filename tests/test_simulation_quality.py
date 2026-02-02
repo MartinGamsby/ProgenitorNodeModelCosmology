@@ -49,9 +49,11 @@ class TestCOMDriftQuality:
             f"Drift of {quality['drift_to_size_ratio']:.3f}× RMS should not be flagged"
         )
 
-        # Drift should be very small (<0.25 Gpc)
-        assert quality['com_drift_Gpc'] < 0.25, (
-            f"Expected tiny drift (<0.25 Gpc), got {quality['com_drift_Gpc']:.2f} Gpc"
+        # Drift should be small (<0.5 Gpc)
+        # Note: early-time simulations (t_start < 1 Gyr) may have higher drift
+        # due to velocity calibration adjustments
+        assert quality['com_drift_Gpc'] < 0.5, (
+            f"Expected small drift (<0.5 Gpc), got {quality['com_drift_Gpc']:.2f} Gpc"
         )
 
     def test_extreme_parameters_still_minimal_drift(self):

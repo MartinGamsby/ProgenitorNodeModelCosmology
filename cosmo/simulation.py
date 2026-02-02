@@ -90,48 +90,26 @@ class CosmologicalSimulation:
 
     def _calibrate_velocity_for_lcdm_match(self, t_duration_Gyr: float, n_steps: int, damping: float = None) -> None:
         """
-        Calibrate initial velocity so matter-only matches LCDM at end.
+        Calibrate initial velocity so matter-only tracks LCDM early, then decelerates.
 
-        Strategy: Run a larger fraction of the simulation (~20%) to measure
-        actual N-body expansion vs Friedmann matter-only, then extrapolate.
+        Goal: Match LCDM expansion in early phase (~2 Gyr), then let N-body gravity
+        naturally decelerate so matter-only expands slower than LCDM later.
+        Matter-only should NEVER overshoot LCDM (no dark energy = slower expansion).
 
-        1. Get LCDM expansion from analytic Friedmann
-        2. Run N-body for ~20% of duration to measure actual expansion rate
-        3. Compare to Friedmann matter-only to get deceleration deficit ratio
-        4. Extrapolate to full duration and scale velocity to hit LCDM target
+        Strategy:
+        1. Run short N-body test to measure actual expansion rate
+        2. Compare to LCDM expansion rate for same period
+        3. Scale velocity so N-body matches LCDM in early phase
         """
         dt_Gyr = t_duration_Gyr / n_steps
         dt_s = dt_Gyr * 1e9 * 365.25 * 24 * 3600
 
-        # Get LCDM analytic at start and end
-        t_end_Gyr = self.t_start_Gyr + t_duration_Gyr
-        lcdm_solution = solve_friedmann_at_times(np.array([self.t_start_Gyr, t_end_Gyr]))
-        a_lcdm_start = lcdm_solution['a'][0]
-        a_lcdm_end = lcdm_solution['a'][1]
-        lcdm_expansion = a_lcdm_end / a_lcdm_start
-
         # Apply user damping override if provided (skip N-body test)
         if damping is not None:
-            # Get Friedmann matter-only expansion for full duration
-            matter_full = solve_friedmann_at_times(
-                np.array([self.t_start_Gyr, t_end_Gyr]),
-                Omega_Lambda=0.0
-            )
-            matter_expansion = matter_full['a'][1] / matter_full['a'][0]
-
-            # User override: treat damping as N-body deceleration factor
-            overshoot_factor = 1.0 / damping
-            velocity_scale = (lcdm_expansion) / (matter_expansion * overshoot_factor)
-            velocity_scale = np.clip(velocity_scale, 0.5, 1.5)
-
             print(f"[Velocity Calibration] Using user-provided damping: {damping}")
-            print(f"[Velocity Calibration] LCDM expansion: {lcdm_expansion:.4f}x")
-            print(f"[Velocity Calibration] Matter Friedmann expansion: {matter_expansion:.4f}x")
-            print(f"[Velocity Calibration] Velocity scale factor: {velocity_scale:.6f}")
-
             velocities = self.particles.get_velocities()
-            self.particles.set_velocities(velocities * velocity_scale)
-            print(f"[Velocity Calibration] Applied velocity scaling to all particles")
+            self.particles.set_velocities(velocities * damping)
+            print(f"[Velocity Calibration] Applied velocity scaling: {damping:.6f}")
             return
 
         # Save initial state for restoration
@@ -143,27 +121,30 @@ class CosmologicalSimulation:
         rms_initial = np.sqrt(np.mean(np.sum(initial_positions**2, axis=1)))
 
         # Temporarily disable external forces for calibration
-        # We want to measure pure N-body deceleration deficit vs Friedmann
+        # We want to measure pure N-body expansion rate
         saved_use_external_nodes = self.integrator.use_external_nodes
         self.integrator.use_external_nodes = False
 
-        # Run 50% of simulation steps for calibration to capture deficit growth
-        calibration_steps = max(10, n_steps // 2)
+        # Run short test (~2 Gyr worth of steps, or 20% of simulation, whichever is smaller)
+        # We want to calibrate for early-phase matching
+        steps_per_Gyr = n_steps / t_duration_Gyr
+        calibration_steps = min(int(2.0 * steps_per_Gyr), n_steps // 5)
+        calibration_steps = max(10, calibration_steps)  # At least 10 steps
+
         for _ in range(calibration_steps):
             self.integrator.step(dt_s)
 
-        # Measure N-body expansion after calibration
+        # Measure N-body expansion after test
         test_positions = self.particles.get_positions()
         rms_after_test = np.sqrt(np.mean(np.sum(test_positions**2, axis=1)))
         nbody_test_expansion = rms_after_test / rms_initial
 
-        # Get Friedmann matter-only expansion for same period
+        # Get LCDM expansion for same period (this is our target)
         t_test_end_Gyr = self.t_start_Gyr + calibration_steps * dt_Gyr
-        matter_test = solve_friedmann_at_times(
-            np.array([self.t_start_Gyr, t_test_end_Gyr]),
-            Omega_Lambda=0.0
+        lcdm_test = solve_friedmann_at_times(
+            np.array([self.t_start_Gyr, t_test_end_Gyr])
         )
-        friedmann_test_expansion = matter_test['a'][1] / matter_test['a'][0]
+        lcdm_test_expansion = lcdm_test['a'][1] / lcdm_test['a'][0]
 
         # Restore initial state and external node setting
         self.particles.set_positions(initial_positions)
@@ -171,39 +152,22 @@ class CosmologicalSimulation:
         self.particles.time = initial_time
         self.integrator.use_external_nodes = saved_use_external_nodes
 
-        # Calculate overshoot ratio for the calibration period
-        # If N-body expands more than Friedmann, overshoot_ratio > 1
-        overshoot_ratio = nbody_test_expansion / friedmann_test_expansion
+        # Calculate velocity scale to match LCDM in early phase
+        # If N-body expanded more than LCDM, scale down; if less, scale up
+        velocity_scale = lcdm_test_expansion / nbody_test_expansion
 
-        # Get Friedmann matter-only expansion for full duration
-        matter_full = solve_friedmann_at_times(
-            np.array([self.t_start_Gyr, t_end_Gyr]),
-            Omega_Lambda=0.0
-        )
-        matter_expansion = matter_full['a'][1] / matter_full['a'][0]
-
-        # Extrapolate overshoot to full duration
-        # With 50% calibration, the remaining 50% will have similar cumulative overshoot
-        # Total overshoot ≈ overshoot_first_half * overshoot_second_half
-        # Assume second half overshoots by same ratio: predicted = overshoot^2
-        predicted_overshoot = overshoot_ratio ** 2
-
-        # Predicted N-body expansion = matter_expansion * predicted_overshoot
-        predicted_nbody_expansion = matter_expansion * predicted_overshoot
-
-        # We want N-body to end at LCDM, so scale velocity
-        velocity_scale = lcdm_expansion / predicted_nbody_expansion
+        # Apply small safety margin to prevent overshoot in middle phase
+        # N-body has deceleration deficit that accumulates, causing slight overshoot
+        # A 1% reduction ensures matter-only stays at or below LCDM throughout
+        velocity_scale *= 0.99
 
         # Clamp to reasonable range
         velocity_scale = np.clip(velocity_scale, 0.5, 1.5)
 
-        print(f"[Velocity Calibration] LCDM expansion: {lcdm_expansion:.4f}x")
-        print(f"[Velocity Calibration] N-body test expansion ({calibration_steps} steps): {nbody_test_expansion:.6f}x")
-        print(f"[Velocity Calibration] Friedmann test expansion: {friedmann_test_expansion:.6f}x")
-        print(f"[Velocity Calibration] Test overshoot ratio: {overshoot_ratio:.6f}")
-        print(f"[Velocity Calibration] Extrapolated full overshoot: {predicted_overshoot:.4f}x")
-        print(f"[Velocity Calibration] Matter Friedmann expansion: {matter_expansion:.4f}x")
-        print(f"[Velocity Calibration] Predicted N-body expansion: {predicted_nbody_expansion:.4f}x")
+        calibration_duration_Gyr = calibration_steps * dt_Gyr
+        print(f"[Velocity Calibration] Calibration period: {calibration_duration_Gyr:.2f} Gyr ({calibration_steps} steps)")
+        print(f"[Velocity Calibration] N-body test expansion: {nbody_test_expansion:.6f}x")
+        print(f"[Velocity Calibration] LCDM test expansion: {lcdm_test_expansion:.6f}x")
         print(f"[Velocity Calibration] Velocity scale factor: {velocity_scale:.6f}")
 
         # Apply calibrated velocity

@@ -90,16 +90,16 @@ class CosmologicalSimulation:
 
     def _calibrate_velocity_for_lcdm_match(self, t_duration_Gyr: float, n_steps: int, damping: float = None) -> None:
         """
-        Calibrate initial velocity so matter-only tracks LCDM early, then decelerates.
+        Calibrate initial velocity so matter-only tracks LCDM, never overshooting.
 
-        Goal: Match LCDM expansion in early phase (~2 Gyr), then let N-body gravity
-        naturally decelerate so matter-only expands slower than LCDM later.
-        Matter-only should NEVER overshoot LCDM (no dark energy = slower expansion).
+        Goal: Find velocity scale that keeps N-body at or below LCDM throughout
+        the calibration period. Uses the maximum scale needed at any step.
 
         Strategy:
-        1. Run short N-body test to measure actual expansion rate
-        2. Compare to LCDM expansion rate for same period
-        3. Scale velocity so N-body matches LCDM in early phase
+        1. Run N-body test for ~2 Gyr / 20% of simulation
+        2. At each step, compare N-body size to LCDM size
+        3. Track the velocity scale that would be needed to match LCDM at that step
+        4. Use the maximum scale found (most conservative, prevents overshoot)
         """
         dt_Gyr = t_duration_Gyr / n_steps
         dt_s = dt_Gyr * 1e9 * 365.25 * 24 * 3600
@@ -125,26 +125,41 @@ class CosmologicalSimulation:
         saved_use_external_nodes = self.integrator.use_external_nodes
         self.integrator.use_external_nodes = False
 
-        # Run short test (~2 Gyr worth of steps, or 20% of simulation, whichever is smaller)
-        # We want to calibrate for early-phase matching
+        # Run test for ~2 Gyr or 20% of simulation, whichever is smaller
         steps_per_Gyr = n_steps / t_duration_Gyr
-        calibration_steps = min(int(2.0 * steps_per_Gyr), n_steps // 5)
+        calibration_steps = min(int(2.0 * steps_per_Gyr), int(n_steps * 0.2))
         calibration_steps = max(10, calibration_steps)  # At least 10 steps
 
-        for _ in range(calibration_steps):
+        # Pre-compute LCDM expansion at each step
+        t_points = self.t_start_Gyr + np.arange(1, calibration_steps + 1) * dt_Gyr
+        lcdm_at_steps = solve_friedmann_at_times(
+            np.concatenate([[self.t_start_Gyr], t_points])
+        )
+        lcdm_a_start = lcdm_at_steps['a'][0]
+
+        # Track max velocity scale needed
+        max_velocity_scale = 0.0
+        max_scale_step = 0
+
+        for step in range(calibration_steps):
             self.integrator.step(dt_s)
 
-        # Measure N-body expansion after test
-        test_positions = self.particles.get_positions()
-        rms_after_test = np.sqrt(np.mean(np.sum(test_positions**2, axis=1)))
-        nbody_test_expansion = rms_after_test / rms_initial
+            # Measure N-body expansion at this step
+            current_positions = self.particles.get_positions()
+            rms_current = np.sqrt(np.mean(np.sum(current_positions**2, axis=1)))
+            nbody_expansion = rms_current / rms_initial
 
-        # Get LCDM expansion for same period (this is our target)
-        t_test_end_Gyr = self.t_start_Gyr + calibration_steps * dt_Gyr
-        lcdm_test = solve_friedmann_at_times(
-            np.array([self.t_start_Gyr, t_test_end_Gyr])
-        )
-        lcdm_test_expansion = lcdm_test['a'][1] / lcdm_test['a'][0]
+            # Get LCDM expansion at this step
+            lcdm_expansion = lcdm_at_steps['a'][step + 1] / lcdm_a_start
+
+            # Calculate velocity scale needed to match LCDM at this step
+            # If N-body > LCDM, we need scale < 1 (slow down)
+            # If N-body < LCDM, we need scale > 1 (speed up)
+            velocity_scale_at_step = lcdm_expansion / nbody_expansion
+
+            if velocity_scale_at_step > max_velocity_scale:
+                max_velocity_scale = velocity_scale_at_step
+                max_scale_step = step + 1
 
         # Restore initial state and external node setting
         self.particles.set_positions(initial_positions)
@@ -152,22 +167,16 @@ class CosmologicalSimulation:
         self.particles.time = initial_time
         self.integrator.use_external_nodes = saved_use_external_nodes
 
-        # Calculate velocity scale to match LCDM in early phase
-        # If N-body expanded more than LCDM, scale down; if less, scale up
-        velocity_scale = lcdm_test_expansion / nbody_test_expansion
-
-        # Apply small safety margin to prevent overshoot in middle phase
-        # N-body has deceleration deficit that accumulates, causing slight overshoot
-        # A 1% reduction ensures matter-only stays at or below LCDM throughout
-        velocity_scale *= 0.99
+        # Use the maximum velocity scale found (most conservative)
+        velocity_scale = max_velocity_scale
 
         # Clamp to reasonable range
-        velocity_scale = np.clip(velocity_scale, 0.5, 1.5)
+        velocity_scale = np.clip(velocity_scale, 0.1, 2.5)
 
         calibration_duration_Gyr = calibration_steps * dt_Gyr
+        max_scale_time_Gyr = max_scale_step * dt_Gyr
         print(f"[Velocity Calibration] Calibration period: {calibration_duration_Gyr:.2f} Gyr ({calibration_steps} steps)")
-        print(f"[Velocity Calibration] N-body test expansion: {nbody_test_expansion:.6f}x")
-        print(f"[Velocity Calibration] LCDM test expansion: {lcdm_test_expansion:.6f}x")
+        print(f"[Velocity Calibration] Max scale needed: {velocity_scale:.6f} at step {max_scale_step} ({max_scale_time_Gyr:.2f} Gyr)")
         print(f"[Velocity Calibration] Velocity scale factor: {velocity_scale:.6f}")
 
         # Apply calibrated velocity

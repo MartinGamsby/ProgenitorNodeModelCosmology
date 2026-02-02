@@ -28,6 +28,9 @@ from cosmo.factories import (
 )
 
 
+SAVE_INTERVAL = 10  # Must match parameter_sweep.py
+
+
 def run_nbody_simulations(sim_params, box_size, a_start):
     """
     Run External-Node and Matter-only N-body simulations using shared factory functions.
@@ -37,11 +40,11 @@ def run_nbody_simulations(sim_params, box_size, a_start):
 
     # Run External-Node simulation
     print("\nRunning External-Node simulation...")
-    ext_results = run_external_node_simulation(sim_params, box_size, a_start)
+    ext_results = run_external_node_simulation(sim_params, box_size, a_start, SAVE_INTERVAL)
 
     # Run matter-only simulation
     print("\nRunning Matter-only simulation...")
-    matter_results = run_matter_only_simulation(sim_params, box_size, a_start)
+    matter_results = run_matter_only_simulation(sim_params, box_size, a_start, SAVE_INTERVAL)
 
     # Repackage results with consistent naming
     def repackage(results):
@@ -109,7 +112,7 @@ def run_simulation(output_dir, sim_params, use_max_radius=False):
 
     # Setup initial conditions and LCDM baseline (shared with parameter_sweep.py)
     box_size, a_at_start, baseline = setup_simulation_context(
-        sim_params.t_start_Gyr, sim_params.t_duration_Gyr, sim_params.n_steps
+        sim_params.t_start_Gyr, sim_params.t_duration_Gyr, sim_params.n_steps, SAVE_INTERVAL
     )
     print(f"LCDM: {box_size:.3f} -> {baseline['diameter_Gpc'][-1]:.2f} Gpc")
 

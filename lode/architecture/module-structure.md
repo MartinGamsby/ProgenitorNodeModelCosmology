@@ -217,9 +217,11 @@ graph TD
 
 **CLI**: Uses `cosmo.cli.parse_arguments()` and `cosmo.cli.args_to_sim_params()` for argument handling. Supports --M, --S, --particles, --seed, --t-start, --t-duration, --n-steps, --damping, --center-node-mass, --mass-randomize, --compare, --output-dir.
 
-**Default values** (aligned with parameter_sweep.py):
-- n_steps=300 (sufficient for accuracy)
-- mass_randomize=0.0 (deterministic for reproducibility)
+**Default values** (aligned with parameter_sweep.py quick_search mode):
+- n_steps=250
+- particles=200
+- mass_randomize=0.0 (deterministic)
+- save_interval=10
 
 **Workflow**:
 1. Calculate initial conditions using `analysis.calculate_initial_conditions()`

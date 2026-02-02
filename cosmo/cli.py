@@ -31,8 +31,8 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
                         help='Node separation distance (in Gpc)')
 
     # Simulation setup
-    parser.add_argument('--particles', type=int, default=300,
-                        help='Number of simulation particles')
+    parser.add_argument('--particles', type=int, default=200,
+                        help='Number of simulation particles (200 matches parameter_sweep quick mode)')
     parser.add_argument('--seed', type=int, default=42,
                         help='Random seed for reproducibility')
 
@@ -41,8 +41,8 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
                         help='Simulation start time since Big Bang (in Gyr)')
     parser.add_argument('--t-duration', type=float, default=10.0,
                         help='Simulation duration (in Gyr)')
-    parser.add_argument('--n-steps', type=int, default=300,
-                        help='Number of simulation timesteps')
+    parser.add_argument('--n-steps', type=int, default=250,
+                        help='Number of simulation timesteps (250 matches parameter_sweep quick mode)')
 
     # Physics parameters
     parser.add_argument('--damping', type=float, default=None,

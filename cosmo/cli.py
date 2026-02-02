@@ -37,7 +37,7 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
                         help='Random seed for reproducibility')
 
     # Time parameters
-    parser.add_argument('--t-start', type=float, default=3.8,
+    parser.add_argument('--t-start', type=float, default=5.8,
                         help='Simulation start time since Big Bang (in Gyr)')
     parser.add_argument('--t-duration', type=float, default=10.0,
                         help='Simulation duration (in Gyr)')

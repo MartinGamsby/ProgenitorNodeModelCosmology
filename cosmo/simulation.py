@@ -94,7 +94,8 @@ class CosmologicalSimulation:
         self.snapshots = []
         self.expansion_history = []
 
-    def _calibrate_velocity_for_lcdm_match(self, t_duration_Gyr: float, n_steps: int, damping: float = None) -> None:
+    def _calibrate_velocity_for_lcdm_match(self, t_duration_Gyr: float, n_steps: int, damping: float = None,
+                                           percent_sim: float = 0.3) -> None:
         """
         Calibrate initial velocity so matter-only tracks LCDM, never overshooting.
 
@@ -102,11 +103,12 @@ class CosmologicalSimulation:
         the calibration period. Uses the maximum scale needed at any step.
 
         Strategy:
-        1. Run N-body test for ~2 Gyr / 20% of simulation
+        1. Run N-body test for ~2 Gyr / 20% of simulation (for percent_sim=0.2)
         2. At each step, compare N-body size to LCDM size
         3. Track the velocity scale that would be needed to match LCDM at that step
         4. Use the maximum scale found (most conservative, prevents overshoot)
         """
+        # TODO: Make sure we don't do that for both Matter-only and External nodes ... in run_simulation.py!)
         dt_Gyr = t_duration_Gyr / n_steps
         dt_s = dt_Gyr * 1e9 * 365.25 * 24 * 3600
 
@@ -131,6 +133,14 @@ class CosmologicalSimulation:
         saved_use_external_nodes = self.integrator.use_external_nodes
         self.integrator.use_external_nodes = False
 
+
+        # Run test for ~2 Gyr or 20% of simulation, whichever is smaller ( for percent_sim == 0.2 )
+        steps_per_Gyr = n_steps / t_duration_Gyr
+        calibration_steps = min(int(10.0 * percent_sim * steps_per_Gyr), int(n_steps * percent_sim))
+        calibration_steps = max(10, calibration_steps)  # At least 10 steps
+        calibration_duration_Gyr = calibration_steps * dt_Gyr
+        
+        velocity_scale = 1.0
         for tries in tqdm(range(20), mininterval=.1, desc="Preparing", unit="step"):
             
             self.particles.set_positions(initial_positions)
@@ -138,11 +148,6 @@ class CosmologicalSimulation:
             self.particles.set_velocities(updated_velocities)
             updated_velocities = updated_velocities.copy()
             self.particles.time = initial_time
-
-            # Run test for ~2 Gyr or 20% of simulation, whichever is smaller
-            steps_per_Gyr = n_steps / t_duration_Gyr
-            calibration_steps = min(int(2.0 * steps_per_Gyr), int(n_steps * 0.2))
-            calibration_steps = max(10, calibration_steps)  # At least 10 steps
 
             # Pre-compute LCDM expansion at each step
             t_points = self.t_start_Gyr + np.arange(1, calibration_steps + 1) * dt_Gyr
@@ -153,7 +158,11 @@ class CosmologicalSimulation:
 
             # Track max velocity scale needed
             max_velocity_scale = 0.0
-            max_scale_step = 0
+            min_velocity_scale = 1.9
+
+            velocity_scale_at_step = 1.0
+            last_step_direction = 1
+            use_min_velocity = False
 
             for step in range(calibration_steps):
                 self.integrator.step(dt_s)
@@ -166,28 +175,49 @@ class CosmologicalSimulation:
                 # Get LCDM expansion at this step
                 lcdm_expansion = lcdm_at_steps['a'][step + 1] / lcdm_a_start
 
+
+                step_direction = (lcdm_expansion / nbody_expansion) - velocity_scale_at_step
+
                 # Calculate velocity scale needed to match LCDM at this step
                 # If N-body > LCDM, we need scale < 1 (slow down)
                 # If N-body < LCDM, we need scale > 1 (speed up)
                 velocity_scale_at_step = lcdm_expansion / nbody_expansion
 
+                if step_direction < 0 and last_step_direction > 0:
+                    use_min_velocity = True
+
+                # TODO: Change logic: It can't go up/down??
+
                 if velocity_scale_at_step > max_velocity_scale:
                     max_velocity_scale = velocity_scale_at_step
-                    max_scale_step = step + 1
+                if velocity_scale_at_step < min_velocity_scale:
+                    min_velocity_scale = velocity_scale_at_step
+
+                last_step_direction = step_direction
+                if use_min_velocity:
+                    break
 
             # Use the maximum velocity scale found (most conservative)
-            velocity_scale = max_velocity_scale
+            last_velocity_scale = velocity_scale
+            if use_min_velocity:
+                if min_velocity_scale < 1.0:
+                    velocity_scale = min_velocity_scale
+                else:
+                    velocity_scale = 1.0+(1.0-max_velocity_scale)
+            else:
+                velocity_scale = max_velocity_scale
 
             # Clamp to reasonable range
-            velocity_scale = np.clip(velocity_scale, 0.1, 2.5)
+            velocity_scale = np.clip(velocity_scale, 0.1, 1.9)
 
-            calibration_duration_Gyr = calibration_steps * dt_Gyr
-            max_scale_time_Gyr = max_scale_step * dt_Gyr
+            if (last_velocity_scale > 1.0 and velocity_scale < 1.0) or (last_velocity_scale < 1.0 and velocity_scale > 1.0):
+                break
             updated_velocities *= velocity_scale
 
 
+
         print(f"[Velocity Calibration] Calibration period: {calibration_duration_Gyr:.2f} Gyr ({calibration_steps} steps)")
-        print(f"[Velocity Calibration] Max scale needed: {velocity_scale:.6f} at step {max_scale_step} ({max_scale_time_Gyr:.2f} Gyr)")
+        print(f"[Velocity Calibration] Max scale needed: {velocity_scale:.6f}")
         print(f"[Velocity Calibration] Velocity scale factor: {velocity_scale:.6f}")
 
             

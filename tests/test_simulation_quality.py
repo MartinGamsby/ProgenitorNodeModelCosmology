@@ -26,7 +26,7 @@ class TestCOMDriftQuality:
             S_value=24.0,
             n_particles=100,
             seed=42,
-            t_start_Gyr=0.5,
+            t_start_Gyr=1.5,
             t_duration_Gyr=13.3,
             n_steps=1000
         )
@@ -65,7 +65,7 @@ class TestCOMDriftQuality:
             S_value=41.0,
             n_particles=100,
             seed=42,
-            t_start_Gyr=0.5,
+            t_start_Gyr=1.5,
             t_duration_Gyr=13.3,
             n_steps=1000
         )

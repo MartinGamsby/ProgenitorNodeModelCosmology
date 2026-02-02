@@ -4,7 +4,7 @@ A proof-of-concept toy model demonstrating that classical gravitational forces f
 
 ### Key Result
 
-**>99% agreement with ΛCDM expansion** over 10 billion years (t=3.8→13.8 Gyr) using only Newtonian gravity from external massive nodes. Multiple parameter configurations achieve R²>0.89 for expansion rate dynamics, demonstrating mechanism robustness.
+**>99% agreement with ΛCDM expansion** over 10 billion years (t=5.8→13.8 Gyr) using only Newtonian gravity from external massive nodes. Multiple parameter configurations achieve R²>0.89 for expansion rate dynamics, demonstrating mechanism robustness.
 
 ## Quick Start
 
@@ -120,7 +120,7 @@ See `tests/test_early_time_behavior.py` and `tests/test_model_comparison.py` for
 
 ### Quantitative Comparison
 
-**Simulation Period**: t = 3.8 Gyr → 13.8 Gyr (10 Gyr, late-universe expansion)
+**Simulation Period**: t = 5.8 Gyr → 13.8 Gyr (8 Gyr, late-universe expansion)
 
 | Model            | Final Size | Endpoint Match | Size R² (last 5 Gyr) | Expansion Rate R² (last 5 Gyr) |
 |------------------|------------|----------------|----------------------|--------------------------------|
@@ -135,7 +135,7 @@ See `tests/test_early_time_behavior.py` and `tests/test_model_comparison.py` for
 - Expansion rate R² exposes this: matter-only catastrophically fails (-0.48)
 - External-node achieves positive expansion rate R² (0.90), proving it replicates **acceleration mechanism**
 
-**Why Last-Half R²**: Full 10 Gyr includes early universe (t=3.8→8.8 Gyr) where all models similar. Last-half (5 Gyr) isolates late-time acceleration—the phenomenon being modeled.
+**Why Last-Half R²**: Full 8 Gyr includes early universe (t=5.8→9.8 Gyr) where all models similar. Last-half (4 Gyr) isolates late-time acceleration—the phenomenon being modeled.
 
 ### Hubble Parameter
 - Present-day value: H₀ ≈ 70 km/s/Mpc ✓

@@ -25,7 +25,7 @@ class SweepConfig:
     quick_search: bool = False      # 150 particles, 250 steps
     many_search: bool = False       # 1000 particles (vs 10000)
     search_center_mass: bool = True # search 3D: M x S x centerM
-    t_start_Gyr: float = 3.8
+    t_start_Gyr: float = 5.8
     t_duration_Gyr: float = 10.0
     damping_factor: float = None
     s_min_gpc: int = 15

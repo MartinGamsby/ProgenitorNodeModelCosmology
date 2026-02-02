@@ -17,7 +17,7 @@ python visualize_3d.py --compare [output_dir] [--M 855] [--S 25] ...
 - `--S`: Node separation in Gpc (default: 25.0)
 - `--particles`: Number of particles (default: 300)
 - `--seed`: Random seed (default: 42)
-- `--t-start`: Start time in Gyr (default: 3.8)
+- `--t-start`: Start time in Gyr (default: 5.8)
 - `--t-duration`: Duration in Gyr (default: 10.0)
 - `--n-steps`: Number of timesteps (default: 150)
 - `--damping`: Velocity damping (default: auto)

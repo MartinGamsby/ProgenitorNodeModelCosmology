@@ -25,7 +25,7 @@ class SweepConfig:
     quick_search: bool = False
     many_search: bool = False
     search_center_mass: bool = True
-    t_start_Gyr: float = 3.8
+    t_start_Gyr: float = 5.8
     t_duration_Gyr: float = 10.0
     damping_factor: float = None
     s_min_gpc: int = 15

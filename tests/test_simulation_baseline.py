@@ -41,7 +41,7 @@ class TestLCDMBaseline(unittest.TestCase):
             msg=f"Size at t=13.8 Gyr should be ~14.5 Gpc, got {size_today:.2f} Gpc")
 
         # Additional check: solve from earlier time to present day
-        t_start = 3.8
+        t_start = 5.8
         initial_conditions_start = calculate_initial_conditions(t_start)
         a_start = initial_conditions_start['a_start']
         box_size_start = initial_conditions_start['box_size_Gpc']
@@ -94,9 +94,9 @@ class TestLCDMBaseline(unittest.TestCase):
                 f"(d²a/dt² = {late_acceleration:.6e})")
 
     def test_lcdm_expansion_history_from_simulation_start(self):
-        """Test LCDM expansion from typical simulation start time (3.8 Gyr) to present"""
+        """Test LCDM expansion from typical simulation start time (5.8 Gyr) to present"""
         # This mirrors the typical simulation setup used in run_simulation.py
-        t_start_Gyr = 3.8
+        t_start_Gyr = 5.8
         t_end_Gyr = 13.8
 
         # Get initial conditions (this calculates box_size and a_start)
@@ -141,7 +141,7 @@ class TestLCDMBaseline(unittest.TestCase):
 
     def test_lcdm_expands_faster_than_matter_only(self):
         """LCDM should expand faster than matter-only due to dark energy"""
-        t_start_Gyr = 3.8
+        t_start_Gyr = 5.8
         t_end_Gyr = 13.8
 
         # Get initial conditions
@@ -181,7 +181,7 @@ class TestLCDMBaseline(unittest.TestCase):
     def test_lcdm_hubble_parameter_evolution(self):
         """Hubble parameter should decrease over time in LCDM"""
         solution = solve_friedmann_equation(
-            t_start_Gyr=3.8,
+            t_start_Gyr=5.8,
             t_end_Gyr=13.8,
             Omega_Lambda=self.lcdm.Omega_Lambda
         )
@@ -210,7 +210,7 @@ class TestLCDMBaseline(unittest.TestCase):
     def test_matter_only_decelerates_throughout(self):
         """Matter-only cosmology should decelerate at all times (no acceleration)"""
         solution = solve_friedmann_equation(
-            t_start_Gyr=3.8,
+            t_start_Gyr=5.8,
             t_end_Gyr=13.8,
             Omega_Lambda=0.0  # Matter-only
         )
@@ -232,7 +232,7 @@ class TestLCDMBaseline(unittest.TestCase):
 
     def test_solve_friedmann_n_points_parameter(self):
         """Test that n_points parameter controls time resolution"""
-        t_start = 3.8
+        t_start = 5.8
         t_end = 13.8
 
         # Test with different resolutions
@@ -305,7 +305,7 @@ class TestLCDMBaselineHelper(unittest.TestCase):
             }
 
         # Test the helper function
-        t_start = 3.8
+        t_start = 5.8
         t_end = 13.8
 
         initial_conditions = calculate_initial_conditions(t_start)
@@ -338,7 +338,7 @@ class TestLCDMBaselineHelper(unittest.TestCase):
         # This test verifies the fix for visualize_3d.py where ΛCDM was starting
         # at a different size than External-Node and Matter-Only models
 
-        t_start_Gyr = 3.8
+        t_start_Gyr = 5.8
         t_end_Gyr = 13.8
 
         # Get initial conditions (used by all models)
@@ -397,7 +397,7 @@ class TestLCDMBaselineHelper(unittest.TestCase):
         # This test verifies that ΛCDM size changes over time, catching bugs where
         # interpolation uses windowed arrays that don't cover early times
 
-        t_start_Gyr = 3.8
+        t_start_Gyr = 5.8
         t_end_Gyr = 13.8
 
         # Get initial conditions
@@ -440,9 +440,9 @@ class TestLCDMBaselineHelper(unittest.TestCase):
     def test_lcdm_baseline_time_conversion_from_simulation_time(self):
         """Test correct conversion from simulation time (starting at 0) to absolute cosmic time"""
         # This catches the bug in visualize_3d.py where snap['time_s'] (simulation seconds)
-        # was converted to Gyr without adding t_start_Gyr, resulting in t=0 instead of t=3.8
+        # was converted to Gyr without adding t_start_Gyr, resulting in t=0 instead of t=5.8
 
-        t_start_Gyr = 3.8
+        t_start_Gyr = 5.8
         t_end_Gyr = 13.8
 
         initial_conditions = calculate_initial_conditions(t_start_Gyr)
@@ -459,7 +459,7 @@ class TestLCDMBaselineHelper(unittest.TestCase):
         a_lcdm_wrong = np.interp(t_Gyr_offset, solution['_t_Gyr_full'], solution['_a_full'])
         size_wrong = (a_lcdm_wrong / a_start) * box_size_start_Gpc
 
-        # CORRECT: Add t_start_Gyr to get absolute cosmic time (gives t=3.8 Gyr)
+        # CORRECT: Add t_start_Gyr to get absolute cosmic time (gives t=5.8 Gyr)
         t_Gyr_absolute = t_start_Gyr + t_Gyr_offset
         a_lcdm_correct = np.interp(t_Gyr_absolute, solution['_t_Gyr_full'], solution['_a_full'])
         size_correct = (a_lcdm_correct / a_start) * box_size_start_Gpc

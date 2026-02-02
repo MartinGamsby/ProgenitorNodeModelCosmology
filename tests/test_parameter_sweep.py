@@ -18,7 +18,7 @@ from cosmo.parameter_sweep import (
 def make_baseline(n_points: int = 31) -> LCDMBaseline:
     """Create a standard LCDM baseline for testing."""
     return LCDMBaseline(
-        t_Gyr=np.linspace(3.8, 13.8, n_points),
+        t_Gyr=np.linspace(5.8, 13.8, n_points),
         size_Gpc=np.linspace(10.0, 14.5, n_points),
         H_hubble=np.linspace(75.0, 68.0, n_points),  # H decreases over time
         size_final_Gpc=14.5,
@@ -55,7 +55,7 @@ def make_sim_result(quality: float = 1.0, n_points: int = 31) -> SimResult:
         size_final_Gpc=size_end + size_offset,
         radius_max_Gpc=9.4 + size_offset * 0.5,
         a_final=1.0,
-        t_Gyr=np.linspace(3.8, 13.8, n_points),
+        t_Gyr=np.linspace(5.8, 13.8, n_points),
         params=None
     )
 
@@ -108,7 +108,7 @@ class TestSweepConfig(unittest.TestCase):
         self.assertFalse(config.quick_search)
         self.assertFalse(config.many_search)
         self.assertTrue(config.search_center_mass)
-        self.assertEqual(config.t_start_Gyr, 3.8)
+        self.assertEqual(config.t_start_Gyr, 5.8)
         self.assertEqual(config.t_duration_Gyr, 10.0)
         self.assertEqual(config.damping_factor, None)
         self.assertEqual(config.s_min_gpc, 15)

@@ -12,6 +12,8 @@ from .constants import CosmologicalConstants, SimulationParameters
 from .particles import ParticleSystem, HMEAGrid
 from .integrator import LeapfrogIntegrator
 from .analysis import solve_friedmann_at_times
+from .visualization import generate_output_filename
+from .cache import Cache, CacheType
 
 try:
     from tqdm import tqdm
@@ -35,6 +37,7 @@ class CosmologicalSimulation:
             force_method: 'auto' (barnes_hut for N>=1000, numba_direct for N>=100, direct otherwise), 'direct', 'numba_direct', or 'barnes_hut'
         """
         self.const = CosmologicalConstants()
+        self.sim_params = sim_params
         self.use_external_nodes = use_external_nodes
         self.t_start_Gyr = sim_params.t_start_Gyr
         self.a_start = a_start
@@ -94,6 +97,8 @@ class CosmologicalSimulation:
         self.snapshots = []
         self.expansion_history = []
 
+        self.cache = Cache()
+
     def _calibrate_velocity_for_lcdm_match(self, t_duration_Gyr: float, n_steps: int, damping: float = None,
                                            percent_sim: float = 0.3) -> None:
         """
@@ -120,6 +125,14 @@ class CosmologicalSimulation:
             print(f"[Velocity Calibration] Applied velocity scaling: {damping:.6f}")
             return
 
+        calib_name = generate_output_filename('calibration', self.sim_params, '', '', include_timestamp=False)
+        cached_velocity = self.cache.get_cached_value(calib_name, CacheType.VELOCITY)
+        print(calib_name)
+        if cached_velocity:
+            self.particles.set_velocities(self.particles.get_velocities()*cached_velocity)
+            print(f"Using cached calibrationg of {cached_velocity} for {calib_name}")
+            return
+
         print("Calibrating", end="", flush=True)
         # Save initial state for restoration
         initial_positions = self.particles.get_positions()
@@ -141,6 +154,7 @@ class CosmologicalSimulation:
         calibration_steps = max(10, calibration_steps)  # At least 10 steps
         calibration_duration_Gyr = calibration_steps * dt_Gyr
         
+        total_velocity_scale = 1.0
         velocity_scale = 1.0
         for tries in range(20):
             
@@ -217,12 +231,10 @@ class CosmologicalSimulation:
             if (last_velocity_scale > 1.0 and velocity_scale < 1.0) or (last_velocity_scale < 1.0 and velocity_scale > 1.0):
                 break
             updated_velocities *= velocity_scale
-
-
+            total_velocity_scale *= velocity_scale
 
         print(f"\n[Velocity Calibration] Calibration period: {calibration_duration_Gyr:.2f} Gyr ({calibration_steps} steps)")
-        print(f"[Velocity Calibration] Max scale needed: {velocity_scale:.6f}")
-        print(f"[Velocity Calibration] Velocity scale factor: {velocity_scale:.6f}")
+        print(f"[Velocity Calibration] Velocity scale factor: {total_velocity_scale:.6f}")
 
             
         # Restore initial state and external node setting
@@ -232,6 +244,7 @@ class CosmologicalSimulation:
 
         # Apply calibrated velocity
         self.particles.set_velocities(updated_velocities)
+        self.cache.add_cached_value(calib_name, CacheType.VELOCITY, total_velocity_scale)
 
         print(f"[Velocity Calibration] Applied velocity scaling to all particles")
 

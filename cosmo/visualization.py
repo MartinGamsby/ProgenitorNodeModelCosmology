@@ -113,7 +113,9 @@ def generate_output_filename(
     parts.append(f"{sim_params.center_node_mass}centerM")
     parts.append(f"{sim_params.S_value}S")
     parts.append(f"{sim_params.n_steps}steps")
-
+    parts.append(f"{sim_params.seed}seed")
+    parts.append(f"{sim_params.mass_randomize}rnd")
+    
     damping_str = f"{sim_params.damping_factor}" if sim_params.damping_factor else "Auto"
     parts.append(f"{damping_str}d")
 

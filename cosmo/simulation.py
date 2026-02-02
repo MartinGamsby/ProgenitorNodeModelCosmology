@@ -13,6 +13,12 @@ from .particles import ParticleSystem, HMEAGrid
 from .integrator import LeapfrogIntegrator
 from .analysis import solve_friedmann_at_times
 
+try:
+    from tqdm import tqdm
+except ImportError:
+    # Fallback if tqdm not available
+    def tqdm(iterable, *args, **kwargs):
+        return iterable
 
 class CosmologicalSimulation:
     """Main class for running cosmological simulations"""
@@ -113,8 +119,8 @@ class CosmologicalSimulation:
             return
 
         # Save initial state for restoration
-        initial_positions = self.particles.get_positions().copy()
-        initial_velocities = self.particles.get_velocities().copy()
+        initial_positions = self.particles.get_positions()
+        updated_velocities = self.particles.get_velocities()
         initial_time = self.particles.time
 
         # Measure initial RMS radius
@@ -125,63 +131,73 @@ class CosmologicalSimulation:
         saved_use_external_nodes = self.integrator.use_external_nodes
         self.integrator.use_external_nodes = False
 
-        # Run test for ~2 Gyr or 20% of simulation, whichever is smaller
-        steps_per_Gyr = n_steps / t_duration_Gyr
-        calibration_steps = min(int(2.0 * steps_per_Gyr), int(n_steps * 0.2))
-        calibration_steps = max(10, calibration_steps)  # At least 10 steps
+        for tries in tqdm(range(20), mininterval=.1, desc="Preparing", unit="step"):
+            
+            self.particles.set_positions(initial_positions)
+            initial_positions = initial_positions.copy()
+            self.particles.set_velocities(updated_velocities)
+            updated_velocities = updated_velocities.copy()
+            self.particles.time = initial_time
 
-        # Pre-compute LCDM expansion at each step
-        t_points = self.t_start_Gyr + np.arange(1, calibration_steps + 1) * dt_Gyr
-        lcdm_at_steps = solve_friedmann_at_times(
-            np.concatenate([[self.t_start_Gyr], t_points])
-        )
-        lcdm_a_start = lcdm_at_steps['a'][0]
+            # Run test for ~2 Gyr or 20% of simulation, whichever is smaller
+            steps_per_Gyr = n_steps / t_duration_Gyr
+            calibration_steps = min(int(2.0 * steps_per_Gyr), int(n_steps * 0.2))
+            calibration_steps = max(10, calibration_steps)  # At least 10 steps
 
-        # Track max velocity scale needed
-        max_velocity_scale = 0.0
-        max_scale_step = 0
+            # Pre-compute LCDM expansion at each step
+            t_points = self.t_start_Gyr + np.arange(1, calibration_steps + 1) * dt_Gyr
+            lcdm_at_steps = solve_friedmann_at_times(
+                np.concatenate([[self.t_start_Gyr], t_points])
+            )
+            lcdm_a_start = lcdm_at_steps['a'][0]
 
-        for step in range(calibration_steps):
-            self.integrator.step(dt_s)
+            # Track max velocity scale needed
+            max_velocity_scale = 0.0
+            max_scale_step = 0
 
-            # Measure N-body expansion at this step
-            current_positions = self.particles.get_positions()
-            rms_current = np.sqrt(np.mean(np.sum(current_positions**2, axis=1)))
-            nbody_expansion = rms_current / rms_initial
+            for step in range(calibration_steps):
+                self.integrator.step(dt_s)
 
-            # Get LCDM expansion at this step
-            lcdm_expansion = lcdm_at_steps['a'][step + 1] / lcdm_a_start
+                # Measure N-body expansion at this step
+                current_positions = self.particles.get_positions()
+                rms_current = np.sqrt(np.mean(np.sum(current_positions**2, axis=1)))
+                nbody_expansion = rms_current / rms_initial
 
-            # Calculate velocity scale needed to match LCDM at this step
-            # If N-body > LCDM, we need scale < 1 (slow down)
-            # If N-body < LCDM, we need scale > 1 (speed up)
-            velocity_scale_at_step = lcdm_expansion / nbody_expansion
+                # Get LCDM expansion at this step
+                lcdm_expansion = lcdm_at_steps['a'][step + 1] / lcdm_a_start
 
-            if velocity_scale_at_step > max_velocity_scale:
-                max_velocity_scale = velocity_scale_at_step
-                max_scale_step = step + 1
+                # Calculate velocity scale needed to match LCDM at this step
+                # If N-body > LCDM, we need scale < 1 (slow down)
+                # If N-body < LCDM, we need scale > 1 (speed up)
+                velocity_scale_at_step = lcdm_expansion / nbody_expansion
 
-        # Restore initial state and external node setting
-        self.particles.set_positions(initial_positions)
-        self.particles.set_velocities(initial_velocities)
-        self.particles.time = initial_time
-        self.integrator.use_external_nodes = saved_use_external_nodes
+                if velocity_scale_at_step > max_velocity_scale:
+                    max_velocity_scale = velocity_scale_at_step
+                    max_scale_step = step + 1
 
-        # Use the maximum velocity scale found (most conservative)
-        velocity_scale = max_velocity_scale
+            # Use the maximum velocity scale found (most conservative)
+            velocity_scale = max_velocity_scale
 
-        # Clamp to reasonable range
-        velocity_scale = np.clip(velocity_scale, 0.1, 2.5)
+            # Clamp to reasonable range
+            velocity_scale = np.clip(velocity_scale, 0.1, 2.5)
 
-        calibration_duration_Gyr = calibration_steps * dt_Gyr
-        max_scale_time_Gyr = max_scale_step * dt_Gyr
+            calibration_duration_Gyr = calibration_steps * dt_Gyr
+            max_scale_time_Gyr = max_scale_step * dt_Gyr
+            updated_velocities *= velocity_scale
+
+
         print(f"[Velocity Calibration] Calibration period: {calibration_duration_Gyr:.2f} Gyr ({calibration_steps} steps)")
         print(f"[Velocity Calibration] Max scale needed: {velocity_scale:.6f} at step {max_scale_step} ({max_scale_time_Gyr:.2f} Gyr)")
         print(f"[Velocity Calibration] Velocity scale factor: {velocity_scale:.6f}")
 
+            
+        # Restore initial state and external node setting
+        self.particles.set_positions(initial_positions)
+        self.particles.time = initial_time
+        self.integrator.use_external_nodes = saved_use_external_nodes
+
         # Apply calibrated velocity
-        velocities = self.particles.get_velocities()
-        self.particles.set_velocities(velocities * velocity_scale)
+        self.particles.set_velocities(updated_velocities)
 
         print(f"[Velocity Calibration] Applied velocity scaling to all particles")
 

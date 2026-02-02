@@ -48,9 +48,9 @@ class MatchWeights:
     """Weights for computing weighted average match metric."""
     hubble_half_curve: float = 0.025
     hubble_curve: float = 0.025
-    size_half_curve: float = 0.4
-    size_curve: float = 0.4
-    endpoint: float = 0.1
+    size_half_curve: float = 0.3
+    size_curve: float = 0.3
+    endpoint: float = 0.3
     max_radius: float = 0.05
 
 
@@ -143,9 +143,9 @@ def build_center_mass_list(search_center_mass: bool = True, many_search: bool = 
         return [1]
 
     if many_search:
-        center_masses = generate_increments(500, terms_per_decade=10, min_value=1)
+        center_masses = generate_increments(1000, terms_per_decade=10, min_value=1)
     else:
-        center_masses = generate_increments(100, terms_per_decade=3, min_value=1)#6
+        center_masses = generate_increments(500, terms_per_decade=3, min_value=1)#6
     return center_masses
 
 

@@ -120,6 +120,7 @@ class CosmologicalSimulation:
             print(f"[Velocity Calibration] Applied velocity scaling: {damping:.6f}")
             return
 
+        print("Calibrating", end="", flush=True)
         # Save initial state for restoration
         initial_positions = self.particles.get_positions()
         updated_velocities = self.particles.get_velocities()
@@ -141,7 +142,7 @@ class CosmologicalSimulation:
         calibration_duration_Gyr = calibration_steps * dt_Gyr
         
         velocity_scale = 1.0
-        for tries in tqdm(range(20), mininterval=.1, desc="Preparing", unit="step"):
+        for tries in range(20):
             
             self.particles.set_positions(initial_positions)
             initial_positions = initial_positions.copy()
@@ -194,6 +195,9 @@ class CosmologicalSimulation:
                     min_velocity_scale = velocity_scale_at_step
 
                 last_step_direction = step_direction
+
+                if not (step % 10):
+                    print(".", end="", flush=True)
                 if use_min_velocity:
                     break
 
@@ -216,7 +220,7 @@ class CosmologicalSimulation:
 
 
 
-        print(f"[Velocity Calibration] Calibration period: {calibration_duration_Gyr:.2f} Gyr ({calibration_steps} steps)")
+        print(f"\n[Velocity Calibration] Calibration period: {calibration_duration_Gyr:.2f} Gyr ({calibration_steps} steps)")
         print(f"[Velocity Calibration] Max scale needed: {velocity_scale:.6f}")
         print(f"[Velocity Calibration] Velocity scale factor: {velocity_scale:.6f}")
 

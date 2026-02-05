@@ -20,7 +20,8 @@ from cosmo.factories import (
 )
 from cosmo.parameter_sweep import (
     SearchMethod, SweepConfig, MatchWeights, SimResult, LCDMBaseline,
-    build_m_list, build_s_list, build_center_mass_list, run_sweep
+    build_m_list, build_s_list, build_center_mass_list, run_sweep,
+    CSV_COLUMNS
 )
 
 const = CosmologicalConstants()
@@ -170,14 +171,8 @@ print(f"Speedup: {nbConfigs_bruteforce/sim_count:.1f}×")
 os.makedirs('./results', exist_ok=True)
 csv_path = './results/sweep_results.csv'
 
-csv_columns = ['M_factor', 'S_gpc', 'centerM', 'match_avg_pct', 'diff_pct',
-               'match_curve_pct', 'match_half_curve_pct', 'match_end_pct', 'match_max_pct',
-               'match_hubble_curve_pct', 'match_hubble_half_curve_pct', 'match_curve_rmse_pct',
-               'match_curve_error_pct', 'match_curve_r2', 'match_curve_error_max',
-               'a_ext', 'size_ext', 'desc']
-
 with open(csv_path, 'w', newline='') as f:
-    writer = csv.DictWriter(f, fieldnames=csv_columns, extrasaction='ignore')
+    writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS, extrasaction='ignore')
     writer.writeheader()
     writer.writerows(results)
 
@@ -186,7 +181,7 @@ print(f"\n✓ Saved {len(results)} results to {csv_path}")
 # Save best per S to CSV
 csv_path_best_s = './results/sweep_best_per_S.csv'
 with open(csv_path_best_s, 'w', newline='') as f:
-    writer = csv.DictWriter(f, fieldnames=csv_columns, extrasaction='ignore')
+    writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS, extrasaction='ignore')
     writer.writeheader()
     writer.writerows(best_per_s_list)
 

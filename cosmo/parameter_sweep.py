@@ -11,6 +11,27 @@ import numpy as np
 
 from .analysis import compare_expansion_histories, compare_expansion_history
 
+# Canonical list of individual match metric keys (excludes derived match_avg_pct / diff_pct).
+# Used by compute_match_metrics return dict, early-stop checks, and CSV columns.
+MATCH_METRIC_KEYS = (
+    'match_curve_pct',
+    'match_half_curve_pct',
+    'match_end_pct',
+    'match_max_pct',
+    'match_hubble_curve_pct',
+    'match_hubble_half_curve_pct',
+    'match_curve_rmse_pct',
+    'match_curve_error_pct',
+    'match_curve_r2',
+    'match_curve_error_max',
+)
+
+CSV_COLUMNS = (
+    ['M_factor', 'S_gpc', 'centerM', 'match_avg_pct', 'diff_pct']
+    + list(MATCH_METRIC_KEYS)
+    + ['a_ext', 'size_ext', 'desc']
+)
+
 
 class SearchMethod(Enum):
     """Search algorithm selection for parameter sweep."""
@@ -187,20 +208,11 @@ def compute_match_metrics(
         baseline.size_Gpc,
         return_diagnostics=True
     )
-    match_curve_r2 = match_curve_diagnostics['r_squared']
-    match_curve_pct = match_curve_diagnostics['match_pct']
-    match_curve_error_max = 100-match_curve_diagnostics['max_error_pct']
-    match_curve_error_pct = 100-match_curve_diagnostics['mean_error_pct']
-    match_curve_rmse_pct = 100-match_curve_diagnostics['rmse_pct']
-
-    
     match_hubble_diagnostics = compare_expansion_histories(
         sim_result.hubble_curve,
         baseline.H_hubble,
         return_diagnostics=True
     )
-    match_hubble_curve_rmse = 100-match_curve_diagnostics['rmse_pct']
-    match_hubble_curve_r2 = match_curve_diagnostics['r_squared']
 
     # Half curve comparisons (second half only, late-time acceleration)
     match_half_curve_diagnostics = compare_expansion_histories(
@@ -208,14 +220,11 @@ def compute_match_metrics(
         baseline.size_Gpc[half_point:],
         return_diagnostics=True
     )
-    match_half_curve_pct = 100-match_half_curve_diagnostics['rmse_pct']#match_pct']
     match_hubble_half_curve_diagnostics = compare_expansion_histories(
         sim_result.hubble_curve[half_point:],
         baseline.H_hubble[half_point:],
         return_diagnostics=True
     )
-    match_hubble_half_curve_pct = 100-match_hubble_half_curve_diagnostics['rmse_pct']#match_pct']
-    
 
     # Endpoint comparisons
     match_end_pct = compare_expansion_history(
@@ -229,47 +238,29 @@ def compute_match_metrics(
         baseline.radius_max_Gpc
     )
 
-    # Weighted average
-    #match_avg_pct = (
-    #    weights.hubble_half_curve * match_hubble_half_curve_pct +
-    #    weights.hubble_curve * match_hubble_curve_rmse +
-    #    weights.size_half_curve * match_half_curve_pct +
-    #    weights.size_curve * match_curve_pct +
-    #    weights.endpoint * match_end_pct +
-    #    weights.max_radius * match_max_pct
-    #)
-
-
-    match_avg_pct = 1.0
-    for r in [match_half_curve_pct, 
-              match_curve_error_max, 
-              match_curve_error_pct, 
-              match_curve_rmse_pct, 
-              match_end_pct, 
-              match_hubble_half_curve_pct, 
-              match_hubble_curve_rmse, 
-              #match_max_pct
-              ]:
-        r = max(0.0, min(1.0, r/100))
-        match_avg_pct *= r
-    match_avg_pct *= 100
-
-    return {
-        'match_curve_pct': match_curve_pct,
-        'match_half_curve_pct': match_half_curve_pct,
+    # Build metrics dict from MATCH_METRIC_KEYS
+    metrics = {
+        'match_curve_pct': match_curve_diagnostics['match_pct'],
+        'match_half_curve_pct': 100 - match_half_curve_diagnostics['rmse_pct'],
         'match_end_pct': match_end_pct,
         'match_max_pct': match_max_pct,
-        'match_hubble_curve_pct': match_hubble_curve_rmse,
-        'match_hubble_half_curve_pct': match_hubble_half_curve_pct,
-        'match_avg_pct': match_avg_pct,
-        'match_curve_rmse_pct': match_curve_rmse_pct,
-        'match_curve_error_pct': match_curve_error_pct,
-        'match_curve_r2': match_curve_r2,
-        'match_curve_error_max': match_curve_error_max,
-
-
-        'diff_pct': 100 - match_avg_pct
+        'match_hubble_curve_pct': 100 - match_hubble_diagnostics['rmse_pct'],
+        'match_hubble_half_curve_pct': 100 - match_hubble_half_curve_diagnostics['rmse_pct'],
+        'match_curve_rmse_pct': 100 - match_curve_diagnostics['rmse_pct'],
+        'match_curve_error_pct': 100 - match_curve_diagnostics['mean_error_pct'],
+        'match_curve_r2': match_curve_diagnostics['r_squared'],
+        'match_curve_error_max': 100 - match_curve_diagnostics['max_error_pct'],
     }
+
+    # Multiplicative aggregate: product of all metric values (clamped to [0,1])
+    match_avg_pct = 1.0
+    for key in MATCH_METRIC_KEYS:
+        match_avg_pct *= max(0.0, min(1.0, metrics[key] / 100))
+    match_avg_pct *= 100
+
+    metrics['match_avg_pct'] = match_avg_pct
+    metrics['diff_pct'] = 100 - match_avg_pct
+    return metrics
 
 
 def _build_result_dict(
@@ -449,9 +440,7 @@ def linear_search_S(
                 break
 
             all_worse = True
-            for key in ['match_curve_pct', 'match_half_curve_pct', 'match_end_pct',
-                'match_max_pct', 'match_avg_pct', 'match_hubble_curve_pct', 'match_hubble_half_curve_pct',
-                'match_curve_rmse_pct', 'match_curve_error_pct', 'match_curve_r2', 'match_curve_error_max']:
+            for key in MATCH_METRIC_KEYS:
                 #print(key, prev_result[key] > result[key] * 1.00025, prev_result[key], result[key])
                 if prev_result[key] < result[key] * 1.00025:
                     all_worse = False

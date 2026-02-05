@@ -33,13 +33,13 @@ class SweepConfig:
     save_interval: int = 10
 
 @dataclass
-class MatchWeights:
+class MatchWeights:  # Legacy, currently unused
     hubble_half_curve: float = 0.025
     hubble_curve: float = 0.025
-    size_half_curve: float = 0.4
-    size_curve: float = 0.4
-    endpoint: float = 0.1
-    max_radius: float = 0.05
+    size_half_curve: float = 0.25
+    size_curve: float = 0.2
+    endpoint: float = 0.4
+    max_radius: float = 0.1
 
 @dataclass
 class SimResult:
@@ -62,7 +62,7 @@ class LCDMBaseline:
     radius_max_Gpc: float
     a_final: float
 
-SimCallback = Callable[[int, int, int, int], SimResult]  # (M, S, centerM, seed)
+SimCallback = Callable[[int, int, int, List[int]], List[SimResult]]  # (M, S, centerM, seeds)
 ```
 
 ## Parameter Space
@@ -97,22 +97,23 @@ Exhaustive grid: all M x all S x all centerM. Most thorough, slowest.
 
 ## Match Metric
 
-Weighted average using both full curves and half curves (last 5 Gyr):
-```python
-match_avg = (hubble_half_curve * 0.025) + (hubble_curve * 0.025) +
-            (size_half_curve * 0.4) + (size_curve * 0.4) +
-            (endpoint * 0.1) + (max_radius * 0.05)
-```
+`MATCH_METRIC_KEYS` tuple (cosmo/parameter_sweep.py) is the single source of truth for individual metric keys. Used by `compute_match_metrics` return dict, early-stop check in `linear_search_S`, and `CSV_COLUMNS`.
 
-Metrics returned by `compute_match_metrics(sim_result, baseline, weights)`:
-- `match_curve_pct`: Full size curve R² match
-- `match_half_curve_pct`: Second-half size curve R² match
-- `match_hubble_curve_pct`: Full Hubble curve R² match
-- `match_hubble_half_curve_pct`: Second-half Hubble curve R² match
-- `match_end_pct`: Endpoint size match
+`match_avg_pct` = multiplicative aggregate: product of all `MATCH_METRIC_KEYS` values clamped to [0,1], times 100. `diff_pct` = 100 - match_avg_pct.
+
+`MatchWeights` dataclass exists but is currently unused (legacy from weighted-average approach).
+
+Metrics in `MATCH_METRIC_KEYS`:
+- `match_curve_pct`: Full size curve match (match_pct from diagnostics)
+- `match_half_curve_pct`: Second-half size curve (100 - rmse_pct)
+- `match_end_pct`: Endpoint size match (+5 buffer if overshoots)
 - `match_max_pct`: Max radius match
-- `match_avg_pct`: Weighted average
-- `diff_pct`: 100 - match_avg_pct
+- `match_hubble_curve_pct`: Full Hubble curve (100 - rmse_pct from hubble diagnostics)
+- `match_hubble_half_curve_pct`: Second-half Hubble curve (100 - rmse_pct)
+- `match_curve_rmse_pct`: Full size curve (100 - rmse_pct)
+- `match_curve_error_pct`: Full size curve (100 - mean_error_pct)
+- `match_curve_r2`: R² coefficient from size curve diagnostics
+- `match_curve_error_max`: Full size curve (100 - max_error_pct)
 
 ## Workflow
 
@@ -166,11 +167,8 @@ Dummy callbacks create SimResult with predictable quality based on distance from
 - `results/sweep_results.csv` - all evaluated configurations
 - `results/sweep_best_per_S.csv` - best (M, centerM) for each S value
 
-CSV columns:
-- M_factor, S_gpc, centerM
-- match_avg_pct, diff_pct, match_curve_pct, match_half_curve_pct, match_end_pct, match_max_pct
-- match_hubble_curve_pct, match_hubble_half_curve_pct
-- a_ext, size_ext, desc
+CSV columns defined by `CSV_COLUMNS` constant (cosmo/parameter_sweep.py):
+`[M_factor, S_gpc, centerM, match_avg_pct, diff_pct] + MATCH_METRIC_KEYS + [a_ext, size_ext, desc]`
 
 ## Usage
 

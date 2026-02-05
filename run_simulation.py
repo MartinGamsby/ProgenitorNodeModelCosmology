@@ -9,105 +9,57 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from cosmo.constants import CosmologicalConstants, LambdaCDMParameters, SimulationParameters
+from cosmo.constants import CosmologicalConstants, SimulationParameters
 from cosmo.cli import parse_arguments, args_to_sim_params
-from cosmo.simulation import CosmologicalSimulation
 from cosmo.analysis import (
-    solve_friedmann_at_times,
-    calculate_initial_conditions,
     compare_expansion_history,
     compare_expansion_histories,
     detect_runaway_particles,
-    calculate_today_marker,
-    calculate_hubble_parameters
+    calculate_today_marker
 )
 from cosmo.visualization import (
     generate_output_filename,
     create_comparison_plot
 )
-from cosmo.factories import run_and_extract_results
+from cosmo.factories import (
+    setup_simulation_context,
+    run_external_node_simulation,
+    run_matter_only_simulation
+)
 
 
-def solve_lcdm_baseline(sim_params, lcdm_initial_size, a_start, save_interval=10):
-    """
-    Solve analytic ΛCDM and matter-only evolution at N-body simulation times.
-
-    Uses exact time alignment with N-body snapshots to eliminate interpolation artifacts.
-    """
-    lcdm_params = LambdaCDMParameters()
-
-    # Compute time array matching N-body snapshots
-    # N-body saves initial snapshot + every save_interval steps
-    n_snapshots = (sim_params.n_steps // save_interval) + 1  # +1 for initial snapshot
-
-    # Time points: 0, dt*save_interval, 2*dt*save_interval, ..., t_duration
-    # This matches exactly what the N-body simulation records
-    snapshot_steps = np.arange(0, sim_params.n_steps + 1, save_interval)
-    t_relative_Gyr = (snapshot_steps / sim_params.n_steps) * sim_params.t_duration_Gyr
-    t_absolute_Gyr = sim_params.t_start_Gyr + t_relative_Gyr
-
-    # Solve ΛCDM at exact N-body snapshot times
-    lcdm_solution = solve_friedmann_at_times(t_absolute_Gyr, Omega_Lambda=lcdm_params.Omega_Lambda)
-    a_lcdm = lcdm_solution['a']
-    H_lcdm_hubble = lcdm_solution['H_hubble']
-
-    # Normalize using the EXACT a_start for consistency with N-body sims
-    # NOTE: lcdm_initial_size = box_size (diameter), matching N-body convention
-    diameter_lcdm_Gpc = lcdm_initial_size * (a_lcdm / a_start)
-
-    print(f"LCDM: {lcdm_initial_size:.3f} -> {diameter_lcdm_Gpc[-1]:.2f} Gpc")
-
-    # Scale box_size so that the RMS radius matches the target
-    # For a uniform sphere of radius R, RMS radius = R * sqrt(3/5) ≈ 0.775*R
-    # We want RMS = size_lcdm_Gpc, so R_sphere = size_lcdm_Gpc / 0.775
-    # This means we need to use a sphere of radius: size_lcdm_Gpc/2 / sqrt(3/5)
-    max_diameter_lcdm_Gpc = diameter_lcdm_Gpc / np.sqrt(3/5)
-    
-    return {
-        't': t_relative_Gyr,  # Time relative to simulation start (starts at exactly 0.0)
-        'a': a_lcdm,
-        'diameter_Gpc': diameter_lcdm_Gpc,  # Diameter in Gpc (matches N-body convention)
-        'max_diameter_Gpc': max_diameter_lcdm_Gpc,
-        'H_hubble': H_lcdm_hubble
-    }
+SAVE_INTERVAL = 10  # Must match parameter_sweep.py
 
 
 def run_nbody_simulations(sim_params, box_size, a_start):
     """
-    Run External-Node and Matter-only N-body simulations.
+    Run External-Node and Matter-only N-body simulations using shared factory functions.
     """
     print(f"\nM={sim_params.M_value}, S={sim_params.S_value}, Omega_Lambda_eff={sim_params.external_params.Omega_Lambda_eff:.3f}")
     print(f"{sim_params.n_particles} particles, seed={sim_params.seed}")
 
     # Run External-Node simulation
     print("\nRunning External-Node simulation...")
-    sim_ext = CosmologicalSimulation(sim_params, box_size, a_start,
-                                     use_external_nodes=True, use_dark_energy=False)
-    ext_results = run_and_extract_results(sim_ext, sim_params.t_duration_Gyr, sim_params.n_steps,
-                                          damping=sim_params.damping_factor)
+    ext_results = run_external_node_simulation(sim_params, box_size, a_start, SAVE_INTERVAL)
 
     # Run matter-only simulation
     print("\nRunning Matter-only simulation...")
-    sim_matter = CosmologicalSimulation(sim_params, box_size, a_start,
-                                        use_external_nodes=False, use_dark_energy=False)
-    matter_results = run_and_extract_results(sim_matter, sim_params.t_duration_Gyr, sim_params.n_steps,
-                                             damping=sim_params.damping_factor)
+    matter_results = run_matter_only_simulation(sim_params, box_size, a_start, SAVE_INTERVAL)
+
+    # Repackage results with consistent naming
+    def repackage(results):
+        return {
+            'sim': results['sim'],
+            't': results['t_Gyr'],
+            'a': results['a'],
+            'diameter_Gpc': results['diameter_Gpc'],
+            'max_diameter_Gpc': results['max_radius_Gpc'] * 2,
+            'H_hubble': results['H_hubble']
+        }
 
     return {
-        'ext': {
-            'sim': ext_results['sim'],
-            't': ext_results['t_Gyr'],
-            'a': ext_results['a'],
-            'diameter_Gpc': ext_results['diameter_Gpc'],
-            'max_diameter_Gpc': ext_results['max_radius_Gpc']*2
-        },
-        'matter': {
-            'sim': matter_results['sim'],
-            't': matter_results['t_Gyr'],
-            'a': matter_results['a'],
-            'diameter_Gpc': matter_results['diameter_Gpc'],
-            'max_diameter_Gpc': matter_results['max_radius_Gpc']*2
-        }
+        'ext': repackage(ext_results),
+        'matter': repackage(matter_results)
     }
 
 def print_results_summary(size_ext_final, size_lcdm_final, size_matter_final,
@@ -158,20 +110,13 @@ def run_simulation(output_dir, sim_params, use_max_radius=False):
     np.random.seed(sim_params.seed)
     const = CosmologicalConstants()
 
-    # Calculate initial conditions
-    initial_conditions = calculate_initial_conditions(sim_params.t_start_Gyr)
-    a_at_start = initial_conditions['a_start']
-    box_size = initial_conditions['box_size_Gpc']
-    print(f"H(t_start={sim_params.t_start_Gyr} Gyr) = {initial_conditions['H_start_hubble']:.1f} km/s/Mpc")
-
-    # Solve analytic baselines (ΛCDM and matter-only)
-    baseline = solve_lcdm_baseline(sim_params, box_size, a_at_start)
+    # Setup initial conditions and LCDM baseline (shared with parameter_sweep.py)
+    box_size, a_at_start, baseline = setup_simulation_context(
+        sim_params.t_start_Gyr, sim_params.t_duration_Gyr, sim_params.n_steps, SAVE_INTERVAL
+    )
+    print(f"LCDM: {box_size:.3f} -> {baseline['diameter_Gpc'][-1]:.2f} Gpc")
 
     # Run N-body simulations (External-Node and Matter-only)
-    # TODO: Maybe slightly bigger initial size?? (for non-lcdm) (Because it accelerates slower at the beginning...)
-    # (NOT THAT VALUE! THIS IS ONLY TO TEST!)
-    # PROBABLY DEPENDS ON INITIAL VALUES, M, CenterM, start year, ETC.
-    #box_size*= 1.003
     nbody = run_nbody_simulations(sim_params, box_size, a_at_start)
 
     # Calculate match statistics
@@ -184,18 +129,14 @@ def run_simulation(output_dir, sim_params, use_max_radius=False):
     matter_match = compare_expansion_history(size_matter_final, size_lcdm_final)
 
     size_lcdm_curve = baseline[size_key]
-    hubble_ext = calculate_hubble_parameters(nbody['ext']['t'], nbody['ext']['a'], smooth_sigma=0.0)
     H_lcdm_hubble = baseline['H_hubble']
-
     half_point = len(size_lcdm_curve)//2
 
+    # Hubble is now computed in factory functions
     match_ext_curve_pct = compare_expansion_histories(nbody['ext'][size_key][half_point:], size_lcdm_curve[half_point:])
-    match_ext_hubble_curve_pct = compare_expansion_histories(hubble_ext[half_point:], H_lcdm_hubble[half_point:])
+    match_ext_hubble_curve_pct = compare_expansion_histories(nbody['ext']['H_hubble'][half_point:], H_lcdm_hubble[half_point:])
     match_matter_curve_pct = compare_expansion_histories(nbody['matter'][size_key][half_point:], size_lcdm_curve[half_point:])
-    match_matter_hubble_curve_pct = compare_expansion_histories(
-        calculate_hubble_parameters(nbody['matter']['t'], nbody['matter']['a'], smooth_sigma=0.0)[half_point:], 
-        H_lcdm_hubble[half_point:]
-    )
+    match_matter_hubble_curve_pct = compare_expansion_histories(nbody['matter']['H_hubble'][half_point:], H_lcdm_hubble[half_point:])
 
 
     # Check for runaway particles
@@ -208,17 +149,13 @@ def run_simulation(output_dir, sim_params, use_max_radius=False):
         match_matter_curve_pct, match_matter_hubble_curve_pct, max_ext_final
     )
 
-    # Calculate Hubble parameters for plotting (no smoothing by default per user request)
-    H_ext_hubble = calculate_hubble_parameters(nbody['ext']['t'], nbody['ext']['a'], smooth_sigma=0.0)
-    H_matter_hubble = calculate_hubble_parameters(nbody['matter']['t'], nbody['matter']['a'], smooth_sigma=0.0)
-
-    # Create visualization
+    # Create visualization (Hubble already computed in factory)
     today = calculate_today_marker(sim_params.t_start_Gyr, sim_params.t_duration_Gyr)
     fig = create_comparison_plot(
         sim_params,
         baseline['t'], baseline['a'], baseline[size_key], baseline['H_hubble'],
-        nbody['ext']['t'], nbody['ext']['a'], nbody['ext'][size_key], H_ext_hubble,
-        nbody['matter']['t'], nbody['matter']['a'], nbody['matter'][size_key], H_matter_hubble,
+        nbody['ext']['t'], nbody['ext']['a'], nbody['ext'][size_key], nbody['ext']['H_hubble'],
+        nbody['matter']['t'], nbody['matter']['a'], nbody['matter'][size_key], nbody['matter']['H_hubble'],
         today=today
     )
 

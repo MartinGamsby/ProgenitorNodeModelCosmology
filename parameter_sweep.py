@@ -13,16 +13,14 @@ import csv
 import os
 from typing import List
 from cosmo.constants import CosmologicalConstants, SimulationParameters
-from cosmo.simulation import CosmologicalSimulation
-from cosmo.analysis import (
-    calculate_initial_conditions,
-    solve_friedmann_at_times,
-    calculate_hubble_parameters
+from cosmo.factories import (
+    setup_simulation_context,
+    run_external_node_simulation,
+    results_to_sim_result
 )
-from cosmo.factories import run_and_extract_results
 from cosmo.parameter_sweep import (
     SearchMethod, SweepConfig, MatchWeights, SimResult, LCDMBaseline,
-    build_m_list, build_s_list, build_center_mass_list, run_sweep, compute_match_metrics
+    build_m_list, build_s_list, build_center_mass_list, run_sweep
 )
 
 const = CosmologicalConstants()
@@ -31,18 +29,18 @@ const = CosmologicalConstants()
 SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
 QUICK_SEARCH = True
 MULTIPLY_PARTICLES = False
-MANY_SEARCH = False
-SEARCH_CENTER_MASS = True
+MANY_SEARCH = 10#3 and 10 are probably fine. You can go to 12,20,21!,31!!,...61!!!,...101!!!!
+SEARCH_CENTER_MASS = False
 
 config = SweepConfig(
     quick_search=QUICK_SEARCH,
     many_search=MANY_SEARCH,
     search_center_mass=SEARCH_CENTER_MASS,
-    t_start_Gyr=3.8,
-    t_duration_Gyr=10.0,
+    t_start_Gyr=5.8,
+    t_duration_Gyr=8.0,
     damping_factor=None,
     s_min_gpc=15,
-    s_max_gpc=(100 if MANY_SEARCH else 60),
+    s_max_gpc=(100 if MANY_SEARCH>5 else 60),
     save_interval=10
 )
 
@@ -52,10 +50,11 @@ print("="*70)
 print("PARAMETER SWEEP: Finding Best Match to ΛCDM")
 print("="*70)
 
-# Calculate initial conditions once (reused for all configs)
-initial_conditions = calculate_initial_conditions(config.t_start_Gyr)
-BOX_SIZE = initial_conditions['box_size_Gpc']
-A_START = initial_conditions['a_start']
+# Setup initial conditions and LCDM baseline (shared with run_simulation.py)
+print("\n1. Computing initial conditions and ΛCDM baseline...")
+BOX_SIZE, A_START, lcdm_result = setup_simulation_context(
+    config.t_start_Gyr, config.t_duration_Gyr, config.n_steps, config.save_interval
+)
 
 # Build parameter lists for info display
 m_list = build_m_list(config.many_search)
@@ -67,41 +66,20 @@ print(f"Using {SEARCH_METHOD.name} on S for each M value...")
 print(f"M values to test: {len(m_list)}")
 if config.search_center_mass:
     print(f"Center M values to test: {len(center_masses)}")
-    
 
 print(f"S range: [{config.s_min_gpc}, {config.s_max_gpc}]")
 print(f"(Brute force would test {nbConfigs_bruteforce} configurations)")
 
-# First, solve ΛCDM baseline (analytic solution, not N-body simulation)
-print("\n1. Computing ΛCDM baseline...")
-
-# Compute time array matching N-body snapshot times
-# N-body saves initial snapshot + every SAVE_INTERVAL steps
-snapshot_steps = np.arange(0, config.n_steps + 1, config.save_interval)
-t_relative_Gyr = (snapshot_steps / config.n_steps) * config.t_duration_Gyr
-t_absolute_Gyr = config.t_start_Gyr + t_relative_Gyr
-
-# Solve ΛCDM at exact N-body snapshot times
-lcdm_solution = solve_friedmann_at_times(t_absolute_Gyr, Omega_Lambda=None)
-H_lcdm_hubble = lcdm_solution['H_hubble']
-
-# Extract expansion history
-t_lcdm = lcdm_solution['t_Gyr'] - config.t_start_Gyr  # Offset to start at 0
-a_lcdm_array = lcdm_solution['a']
-size_lcdm_full = BOX_SIZE * (a_lcdm_array / A_START)  # Full resolution curve
-a_lcdm = a_lcdm_array[-1]
-size_lcdm_final = size_lcdm_full[-1]
-
-# Scale box_size so that the RMS radius matches the target
-# For a uniform sphere of radius R, RMS radius = R * sqrt(3/5) ≈ 0.775*R
+# Create baseline object for parameter sweep module
+size_lcdm_final = lcdm_result['diameter_Gpc'][-1]
 radius_lcdm_max = size_lcdm_final / 2 / np.sqrt(3/5)
+a_lcdm = lcdm_result['a'][-1]
 print(f"   ΛCDM final a(t) = {a_lcdm:.4f}, size = {size_lcdm_final:.2f} Gpc")
 
-# Create baseline object for parameter sweep module
 baseline = LCDMBaseline(
-    t_Gyr=t_lcdm,
-    size_Gpc=size_lcdm_full,
-    H_hubble=H_lcdm_hubble,
+    t_Gyr=lcdm_result['t'],
+    size_Gpc=lcdm_result['diameter_Gpc'],
+    H_hubble=lcdm_result['H_hubble'],
     size_final_Gpc=size_lcdm_final,
     radius_max_Gpc=radius_lcdm_max,
     a_final=a_lcdm
@@ -114,14 +92,14 @@ def sim(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResult:
     """
     Run a single External-Node simulation and return raw results.
 
-    This callback is passed to the parameter sweep module.
+    Uses shared factory functions for consistency with run_simulation.py.
     """
     global sim_count
     sim_count += 1
     desc = f"M={M_factor}, S={S_gpc}, centerM={centerM}"
     print(f"\n2. Testing {desc} (sim #{sim_count})")
 
-    # Create simulation parameters
+    # Create simulation parameters (mass_randomize=0.0 matches CLI default)
     sim_params = SimulationParameters(
         M_value=M_factor,
         S_value=S_gpc,
@@ -132,35 +110,14 @@ def sim(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResult:
         n_steps=config.n_steps,
         damping_factor=config.damping_factor,
         center_node_mass=centerM,
-        mass_randomize=0.0  # 0.0 for Equal masses for deterministic test
+        mass_randomize=0.0  # Matches CLI default for deterministic results
     )
 
-    # Run simulation
-    sim_ext = CosmologicalSimulation(sim_params, BOX_SIZE, A_START,
-                                      use_external_nodes=True, use_dark_energy=False)
-    ext_results = run_and_extract_results(sim_ext, config.t_duration_Gyr, config.n_steps,
-                                           save_interval=config.save_interval,
-                                           damping=config.damping_factor)
+    # Run simulation and convert to SimResult (both use shared factory functions)
+    ext_results = run_external_node_simulation(sim_params, BOX_SIZE, A_START, config.save_interval)
+    print(f"   External-Node final a(t) = {ext_results['a'][-1]:.4f}, size = {ext_results['diameter_Gpc'][-1]:.2f} Gpc")
 
-    a_ext = ext_results['a'][-1]
-    size_ext_final = ext_results['diameter_Gpc'][-1]
-    size_ext_curve = ext_results['diameter_Gpc']
-    radius_max_final = ext_results['max_radius_Gpc'][-1]
-    t_ext = ext_results['t_Gyr']
-
-    hubble_ext = calculate_hubble_parameters(t_ext, ext_results['a'], smooth_sigma=0.0)
-
-    print(f"   External-Node final a(t) = {a_ext:.4f}, size = {size_ext_final:.2f} Gpc")
-
-    return SimResult(
-        size_curve_Gpc=size_ext_curve,
-        hubble_curve=hubble_ext,
-        size_final_Gpc=size_ext_final,
-        radius_max_Gpc=radius_max_final,
-        a_final=a_ext,
-        t_Gyr=t_ext,
-        params=sim_params.external_params
-    )
+    return results_to_sim_result(ext_results, sim_params)
 
 def sim_callback(M_factor: int, S_gpc: int, centerM: int, seeds: List[int] = [42]) -> List[SimResult]:
     results = []
@@ -171,22 +128,6 @@ def sim_callback(M_factor: int, S_gpc: int, centerM: int, seeds: List[int] = [42
 
 # Run the sweep
 results = run_sweep(config, SEARCH_METHOD, sim_callback, baseline, weights, seeds=[123] if QUICK_SEARCH else [42,123])
-
-# Save all results to CSV
-os.makedirs('./results', exist_ok=True)
-csv_path = './results/sweep_results.csv'
-
-csv_columns = ['M_factor', 'S_gpc', 'centerM', 'match_avg_pct', 'diff_pct',
-               'match_curve_pct', 'match_half_curve_pct', 'match_end_pct', 'match_max_pct',
-               'match_hubble_curve_pct', 'match_hubble_half_curve_pct',
-               'a_ext', 'size_ext', 'desc']
-
-with open(csv_path, 'w', newline='') as f:
-    writer = csv.DictWriter(f, fieldnames=csv_columns, extrasaction='ignore')
-    writer.writeheader()
-    writer.writerows(results)
-
-print(f"\n✓ Saved {len(results)} results to {csv_path}")
 
 # Build best per S
 best_per_s = {}
@@ -223,6 +164,24 @@ print(f"{'='*70}")
 print(f"Total simulations run: {sim_count}")
 print(f"Brute force would require: {nbConfigs_bruteforce}")
 print(f"Speedup: {nbConfigs_bruteforce/sim_count:.1f}×")
+
+
+# Save all results to CSV
+os.makedirs('./results', exist_ok=True)
+csv_path = './results/sweep_results.csv'
+
+csv_columns = ['M_factor', 'S_gpc', 'centerM', 'match_avg_pct', 'diff_pct',
+               'match_curve_pct', 'match_half_curve_pct', 'match_end_pct', 'match_max_pct',
+               'match_hubble_curve_pct', 'match_hubble_half_curve_pct', 'match_curve_rmse_pct',
+               'match_curve_error_pct', 'match_curve_r2', 'match_curve_error_max',
+               'a_ext', 'size_ext', 'desc']
+
+with open(csv_path, 'w', newline='') as f:
+    writer = csv.DictWriter(f, fieldnames=csv_columns, extrasaction='ignore')
+    writer.writeheader()
+    writer.writerows(results)
+
+print(f"\n✓ Saved {len(results)} results to {csv_path}")
 
 # Save best per S to CSV
 csv_path_best_s = './results/sweep_best_per_S.csv'

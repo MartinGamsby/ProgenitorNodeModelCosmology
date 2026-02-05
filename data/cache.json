@@ -1,0 +1,116 @@
+{
+    "calibration_200p_5.8-13.8Gyr_1centerM_250steps_123seed_0.0rnd.": {
+        "velocity": 1.1408260430914252
+    },
+    "calibration_200p_5.8-13.8Gyr_2centerM_250steps_123seed_0.0rnd.": {
+        "velocity": 1.1452676111189506
+    },
+    "calibration_200p_5.8-13.8Gyr_5centerM_250steps_123seed_0.0rnd.": {
+        "velocity": 1.1480322608792524
+    },
+    "calibration_200p_5.8-13.8Gyr_10centerM_250steps_123seed_0.0rnd.": {
+        "velocity": 1.1509987031443725
+    },
+    "calibration_200p_5.8-13.8Gyr_20centerM_250steps_123seed_0.0rnd.": {
+        "velocity": 1.1432414577582648
+    },
+    "calibration_200p_5.8-13.8Gyr_50centerM_250steps_123seed_0.0rnd.": {
+        "velocity": 1.1279151731171386
+    },
+    "calibration_200p_5.8-13.8Gyr_100centerM_250steps_123seed_0.0rnd.": {
+        "velocity": 1.1235777791270825
+    },
+    "calibration_200p_5.8-13.8Gyr_200centerM_250steps_123seed_0.0rnd.": {
+        "velocity": 1.1231176221953219
+    },
+    "calibration_200p_5.8-13.8Gyr_500centerM_250steps_123seed_0.0rnd.": {
+        "velocity": 1.1230554763793255
+    },
+    "calibration_2000p_5.8-13.8Gyr_1centerM_300steps_42seed_0.0rnd.": {
+        "velocity": 1.1390647884552763
+    },
+    "calibration_2000p_5.8-13.8Gyr_1centerM_300steps_123seed_0.0rnd.": {
+        "velocity": 1.139047821690514
+    },
+    "calibration_2000p_5.8-13.8Gyr_2centerM_300steps_42seed_0.0rnd.": {
+        "velocity": 1.14030804773916
+    },
+    "calibration_2000p_5.8-13.8Gyr_2centerM_300steps_123seed_0.0rnd.": {
+        "velocity": 1.1402831985979651
+    },
+    "calibration_2000p_5.8-13.8Gyr_5centerM_300steps_42seed_0.0rnd.": {
+        "velocity": 1.143076596218046
+    },
+    "calibration_2000p_5.8-13.8Gyr_5centerM_300steps_123seed_0.0rnd.": {
+        "velocity": 1.1430394230300682
+    },
+    "calibration_2000p_5.8-13.8Gyr_10centerM_300steps_42seed_0.0rnd.": {
+        "velocity": 1.1487631914721896
+    },
+    "calibration_2000p_5.8-13.8Gyr_10centerM_300steps_123seed_0.0rnd.": {
+        "velocity": 1.1487012989523213
+    },
+    "calibration_2000p_5.8-13.8Gyr_20centerM_300steps_42seed_0.0rnd.": {
+        "velocity": 1.1433897277072238
+    },
+    "calibration_2000p_5.8-13.8Gyr_20centerM_300steps_123seed_0.0rnd.": {
+        "velocity": 1.1434424899006728
+    },
+    "calibration_2000p_5.8-13.8Gyr_50centerM_300steps_42seed_0.0rnd.": {
+        "velocity": 1.1438887403342604
+    },
+    "calibration_2000p_5.8-13.8Gyr_50centerM_300steps_123seed_0.0rnd.": {
+        "velocity": 1.138965143327031
+    },
+    "calibration_2000p_5.8-13.8Gyr_100centerM_300steps_42seed_0.0rnd.": {
+        "velocity": 1.1290056176767143
+    },
+    "calibration_2000p_5.8-13.8Gyr_100centerM_300steps_123seed_0.0rnd.": {
+        "velocity": 1.1289940448761124
+    },
+    "calibration_2000p_5.8-13.8Gyr_200centerM_300steps_42seed_0.0rnd.": {
+        "velocity": 1.1237021260042839
+    },
+    "calibration_2000p_5.8-13.8Gyr_200centerM_300steps_123seed_0.0rnd.": {
+        "velocity": 1.1236895374016258
+    },
+    "calibration_2000p_5.8-13.8Gyr_500centerM_300steps_42seed_0.0rnd.": {
+        "velocity": 1.1230843862011843
+    },
+    "calibration_2000p_5.8-13.8Gyr_500centerM_300steps_123seed_0.0rnd.": {
+        "velocity": 1.123071779261029
+    },
+    "calibration_2000p_5.8-15.8Gyr_1centerM_300steps_123seed_0.0rnd.": {
+        "velocity": 1.1402611705386998
+    },
+    "calibration_15p_11.0-12.0Gyr_1centerM_20steps_99seed_0.5rnd.": {
+        "velocity": 1.2562383983224883
+    },
+    "calibration_20p_12.0-13.0Gyr_1centerM_25steps_42seed_0.5rnd.": {
+        "velocity": 1.2187659573188367
+    },
+    "calibration_10p_12.0-12.5Gyr_1centerM_15steps_789seed_0.5rnd.": {
+        "velocity": 1.1855794850161316
+    },
+    "calibration_20p_12.0-12.5Gyr_1centerM_25steps_42seed_0.5rnd.": {
+        "velocity": 1.1145039629336837
+    },
+    "calibration_20p_10.0-11.0Gyr_1centerM_100steps_123seed_0.5rnd.": {
+        "velocity": 1.1581861266688724
+    },
+    "calibration_50p_0.0-0.5Gyr_1centerM_100steps_42seed_0.5rnd.": {
+        "velocity": 322.68769777899985
+    },
+    "calibration_30p_0.0-0.4Gyr_1centerM_100steps_999seed_0.5rnd.": {
+        "velocity": 613.1066257800996
+    },
+    "calibration_100p_1.5-14.8Gyr_1centerM_1000steps_42seed_0.5rnd.": {
+        "velocity": 0.9964256700417468
+    },
+    "calibration_1000p_5.8-13.8Gyr_1centerM_300steps_42seed_0.0rnd.": {
+        "velocity": 1.138976661936137
+    },
+    "calibration_1000p_5.8-13.8Gyr_1centerM_300steps_123seed_0.0rnd.": {
+        "velocity": 1.1389982749139953
+    }
+}

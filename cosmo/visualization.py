@@ -99,7 +99,10 @@ def generate_output_filename(
     sim_params,
     extension='png',
     output_dir='.',
-    include_timestamp=True
+    include_timestamp=True,
+    include_S=True,
+    include_M=True,
+    include_D=True
 ):
     """Generate standardized output filename with parameters."""
     parts = [base_name]
@@ -109,13 +112,18 @@ def generate_output_filename(
 
     parts.append(f"{sim_params.n_particles}p")
     parts.append(f"{sim_params.t_start_Gyr}-{sim_params.t_end_Gyr}Gyr")
-    parts.append(f"{sim_params.M_value}M")
-    parts.append(f"{sim_params.center_node_mass}centerM")
-    parts.append(f"{sim_params.S_value}S")
+    if include_M:
+        parts.append(f"{sim_params.M_value}M")
+    parts.append(f"{int(sim_params.center_node_mass)}centerM")
+    if include_S:
+        parts.append(f"{sim_params.S_value}S")
     parts.append(f"{sim_params.n_steps}steps")
-
-    damping_str = f"{sim_params.damping_factor}" if sim_params.damping_factor else "Auto"
-    parts.append(f"{damping_str}d")
+    parts.append(f"{sim_params.seed}seed")
+    parts.append(f"{sim_params.mass_randomize}rnd")
+    
+    if include_D:
+        damping_str = f"{sim_params.damping_factor}" if sim_params.damping_factor else "Auto"
+        parts.append(f"{damping_str}d")
 
     filename = "_".join(parts) + f".{extension}"
     return os.path.join(output_dir, filename)

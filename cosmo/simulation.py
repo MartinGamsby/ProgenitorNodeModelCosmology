@@ -12,7 +12,15 @@ from .constants import CosmologicalConstants, SimulationParameters
 from .particles import ParticleSystem, HMEAGrid
 from .integrator import LeapfrogIntegrator
 from .analysis import solve_friedmann_at_times
+from .visualization import generate_output_filename
+from .cache import Cache, CacheType
 
+try:
+    from tqdm import tqdm
+except ImportError:
+    # Fallback if tqdm not available
+    def tqdm(iterable, *args, **kwargs):
+        return iterable
 
 class CosmologicalSimulation:
     """Main class for running cosmological simulations"""
@@ -29,6 +37,7 @@ class CosmologicalSimulation:
             force_method: 'auto' (barnes_hut for N>=1000, numba_direct for N>=100, direct otherwise), 'direct', 'numba_direct', or 'barnes_hut'
         """
         self.const = CosmologicalConstants()
+        self.sim_params = sim_params
         self.use_external_nodes = use_external_nodes
         self.t_start_Gyr = sim_params.t_start_Gyr
         self.a_start = a_start
@@ -88,89 +97,154 @@ class CosmologicalSimulation:
         self.snapshots = []
         self.expansion_history = []
 
-    def _calibrate_velocity_for_lcdm_match(self, t_duration_Gyr: float, n_steps: int, damping: float = None) -> None:
+        self.cache = Cache()
+
+    def _calibrate_velocity_for_lcdm_match(self, t_duration_Gyr: float, n_steps: int, damping: float = None,
+                                           percent_sim: float = 0.3) -> None:
         """
-        Calibrate initial velocity so matter-only NEVER exceeds LCDM.
+        Calibrate initial velocity so matter-only tracks LCDM, never overshooting.
 
-        Key insight: N-body gravity provides ~80% of Friedmann deceleration.
-        This means N-body will overshoot analytic matter-only by ~20% over time.
+        Goal: Find velocity scale that keeps N-body at or below LCDM throughout
+        the calibration period. Uses the maximum scale needed at any step.
 
-        Strategy: Calculate where LCDM will be at the END, then calibrate initial
-        velocity so that even with reduced N-body deceleration, we end up AT or
-        BELOW LCDM at the final timestep.
-
-        The velocity scaling is derived from:
-        1. Final LCDM size at t_end
-        2. Estimated N-body expansion with reduced deceleration
-        3. Required initial velocity to land at LCDM final size
-
-        This naturally accounts for N-body's deceleration deficit without Hubble drag.
+        Strategy:
+        1. Run N-body test for ~2 Gyr / 20% of simulation (for percent_sim=0.2)
+        2. At each step, compare N-body size to LCDM size
+        3. Track the velocity scale that would be needed to match LCDM at that step
+        4. Use the maximum scale found (most conservative, prevents overshoot)
         """
+        # TODO: Make sure we don't do that for both Matter-only and External nodes ... in run_simulation.py!)
         dt_Gyr = t_duration_Gyr / n_steps
         dt_s = dt_Gyr * 1e9 * 365.25 * 24 * 3600
 
-        # Get LCDM and matter-only Friedmann at start and end
-        t_end_Gyr = self.t_start_Gyr + t_duration_Gyr
-        lcdm_solution = solve_friedmann_at_times(np.array([self.t_start_Gyr, t_end_Gyr]))
-        matter_solution = solve_friedmann_at_times(
-            np.array([self.t_start_Gyr, t_end_Gyr]),
-            Omega_Lambda=0.0
-        )
-
-        a_lcdm_start = lcdm_solution['a'][0]
-        a_lcdm_end = lcdm_solution['a'][1]
-        a_matter_start = matter_solution['a'][0]
-        a_matter_end = matter_solution['a'][1]
-
-        # Expansion ratios
-        lcdm_expansion = a_lcdm_end / a_lcdm_start
-        matter_expansion = a_matter_end / a_matter_start
-
-        # N-body deceleration factor: empirically ~65-70% of Friedmann for long runs
-        # This means N-body overshoots matter-only Friedmann by ~1/0.65 = 1.54x
-        # The deficit compounds over time, so longer runs need larger correction
-        
+        # Apply user damping override if provided (skip N-body test)
         if damping is not None:
-            nbody_decel_factor = damping
-        else:
-            # **0.2 to have higher factor faster, but still cap at 1
-            nbody_decel_factor = (self.t_start_Gyr/13.8)**0.135
-        nbody_decel_factor = np.clip(nbody_decel_factor, 0.01, 1.0)  # min 0.01 to avoid divide by zero
-        print("[Velocity Calibration] Damping factor for initial:", nbody_decel_factor)
-        #print(self.t_start_Gyr, self.t_start_Gyr/13.8, nbody_decel_factor)
-        #exit(1)
+            print(f"[Velocity Calibration] Using user-provided damping: {damping}")
+            velocities = self.particles.get_velocities()
+            self.particles.set_velocities(velocities * damping)
+            print(f"[Velocity Calibration] Applied velocity scaling: {damping:.6f}")
+            return
 
-        # Predicted N-body expansion if starting with full velocity
-        # N-body decelerates less, so expands more than matter-only Friedmann
-        # estimated_nbody_expansion ≈ matter_expansion / nbody_decel_factor
-        # But this is rough - let's use a simpler approach
+        calib_name = generate_output_filename('calibration', self.sim_params, '', '', include_timestamp=False,
+                                               include_S=False, include_M=False, include_D=False)
+        cached_velocity = self.cache.get_cached_value(calib_name, CacheType.VELOCITY)
+        if cached_velocity:
+            self.particles.set_velocities(self.particles.get_velocities()*cached_velocity)
+            print(f"Using cached calibration of {cached_velocity} for {calib_name}")
+            return
 
-        # We want: final N-body size ≤ final LCDM size
-        # Target: N-body ends at ~95% of LCDM (margin for safety)
-        target_final_relative = 1.0
+        print("Calibrating", end="", flush=True)
+        # Save initial state for restoration
+        initial_positions = self.particles.get_positions()
+        updated_velocities = self.particles.get_velocities()
+        initial_time = self.particles.time
 
-        # Required velocity damping to achieve target
-        # If full velocity gives expansion E, damped velocity gives ~E * damping
-        # We want: matter_expansion * overshoot_factor * damping = lcdm_expansion * target_final_relative
-        #
-        # Overshoot factor ≈ 1/nbody_decel_factor ≈ 1.25
-        # So: damping = (lcdm_expansion * target_final_relative) / (matter_expansion * overshoot_factor)
+        # Measure initial RMS radius
+        rms_initial = np.sqrt(np.mean(np.sum(initial_positions**2, axis=1)))
 
-        overshoot_factor = 1.0 / nbody_decel_factor
-        velocity_scale = (lcdm_expansion * target_final_relative) / (matter_expansion * overshoot_factor)
+        # Temporarily disable external forces for calibration
+        # We want to measure pure N-body expansion rate
+        saved_use_external_nodes = self.integrator.use_external_nodes
+        self.integrator.use_external_nodes = False
 
-        # Clamp to reasonable range
-        velocity_scale = np.clip(velocity_scale, 0.5, 1.5)
 
-        print(f"[Velocity Calibration] LCDM expansion: {lcdm_expansion:.4f}x")
-        print(f"[Velocity Calibration] Matter-only Friedmann expansion: {matter_expansion:.4f}x")
-        print(f"[Velocity Calibration] Estimated N-body overshoot factor: {overshoot_factor:.3f}")
-        print(f"[Velocity Calibration] Target final relative to LCDM: {target_final_relative:.2f}")
-        print(f"[Velocity Calibration] Velocity scale factor: {velocity_scale:.6f}")
+        # Run test for ~2 Gyr or 20% of simulation, whichever is smaller ( for percent_sim == 0.2 )
+        steps_per_Gyr = n_steps / t_duration_Gyr
+        calibration_steps = min(int(10.0 * percent_sim * steps_per_Gyr), int(n_steps * percent_sim))
+        calibration_steps = max(10, calibration_steps)  # At least 10 steps
+        calibration_duration_Gyr = calibration_steps * dt_Gyr
+        
+        total_velocity_scale = 1.0
+        velocity_scale = 1.0
+        for tries in range(20):
+            
+            self.particles.set_positions(initial_positions)
+            initial_positions = initial_positions.copy()
+            self.particles.set_velocities(updated_velocities)
+            updated_velocities = updated_velocities.copy()
+            self.particles.time = initial_time
+
+            # Pre-compute LCDM expansion at each step
+            t_points = self.t_start_Gyr + np.arange(1, calibration_steps + 1) * dt_Gyr
+            lcdm_at_steps = solve_friedmann_at_times(
+                np.concatenate([[self.t_start_Gyr], t_points])
+            )
+            lcdm_a_start = lcdm_at_steps['a'][0]
+
+            # Track max velocity scale needed
+            max_velocity_scale = 0.0
+            min_velocity_scale = 1.9
+
+            velocity_scale_at_step = 1.0
+            last_step_direction = 1
+            use_min_velocity = False
+
+            for step in range(calibration_steps):
+                self.integrator.step(dt_s)
+
+                # Measure N-body expansion at this step
+                current_positions = self.particles.get_positions()
+                rms_current = np.sqrt(np.mean(np.sum(current_positions**2, axis=1)))
+                nbody_expansion = rms_current / rms_initial
+
+                # Get LCDM expansion at this step
+                lcdm_expansion = lcdm_at_steps['a'][step + 1] / lcdm_a_start
+
+
+                step_direction = (lcdm_expansion / nbody_expansion) - velocity_scale_at_step
+
+                # Calculate velocity scale needed to match LCDM at this step
+                # If N-body > LCDM, we need scale < 1 (slow down)
+                # If N-body < LCDM, we need scale > 1 (speed up)
+                velocity_scale_at_step = lcdm_expansion / nbody_expansion
+
+                if step_direction < 0 and last_step_direction > 0:
+                    use_min_velocity = True
+
+                # TODO: Change logic: It can't go up/down??
+
+                if velocity_scale_at_step > max_velocity_scale:
+                    max_velocity_scale = velocity_scale_at_step
+                if velocity_scale_at_step < min_velocity_scale:
+                    min_velocity_scale = velocity_scale_at_step
+
+                last_step_direction = step_direction
+
+                if not (step % 10):
+                    print(".", end="", flush=True)
+                if use_min_velocity:
+                    break
+
+            # Use the maximum velocity scale found (most conservative)
+            last_velocity_scale = velocity_scale
+            if use_min_velocity:
+                if min_velocity_scale < 1.0:
+                    velocity_scale = min_velocity_scale
+                else:
+                    velocity_scale = 1.0+(1.0-max_velocity_scale)
+            else:
+                velocity_scale = max_velocity_scale
+
+            # Clamp to reasonable range
+            velocity_scale = np.clip(velocity_scale, 0.1, 1.9)
+
+            if (last_velocity_scale > 1.0 and velocity_scale < 1.0) or (last_velocity_scale < 1.0 and velocity_scale > 1.0):
+                break
+            updated_velocities *= velocity_scale
+            total_velocity_scale *= velocity_scale
+
+        print(f"\n[Velocity Calibration] Calibration period: {calibration_duration_Gyr:.2f} Gyr ({calibration_steps} steps)")
+        print(f"[Velocity Calibration] Velocity scale factor: {total_velocity_scale:.6f}")
+
+            
+        # Restore initial state and external node setting
+        self.particles.set_positions(initial_positions)
+        self.particles.time = initial_time
+        self.integrator.use_external_nodes = saved_use_external_nodes
 
         # Apply calibrated velocity
-        velocities = self.particles.get_velocities()
-        self.particles.set_velocities(velocities * velocity_scale)
+        self.particles.set_velocities(updated_velocities)
+        self.cache.add_cached_value(calib_name, CacheType.VELOCITY, total_velocity_scale)
 
         print(f"[Velocity Calibration] Applied velocity scaling to all particles")
 
@@ -244,8 +318,10 @@ class CosmologicalSimulation:
         print(f"Timesteps: {n_steps}")
         print("="*60 + "\n")
 
-        # Velocity calibration for matter-only: find initial velocity so step 2 matches LCDM
-        if not self.use_dark_energy:# and not self.use_external_nodes:
+        # Velocity calibration: calibrate initial velocity to match LCDM expansion
+        # For matter-only: uses N-body test to measure deceleration deficit
+        # For External-Node: uses N-body test including HMEA tidal forces
+        if not self.use_dark_energy:
             self._calibrate_velocity_for_lcdm_match(t_end_Gyr, n_steps, damping)
 
         # Run integration

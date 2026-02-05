@@ -200,6 +200,11 @@ class ParticleSystem:
         for i, particle in enumerate(self.particles):
             particle.vel = velocities[i]
 
+    def set_positions(self, positions: np.ndarray) -> None:
+        """Set positions for all particles."""
+        for i, particle in enumerate(self.particles):
+            particle.pos = positions[i]
+
     def update_positions(self, dt_s: float) -> None:
         """Update positions using current velocities."""
         for particle in self.particles:

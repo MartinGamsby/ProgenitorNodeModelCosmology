@@ -23,10 +23,10 @@ class SearchMethod(Enum):
 class SweepConfig:
     """Configuration for parameter sweep."""
     quick_search: bool = False
-    many_search: bool = False
+    many_search: int = 3
     search_center_mass: bool = True
-    t_start_Gyr: float = 3.8
-    t_duration_Gyr: float = 10.0
+    t_start_Gyr: float = 5.8
+    t_duration_Gyr: float = 8.0
     damping_factor: float = None
     s_min_gpc: int = 15
     s_max_gpc: int = 60
@@ -35,8 +35,8 @@ class SweepConfig:
     @property
     def particle_count(self) -> int:
         if self.quick_search:
-            return 200#40?
-        return 1000 if self.many_search else 2000
+            return 200
+        return 1000 if self.many_search>5 else 2000
 
     @property
     def n_steps(self) -> int:
@@ -48,10 +48,10 @@ class MatchWeights:
     """Weights for computing weighted average match metric."""
     hubble_half_curve: float = 0.025
     hubble_curve: float = 0.025
-    size_half_curve: float = 0.4
-    size_curve: float = 0.4
-    endpoint: float = 0.1
-    max_radius: float = 0.05
+    size_half_curve: float = 0.25
+    size_curve: float = 0.2
+    endpoint: float = 0.4
+    max_radius: float = 0.1
 
 
 @dataclass
@@ -111,18 +111,28 @@ def generate_increments(max_value, terms_per_decade=5, min_value=1):
     return sorted(seq)  # Ensure sorted, though usually already is
 
 
-def build_m_list(many_search: bool = False, multiplier=1) -> List[int]:
+def add_mid_values(input_list: list):
+    result = []
+    for i in range(len(input_list)):
+        result.append(input_list[i])
+        
+        # If there's a next element, calculate and add the midpoint
+        if i < len(input_list) - 1:
+            midpoint = (input_list[i] + input_list[i + 1]) // 2
+            result.append(midpoint)
+    return sorted(list(set(result)))
+
+def build_m_list(many_search: int = 3, multiplier=1) -> List[int]:
     """
     Build list of M values (external node mass factors) to search.
 
     Returns descending list for optimization (high M searched first).
     Fine increments when many_search=True, coarse otherwise.
     """
-    if many_search:
-        m_list = generate_increments(100000*multiplier, terms_per_decade=10, min_value=20)
-    else:
-        m_list = generate_increments(25000*multiplier, terms_per_decade=3, min_value=20)#6
-
+    m_list = generate_increments(25000*multiplier, terms_per_decade=many_search, min_value=20)
+    for i in range(10):
+        if many_search > 10*i:
+            m_list = add_mid_values(m_list)
     m_list.reverse()  # Search high M first
     return m_list
 
@@ -132,7 +142,7 @@ def build_s_list(s_min: int, s_max: int) -> List[int]:
     return list(range(s_min, s_max + 1))
 
 
-def build_center_mass_list(search_center_mass: bool = True, many_search: bool = False) -> List[int]:
+def build_center_mass_list(search_center_mass: bool = True, many_search: int = 3) -> List[int]:
     """
     Build list of center node mass values to search.
 
@@ -142,10 +152,10 @@ def build_center_mass_list(search_center_mass: bool = True, many_search: bool = 
     if not search_center_mass:
         return [1]
 
-    if many_search:
-        center_masses = generate_increments(500, terms_per_decade=10, min_value=1)
-    else:
-        center_masses = generate_increments(100, terms_per_decade=3, min_value=1)#6
+    center_masses = generate_increments(1000, terms_per_decade=many_search, min_value=1)
+    for i in range(10):
+        if many_search > 10*i:
+            center_masses = add_mid_values(center_masses)
     return center_masses
 
 
@@ -172,53 +182,92 @@ def compute_match_metrics(
     half_point = len(baseline.size_Gpc) // 2
 
     # Full curve comparisons
-    match_curve_pct = compare_expansion_histories(
+    match_curve_diagnostics = compare_expansion_histories(
         sim_result.size_curve_Gpc,
-        baseline.size_Gpc
+        baseline.size_Gpc,
+        return_diagnostics=True
     )
-    match_hubble_curve_pct = compare_expansion_histories(
+    match_curve_r2 = match_curve_diagnostics['r_squared']
+    match_curve_pct = match_curve_diagnostics['match_pct']
+    match_curve_error_max = 100-match_curve_diagnostics['max_error_pct']
+    match_curve_error_pct = 100-match_curve_diagnostics['mean_error_pct']
+    match_curve_rmse_pct = 100-match_curve_diagnostics['rmse_pct']
+
+    
+    match_hubble_diagnostics = compare_expansion_histories(
         sim_result.hubble_curve,
-        baseline.H_hubble
+        baseline.H_hubble,
+        return_diagnostics=True
     )
+    match_hubble_curve_rmse = 100-match_curve_diagnostics['rmse_pct']
+    match_hubble_curve_r2 = match_curve_diagnostics['r_squared']
 
     # Half curve comparisons (second half only, late-time acceleration)
-    match_half_curve_pct = compare_expansion_histories(
+    match_half_curve_diagnostics = compare_expansion_histories(
         sim_result.size_curve_Gpc[half_point:],
-        baseline.size_Gpc[half_point:]
+        baseline.size_Gpc[half_point:],
+        return_diagnostics=True
     )
-    match_hubble_half_curve_pct = compare_expansion_histories(
+    match_half_curve_pct = 100-match_half_curve_diagnostics['rmse_pct']#match_pct']
+    match_hubble_half_curve_diagnostics = compare_expansion_histories(
         sim_result.hubble_curve[half_point:],
-        baseline.H_hubble[half_point:]
+        baseline.H_hubble[half_point:],
+        return_diagnostics=True
     )
+    match_hubble_half_curve_pct = 100-match_hubble_half_curve_diagnostics['rmse_pct']#match_pct']
+    
 
     # Endpoint comparisons
     match_end_pct = compare_expansion_history(
         sim_result.size_final_Gpc,
         baseline.size_final_Gpc
     )
+    # TODO: Do something better: (Right now: 5% buffer)
+    match_end_pct = match_end_pct if (baseline.size_final_Gpc > sim_result.size_final_Gpc) else min(100.0, match_end_pct+5)
     match_max_pct = compare_expansion_history(
         sim_result.radius_max_Gpc,
         baseline.radius_max_Gpc
     )
 
     # Weighted average
-    match_avg_pct = (
-        weights.hubble_half_curve * match_hubble_half_curve_pct +
-        weights.hubble_curve * match_hubble_curve_pct +
-        weights.size_half_curve * match_half_curve_pct +
-        weights.size_curve * match_curve_pct +
-        weights.endpoint * match_end_pct +
-        weights.max_radius * match_max_pct
-    )
+    #match_avg_pct = (
+    #    weights.hubble_half_curve * match_hubble_half_curve_pct +
+    #    weights.hubble_curve * match_hubble_curve_rmse +
+    #    weights.size_half_curve * match_half_curve_pct +
+    #    weights.size_curve * match_curve_pct +
+    #    weights.endpoint * match_end_pct +
+    #    weights.max_radius * match_max_pct
+    #)
+
+
+    match_avg_pct = 1.0
+    for r in [match_half_curve_pct, 
+              match_curve_error_max, 
+              match_curve_error_pct, 
+              match_curve_rmse_pct, 
+              match_end_pct, 
+              match_hubble_half_curve_pct, 
+              match_hubble_curve_rmse, 
+              #match_max_pct
+              ]:
+        r = max(0.0, min(1.0, r/100))
+        match_avg_pct *= r
+    match_avg_pct *= 100
 
     return {
         'match_curve_pct': match_curve_pct,
         'match_half_curve_pct': match_half_curve_pct,
         'match_end_pct': match_end_pct,
         'match_max_pct': match_max_pct,
-        'match_hubble_curve_pct': match_hubble_curve_pct,
+        'match_hubble_curve_pct': match_hubble_curve_rmse,
         'match_hubble_half_curve_pct': match_hubble_half_curve_pct,
         'match_avg_pct': match_avg_pct,
+        'match_curve_rmse_pct': match_curve_rmse_pct,
+        'match_curve_error_pct': match_curve_error_pct,
+        'match_curve_r2': match_curve_r2,
+        'match_curve_error_max': match_curve_error_max,
+
+
         'diff_pct': 100 - match_avg_pct
     }
 
@@ -399,11 +448,21 @@ def linear_search_S(
                 print("\r\tMatch below 0%, stopping search for this M.")
                 break
 
-            # Check for decreasing match (early stopping)
-            if (prev_result['match_half_curve_pct'] > result['match_half_curve_pct'] * 1.0001 and
-                prev_result['match_avg_pct'] > result['match_avg_pct'] * 1.00025):
-                print("\r\tMatch decreasing > 0.01%, stopping search for this M.", end="")
+            all_worse = True
+            for key in ['match_curve_pct', 'match_half_curve_pct', 'match_end_pct',
+                'match_max_pct', 'match_avg_pct', 'match_hubble_curve_pct', 'match_hubble_half_curve_pct',
+                'match_curve_rmse_pct', 'match_curve_error_pct', 'match_curve_r2', 'match_curve_error_max']:
+                #print(key, prev_result[key] > result[key] * 1.00025, prev_result[key], result[key])
+                if prev_result[key] < result[key] * 1.00025:
+                    all_worse = False
+                    break
+            if all_worse:
+                print("\r\tMatch decreasing > 0.025%, stopping search for this M.", end="")
+                current_evaluated.append((S, result))
                 break
+
+                
+            #exit(1)
 
             # Adaptive skipping based on match change
             if S > 40:  # Only skip if we have room
@@ -438,7 +497,7 @@ def linear_search_S(
 
 
 def brute_force_search(
-    many_search: bool,
+    many_search: int,
     s_list: List[int],
     center_masses: List[int],
     sim_callback: SimCallback,
@@ -454,7 +513,7 @@ def brute_force_search(
     results: List[Dict[str, Any]] = []
 
     for centerM in center_masses:
-        m_list = build_m_list(many_search, multiplier=centerM)
+        m_list = build_m_list(many_search, multiplier=many_search)#centerM)
         for M in m_list:
             for S in s_list:
                 sim_result, metrics = worst_callback(sim_callback, M, S, centerM, seeds, baseline, weights)
@@ -503,7 +562,7 @@ def run_sweep(
     elif search_method == SearchMethod.TERNARY_SEARCH:
         for centerM in center_masses:
             prev_best_S = None            
-            m_list = build_m_list(config.many_search, multiplier=centerM)
+            m_list = build_m_list(config.many_search, multiplier=config.many_search)#centerM)
             for M in m_list:
                 S_best, _, _, results = ternary_search_S(
                     M, centerM, sim_callback, baseline, weights,
@@ -523,7 +582,7 @@ def run_sweep(
     elif search_method == SearchMethod.LINEAR_SEARCH:
         for centerM in center_masses:
             prev_best_S = None
-            m_list = build_m_list(config.many_search, multiplier=centerM)
+            m_list = build_m_list(config.many_search, multiplier=config.many_search)#centerM)
             for M in m_list:
                 best_S, _, should_stop, results = linear_search_S(
                     M, centerM, sim_callback, baseline, weights,

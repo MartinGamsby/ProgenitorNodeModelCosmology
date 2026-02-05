@@ -31,18 +31,18 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
                         help='Node separation distance (in Gpc)')
 
     # Simulation setup
-    parser.add_argument('--particles', type=int, default=300,
-                        help='Number of simulation particles')
+    parser.add_argument('--particles', type=int, default=200,
+                        help='Number of simulation particles (200 matches parameter_sweep quick mode)')
     parser.add_argument('--seed', type=int, default=42,
                         help='Random seed for reproducibility')
 
     # Time parameters
-    parser.add_argument('--t-start', type=float, default=3.8,
+    parser.add_argument('--t-start', type=float, default=5.8,
                         help='Simulation start time since Big Bang (in Gyr)')
-    parser.add_argument('--t-duration', type=float, default=10.0,
+    parser.add_argument('--t-duration', type=float, default=8.0,
                         help='Simulation duration (in Gyr)')
-    parser.add_argument('--n-steps', type=int, default=500,
-                        help='Number of simulation timesteps')
+    parser.add_argument('--n-steps', type=int, default=250,
+                        help='Number of simulation timesteps (250 matches parameter_sweep quick mode)')
 
     # Physics parameters
     parser.add_argument('--damping', type=float, default=None,
@@ -50,9 +50,9 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--center-node-mass', type=float, default=1.0,
                         help='Central (progenitor) node mass as multiple of M_observable. '
                              'Affects total_mass_kg and softening_m scaling.')
-    parser.add_argument('--mass-randomize', type=float, default=0.5,
+    parser.add_argument('--mass-randomize', type=float, default=0.0,
                         help='Particle mass randomization (0.0=equal, 1.0=0 to 2x mean). '
-                             'Total mass is preserved.')
+                             'Total mass is preserved. Default 0.0 for deterministic results.')
 
     # Mode flags
     parser.add_argument('--compare', action='store_true',

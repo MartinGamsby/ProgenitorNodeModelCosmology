@@ -39,7 +39,7 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     # Time parameters
     parser.add_argument('--t-start', type=float, default=5.8,
                         help='Simulation start time since Big Bang (in Gyr)')
-    parser.add_argument('--t-duration', type=float, default=10.0,
+    parser.add_argument('--t-duration', type=float, default=8.0,
                         help='Simulation duration (in Gyr)')
     parser.add_argument('--n-steps', type=int, default=250,
                         help='Number of simulation timesteps (250 matches parameter_sweep quick mode)')

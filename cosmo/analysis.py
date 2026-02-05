@@ -207,7 +207,7 @@ def compare_expansion_history(size1, size):
     return 100 - diff
 
 def compare_expansion_histories(size_ext, size_lcdm, return_array: bool = False,
-                                  use_r_squared: bool = True, r_square_times_100: bool = True,
+                                  use_r_squared: bool = True, times_100: bool = True,
                                     return_diagnostics: bool = False):
     """
     Calculate match quality between two expansion histories.
@@ -243,11 +243,12 @@ def compare_expansion_histories(size_ext, size_lcdm, return_array: bool = False,
     # RMSE
     rmse = np.sqrt(np.mean((size_ext - size_lcdm)**2))
     rmse_pct = rmse / np.mean(size_lcdm) * 100
+    
+    r_squared = calculate_r_squared(size_lcdm, size_ext)
+    r_squared = r_squared * 100 if times_100 else r_squared
 
     # R² or percentage match
     if use_r_squared:
-        r_squared = calculate_r_squared(size_lcdm, size_ext)
-        r_squared = r_squared * 100 if r_square_times_100 else r_squared
         primary_metric = r_squared
     else:
         primary_metric = match_pct_scalar
@@ -255,8 +256,8 @@ def compare_expansion_histories(size_ext, size_lcdm, return_array: bool = False,
     # Return diagnostics if requested
     if return_diagnostics:
         diagnostics = {
-            'r_squared': r_squared if use_r_squared else None,
-            'match_pct': match_pct_scalar if not use_r_squared else None,
+            'r_squared': r_squared,
+            'match_pct': match_pct_scalar,
             'max_error_pct': max_error_pct,
             'mean_error_pct': mean_error_pct,
             'rmse': rmse,

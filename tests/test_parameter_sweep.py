@@ -109,7 +109,7 @@ class TestSweepConfig(unittest.TestCase):
         self.assertFalse(config.many_search)
         self.assertTrue(config.search_center_mass)
         self.assertEqual(config.t_start_Gyr, 5.8)
-        self.assertEqual(config.t_duration_Gyr, 10.0)
+        self.assertEqual(config.t_duration_Gyr, 8.0)
         self.assertEqual(config.damping_factor, None)
         self.assertEqual(config.s_min_gpc, 15)
         self.assertEqual(config.s_max_gpc, 60)
@@ -122,7 +122,7 @@ class TestSweepConfig(unittest.TestCase):
 
     def test_particle_count_many(self):
         """Many search uses medium particles."""
-        config = SweepConfig(many_search=True)
+        config = SweepConfig(many_search=10)
         self.assertEqual(config.particle_count, 1000)
 
     def test_particle_count_default(self):
@@ -149,10 +149,10 @@ class TestMatchWeights(unittest.TestCase):
         weights = MatchWeights()
         self.assertEqual(weights.hubble_half_curve, 0.025)
         self.assertEqual(weights.hubble_curve, 0.025)
-        self.assertEqual(weights.size_half_curve, 0.4)
-        self.assertEqual(weights.size_curve, 0.4)
-        self.assertEqual(weights.endpoint, 0.1)
-        self.assertEqual(weights.max_radius, 0.05)
+        self.assertEqual(weights.size_half_curve, 0.125)
+        self.assertEqual(weights.size_curve, 0.125)
+        self.assertEqual(weights.endpoint, 0.5)
+        self.assertEqual(weights.max_radius, 0.2)
 
     def test_weights_sum_to_one(self):
         """Default weights should sum to 1.0."""
@@ -168,14 +168,14 @@ class TestParameterSpaceBuilders(unittest.TestCase):
 
     def test_build_m_list_many_search_false(self):
         """Coarse M list has fewer values."""
-        m_list = build_m_list(many_search=False)
+        m_list = build_m_list(many_search=3)
         self.assertGreaterEqual(len(m_list), 5)  # At least a few values
         self.assertLess(len(m_list), 100)
 
     def test_build_m_list_many_search_true(self):
         """Fine M list has more values."""
-        m_list_coarse = build_m_list(many_search=False)
-        m_list_fine = build_m_list(many_search=True)
+        m_list_coarse = build_m_list(many_search=3)
+        m_list_fine = build_m_list(many_search=10)
         self.assertGreater(len(m_list_fine), len(m_list_coarse))
 
     def test_build_m_list_descending_order(self):
@@ -186,7 +186,7 @@ class TestParameterSpaceBuilders(unittest.TestCase):
 
     def test_build_m_list_starts_high(self):
         """M list should start with high values."""
-        m_list = build_m_list(many_search=False)
+        m_list = build_m_list(many_search=3)
         self.assertGreater(m_list[0], 1000)
 
     def test_build_m_list_ends_low(self):
@@ -220,8 +220,8 @@ class TestParameterSpaceBuilders(unittest.TestCase):
 
     def test_build_center_mass_list_many_search(self):
         """Many search produces finer center mass increments."""
-        cm_coarse = build_center_mass_list(search_center_mass=True, many_search=False)
-        cm_fine = build_center_mass_list(search_center_mass=True, many_search=True)
+        cm_coarse = build_center_mass_list(search_center_mass=True, many_search=3)
+        cm_fine = build_center_mass_list(search_center_mass=True, many_search=10)
         self.assertGreater(len(cm_fine), len(cm_coarse))
 
 
@@ -460,7 +460,7 @@ class TestBruteForceSearch(unittest.TestCase):
         s_list = [20, 25, 30]
         center_masses = [1]
 
-        for many_search in [True, False]:
+        for many_search in [3, 10]:
             results = brute_force_search(
                 many_search, s_list, center_masses,
                 callback, baseline, weights

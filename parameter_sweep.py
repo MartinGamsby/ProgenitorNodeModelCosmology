@@ -29,8 +29,8 @@ const = CosmologicalConstants()
 SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
 QUICK_SEARCH = True
 MULTIPLY_PARTICLES = False
-MANY_SEARCH = False
-SEARCH_CENTER_MASS = True
+MANY_SEARCH = 10#3 and 10 are probably fine. You can go to 12,20,21!,31!!,...61!!!,...101!!!!
+SEARCH_CENTER_MASS = False
 
 config = SweepConfig(
     quick_search=QUICK_SEARCH,
@@ -40,7 +40,7 @@ config = SweepConfig(
     t_duration_Gyr=8.0,
     damping_factor=None,
     s_min_gpc=15,
-    s_max_gpc=(100 if MANY_SEARCH else 60),
+    s_max_gpc=(100 if MANY_SEARCH>5 else 60),
     save_interval=10
 )
 
@@ -129,22 +129,6 @@ def sim_callback(M_factor: int, S_gpc: int, centerM: int, seeds: List[int] = [42
 # Run the sweep
 results = run_sweep(config, SEARCH_METHOD, sim_callback, baseline, weights, seeds=[123] if QUICK_SEARCH else [42,123])
 
-# Save all results to CSV
-os.makedirs('./results', exist_ok=True)
-csv_path = './results/sweep_results.csv'
-
-csv_columns = ['M_factor', 'S_gpc', 'centerM', 'match_avg_pct', 'diff_pct',
-               'match_curve_pct', 'match_half_curve_pct', 'match_end_pct', 'match_max_pct',
-               'match_hubble_curve_pct', 'match_hubble_half_curve_pct',
-               'a_ext', 'size_ext', 'desc']
-
-with open(csv_path, 'w', newline='') as f:
-    writer = csv.DictWriter(f, fieldnames=csv_columns, extrasaction='ignore')
-    writer.writeheader()
-    writer.writerows(results)
-
-print(f"\n✓ Saved {len(results)} results to {csv_path}")
-
 # Build best per S
 best_per_s = {}
 for r in results:
@@ -180,6 +164,24 @@ print(f"{'='*70}")
 print(f"Total simulations run: {sim_count}")
 print(f"Brute force would require: {nbConfigs_bruteforce}")
 print(f"Speedup: {nbConfigs_bruteforce/sim_count:.1f}×")
+
+
+# Save all results to CSV
+os.makedirs('./results', exist_ok=True)
+csv_path = './results/sweep_results.csv'
+
+csv_columns = ['M_factor', 'S_gpc', 'centerM', 'match_avg_pct', 'diff_pct',
+               'match_curve_pct', 'match_half_curve_pct', 'match_end_pct', 'match_max_pct',
+               'match_hubble_curve_pct', 'match_hubble_half_curve_pct', 'match_curve_rmse_pct',
+               'match_curve_error_pct', 'match_curve_r2', 'match_curve_error_max',
+               'a_ext', 'size_ext', 'desc']
+
+with open(csv_path, 'w', newline='') as f:
+    writer = csv.DictWriter(f, fieldnames=csv_columns, extrasaction='ignore')
+    writer.writeheader()
+    writer.writerows(results)
+
+print(f"\n✓ Saved {len(results)} results to {csv_path}")
 
 # Save best per S to CSV
 csv_path_best_s = './results/sweep_best_per_S.csv'

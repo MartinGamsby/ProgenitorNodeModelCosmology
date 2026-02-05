@@ -44,7 +44,7 @@ class TestAddCommonArguments(unittest.TestCase):
         self.assertEqual(args.particles, 200)
         self.assertEqual(args.seed, 42)
         self.assertEqual(args.t_start, 5.8)
-        self.assertEqual(args.t_duration, 10.0)
+        self.assertEqual(args.t_duration, 8.0)
         self.assertEqual(args.n_steps, 250)
         self.assertEqual(args.damping, None)
         self.assertEqual(args.center_node_mass, 1.0)

@@ -125,7 +125,7 @@ class CosmologicalSimulation:
             print(f"[Velocity Calibration] Applied velocity scaling: {damping:.6f}")
             return
 
-        calib_name = generate_output_filename('calibration', self.sim_params, '', '', include_timestamp=False,
+        calib_name = generate_output_filename('', self.sim_params, '', '', include_timestamp=False,
                                                include_S=False, include_M=False, include_D=False)
         cached_velocity = self.cache.get_cached_value(calib_name, CacheType.VELOCITY)
         if cached_velocity:

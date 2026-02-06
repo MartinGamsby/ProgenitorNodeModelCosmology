@@ -1,4 +1,4 @@
-"""Unit tests for cache module with JSON and CSV format support."""
+"""Unit tests for cache module with JSON, CSV, and Pickle format support."""
 import unittest
 import os
 import tempfile
@@ -208,6 +208,60 @@ class TestCacheCSV(unittest.TestCase):
         self.assertEqual(retrieved['values'], [1.5, 2.5])
 
 
+class TestCachePickle(unittest.TestCase):
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+
+    def _make_cache(self, name="test", fmt=CacheFormat.PICKLE):
+        return Cache(name, format=fmt, _data_dir=self.tmpdir)
+
+    def test_creates_pkl_file(self):
+        cache = self._make_cache()
+        cache.add_cached_value("k1", CacheType.VELOCITY, 1.5)
+        self.assertTrue(os.path.exists(os.path.join(self.tmpdir, "test.pkl")))
+
+    def test_store_and_retrieve_float(self):
+        cache = self._make_cache()
+        cache.add_cached_value("k1", CacheType.VELOCITY, 1.234)
+        c2 = self._make_cache()
+        self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 1.234)
+
+    def test_store_and_retrieve_dict(self):
+        cache = self._make_cache()
+        metrics = {'match_avg_pct': 95.5, 'count': 10}
+        cache.add_cached_value("k1", CacheType.METRICS, metrics)
+        c2 = self._make_cache()
+        retrieved = c2.get_cached_value("k1", CacheType.METRICS)
+        self.assertEqual(retrieved['match_avg_pct'], 95.5)
+        self.assertEqual(retrieved['count'], 10)
+
+    def test_store_and_retrieve_dataclass(self):
+        cache = self._make_cache()
+        obj = SampleDataclass(1.5, 0.8, 0.99)
+        cache.add_cached_value("k1", CacheType.RESULTS, obj)
+        c2 = self._make_cache()
+        retrieved = c2.get_cached_value("k1", CacheType.RESULTS)
+        self.assertEqual(retrieved['size_final_Gpc'], 1.5)
+
+    def test_persists_across_instances(self):
+        c1 = self._make_cache()
+        c1.add_cached_value("k1", CacheType.VELOCITY, 2.718)
+        c2 = self._make_cache()
+        self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 2.718)
+
+    def test_multiple_data_types(self):
+        cache = self._make_cache()
+        cache.add_cached_value("k1", CacheType.VELOCITY, 1.5)
+        cache.add_cached_value("k1", CacheType.METRICS, {'a': 1})
+        c2 = self._make_cache()
+        self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 1.5)
+        self.assertEqual(c2.get_cached_value("k1", CacheType.METRICS), {'a': 1})
+
+
 class TestCacheFormatFallback(unittest.TestCase):
 
     def setUp(self):
@@ -253,6 +307,38 @@ class TestCacheFormatFallback(unittest.TestCase):
         self.assertEqual(retrieved['match_avg_pct'], 88.3)
         self.assertEqual(retrieved['size'], 42)
 
+    def test_pickle_requested_falls_back_to_json(self):
+        j = Cache("fb5", format=CacheFormat.JSON, _data_dir=self.tmpdir)
+        j.add_cached_value("k1", CacheType.VELOCITY, 3.14)
+        p = Cache("fb5", format=CacheFormat.PICKLE, _data_dir=self.tmpdir)
+        self.assertAlmostEqual(p.get_cached_value("k1", CacheType.VELOCITY), 3.14)
+
+    def test_pickle_requested_falls_back_to_csv(self):
+        c = Cache("fb6", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        c.add_cached_value("k1", CacheType.VELOCITY, 2.72)
+        p = Cache("fb6", format=CacheFormat.PICKLE, _data_dir=self.tmpdir)
+        self.assertAlmostEqual(p.get_cached_value("k1", CacheType.VELOCITY), 2.72)
+
+    def test_csv_requested_falls_back_to_pickle(self):
+        p = Cache("fb7", format=CacheFormat.PICKLE, _data_dir=self.tmpdir)
+        p.add_cached_value("k1", CacheType.VELOCITY, 1.61)
+        c = Cache("fb7", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        self.assertAlmostEqual(c.get_cached_value("k1", CacheType.VELOCITY), 1.61)
+
+    def test_json_requested_falls_back_to_pickle(self):
+        p = Cache("fb8", format=CacheFormat.PICKLE, _data_dir=self.tmpdir)
+        p.add_cached_value("k1", CacheType.VELOCITY, 6.28)
+        j = Cache("fb8", format=CacheFormat.JSON, _data_dir=self.tmpdir)
+        self.assertAlmostEqual(j.get_cached_value("k1", CacheType.VELOCITY), 6.28)
+
+    def test_fallback_dict_pickle_to_csv(self):
+        p = Cache("fb9", format=CacheFormat.PICKLE, _data_dir=self.tmpdir)
+        p.add_cached_value("k1", CacheType.METRICS, {'x': 1, 'y': 2})
+        c = Cache("fb9", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        retrieved = c.get_cached_value("k1", CacheType.METRICS)
+        self.assertEqual(retrieved['x'], 1)
+        self.assertEqual(retrieved['y'], 2)
+
     def test_no_file_returns_empty(self):
         cache = Cache("nonexistent", format=CacheFormat.CSV, _data_dir=self.tmpdir)
         self.assertIsNone(cache.get_cached_value("k1", CacheType.VELOCITY))
@@ -278,6 +364,13 @@ class TestCacheEdgeCases(unittest.TestCase):
         with open(path, 'w') as f:
             f.write("not,a,valid,csv\nwith,bad,data,here")
         cache = Cache("bad", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        self.assertIsNone(cache.get_cached_value("k1", CacheType.VELOCITY))
+
+    def test_corrupted_pickle_returns_empty(self):
+        path = os.path.join(self.tmpdir, "bad.pkl")
+        with open(path, 'wb') as f:
+            f.write(b"not valid pickle data!!")
+        cache = Cache("bad", format=CacheFormat.PICKLE, _data_dir=self.tmpdir)
         self.assertIsNone(cache.get_cached_value("k1", CacheType.VELOCITY))
 
     def test_empty_cache_file_json(self):

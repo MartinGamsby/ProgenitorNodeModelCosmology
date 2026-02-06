@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+import pickle
 from enum import Enum
 import dataclasses
 
@@ -18,14 +19,25 @@ class CacheType(Enum):
 class CacheFormat(Enum):
     JSON = "json"
     CSV = "csv"
+    PICKLE = "pkl"
 
 class Cache:
+    _LOADERS = {
+        CacheFormat.JSON: '_load_json',
+        CacheFormat.CSV: '_load_csv',
+        CacheFormat.PICKLE: '_load_pickle',
+    }
+    _SAVERS = {
+        CacheFormat.JSON: '_save_json',
+        CacheFormat.CSV: '_save_csv',
+        CacheFormat.PICKLE: '_save_pickle',
+    }
+
     def __init__(self, name="cache", format: CacheFormat = CacheFormat.CSV, _data_dir="data"):
         self.format = format
         self.name = name
         self._data_dir = _data_dir
-        extension = "." + format.value
-        self.filepath = os.path.join(_data_dir, name + extension)
+        self.filepath = os.path.join(_data_dir, name + "." + format.value)
         self.changes = 0
         folder_path = os.path.dirname(self.filepath)
 
@@ -36,30 +48,30 @@ class Cache:
 
         self.cache = self._load_from_disk()
 
-    def _alternate_filepath(self):
-        alt_ext = ".csv" if self.format == CacheFormat.JSON else ".json"
-        return os.path.join(self._data_dir, self.name + alt_ext)
+    def _filepath_for(self, fmt):
+        return os.path.join(self._data_dir, self.name + "." + fmt.value)
+
+    def _load_with(self, fmt, filepath):
+        return getattr(self, self._LOADERS[fmt])(filepath)
 
     def _load_from_disk(self):
+        # Try primary format
         if os.path.exists(self.filepath):
             try:
-                if self.format == CacheFormat.JSON:
-                    return self._load_json(self.filepath)
-                else:
-                    return self._load_csv(self.filepath)
-            except (json.JSONDecodeError, IOError, ValueError):
+                return self._load_with(self.format, self.filepath)
+            except Exception:
                 return {}
 
-        # Fallback: try alternate format
-        alternate_path = self._alternate_filepath()
-        if os.path.exists(alternate_path):
-            try:
-                if self.format == CacheFormat.JSON:
-                    return self._load_csv(alternate_path)
-                else:
-                    return self._load_json(alternate_path)
-            except (json.JSONDecodeError, IOError, ValueError):
-                pass
+        # Fallback: try other formats
+        for fmt in CacheFormat:
+            if fmt == self.format:
+                continue
+            alt_path = self._filepath_for(fmt)
+            if os.path.exists(alt_path):
+                try:
+                    return self._load_with(fmt, alt_path)
+                except Exception:
+                    continue
 
         return {}
 
@@ -92,11 +104,12 @@ class Cache:
                 return {}
         return cache
 
+    def _load_pickle(self, filepath):
+        with open(filepath, 'rb') as f:
+            return pickle.load(f)
+
     def _save_to_disk(self):
-        if self.format == CacheFormat.JSON:
-            self._save_json()
-        else:
-            self._save_csv()
+        getattr(self, self._SAVERS[self.format])()
 
     def _save_json(self):
         with open(self.filepath, 'w') as f:
@@ -133,6 +146,19 @@ class Cache:
             writer = csv.DictWriter(f, fieldnames=fieldnames, restval='')
             writer.writeheader()
             writer.writerows(flat_rows)
+
+    def _save_pickle(self):
+        # Convert dataclasses to dicts before pickling for consistency
+        data = {}
+        for key, data_types in self.cache.items():
+            data[key] = {}
+            for dt, value in data_types.items():
+                if dataclasses.is_dataclass(value):
+                    data[key][dt] = dataclasses.asdict(value)
+                else:
+                    data[key][dt] = value
+        with open(self.filepath, 'wb') as f:
+            pickle.dump(data, f)
 
     def get_cached_value(self, key, data_type: CacheType):
         if key not in self.cache:

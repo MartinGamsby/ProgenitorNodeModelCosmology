@@ -167,7 +167,7 @@ graph TD
 **Classes**:
 - `EnhancedJSONEncoder`: Custom JSON encoder that serializes dataclasses via `dataclasses.asdict()`
 - `CacheType`: Enum — VELOCITY, METRICS, RESULTS
-- `CacheFormat`: Enum — JSON, CSV (default: CSV)
+- `CacheFormat`: Enum — JSON, CSV, PICKLE (default: CSV)
 - `Cache`: Two-level `{key: {data_type: value}}` store persisted to `data/<name>.<ext>`
 
 **Constructor**: `Cache(name, format=CacheFormat.CSV, _data_dir="data")`

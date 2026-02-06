@@ -51,7 +51,7 @@ These tests enforce critical correctness requirements. Failure indicates numeric
 
 Ensures ΛCDM baseline computed at exact N-body snapshot times, eliminating "bump" pattern from grid misalignment.
 
-**test_cache.py**: Cache module with JSON/CSV format support. 34 tests covering EnhancedJSONEncoder, JSON CRUD, CSV CRUD (including flattened dict columns), cross-format fallback (CSV→JSON, JSON→CSV), primary format precedence, edge cases (corrupted files, empty files, special characters in keys, nested dicts). All 34 tests passing.
+**test_cache.py**: Cache module with JSON/CSV/Pickle format support. 46 tests covering EnhancedJSONEncoder, JSON CRUD, CSV CRUD (flattened dict columns), Pickle CRUD, cross-format fallback (all 6 pairwise directions), primary format precedence, edge cases (corrupted files for all 3 formats, empty files, special characters). All 46 tests passing.
 
 ## Running
 

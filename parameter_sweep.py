@@ -28,9 +28,9 @@ const = CosmologicalConstants()
 
 # Configuration
 SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
-QUICK_SEARCH = True
+QUICK_SEARCH = False
 MULTIPLY_PARTICLES = False
-MANY_SEARCH = 10#3 and 10 are probably fine. You can go to 12,20,21!,31!!,...61!!!,...101!!!!
+MANY_SEARCH = 21#3 and 10 are probably fine. You can go to 12,20,21!,31!!,...61!!!,...101!!!!
 SEARCH_CENTER_MASS = False
 
 config = SweepConfig(

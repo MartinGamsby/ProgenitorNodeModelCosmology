@@ -18,29 +18,41 @@ from .analysis import compare_expansion_histories, compare_expansion_history
 # Used by compute_match_metrics return dict, early-stop checks, and CSV columns.
 MATCH_METRIC_KEYS = (
     'match_curve_pct',
+    'match_curve_r2',
+    'match_curve_rmse_pct',
     'match_half_curve_pct',
     'match_half_rmse_pct',
-    'match_end_pct',
+
     'match_max_pct',
-    'match_hubble_curve_pct',
-    'match_hubble_half_curve_pct',
-    'match_hubble_rmse_pct',
-    'match_hubble_half_rmse_pct',
-    'match_curve_rmse_pct',
     'match_curve_error_pct',
-    'match_curve_r2',
     'match_curve_error_max',
+
+    'match_hubble_curve_pct',
+    'match_hubble_curve_r2',
+    'match_hubble_rmse_pct',
+    'match_hubble_half_curve_pct',
+    'match_hubble_half_rmse_pct',
+
+    'match_end_pct',
+    'match_hubble_end_pct',    
 )
 
 USED_MATCH_METRIC_KEYS = (
-    'match_half_curve_pct',
+    #'match_half_curve_pct',
     'match_half_rmse_pct',
+    'match_half_rmse_pct',
+    'match_half_rmse_pct',
+    'match_end_pct',
+    'match_end_pct',
+    'match_end_pct',
     #'match_hubble_half_curve_pct',
     #'match_hubble_half_rmse_pct',
-    'match_end_pct',
+    #'match_hubble_curve_r2',
+    #'match_hubble_end_pct',
     'match_curve_error_pct',
     'match_curve_error_max',
 )
+#USED_MATCH_METRIC_KEYS = USED_MATCH_METRIC_KEYS
 
 CSV_COLUMNS = (
     ['M_factor', 'S_gpc', 'centerM', 'match_avg_pct', 'diff_pct']
@@ -75,7 +87,7 @@ class SweepConfig:
     def particle_count(self) -> int:
         if self.quick_search:
             return 200
-        return 1000 if self.many_search>5 else 2000
+        return 2000
 
     @property
     def n_steps(self) -> int:
@@ -260,6 +272,11 @@ def compute_match_metrics(
         sim_result.results.size_final_Gpc,
         baseline.size_final_Gpc
     )
+    match_hubble_end_pct = compare_expansion_history(
+        sim_result.hubble_curve[-1],
+        baseline.H_hubble[-1]
+    )
+
     # TODO: Do something better: (Right now: 5% buffer)
     match_end_pct = match_end_pct if (baseline.size_final_Gpc > sim_result.results.size_final_Gpc) else min(100.0, match_end_pct+5)
     match_max_pct = compare_expansion_history(
@@ -271,16 +288,18 @@ def compute_match_metrics(
     metrics = {
         'match_curve_pct': match_curve_diagnostics['match_pct'],
         'match_curve_rmse_pct': 100 - match_curve_diagnostics['rmse_pct'],
+        'match_curve_r2': match_curve_diagnostics['r_squared'],
         'match_half_curve_pct': match_half_curve_diagnostics['match_pct'],
         'match_half_rmse_pct': 100 - match_half_curve_diagnostics['rmse_pct'],
         'match_hubble_curve_pct': match_hubble_diagnostics['match_pct'],
+        'match_hubble_curve_r2': match_hubble_diagnostics['r_squared'],
         'match_hubble_rmse_pct': 100 - match_hubble_diagnostics['rmse_pct'],
         'match_hubble_half_curve_pct': match_hubble_half_curve_diagnostics['match_pct'],
         'match_hubble_half_rmse_pct': 100 - match_hubble_half_curve_diagnostics['rmse_pct'],
         'match_end_pct': match_end_pct,
+        'match_hubble_end_pct': match_hubble_end_pct,
         'match_max_pct': match_max_pct,
         'match_curve_error_pct': 100 - match_curve_diagnostics['mean_error_pct'],
-        'match_curve_r2': match_curve_diagnostics['r_squared'],
         'match_curve_error_max': 100 - match_curve_diagnostics['max_error_pct'],
     }
 
@@ -327,22 +346,30 @@ def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseli
     cache_name =  "_".join(parts)
     cached_metrics = CACHE.get_cached_value(cache_name, CacheType.METRICS)
     if cached_metrics:
-        cached_results = CACHE.get_cached_value(cache_name, CacheType.RESULTS)
-        print(f"Using cache for {cache_name}")
+        has_all_keys = True
+        for key in USED_MATCH_METRIC_KEYS:
+            if not key in cached_metrics:
+                has_all_keys = False
+                break
+        if has_all_keys:
+            cached_results = CACHE.get_cached_value(cache_name, CacheType.RESULTS)
+            print(f"Using cache for {cache_name}")
 
-        new_avg = compute_avg(cached_metrics)
-        print(f"Updating avg: from {cached_metrics['match_avg_pct']} to {new_avg}")
-        cached_metrics['match_avg_pct'] = new_avg
-        return SimResult(
-            size_curve_Gpc=None,
-            hubble_curve=None,
-            t_Gyr=None,
-            params=None,
-            results=SimSimpleResult(
-                size_final_Gpc=cached_results['size_final_Gpc'],
-                radius_max_Gpc=cached_results['radius_max_Gpc'],
-                a_final=cached_results['a_final'],
-            )), cached_metrics
+            new_avg = compute_avg(cached_metrics)
+            if cached_metrics['match_avg_pct'] != new_avg:
+                print(f"Updating avg: from {cached_metrics['match_avg_pct']} to {new_avg}")
+                cached_metrics['match_avg_pct'] = new_avg
+                CACHE.add_cached_value(cache_name, CacheType.METRICS, cached_metrics, save_interval=100)
+            return SimResult(
+                size_curve_Gpc=None,
+                hubble_curve=None,
+                t_Gyr=None,
+                params=None,
+                results=SimSimpleResult(
+                    size_final_Gpc=cached_results['size_final_Gpc'],
+                    radius_max_Gpc=cached_results['radius_max_Gpc'],
+                    a_final=cached_results['a_final'],
+                )), cached_metrics
 
 
         
@@ -360,7 +387,7 @@ def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseli
             worst_result = result
             worst_metrics = metrics
 
-    CACHE.add_cached_value(cache_name, CacheType.RESULTS, worst_result.results)
+    CACHE.add_cached_value(cache_name, CacheType.RESULTS, worst_result.results, save_interval=100)
     CACHE.add_cached_value(cache_name, CacheType.METRICS, worst_metrics)
     return worst_result, worst_metrics
 

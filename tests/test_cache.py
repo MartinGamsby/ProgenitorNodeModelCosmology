@@ -161,27 +161,50 @@ class TestCacheCSV(unittest.TestCase):
         c2 = self._make_cache()
         self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 3.14)
 
-    def test_csv_header(self):
+    def test_csv_header_scalar(self):
         cache = self._make_cache()
         cache.add_cached_value("k1", CacheType.VELOCITY, 1.5)
         with open(os.path.join(self.tmpdir, "test.csv"), 'r') as f:
             header = f.readline().strip()
-        self.assertEqual(header, "key,data_type,json_value")
+        self.assertEqual(header, "key,velocity")
+
+    def test_csv_header_dict_flattened(self):
+        cache = self._make_cache()
+        cache.add_cached_value("k1", CacheType.METRICS, {'b_val': 2, 'a_val': 1})
+        with open(os.path.join(self.tmpdir, "test.csv"), 'r') as f:
+            header = f.readline().strip()
+        # Columns sorted alphabetically
+        self.assertEqual(header, "key,metrics.a_val,metrics.b_val")
 
     def test_csv_multiple_data_types_same_key(self):
         cache = self._make_cache()
         cache.add_cached_value("k1", CacheType.VELOCITY, 1.5)
         cache.add_cached_value("k1", CacheType.METRICS, {'a': 1})
-        self.assertAlmostEqual(cache.get_cached_value("k1", CacheType.VELOCITY), 1.5)
-        self.assertEqual(cache.get_cached_value("k1", CacheType.METRICS), {'a': 1})
+        # Verify round-trip through disk
+        c2 = self._make_cache()
+        self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 1.5)
+        self.assertEqual(c2.get_cached_value("k1", CacheType.METRICS), {'a': 1})
+
+    def test_csv_dict_values_are_flat_columns(self):
+        """Dict values should become individual columns, not JSON blobs."""
+        cache = self._make_cache()
+        cache.add_cached_value("k1", CacheType.RESULTS, {'size': 1.5, 'radius': 0.8})
+        with open(os.path.join(self.tmpdir, "test.csv"), 'r') as f:
+            import csv as csv_mod
+            reader = csv_mod.DictReader(f)
+            row = next(reader)
+        self.assertIn('results.size', row)
+        self.assertIn('results.radius', row)
+        self.assertNotIn('results', row)
 
     def test_complex_nested_dict(self):
+        """Nested dicts within a value are JSON-encoded per field."""
         cache = self._make_cache()
         data = {'level1': {'level2': [1, 2, 3]}, 'values': [1.5, 2.5]}
         cache.add_cached_value("k1", CacheType.METRICS, data)
         c2 = self._make_cache()
         retrieved = c2.get_cached_value("k1", CacheType.METRICS)
-        self.assertEqual(retrieved['level1']['level2'], [1, 2, 3])
+        self.assertEqual(retrieved['level1'], {'level2': [1, 2, 3]})
         self.assertEqual(retrieved['values'], [1.5, 2.5])
 
 

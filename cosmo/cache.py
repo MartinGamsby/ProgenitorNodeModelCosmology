@@ -74,12 +74,20 @@ class Cache:
             try:
                 for row in reader:
                     key = row['key']
-                    data_type = row['data_type']
-                    json_value = row['json_value']
-                    value = json.loads(json_value)
-                    if key not in cache:
-                        cache[key] = {}
-                    cache[key][data_type] = value
+                    entry = {}
+                    for col, val in row.items():
+                        if col == 'key' or val == '':
+                            continue
+                        parsed = json.loads(val)
+                        if '.' in col:
+                            data_type, field = col.split('.', 1)
+                            if data_type not in entry:
+                                entry[data_type] = {}
+                            entry[data_type][field] = parsed
+                        else:
+                            entry[col] = parsed
+                    if entry:
+                        cache[key] = entry
             except (KeyError, json.JSONDecodeError):
                 return {}
         return cache
@@ -94,21 +102,37 @@ class Cache:
         with open(self.filepath, 'w') as f:
             json.dump(self.cache, f, indent=4, cls=EnhancedJSONEncoder)
 
+    def _flatten_value(self, data_type, value):
+        """Flatten a value into column-name → string pairs.
+
+        Scalars: {"velocity": "1.14"}
+        Dicts:   {"metrics.match_avg_pct": "95.5", "metrics.match_end_pct": "98.2"}
+        Dataclasses are converted to dicts first by EnhancedJSONEncoder.
+        """
+        if dataclasses.is_dataclass(value):
+            value = dataclasses.asdict(value)
+        if isinstance(value, dict):
+            return {f"{data_type}.{k}": json.dumps(v, cls=EnhancedJSONEncoder) for k, v in value.items()}
+        return {data_type: json.dumps(value, cls=EnhancedJSONEncoder)}
+
     def _save_csv(self):
-        rows = []
+        # Build rows and collect all column names
+        all_columns = set()
+        flat_rows = []
         for key, data_types in self.cache.items():
+            flat = {'key': key}
             for data_type, value in data_types.items():
-                json_value = json.dumps(value, cls=EnhancedJSONEncoder)
-                rows.append({
-                    'key': key,
-                    'data_type': data_type,
-                    'json_value': json_value,
-                })
+                flat.update(self._flatten_value(data_type, value))
+            flat_rows.append(flat)
+            all_columns.update(flat.keys())
+
+        all_columns.discard('key')
+        fieldnames = ['key'] + sorted(all_columns)
 
         with open(self.filepath, 'w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=['key', 'data_type', 'json_value'])
+            writer = csv.DictWriter(f, fieldnames=fieldnames, restval='')
             writer.writeheader()
-            writer.writerows(rows)
+            writer.writerows(flat_rows)
 
     def get_cached_value(self, key, data_type: CacheType):
         if key not in self.cache:

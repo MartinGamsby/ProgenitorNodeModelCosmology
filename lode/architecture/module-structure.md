@@ -178,7 +178,7 @@ graph TD
 - `get_cached_value(key, data_type)`: Two-level lookup, returns None if missing
 - `add_cached_value(key, data_type, value, save_interval=1)`: Set + batched save
 
-**CSV format**: 3 columns — `key`, `data_type`, `json_value` (one row per key/data_type pair, values JSON-serialized).
+**CSV format**: One row per cache key. Scalar values get a column named after data_type (e.g. `velocity`). Dict values are flattened: each field becomes `data_type.field` (e.g. `metrics.match_avg_pct`, `results.size_final_Gpc`). Nested dicts within fields are JSON-encoded per cell.
 
 **Used by**: `simulation.py` (velocity cache), `parameter_sweep.py` (metrics/results cache)
 

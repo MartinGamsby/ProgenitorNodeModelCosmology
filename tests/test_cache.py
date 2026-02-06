@@ -166,15 +166,23 @@ class TestCacheCSV(unittest.TestCase):
         cache.add_cached_value("k1", CacheType.VELOCITY, 1.5)
         with open(os.path.join(self.tmpdir, "test.csv"), 'r') as f:
             header = f.readline().strip()
-        self.assertEqual(header, "key,velocity")
+        # key.0_k1 is the split key column, velocity is the data column
+        self.assertEqual(header, "key.0_k1,velocity")
 
     def test_csv_header_dict_flattened(self):
         cache = self._make_cache()
         cache.add_cached_value("k1", CacheType.METRICS, {'b_val': 2, 'a_val': 1})
         with open(os.path.join(self.tmpdir, "test.csv"), 'r') as f:
             header = f.readline().strip()
-        # Columns sorted alphabetically
-        self.assertEqual(header, "key,metrics.a_val,metrics.b_val")
+        self.assertEqual(header, "key.0_k1,metrics.a_val,metrics.b_val")
+
+    def test_csv_header_real_key(self):
+        """Real cache keys get split into meaningful columns."""
+        cache = self._make_cache()
+        cache.add_cached_value("200p_5.8-13.8Gyr_855M", CacheType.VELOCITY, 1.0)
+        with open(os.path.join(self.tmpdir, "test.csv"), 'r') as f:
+            header = f.readline().strip()
+        self.assertEqual(header, "key.0_p,key.1_Gyr,key.2_M,velocity")
 
     def test_csv_multiple_data_types_same_key(self):
         cache = self._make_cache()

@@ -2,6 +2,7 @@ import csv
 import json
 import os
 import pickle
+import re
 from enum import Enum
 import dataclasses
 
@@ -85,10 +86,11 @@ class Cache:
             reader = csv.DictReader(f)
             try:
                 for row in reader:
-                    key = row['key']
+                    # Reconstruct cache key from key.* columns
+                    key = self._join_key(row)
                     entry = {}
                     for col, val in row.items():
-                        if col == 'key' or val == '':
+                        if col.startswith('key.') or val == '':
                             continue
                         parsed = json.loads(val)
                         if '.' in col:
@@ -115,6 +117,46 @@ class Cache:
         with open(self.filepath, 'w') as f:
             json.dump(self.cache, f, indent=4, cls=EnhancedJSONEncoder)
 
+    @staticmethod
+    def _split_key(key):
+        """Split a cache key into {column_name: value} for CSV columns.
+
+        Each underscore-delimited part is split at the boundary after the
+        last digit.  E.g. "200p" → ("200", "p"), "5.8-2.2Gyr" → ("5.8-2.2", "Gyr").
+        Parts with no alpha suffix use their raw text as the column label.
+        Column names are prefixed with position index for order preservation:
+        key.0_p, key.1_Gyr, key.2_M, ...
+        """
+        parts = key.split('_')
+        cols = {}
+        for i, part in enumerate(parts):
+            m = re.match(r'^(.*\d)(\D+)$', part)
+            if m:
+                value, suffix = m.group(1), m.group(2)
+                cols[f"key.{i}_{suffix}"] = value
+            else:
+                cols[f"key.{i}_{part}"] = part
+        return cols
+
+    @staticmethod
+    def _join_key(row):
+        """Reconstruct the original cache key from key.* CSV columns."""
+        indexed = []
+        for col, val in row.items():
+            if not col.startswith('key.'):
+                continue
+            # col format: key.{index}_{suffix}
+            rest = col[4:]  # strip "key."
+            idx_str, _, suffix = rest.partition('_')
+            idx = int(idx_str)
+            # If the stored value equals the suffix, it was a raw part (no digits)
+            if val == suffix:
+                indexed.append((idx, val))
+            else:
+                indexed.append((idx, val + suffix))
+        indexed.sort()
+        return '_'.join(v for _, v in indexed)
+
     def _flatten_value(self, data_type, value):
         """Flatten a value into column-name → string pairs.
 
@@ -133,14 +175,16 @@ class Cache:
         all_columns = set()
         flat_rows = []
         for key, data_types in self.cache.items():
-            flat = {'key': key}
+            flat = self._split_key(key)
             for data_type, value in data_types.items():
                 flat.update(self._flatten_value(data_type, value))
             flat_rows.append(flat)
             all_columns.update(flat.keys())
 
-        all_columns.discard('key')
-        fieldnames = ['key'] + sorted(all_columns)
+        # key.* columns first (sorted), then data columns (sorted)
+        key_cols = sorted(c for c in all_columns if c.startswith('key.'))
+        data_cols = sorted(c for c in all_columns if not c.startswith('key.'))
+        fieldnames = key_cols + data_cols
 
         with open(self.filepath, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames, restval='')

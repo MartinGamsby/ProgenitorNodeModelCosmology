@@ -189,14 +189,16 @@ def results_to_sim_result(ext_results: Dict, sim_params: SimulationParameters):
         SimResult dataclass instance
     """
     # Import here to avoid circular dependency
-    from .parameter_sweep import SimResult
+    from .parameter_sweep import SimResult, SimSimpleResult
 
     return SimResult(
         size_curve_Gpc=ext_results['diameter_Gpc'],
         hubble_curve=ext_results['H_hubble'],
-        size_final_Gpc=ext_results['diameter_Gpc'][-1],
-        radius_max_Gpc=ext_results['max_radius_Gpc'][-1],
-        a_final=ext_results['a'][-1],
+        results=SimSimpleResult(
+            size_final_Gpc=ext_results['diameter_Gpc'][-1],
+            radius_max_Gpc=ext_results['max_radius_Gpc'][-1],
+            a_final=ext_results['a'][-1],
+        ),
         t_Gyr=ext_results['t_Gyr'],
         params=sim_params.external_params
     )

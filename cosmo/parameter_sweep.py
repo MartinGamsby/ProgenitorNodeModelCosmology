@@ -7,6 +7,9 @@ External-Node parameters (M, S, centerM) that match LCDM expansion.
 from enum import Enum
 from dataclasses import dataclass, field
 from typing import Callable, List, Dict, Any, Optional, Tuple
+from .visualization import generate_output_filename
+from .cache import Cache, CacheType
+from cosmo.constants import SimulationParameters
 import numpy as np
 
 from .analysis import compare_expansion_histories, compare_expansion_history
@@ -16,13 +19,26 @@ from .analysis import compare_expansion_histories, compare_expansion_history
 MATCH_METRIC_KEYS = (
     'match_curve_pct',
     'match_half_curve_pct',
+    'match_half_rmse_pct',
     'match_end_pct',
     'match_max_pct',
     'match_hubble_curve_pct',
     'match_hubble_half_curve_pct',
+    'match_hubble_rmse_pct',
+    'match_hubble_half_rmse_pct',
     'match_curve_rmse_pct',
     'match_curve_error_pct',
     'match_curve_r2',
+    'match_curve_error_max',
+)
+
+USED_MATCH_METRIC_KEYS = (
+    'match_half_curve_pct',
+    'match_half_rmse_pct',
+    #'match_hubble_half_curve_pct',
+    #'match_hubble_half_rmse_pct',
+    'match_end_pct',
+    'match_curve_error_pct',
     'match_curve_error_max',
 )
 
@@ -31,6 +47,8 @@ CSV_COLUMNS = (
     + list(MATCH_METRIC_KEYS)
     + ['a_ext', 'size_ext', 'desc']
 )
+
+CACHE = Cache("metrics")
 
 
 class SearchMethod(Enum):
@@ -74,17 +92,20 @@ class MatchWeights:
     endpoint: float = 0.4
     max_radius: float = 0.1
 
+@dataclass
+class SimSimpleResult:
+    size_final_Gpc: float
+    radius_max_Gpc: float
+    a_final: float
 
 @dataclass
 class SimResult:
     """Raw simulation output (no computed match metrics)."""
     size_curve_Gpc: np.ndarray
     hubble_curve: np.ndarray
-    size_final_Gpc: float
-    radius_max_Gpc: float
-    a_final: float
     t_Gyr: np.ndarray
     params: Any  # ExternalNodeParameters
+    results: SimSimpleResult
 
 
 @dataclass
@@ -179,6 +200,13 @@ def build_center_mass_list(search_center_mass: bool = True, many_search: int = 3
             center_masses = add_mid_values(center_masses)
     return center_masses
 
+def compute_avg(metrics):
+    # Multiplicative aggregate: product of all metric values (clamped to [0,1])
+    match_avg_pct = 1.0
+    for key in USED_MATCH_METRIC_KEYS:
+        match_avg_pct *= max(0.0, min(1.0, metrics[key] / 100))
+    match_avg_pct *= 100
+    return match_avg_pct
 
 def compute_match_metrics(
     sim_result: SimResult,
@@ -200,6 +228,7 @@ def compute_match_metrics(
         - match_avg_pct: weighted average of all metrics
         - diff_pct: 100 - match_avg_pct
     """
+    
     half_point = len(baseline.size_Gpc) // 2
 
     # Full curve comparisons
@@ -228,35 +257,34 @@ def compute_match_metrics(
 
     # Endpoint comparisons
     match_end_pct = compare_expansion_history(
-        sim_result.size_final_Gpc,
+        sim_result.results.size_final_Gpc,
         baseline.size_final_Gpc
     )
     # TODO: Do something better: (Right now: 5% buffer)
-    match_end_pct = match_end_pct if (baseline.size_final_Gpc > sim_result.size_final_Gpc) else min(100.0, match_end_pct+5)
+    match_end_pct = match_end_pct if (baseline.size_final_Gpc > sim_result.results.size_final_Gpc) else min(100.0, match_end_pct+5)
     match_max_pct = compare_expansion_history(
-        sim_result.radius_max_Gpc,
+        sim_result.results.radius_max_Gpc,
         baseline.radius_max_Gpc
     )
 
     # Build metrics dict from MATCH_METRIC_KEYS
     metrics = {
         'match_curve_pct': match_curve_diagnostics['match_pct'],
-        'match_half_curve_pct': 100 - match_half_curve_diagnostics['rmse_pct'],
+        'match_curve_rmse_pct': 100 - match_curve_diagnostics['rmse_pct'],
+        'match_half_curve_pct': match_half_curve_diagnostics['match_pct'],
+        'match_half_rmse_pct': 100 - match_half_curve_diagnostics['rmse_pct'],
+        'match_hubble_curve_pct': match_hubble_diagnostics['match_pct'],
+        'match_hubble_rmse_pct': 100 - match_hubble_diagnostics['rmse_pct'],
+        'match_hubble_half_curve_pct': match_hubble_half_curve_diagnostics['match_pct'],
+        'match_hubble_half_rmse_pct': 100 - match_hubble_half_curve_diagnostics['rmse_pct'],
         'match_end_pct': match_end_pct,
         'match_max_pct': match_max_pct,
-        'match_hubble_curve_pct': 100 - match_hubble_diagnostics['rmse_pct'],
-        'match_hubble_half_curve_pct': 100 - match_hubble_half_curve_diagnostics['rmse_pct'],
-        'match_curve_rmse_pct': 100 - match_curve_diagnostics['rmse_pct'],
         'match_curve_error_pct': 100 - match_curve_diagnostics['mean_error_pct'],
         'match_curve_r2': match_curve_diagnostics['r_squared'],
         'match_curve_error_max': 100 - match_curve_diagnostics['max_error_pct'],
     }
 
-    # Multiplicative aggregate: product of all metric values (clamped to [0,1])
-    match_avg_pct = 1.0
-    for key in MATCH_METRIC_KEYS:
-        match_avg_pct *= max(0.0, min(1.0, metrics[key] / 100))
-    match_avg_pct *= 100
+    match_avg_pct = compute_avg(metrics)
 
     metrics['match_avg_pct'] = match_avg_pct
     metrics['diff_pct'] = 100 - match_avg_pct
@@ -276,14 +304,49 @@ def _build_result_dict(
         'S_gpc': S_gpc,
         'centerM': centerM,
         'desc': f"M={M_factor}, S={S_gpc}, centerM={centerM}",
-        'a_ext': sim_result.a_final,
-        'size_ext': sim_result.size_final_Gpc,
+        'a_ext': sim_result.results.a_final,
+        'size_ext': sim_result.results.size_final_Gpc,
         'params': sim_result.params,
         **metrics
     }
 
 
-def worst_callback(sim_callback, M_factor, S_val, centerM, seeds, baseline, weights):
+def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseline, weights):
+    
+    parts = []
+    parts.append(f"{config.particle_count}p")
+    parts.append(f"{config.t_start_Gyr}-{config.t_duration_Gyr-config.t_start_Gyr}Gyr")
+    parts.append(f"{M_factor}M")
+    parts.append(f"{int(centerM)}centerM")
+    parts.append(f"{S_val}S")
+    parts.append(f"{config.n_steps}steps")
+    parts.append(f"{'_'.join([str(seed) for seed in seeds])}seeds")
+    # No mass randomize??
+    if config.damping_factor:
+        parts.append(f"{config.damping_factor}d")
+    cache_name =  "_".join(parts)
+    cached_metrics = CACHE.get_cached_value(cache_name, CacheType.METRICS)
+    if cached_metrics:
+        cached_results = CACHE.get_cached_value(cache_name, CacheType.RESULTS)
+        print(f"Using cache for {cache_name}")
+
+        new_avg = compute_avg(cached_metrics)
+        print(f"Updating avg: from {cached_metrics['match_avg_pct']} to {new_avg}")
+        cached_metrics['match_avg_pct'] = new_avg
+        return SimResult(
+            size_curve_Gpc=None,
+            hubble_curve=None,
+            t_Gyr=None,
+            params=None,
+            results=SimSimpleResult(
+                size_final_Gpc=cached_results['size_final_Gpc'],
+                radius_max_Gpc=cached_results['radius_max_Gpc'],
+                a_final=cached_results['a_final'],
+            )), cached_metrics
+
+
+        
+        
     sim_results = sim_callback(M_factor, S_val, centerM, seeds)
 
     worst_result = None
@@ -296,9 +359,13 @@ def worst_callback(sim_callback, M_factor, S_val, centerM, seeds, baseline, weig
         elif metrics['match_avg_pct'] < worst_metrics['match_avg_pct']:
             worst_result = result
             worst_metrics = metrics
+
+    CACHE.add_cached_value(cache_name, CacheType.RESULTS, worst_result.results)
+    CACHE.add_cached_value(cache_name, CacheType.METRICS, worst_metrics)
     return worst_result, worst_metrics
 
 def ternary_search_S(
+    config: SweepConfig,
     M_factor: int,
     centerM: int,
     sim_callback: SimCallback,
@@ -337,7 +404,7 @@ def ternary_search_S(
         """Evaluate and cache simulation result for given S."""
         S_val = round(S_val)
         if S_val not in evaluated:
-            sim_result, metrics = worst_callback(sim_callback, M_factor, S_val, centerM, seeds, baseline, weights)
+            sim_result, metrics = worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseline, weights)
 
             evaluated[S_val] = (sim_result, metrics)
             result_dict = _build_result_dict(M_factor, S_val, centerM, sim_result, metrics)
@@ -376,6 +443,7 @@ def ternary_search_S(
 
 
 def linear_search_S(
+    config: SweepConfig,
     M_factor: int,
     centerM: int,
     sim_callback: SimCallback,
@@ -418,7 +486,7 @@ def linear_search_S(
         S = S_list[i]
 
         # Run simulation
-        sim_result, metrics = worst_callback(sim_callback, M_factor, S, centerM, seeds, baseline, weights)
+        sim_result, metrics = worst_callback(sim_callback, config, M_factor, S, centerM, seeds, baseline, weights)
         result = _build_result_dict(M_factor, S, centerM, sim_result, metrics)
         all_results.append(result)
 
@@ -440,7 +508,7 @@ def linear_search_S(
                 break
 
             all_worse = True
-            for key in MATCH_METRIC_KEYS:
+            for key in USED_MATCH_METRIC_KEYS:
                 #print(key, prev_result[key] > result[key] * 1.00025, prev_result[key], result[key])
                 if prev_result[key] < result[key] * 1.00025:
                     all_worse = False
@@ -486,6 +554,7 @@ def linear_search_S(
 
 
 def brute_force_search(
+    config: SweepConfig,
     many_search: int,
     s_list: List[int],
     center_masses: List[int],
@@ -505,7 +574,7 @@ def brute_force_search(
         m_list = build_m_list(many_search, multiplier=many_search)#centerM)
         for M in m_list:
             for S in s_list:
-                sim_result, metrics = worst_callback(sim_callback, M, S, centerM, seeds, baseline, weights)
+                sim_result, metrics = worst_callback(sim_callback, config, M, S, centerM, seeds, baseline, weights)
                 result = _build_result_dict(M, S, centerM, sim_result, metrics)
                 results.append(result)
 
@@ -544,7 +613,7 @@ def run_sweep(
 
     if search_method == SearchMethod.BRUTE_FORCE:
         all_results = brute_force_search(
-            config.many_search, s_list, center_masses,
+            config, config.many_search, s_list, center_masses,
             sim_callback, baseline, weights, seeds
         )
 
@@ -554,7 +623,7 @@ def run_sweep(
             m_list = build_m_list(config.many_search, multiplier=config.many_search)#centerM)
             for M in m_list:
                 S_best, _, _, results = ternary_search_S(
-                    M, centerM, sim_callback, baseline, weights,
+                    config, M, centerM, sim_callback, baseline, weights,
                     config.s_min_gpc,
                     prev_best_S if prev_best_S else config.s_max_gpc,
                     s_hint=prev_best_S,
@@ -574,7 +643,7 @@ def run_sweep(
             m_list = build_m_list(config.many_search, multiplier=config.many_search)#centerM)
             for M in m_list:
                 best_S, _, should_stop, results = linear_search_S(
-                    M, centerM, sim_callback, baseline, weights,
+                    config, M, centerM, sim_callback, baseline, weights,
                     config.s_min_gpc,
                     prev_best_S if prev_best_S else config.s_max_gpc,
                     prev_best_S=prev_best_S,

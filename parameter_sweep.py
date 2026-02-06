@@ -45,7 +45,7 @@ config = SweepConfig(
     save_interval=10
 )
 
-weights = MatchWeights()
+weights = MatchWeights()#TODO:Remove
 
 print("="*70)
 print("PARAMETER SWEEP: Finding Best Match to ΛCDM")
@@ -87,7 +87,7 @@ baseline = LCDMBaseline(
 )
 
 # Track simulation count for efficiency reporting
-sim_count = 0
+sim_count = 1
 
 def sim(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResult:
     """

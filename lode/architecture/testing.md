@@ -51,10 +51,12 @@ These tests enforce critical correctness requirements. Failure indicates numeric
 
 Ensures ΛCDM baseline computed at exact N-body snapshot times, eliminating "bump" pattern from grid misalignment.
 
+**test_cache.py**: Cache module with JSON/CSV format support. 32 tests covering EnhancedJSONEncoder, JSON CRUD, CSV CRUD, cross-format fallback (CSV→JSON, JSON→CSV), primary format precedence, edge cases (corrupted files, empty files, special characters in keys, nested dicts). All 32 tests passing.
+
 ## Running
 
 ```bash
-pytest tests/ -v  # All 163 tests
+pytest tests/ -v  # All tests
 pytest tests/test_constants.py -v  # 21 tests
 pytest tests/test_forces.py -v  # 12 tests
 pytest tests/test_model_comparison.py -v  # 7 tests
@@ -69,6 +71,7 @@ pytest tests/test_integrator.py -v  # Leapfrog mechanics
 pytest tests/test_factories.py -v  # Factory functions
 pytest tests/test_tidal_numba.py -v  # 5 tests
 pytest tests/test_barnes_hut.py -v  # Barnes-Hut/Numba internal forces
+pytest tests/test_cache.py -v  # 32 tests
 ```
 
 ## Key Fixes Applied

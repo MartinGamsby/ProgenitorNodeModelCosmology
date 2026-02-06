@@ -161,6 +161,27 @@ graph TD
 
 **Used by**: `run_simulation.py`, `parameter_sweep.py`
 
+### `cosmo/cache.py`
+**Purpose**: Two-level key-value disk cache with JSON and CSV format support.
+
+**Classes**:
+- `EnhancedJSONEncoder`: Custom JSON encoder that serializes dataclasses via `dataclasses.asdict()`
+- `CacheType`: Enum — VELOCITY, METRICS, RESULTS
+- `CacheFormat`: Enum — JSON, CSV (default: CSV)
+- `Cache`: Two-level `{key: {data_type: value}}` store persisted to `data/<name>.<ext>`
+
+**Constructor**: `Cache(name, format=CacheFormat.CSV, _data_dir="data")`
+
+**Key methods**:
+- `_load_from_disk()`: Loads primary format; falls back to alternate format if primary not found
+- `_save_to_disk()`: Saves in configured format
+- `get_cached_value(key, data_type)`: Two-level lookup, returns None if missing
+- `add_cached_value(key, data_type, value, save_interval=1)`: Set + batched save
+
+**CSV format**: 3 columns — `key`, `data_type`, `json_value` (one row per key/data_type pair, values JSON-serialized).
+
+**Used by**: `simulation.py` (velocity cache), `parameter_sweep.py` (metrics/results cache)
+
 ### `cosmo/simulation.py`
 **Purpose**: High-level simulation orchestration.
 
@@ -274,6 +295,7 @@ graph TD
 
 | File | Lines | Purpose |
 |------|-------|---------|
+| `cosmo/cache.py` | 125 | JSON/CSV disk cache |
 | `cosmo/constants.py` | 175 | Parameter definitions |
 | `cosmo/cli.py` | 95 | CLI argument parsing |
 | `cosmo/particles.py` | 340 | Physical structures |

@@ -334,7 +334,7 @@ def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseli
     
     parts = []
     parts.append(f"{config.particle_count}p")
-    parts.append(f"{config.t_start_Gyr}-{config.t_duration_Gyr-config.t_start_Gyr}Gyr")
+    parts.append(f"{config.t_start_Gyr}-{config.t_duration_Gyr+config.t_start_Gyr}Gyr")
     parts.append(f"{M_factor}M")
     parts.append(f"{int(centerM)}centerM")
     parts.append(f"{S_val}S")

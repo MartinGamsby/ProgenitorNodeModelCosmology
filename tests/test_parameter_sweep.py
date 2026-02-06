@@ -9,6 +9,7 @@ import unittest
 import numpy as np
 from cosmo.parameter_sweep import (
     SearchMethod, SweepConfig, MatchWeights, SimResult, LCDMBaseline,
+    MATCH_METRIC_KEYS,
     build_m_list, build_s_list, build_center_mass_list,
     compute_match_metrics, ternary_search_S, linear_search_S,
     brute_force_search, run_sweep
@@ -44,16 +45,18 @@ def make_sim_result(quality: float = 1.0, n_points: int = 31) -> SimResult:
     h_start = 75.0
     h_end = 68.0
 
-    # For quality < 1, add small offset that scales with (1-quality)
-    # Use small multiplier to keep R^2 positive for quality >= 0.8
+    # For quality < 1, subtract offset so sim underperforms baseline.
+    # Negative offset means smaller size -> endpoint undershoots -> match_end_pct drops.
     offset_factor = (1.0 - quality) * 0.5  # Max 0.5 Gpc offset at quality=0
-    size_offset = offset_factor
+    size_offset = -offset_factor
+
+    h_offset = -offset_factor * 2.0  # Hubble also varies with quality
 
     return SimResult(
         size_curve_Gpc=np.linspace(size_start + size_offset, size_end + size_offset, n_points),
-        hubble_curve=np.linspace(h_start, h_end, n_points),  # Keep Hubble similar
+        hubble_curve=np.linspace(h_start + h_offset, h_end + h_offset, n_points),
         size_final_Gpc=size_end + size_offset,
-        radius_max_Gpc=9.4 + size_offset * 0.5,
+        radius_max_Gpc=9.4 + size_offset,
         a_final=1.0,
         t_Gyr=np.linspace(5.8, 13.8, n_points),
         params=None
@@ -106,7 +109,7 @@ class TestSweepConfig(unittest.TestCase):
         """Default values should match expected."""
         config = SweepConfig()
         self.assertFalse(config.quick_search)
-        self.assertFalse(config.many_search)
+        self.assertEqual(config.many_search, 3)
         self.assertTrue(config.search_center_mass)
         self.assertEqual(config.t_start_Gyr, 5.8)
         self.assertEqual(config.t_duration_Gyr, 8.0)
@@ -149,10 +152,10 @@ class TestMatchWeights(unittest.TestCase):
         weights = MatchWeights()
         self.assertEqual(weights.hubble_half_curve, 0.025)
         self.assertEqual(weights.hubble_curve, 0.025)
-        self.assertEqual(weights.size_half_curve, 0.125)
-        self.assertEqual(weights.size_curve, 0.125)
-        self.assertEqual(weights.endpoint, 0.5)
-        self.assertEqual(weights.max_radius, 0.2)
+        self.assertEqual(weights.size_half_curve, 0.25)
+        self.assertEqual(weights.size_curve, 0.2)
+        self.assertEqual(weights.endpoint, 0.4)
+        self.assertEqual(weights.max_radius, 0.1)
 
     def test_weights_sum_to_one(self):
         """Default weights should sum to 1.0."""
@@ -264,12 +267,11 @@ class TestComputeMatchMetrics(unittest.TestCase):
         sim_result = make_sim_result()
         weights = MatchWeights()
         metrics = compute_match_metrics(sim_result, baseline, weights)
-        expected_keys = [
-            'match_curve_pct', 'match_half_curve_pct', 'match_end_pct', 'match_max_pct',
-            'match_hubble_curve_pct', 'match_hubble_half_curve_pct', 'match_avg_pct', 'diff_pct'
-        ]
-        for key in expected_keys:
+        for key in MATCH_METRIC_KEYS:
             self.assertIn(key, metrics)
+        # Derived keys
+        self.assertIn('match_avg_pct', metrics)
+        self.assertIn('diff_pct', metrics)
 
 
 class TestTernarySearch(unittest.TestCase):
@@ -390,13 +392,12 @@ class TestLinearSearch(unittest.TestCase):
 
     def test_early_stopping_when_decreasing(self):
         """Should stop early when match starts decreasing significantly."""
-        # Callback peaks at S=58 (near start), decreases sharply below
-        # Use sharper falloff to trigger early stopping
+        # Callback peaks at S=58, quality drops steeply away from peak.
+        # No floor clamp so metrics diverge enough to trigger all_worse check.
         def sharp_peak_callback(M, S, centerM, seeds):
-            # Sharp peak at S=58
-            distance = abs(S - 58) / 3.0  # Sharper falloff
-            quality = 1.0 / (1.0 + distance * distance)
-            return [make_sim_result(max(0.5, quality)) for _ in seeds]
+            distance = abs(S - 58) / 2.0
+            quality = max(0.01, 1.0 / (1.0 + distance * distance))
+            return [make_sim_result(quality) for _ in seeds]
 
         baseline = make_baseline()
         weights = MatchWeights()
@@ -466,7 +467,7 @@ class TestBruteForceSearch(unittest.TestCase):
                 callback, baseline, weights
             )
 
-            m_list = build_m_list(many_search, multiplier=1)
+            m_list = build_m_list(many_search, multiplier=many_search)
             expected_count = len(m_list) * len(s_list) * len(center_masses)
             self.assertEqual(len(results), expected_count)
 

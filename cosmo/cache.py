@@ -1,14 +1,23 @@
 import json
 import os
 from enum import Enum
+import dataclasses
+
+class EnhancedJSONEncoder(json.JSONEncoder):
+        def default(self, o):
+            if dataclasses.is_dataclass(o):
+                return dataclasses.asdict(o)
+            return super().default(o)
 
 class CacheType(Enum):
     VELOCITY = "velocity"
-    #POSITION = "position"
+    METRICS = "metrics"
+    RESULTS = "results"
 
 class Cache:
-    def __init__(self, filepath="data/cache.json"):
-        self.filepath = filepath
+    def __init__(self, name="cache"):
+        self.filepath = filepath=os.path.join("data",name+".json")
+        self.changes = 0
         folder_path = os.path.dirname(self.filepath)
         
         # Only try to create if a folder path actually exists (handling strictly filenames)
@@ -29,16 +38,20 @@ class Cache:
 
     def _save_to_disk(self):
         with open(self.filepath, 'w') as f:
-            json.dump(self.cache, f, indent=4)
+            json.dump(self.cache, f, indent=4, cls=EnhancedJSONEncoder)
 
     def get_cached_value(self, key, data_type: CacheType):
         if key not in self.cache:
             return None
         return self.cache[key].get(data_type.value)
 
-    def add_cached_value(self, key, data_type: CacheType, value):
+    def add_cached_value(self, key, data_type: CacheType, value, save_interval=1):
         if key not in self.cache:
             self.cache[key] = {}
         
         self.cache[key][data_type.value] = value
-        self._save_to_disk()
+
+        self.changes += 1
+        if self.changes >= save_interval:
+            self._save_to_disk()
+            self.changes = 0

@@ -97,7 +97,7 @@ class CosmologicalSimulation:
         self.snapshots = []
         self.expansion_history = []
 
-        self.cache = Cache()
+        self.cache = Cache("velocity")
 
     def _calibrate_velocity_for_lcdm_match(self, t_duration_Gyr: float, n_steps: int, damping: float = None,
                                            percent_sim: float = 0.3) -> None:

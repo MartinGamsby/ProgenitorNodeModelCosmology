@@ -15,5 +15,5 @@ Key technical insights:
 6. Unit-aware variable naming (_m, _s, _kg, _si, _mps2 suffixes) throughout codebase
 7. Three force methods: 'direct' (NumPy O(N^2)), 'numba_direct' (Numba JIT O(N^2), 14-17x speedup), 'barnes_hut' (real octree O(N log N))
 8. R^2 metric for statistical rigor; last-half R^2 (5 Gyr) isolates late-time acceleration behavior
-9. Validation: 231 tests including matter-only never-exceeds-LCDM, Numba verification, reproducibility checks
+9. Validation: 232 tests including matter-only never-exceeds-LCDM, Numba verification, reproducibility checks
 10. Paper predictions: dipole anisotropy deltaH0/H0 ~ 4.4% (comparable to Hubble Tension 8.6%)

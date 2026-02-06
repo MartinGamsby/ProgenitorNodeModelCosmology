@@ -360,16 +360,22 @@ def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseli
                 print(f"Updating avg: from {cached_metrics['match_avg_pct']} to {new_avg}")
                 cached_metrics['match_avg_pct'] = new_avg
                 CACHE.add_cached_value(cache_name, CacheType.METRICS, cached_metrics, save_interval=100)
+            # cached_results may be a dict (from JSON) or SimSimpleResult (in-memory)
+            if isinstance(cached_results, dict):
+                results = SimSimpleResult(
+                    size_final_Gpc=cached_results['size_final_Gpc'],
+                    radius_max_Gpc=cached_results['radius_max_Gpc'],
+                    a_final=cached_results['a_final'],
+                )
+            else:
+                results = cached_results
             return SimResult(
                 size_curve_Gpc=None,
                 hubble_curve=None,
                 t_Gyr=None,
                 params=None,
-                results=SimSimpleResult(
-                    size_final_Gpc=cached_results['size_final_Gpc'],
-                    radius_max_Gpc=cached_results['radius_max_Gpc'],
-                    a_final=cached_results['a_final'],
-                )), cached_metrics
+                results=results,
+            ), cached_metrics
 
 
         

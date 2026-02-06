@@ -8,7 +8,7 @@ running expensive real simulations.
 import unittest
 import numpy as np
 from cosmo.parameter_sweep import (
-    SearchMethod, SweepConfig, MatchWeights, SimResult, LCDMBaseline,
+    SearchMethod, SweepConfig, MatchWeights, SimResult, SimSimpleResult, LCDMBaseline,
     MATCH_METRIC_KEYS,
     build_m_list, build_s_list, build_center_mass_list,
     compute_match_metrics, ternary_search_S, linear_search_S,
@@ -55,11 +55,13 @@ def make_sim_result(quality: float = 1.0, n_points: int = 31) -> SimResult:
     return SimResult(
         size_curve_Gpc=np.linspace(size_start + size_offset, size_end + size_offset, n_points),
         hubble_curve=np.linspace(h_start + h_offset, h_end + h_offset, n_points),
-        size_final_Gpc=size_end + size_offset,
-        radius_max_Gpc=9.4 + size_offset,
-        a_final=1.0,
         t_Gyr=np.linspace(5.8, 13.8, n_points),
-        params=None
+        params=None,
+        results=SimSimpleResult(
+            size_final_Gpc=size_end + size_offset,
+            radius_max_Gpc=9.4 + size_offset,
+            a_final=1.0,
+        )
     )
 
 
@@ -124,9 +126,9 @@ class TestSweepConfig(unittest.TestCase):
         self.assertEqual(config.particle_count, 200)
 
     def test_particle_count_many(self):
-        """Many search uses medium particles."""
+        """Many search uses full particles (same as default)."""
         config = SweepConfig(many_search=10)
-        self.assertEqual(config.particle_count, 1000)
+        self.assertEqual(config.particle_count, 2000)
 
     def test_particle_count_default(self):
         """Default search uses most particles."""
@@ -283,9 +285,10 @@ class TestTernarySearch(unittest.TestCase):
         callback = make_unimodal_callback(optimal_S=optimal_S, optimal_M=500)
         baseline = make_baseline()
         weights = MatchWeights()
+        config = SweepConfig()
 
         best_S, best_match, best_result, all_results = ternary_search_S(
-            M_factor=500, centerM=1, sim_callback=callback,
+            config=config, M_factor=500, centerM=1, sim_callback=callback,
             baseline=baseline, weights=weights,
             s_min=15, s_max=60
         )
@@ -299,17 +302,18 @@ class TestTernarySearch(unittest.TestCase):
         callback = make_unimodal_callback(optimal_S=optimal_S)
         baseline = make_baseline()
         weights = MatchWeights()
+        config = SweepConfig()
 
         # Without hint
         _, _, _, results_no_hint = ternary_search_S(
-            M_factor=500, centerM=1, sim_callback=callback,
+            config=config, M_factor=500, centerM=1, sim_callback=callback,
             baseline=baseline, weights=weights,
             s_min=15, s_max=60, s_hint=None
         )
 
         # With hint near optimal
         _, _, _, results_with_hint = ternary_search_S(
-            M_factor=500, centerM=1, sim_callback=callback,
+            config=config, M_factor=500, centerM=1, sim_callback=callback,
             baseline=baseline, weights=weights,
             s_min=15, s_max=60, s_hint=34, hint_window=5
         )
@@ -322,9 +326,11 @@ class TestTernarySearch(unittest.TestCase):
         callback = make_monotonic_callback(direction="decreasing")
         baseline = make_baseline()
         weights = MatchWeights()
+        # Use unique M_factor/centerM to avoid cache collisions with real sim data
+        config = SweepConfig()
 
         best_S, _, _, _ = ternary_search_S(
-            M_factor=500, centerM=1, sim_callback=callback,
+            config=config, M_factor=999997, centerM=997, sim_callback=callback,
             baseline=baseline, weights=weights,
             s_min=15, s_max=60
         )
@@ -337,9 +343,11 @@ class TestTernarySearch(unittest.TestCase):
         callback = make_monotonic_callback(direction="increasing")
         baseline = make_baseline()
         weights = MatchWeights()
+        # Use unique M_factor/centerM to avoid cache collisions with real sim data
+        config = SweepConfig()
 
         best_S, _, _, _ = ternary_search_S(
-            M_factor=500, centerM=1, sim_callback=callback,
+            config=config, M_factor=999998, centerM=998, sim_callback=callback,
             baseline=baseline, weights=weights,
             s_min=15, s_max=60
         )
@@ -352,9 +360,10 @@ class TestTernarySearch(unittest.TestCase):
         callback = make_unimodal_callback(optimal_S=35)
         baseline = make_baseline()
         weights = MatchWeights()
+        config = SweepConfig()
 
         _, _, _, all_results = ternary_search_S(
-            M_factor=500, centerM=1, sim_callback=callback,
+            config=config, M_factor=500, centerM=1, sim_callback=callback,
             baseline=baseline, weights=weights,
             s_min=15, s_max=60
         )
@@ -380,9 +389,10 @@ class TestLinearSearch(unittest.TestCase):
         callback = make_unimodal_callback(optimal_S=optimal_S)
         baseline = make_baseline()
         weights = MatchWeights()
+        config = SweepConfig()
 
         best_S, best_result, _, _ = linear_search_S(
-            M_factor=500, centerM=1, sim_callback=callback,
+            config=config, M_factor=500, centerM=1, sim_callback=callback,
             baseline=baseline, weights=weights,
             s_min=15, s_max=60
         )
@@ -401,9 +411,10 @@ class TestLinearSearch(unittest.TestCase):
 
         baseline = make_baseline()
         weights = MatchWeights()
+        config = SweepConfig()
 
         _, _, _, all_results = linear_search_S(
-            M_factor=500, centerM=1, sim_callback=sharp_peak_callback,
+            config=config, M_factor=500, centerM=1, sim_callback=sharp_peak_callback,
             baseline=baseline, weights=weights,
             s_min=15, s_max=60
         )
@@ -418,9 +429,10 @@ class TestLinearSearch(unittest.TestCase):
         callback = make_monotonic_callback(direction="decreasing")
         baseline = make_baseline()
         weights = MatchWeights()
+        config = SweepConfig()
 
         best_S, _, should_stop, _ = linear_search_S(
-            M_factor=500, centerM=1, sim_callback=callback,
+            config=config, M_factor=500, centerM=1, sim_callback=callback,
             baseline=baseline, weights=weights,
             s_min=15, s_max=60
         )
@@ -437,10 +449,11 @@ class TestLinearSearch(unittest.TestCase):
 
         baseline = make_baseline()
         weights = MatchWeights()
+        config = SweepConfig()
 
         # Should not raise exception
         best_S, best_result, _, _ = linear_search_S(
-            M_factor=500, centerM=1, sim_callback=bad_callback,
+            config=config, M_factor=500, centerM=1, sim_callback=bad_callback,
             baseline=baseline, weights=weights,
             s_min=15, s_max=60
         )
@@ -457,13 +470,14 @@ class TestBruteForceSearch(unittest.TestCase):
         callback = make_unimodal_callback(optimal_S=35)
         baseline = make_baseline()
         weights = MatchWeights()
+        config = SweepConfig()
 
         s_list = [20, 25, 30]
         center_masses = [1]
 
         for many_search in [3, 10]:
             results = brute_force_search(
-                many_search, s_list, center_masses,
+                config, many_search, s_list, center_masses,
                 callback, baseline, weights
             )
 

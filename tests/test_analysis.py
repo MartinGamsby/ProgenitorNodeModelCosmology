@@ -270,7 +270,7 @@ class TestCompareExpansionHistories(unittest.TestCase):
         size_lcdm = 20.0
 
         # Test new default: R²
-        r2 = compare_expansion_histories(size_ext, size_lcdm, r_square_times_100=False)
+        r2 = compare_expansion_histories(size_ext, size_lcdm, times_100=False)
         self.assertAlmostEqual(r2, 1.0, places=10)
         r2 = compare_expansion_histories(size_ext, size_lcdm)
         self.assertAlmostEqual(r2, 100.0, places=10)
@@ -310,7 +310,7 @@ class TestCompareExpansionHistories(unittest.TestCase):
         size_ext = np.linspace(10, 26, 50)
         size_lcdm = np.linspace(10, 26, 50) + 0.1  # small constant offset
 
-        r2 = compare_expansion_histories(size_ext, size_lcdm, r_square_times_100=False)
+        r2 = compare_expansion_histories(size_ext, size_lcdm, times_100=False)
 
         # Should be in 0-1 range
         self.assertGreater(r2, 0.0)
@@ -347,9 +347,9 @@ class TestCompareExpansionHistories(unittest.TestCase):
         self.assertIn('rmse', diagnostics)
         self.assertIn('rmse_pct', diagnostics)
 
-        # R² should be set, match_pct should be None (default mode)
+        # Both R² and match_pct are always computed in diagnostics mode
         self.assertIsNotNone(diagnostics['r_squared'])
-        self.assertIsNone(diagnostics['match_pct'])
+        self.assertIsNotNone(diagnostics['match_pct'])
 
     def test_diagnostics_with_percentage_mode(self):
         """Test diagnostics in percentage mode"""
@@ -360,8 +360,8 @@ class TestCompareExpansionHistories(unittest.TestCase):
             size_ext, size_lcdm, use_r_squared=False, return_diagnostics=True
         )
 
-        # match_pct should be set, r_squared should be None
-        self.assertIsNone(diagnostics['r_squared'])
+        # Both metrics are always computed in diagnostics mode
+        self.assertIsNotNone(diagnostics['r_squared'])
         self.assertIsNotNone(diagnostics['match_pct'])
 
     def test_realistic_cosmology_curves(self):
@@ -399,7 +399,7 @@ class TestCompareExpansionHistories(unittest.TestCase):
         size_ext = np.array([1e-10, 2e-10, 3e-10])
         size_lcdm = np.array([1e-10, 2e-10, 3e-10])
 
-        r2 = compare_expansion_histories(size_ext, size_lcdm, r_square_times_100=False)
+        r2 = compare_expansion_histories(size_ext, size_lcdm, times_100=False)
 
         # Perfect match should give R² = 1.0
         self.assertAlmostEqual(r2, 1.0, places=5)

@@ -6,7 +6,6 @@ Compares ΛCDM cosmology with External-Node Model
 from typing import Optional, List, Dict
 import numpy as np
 import pickle
-import os
 
 from .constants import CosmologicalConstants, SimulationParameters
 from .particles import ParticleSystem, HMEAGrid
@@ -21,6 +20,9 @@ except ImportError:
     # Fallback if tqdm not available
     def tqdm(iterable, *args, **kwargs):
         return iterable
+
+velocity_cache = Cache("velocity")
+
 
 class CosmologicalSimulation:
     """Main class for running cosmological simulations"""
@@ -97,8 +99,6 @@ class CosmologicalSimulation:
         self.snapshots = []
         self.expansion_history = []
 
-        self.cache = Cache("velocity")
-
     def _calibrate_velocity_for_lcdm_match(self, t_duration_Gyr: float, n_steps: int, damping: float = None,
                                            percent_sim: float = 0.3) -> None:
         """
@@ -127,7 +127,7 @@ class CosmologicalSimulation:
 
         calib_name = generate_output_filename('', self.sim_params, '', '', include_timestamp=False,
                                                include_S=False, include_M=False, include_D=False)
-        cached_velocity = self.cache.get_cached_value(calib_name, CacheType.VELOCITY)
+        cached_velocity = velocity_cache.get_cached_value(calib_name, CacheType.VELOCITY)
         if cached_velocity:
             self.particles.set_velocities(self.particles.get_velocities()*cached_velocity)
             print(f"Using cached calibration of {cached_velocity} for {calib_name}")
@@ -244,7 +244,7 @@ class CosmologicalSimulation:
 
         # Apply calibrated velocity
         self.particles.set_velocities(updated_velocities)
-        self.cache.add_cached_value(calib_name, CacheType.VELOCITY, total_velocity_scale, save_interval_s=0)
+        velocity_cache.add_cached_value(calib_name, CacheType.VELOCITY, total_velocity_scale, save_interval_s=0)
 
         print(f"[Velocity Calibration] Applied velocity scaling to all particles")
 

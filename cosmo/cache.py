@@ -60,12 +60,9 @@ class CacheLock:
     """File-based lock with PID staleness detection.
 
     Creates <filepath>.lock containing the owning PID.
-    If an existing lock belongs to a dead process it is automatically broken.
-    Own-PID locks with no active CacheLock are treated as stale (Ctrl+C leftover).
+    Dead-process locks are auto-broken.
+    Own-PID locks always return False (duplicate Cache = bug or crash leftover).
     """
-    # Track lock files actively owned by CacheLock instances in this process
-    _active_locks: set = set()
-
     def __init__(self, filepath):
         self.lockpath = filepath + ".lock"
         self._owned = False
@@ -77,19 +74,15 @@ class CacheLock:
             os.write(fd, str(os.getpid()).encode())
             os.close(fd)
             self._owned = True
-            CacheLock._active_locks.add(self.lockpath)
             return True
         except FileExistsError:
             try:
                 with open(self.lockpath, 'r') as f:
                     owner_pid = int(f.read().strip())
-                if owner_pid == os.getpid() and self.lockpath not in CacheLock._active_locks:
-                    # Our PID but no active CacheLock owns it — stale from crash
-                    try:
-                        os.remove(self.lockpath)
-                    except FileNotFoundError:
-                        pass
-                    return self.acquire()
+                if owner_pid == os.getpid():
+                    # Our own PID — either duplicate Cache or crash leftover.
+                    # Either way it's a bug; surface it, don't silently reclaim.
+                    return False
                 if not _pid_alive(owner_pid):
                     # Dead process — break it
                     try:
@@ -97,7 +90,7 @@ class CacheLock:
                     except FileNotFoundError:
                         pass
                     return self.acquire()
-                return False  # held by a live process (possibly same PID, different CacheLock)
+                return False  # held by a different live process
             except (ValueError, IOError):
                 # Corrupt lock file — break it
                 try:
@@ -116,7 +109,6 @@ class CacheLock:
                 os.remove(self.lockpath)
         except (FileNotFoundError, ValueError, IOError):
             pass
-        CacheLock._active_locks.discard(self.lockpath)
         self._owned = False
 
     @property
@@ -157,35 +149,61 @@ class Cache:
         # Acquire lock for the lifetime of this Cache
         if not self._lock.acquire():
             owner = self._lock.owner_pid
-            print(f"\n*** WARNING: Cache '{name}' is locked by PID {owner}. ***")
-            print(f"    Lock file: {self._lock.lockpath}")
-            try:
-                answer = input("    Continue in read-only mode? [Y/n/kill] ").strip().lower()
-            except (EOFError, OSError):
-                answer = 'y'
-            if answer == 'kill':
-                print(f"    Killing PID {owner}...")
+            is_self = owner == os.getpid()
+            if is_self:
+                print(f"\n*** BUG: Cache '{name}' is locked by this process (PID {owner}). ***")
+                print(f"    Either a duplicate Cache('{name}') exists, or a previous run")
+                print(f"    crashed and left a stale lock file.")
+                print(f"    Lock file: {self._lock.lockpath}")
                 try:
-                    if os.name == 'nt':
-                        import subprocess
-                        subprocess.run(['taskkill', '/PID', str(owner), '/F'],
-                                       capture_output=True, timeout=5)
+                    answer = input("    [D]elete lock and retry / read-only / [n] abort? [D/Y/n] ").strip().lower()
+                except (EOFError, OSError):
+                    answer = 'y'
+                if answer in ('d', 'delete', ''):
+                    try:
+                        os.remove(self._lock.lockpath)
+                    except FileNotFoundError:
+                        pass
+                    if not self._lock.acquire():
+                        print("    Still locked. Continuing in read-only mode.")
+                        self.read_only = True
                     else:
-                        import signal
-                        os.kill(owner, signal.SIGTERM)
-                    time.sleep(0.5)
-                except Exception:
-                    pass
-                if not self._lock.acquire():
-                    print("    Still locked. Continuing in read-only mode.")
-                    self.read_only = True
+                        print("    Lock acquired.")
+                elif answer in ('n', 'no'):
+                    raise RuntimeError(f"Cache '{name}' is locked by this process (PID {owner}). Aborting.")
                 else:
-                    print("    Lock acquired.")
-            elif answer in ('n', 'no'):
-                raise RuntimeError(f"Cache '{name}' is locked by PID {owner}. Aborting.")
+                    self.read_only = True
+                    print("    Running in read-only mode. Changes will NOT be saved.\n")
             else:
-                self.read_only = True
-                print("    Running in read-only mode. Changes will NOT be saved.\n")
+                print(f"\n*** WARNING: Cache '{name}' is locked by PID {owner}. ***")
+                print(f"    Lock file: {self._lock.lockpath}")
+                try:
+                    answer = input("    Continue in read-only mode? [Y/n/kill] ").strip().lower()
+                except (EOFError, OSError):
+                    answer = 'y'
+                if answer == 'kill':
+                    print(f"    Killing PID {owner}...")
+                    try:
+                        if os.name == 'nt':
+                            import subprocess
+                            subprocess.run(['taskkill', '/PID', str(owner), '/F'],
+                                           capture_output=True, timeout=5)
+                        else:
+                            import signal
+                            os.kill(owner, signal.SIGTERM)
+                        time.sleep(0.5)
+                    except Exception:
+                        pass
+                    if not self._lock.acquire():
+                        print("    Still locked. Continuing in read-only mode.")
+                        self.read_only = True
+                    else:
+                        print("    Lock acquired.")
+                elif answer in ('n', 'no'):
+                    raise RuntimeError(f"Cache '{name}' is locked by PID {owner}. Aborting.")
+                else:
+                    self.read_only = True
+                    print("    Running in read-only mode. Changes will NOT be saved.\n")
 
         self._closed = False
         atexit.register(self.close)

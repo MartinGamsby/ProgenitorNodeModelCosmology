@@ -40,54 +40,42 @@ class CacheLock:
     Creates <filepath>.lock containing the owning PID.
     If an existing lock belongs to a dead process it is automatically broken.
     """
-    def __init__(self, filepath, timeout=5, poll=0.05):
+    def __init__(self, filepath):
         self.lockpath = filepath + ".lock"
-        self.timeout = timeout
-        self.poll = poll
         self._owned = False
 
     def acquire(self):
-        deadline = time.monotonic() + self.timeout
-        while True:
+        """Try to acquire the lock. Returns True if acquired, False if held by a live process."""
+        try:
+            fd = os.open(self.lockpath, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode())
+            os.close(fd)
+            self._owned = True
+            return True
+        except FileExistsError:
             try:
-                # os.open with O_CREAT|O_EXCL is atomic on all platforms
-                fd = os.open(self.lockpath, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                os.write(fd, str(os.getpid()).encode())
-                os.close(fd)
-                self._owned = True
-                return
-            except FileExistsError:
-                # Lock exists — check if owner is still alive
-                try:
-                    with open(self.lockpath, 'r') as f:
-                        owner_pid = int(f.read().strip())
-                    if not _pid_alive(owner_pid):
-                        # Stale lock from dead process — break it
-                        try:
-                            os.remove(self.lockpath)
-                        except FileNotFoundError:
-                            pass
-                        continue  # retry immediately
-                except (ValueError, IOError):
-                    # Corrupt lock file — break it
+                with open(self.lockpath, 'r') as f:
+                    owner_pid = int(f.read().strip())
+                if not _pid_alive(owner_pid):
+                    # Stale lock — break it and retry
                     try:
                         os.remove(self.lockpath)
                     except FileNotFoundError:
                         pass
-                    continue
-
-                if time.monotonic() >= deadline:
-                    raise TimeoutError(
-                        f"Could not acquire cache lock {self.lockpath} "
-                        f"(held by PID {owner_pid}) within {self.timeout}s"
-                    )
-                time.sleep(self.poll)
+                    return self.acquire()
+                return False  # held by a live process
+            except (ValueError, IOError):
+                # Corrupt lock file — break it
+                try:
+                    os.remove(self.lockpath)
+                except FileNotFoundError:
+                    pass
+                return self.acquire()
 
     def release(self):
         if not self._owned:
             return
         try:
-            # Only remove if it's still ours
             with open(self.lockpath, 'r') as f:
                 owner_pid = int(f.read().strip())
             if owner_pid == os.getpid():
@@ -96,13 +84,14 @@ class CacheLock:
             pass
         self._owned = False
 
-    def __enter__(self):
-        self.acquire()
-        return self
-
-    def __exit__(self, *exc):
-        self.release()
-        return False
+    @property
+    def owner_pid(self):
+        """Return the PID holding the lock, or None."""
+        try:
+            with open(self.lockpath, 'r') as f:
+                return int(f.read().strip())
+        except (FileNotFoundError, ValueError, IOError):
+            return None
 
 
 class Cache:
@@ -124,18 +113,54 @@ class Cache:
         self.filepath = os.path.join(_data_dir, name + "." + format.value)
         self.last_change = dt.datetime.now()
         self._lock = CacheLock(self.filepath)
+        self.read_only = False
         folder_path = os.path.dirname(self.filepath)
 
-        # Only try to create if a folder path actually exists (handling strictly filenames)
         if folder_path:
             os.makedirs(folder_path, exist_ok=True)
-        # ------------------------------------
+
+        # Acquire lock for the lifetime of this Cache
+        if not self._lock.acquire():
+            owner = self._lock.owner_pid
+            print(f"\n*** WARNING: Cache '{name}' is locked by PID {owner}. ***")
+            print(f"    Lock file: {self._lock.lockpath}")
+            try:
+                answer = input("    Continue in read-only mode? [Y/n/kill] ").strip().lower()
+            except (EOFError, OSError):
+                answer = 'y'
+            if answer == 'kill':
+                print(f"    Killing PID {owner}...")
+                try:
+                    import signal
+                    os.kill(owner, signal.SIGTERM)
+                    time.sleep(0.5)
+                except (OSError, ProcessLookupError):
+                    pass
+                if not self._lock.acquire():
+                    print("    Still locked. Continuing in read-only mode.")
+                    self.read_only = True
+                else:
+                    print("    Lock acquired.")
+            elif answer in ('n', 'no'):
+                raise RuntimeError(f"Cache '{name}' is locked by PID {owner}. Aborting.")
+            else:
+                self.read_only = True
+                print("    Running in read-only mode. Changes will NOT be saved.\n")
 
         self.cache = self._load_from_disk()
 
+    def close(self):
+        """Save and release the lock. Called automatically by __del__."""
+        if not self.read_only:
+            try:
+                self._save_to_disk()
+            except Exception:
+                pass
+        self._lock.release()
+
     def __del__(self):
         try:
-            self._save_to_disk()
+            self.close()
         except Exception:
             pass
 
@@ -146,24 +171,23 @@ class Cache:
         return getattr(self, self._LOADERS[fmt])(filepath)
 
     def _load_from_disk(self):
-        with self._lock:
-            # Try primary format
-            if os.path.exists(self.filepath):
-                try:
-                    return self._load_with(self.format, self.filepath)
-                except Exception:
-                    return {}
+        # Try primary format
+        if os.path.exists(self.filepath):
+            try:
+                return self._load_with(self.format, self.filepath)
+            except Exception:
+                return {}
 
-            # Fallback: try other formats
-            for fmt in CacheFormat:
-                if fmt == self.format:
+        # Fallback: try other formats
+        for fmt in CacheFormat:
+            if fmt == self.format:
+                continue
+            alt_path = self._filepath_for(fmt)
+            if os.path.exists(alt_path):
+                try:
+                    return self._load_with(fmt, alt_path)
+                except Exception:
                     continue
-                alt_path = self._filepath_for(fmt)
-                if os.path.exists(alt_path):
-                    try:
-                        return self._load_with(fmt, alt_path)
-                    except Exception:
-                        continue
 
         return {}
 
@@ -177,7 +201,6 @@ class Cache:
             reader = csv.DictReader(f)
             try:
                 for row in reader:
-                    # Reconstruct cache key from key.* columns
                     key = self._join_key(row)
                     entry = {}
                     for col, val in row.items():
@@ -202,8 +225,9 @@ class Cache:
             return pickle.load(f)
 
     def _save_to_disk(self):
-        with self._lock:
-            getattr(self, self._SAVERS[self.format])()
+        if self.read_only:
+            return
+        getattr(self, self._SAVERS[self.format])()
 
     def _save_json(self):
         with open(self.filepath, 'w') as f:
@@ -237,11 +261,9 @@ class Cache:
         for col, val in row.items():
             if not col.startswith('key.'):
                 continue
-            # col format: key.{index}_{suffix}
             rest = col[4:]  # strip "key."
             idx_str, _, suffix = rest.partition('_')
             idx = int(idx_str)
-            # If the stored value equals the suffix, it was a raw part (no digits)
             if val == suffix:
                 indexed.append((idx, val))
             else:
@@ -263,7 +285,6 @@ class Cache:
         return {data_type: json.dumps(value, cls=EnhancedJSONEncoder)}
 
     def _save_csv(self):
-        # Build rows and collect all column names
         all_columns = set()
         flat_rows = []
         for key, data_types in self.cache.items():
@@ -273,7 +294,6 @@ class Cache:
             flat_rows.append(flat)
             all_columns.update(flat.keys())
 
-        # key.* columns first (sorted), then data columns (sorted)
         key_cols = sorted(c for c in all_columns if c.startswith('key.'))
         data_cols = sorted(c for c in all_columns if not c.startswith('key.'))
         fieldnames = key_cols + data_cols
@@ -284,7 +304,6 @@ class Cache:
             writer.writerows(flat_rows)
 
     def _save_pickle(self):
-        # Convert dataclasses to dicts before pickling for consistency
         data = {}
         for key, data_types in self.cache.items():
             data[key] = {}
@@ -306,6 +325,9 @@ class Cache:
             self.cache[key] = {}
 
         self.cache[key][data_type.value] = value
+
+        if self.read_only:
+            return
 
         if (dt.datetime.now() - self.last_change).total_seconds() >= save_interval_s:
             self._save_to_disk()

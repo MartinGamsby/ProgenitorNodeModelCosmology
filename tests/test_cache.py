@@ -72,6 +72,7 @@ class TestCacheJSON(unittest.TestCase):
         cache = self._make_cache()
         obj = SampleDataclass(1.5, 0.8, 0.99)
         cache.add_cached_value("k1", CacheType.RESULTS, obj)
+        cache.close()
         # Reload from disk to get the serialized dict form
         cache2 = self._make_cache()
         retrieved = cache2.get_cached_value("k1", CacheType.RESULTS)
@@ -80,6 +81,7 @@ class TestCacheJSON(unittest.TestCase):
     def test_persists_across_instances(self):
         c1 = self._make_cache()
         c1.add_cached_value("k1", CacheType.VELOCITY, 2.5)
+        c1.close()
         c2 = self._make_cache()
         self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 2.5)
 
@@ -96,6 +98,7 @@ class TestCacheJSON(unittest.TestCase):
         cache = self._make_cache()
         # save_interval_s=0 → saves immediately
         cache.add_cached_value("k1", CacheType.VELOCITY, 1.0, save_interval_s=0)
+        cache.close()
         c2 = self._make_cache()
         self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 1.0)
 
@@ -152,6 +155,7 @@ class TestCacheCSV(unittest.TestCase):
         cache = self._make_cache()
         obj = SampleDataclass(1.5, 0.8, 0.99)
         cache.add_cached_value("k1", CacheType.RESULTS, obj)
+        cache.close()
         # Reload from disk to get the serialized dict form
         cache2 = self._make_cache()
         retrieved = cache2.get_cached_value("k1", CacheType.RESULTS)
@@ -160,6 +164,7 @@ class TestCacheCSV(unittest.TestCase):
     def test_persists_across_instances(self):
         c1 = self._make_cache()
         c1.add_cached_value("k1", CacheType.VELOCITY, 3.14)
+        c1.close()
         c2 = self._make_cache()
         self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 3.14)
 
@@ -190,6 +195,7 @@ class TestCacheCSV(unittest.TestCase):
         cache = self._make_cache()
         cache.add_cached_value("k1", CacheType.VELOCITY, 1.5)
         cache.add_cached_value("k1", CacheType.METRICS, {'a': 1})
+        cache.close()
         # Verify round-trip through disk
         c2 = self._make_cache()
         self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 1.5)
@@ -212,6 +218,7 @@ class TestCacheCSV(unittest.TestCase):
         cache = self._make_cache()
         data = {'level1': {'level2': [1, 2, 3]}, 'values': [1.5, 2.5]}
         cache.add_cached_value("k1", CacheType.METRICS, data)
+        cache.close()
         c2 = self._make_cache()
         retrieved = c2.get_cached_value("k1", CacheType.METRICS)
         self.assertEqual(retrieved['level1'], {'level2': [1, 2, 3]})
@@ -237,6 +244,7 @@ class TestCachePickle(unittest.TestCase):
     def test_store_and_retrieve_float(self):
         cache = self._make_cache()
         cache.add_cached_value("k1", CacheType.VELOCITY, 1.234)
+        cache.close()
         c2 = self._make_cache()
         self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 1.234)
 
@@ -244,6 +252,7 @@ class TestCachePickle(unittest.TestCase):
         cache = self._make_cache()
         metrics = {'match_avg_pct': 95.5, 'count': 10}
         cache.add_cached_value("k1", CacheType.METRICS, metrics)
+        cache.close()
         c2 = self._make_cache()
         retrieved = c2.get_cached_value("k1", CacheType.METRICS)
         self.assertEqual(retrieved['match_avg_pct'], 95.5)
@@ -253,6 +262,7 @@ class TestCachePickle(unittest.TestCase):
         cache = self._make_cache()
         obj = SampleDataclass(1.5, 0.8, 0.99)
         cache.add_cached_value("k1", CacheType.RESULTS, obj)
+        cache.close()
         c2 = self._make_cache()
         retrieved = c2.get_cached_value("k1", CacheType.RESULTS)
         self.assertEqual(retrieved['size_final_Gpc'], 1.5)
@@ -260,6 +270,7 @@ class TestCachePickle(unittest.TestCase):
     def test_persists_across_instances(self):
         c1 = self._make_cache()
         c1.add_cached_value("k1", CacheType.VELOCITY, 2.718)
+        c1.close()
         c2 = self._make_cache()
         self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 2.718)
 
@@ -267,6 +278,7 @@ class TestCachePickle(unittest.TestCase):
         cache = self._make_cache()
         cache.add_cached_value("k1", CacheType.VELOCITY, 1.5)
         cache.add_cached_value("k1", CacheType.METRICS, {'a': 1})
+        cache.close()
         c2 = self._make_cache()
         self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 1.5)
         self.assertEqual(c2.get_cached_value("k1", CacheType.METRICS), {'a': 1})
@@ -298,12 +310,15 @@ class TestCacheFormatFallback(unittest.TestCase):
         # Create JSON with value 1.0
         j = Cache("fb3", format=CacheFormat.JSON, _data_dir=self.tmpdir)
         j.add_cached_value("k1", CacheType.VELOCITY, 1.0)
+        j.close()
         # Create CSV with value 2.0
         c = Cache("fb3", format=CacheFormat.CSV, _data_dir=self.tmpdir)
         c.add_cached_value("k1", CacheType.VELOCITY, 2.0)
+        c.close()
         # JSON request reads JSON
         j2 = Cache("fb3", format=CacheFormat.JSON, _data_dir=self.tmpdir)
         self.assertAlmostEqual(j2.get_cached_value("k1", CacheType.VELOCITY), 1.0)
+        j2.close()
         # CSV request reads CSV
         c2 = Cache("fb3", format=CacheFormat.CSV, _data_dir=self.tmpdir)
         self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 2.0)
@@ -412,6 +427,7 @@ class TestCacheEdgeCases(unittest.TestCase):
         cache = Cache("special", format=CacheFormat.CSV, _data_dir=self.tmpdir)
         weird_key = 'calibration_200p_5.8-13.8Gyr_1centerM_250steps_123seed_0.0rnd.'
         cache.add_cached_value(weird_key, CacheType.VELOCITY, 1.14)
+        cache.close()
         c2 = Cache("special", format=CacheFormat.CSV, _data_dir=self.tmpdir)
         self.assertAlmostEqual(c2.get_cached_value(weird_key, CacheType.VELOCITY), 1.14)
 
@@ -427,15 +443,9 @@ class TestCacheLock(unittest.TestCase):
 
     def test_acquire_and_release(self):
         lock = CacheLock(os.path.join(self.tmpdir, "test.csv"))
-        lock.acquire()
+        self.assertTrue(lock.acquire())
         self.assertTrue(os.path.exists(self.lockpath))
         lock.release()
-        self.assertFalse(os.path.exists(self.lockpath))
-
-    def test_context_manager(self):
-        lock = CacheLock(os.path.join(self.tmpdir, "test.csv"))
-        with lock:
-            self.assertTrue(os.path.exists(self.lockpath))
         self.assertFalse(os.path.exists(self.lockpath))
 
     def test_lock_contains_pid(self):
@@ -446,13 +456,20 @@ class TestCacheLock(unittest.TestCase):
         self.assertEqual(pid, os.getpid())
         lock.release()
 
+    def test_acquire_returns_false_when_held(self):
+        """Second acquire on same path returns False when held by live process."""
+        lock1 = CacheLock(os.path.join(self.tmpdir, "test.csv"))
+        self.assertTrue(lock1.acquire())
+        lock2 = CacheLock(os.path.join(self.tmpdir, "test.csv"))
+        self.assertFalse(lock2.acquire())
+        lock1.release()
+
     def test_stale_lock_broken(self):
         """Lock from a dead PID is automatically broken."""
-        # Write a lock with a PID that doesn't exist
         with open(self.lockpath, 'w') as f:
             f.write("999999999")
-        lock = CacheLock(os.path.join(self.tmpdir, "test.csv"), timeout=1)
-        lock.acquire()  # should break the stale lock
+        lock = CacheLock(os.path.join(self.tmpdir, "test.csv"))
+        self.assertTrue(lock.acquire())
         self.assertTrue(lock._owned)
         lock.release()
 
@@ -460,31 +477,94 @@ class TestCacheLock(unittest.TestCase):
         """Corrupt lock file is automatically broken."""
         with open(self.lockpath, 'w') as f:
             f.write("not_a_pid")
-        lock = CacheLock(os.path.join(self.tmpdir, "test.csv"), timeout=1)
-        lock.acquire()
+        lock = CacheLock(os.path.join(self.tmpdir, "test.csv"))
+        self.assertTrue(lock.acquire())
         self.assertTrue(lock._owned)
         lock.release()
 
-    def test_same_process_reentrant_via_separate_locks(self):
-        """Two Cache instances for different names don't block each other."""
-        c1 = Cache("a", format=CacheFormat.CSV, _data_dir=self.tmpdir)
-        c2 = Cache("b", format=CacheFormat.CSV, _data_dir=self.tmpdir)
-        c1.add_cached_value("k1", CacheType.VELOCITY, 1.0, save_interval_s=0)
-        c2.add_cached_value("k1", CacheType.VELOCITY, 2.0, save_interval_s=0)
-        self.assertAlmostEqual(c1.get_cached_value("k1", CacheType.VELOCITY), 1.0)
-        self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 2.0)
-
-    def test_no_leftover_lock_after_cache_operations(self):
-        cache = Cache("locktest", format=CacheFormat.CSV, _data_dir=self.tmpdir)
-        cache.add_cached_value("k1", CacheType.VELOCITY, 1.0, save_interval_s=0)
-        lockpath = os.path.join(self.tmpdir, "locktest.csv.lock")
-        self.assertFalse(os.path.exists(lockpath))
+    def test_owner_pid(self):
+        lock = CacheLock(os.path.join(self.tmpdir, "test.csv"))
+        self.assertIsNone(lock.owner_pid)
+        lock.acquire()
+        self.assertEqual(lock.owner_pid, os.getpid())
+        lock.release()
 
     def test_pid_alive_self(self):
         self.assertTrue(_pid_alive(os.getpid()))
 
     def test_pid_alive_dead(self):
         self.assertFalse(_pid_alive(999999999))
+
+
+class TestCacheLifetimeLock(unittest.TestCase):
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+
+    def test_cache_holds_lock_while_alive(self):
+        cache = Cache("lt1", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        lockpath = os.path.join(self.tmpdir, "lt1.csv.lock")
+        self.assertTrue(os.path.exists(lockpath))
+        cache.close()
+        self.assertFalse(os.path.exists(lockpath))
+
+    def test_cache_releases_lock_on_close(self):
+        c1 = Cache("lt2", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        c1.add_cached_value("k1", CacheType.VELOCITY, 1.0)
+        c1.close()
+        # After close, another cache can open the same name
+        c2 = Cache("lt2", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        self.assertFalse(c2.read_only)
+        self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 1.0)
+        c2.close()
+
+    def test_separate_names_no_conflict(self):
+        c1 = Cache("a", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        c2 = Cache("b", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        self.assertFalse(c1.read_only)
+        self.assertFalse(c2.read_only)
+        c1.close()
+        c2.close()
+
+    def test_read_only_on_conflict(self):
+        """Second Cache for same name opens read-only (simulated via stdin EOF)."""
+        c1 = Cache("lt3", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        c1.add_cached_value("k1", CacheType.VELOCITY, 1.0)
+        # Second cache: input() will raise EOFError in tests → defaults to read-only
+        c2 = Cache("lt3", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        self.assertTrue(c2.read_only)
+        # Can still read
+        self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 1.0)
+        c1.close()
+        c2.close()
+
+    def test_read_only_does_not_save(self):
+        """Read-only cache doesn't write to disk."""
+        c1 = Cache("lt4", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        c1.add_cached_value("k1", CacheType.VELOCITY, 1.0)
+        # c2 opens read-only (EOFError → defaults to 'y')
+        c2 = Cache("lt4", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        self.assertTrue(c2.read_only)
+        c2.add_cached_value("k2", CacheType.VELOCITY, 999.0)
+        c2.close()
+        c1.close()
+        # Reload — only k1 should exist, not k2
+        c3 = Cache("lt4", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        self.assertAlmostEqual(c3.get_cached_value("k1", CacheType.VELOCITY), 1.0)
+        self.assertIsNone(c3.get_cached_value("k2", CacheType.VELOCITY))
+        c3.close()
+
+    def test_saves_on_close(self):
+        """Data added is persisted when close() is called."""
+        c1 = Cache("lt5", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        c1.add_cached_value("k1", CacheType.VELOCITY, 42.0)
+        c1.close()
+        c2 = Cache("lt5", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 42.0)
+        c2.close()
 
 
 if __name__ == '__main__':

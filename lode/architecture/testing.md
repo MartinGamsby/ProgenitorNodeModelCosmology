@@ -51,7 +51,7 @@ These tests enforce critical correctness requirements. Failure indicates numeric
 
 Ensures ΛCDM baseline computed at exact N-body snapshot times, eliminating "bump" pattern from grid misalignment.
 
-**test_cache.py**: Cache module with JSON/CSV/Pickle format support + CacheLock. 56 tests covering EnhancedJSONEncoder, JSON CRUD, CSV CRUD (flattened dict columns, split key columns), Pickle CRUD, cross-format fallback (all 6 pairwise directions), primary format precedence, CacheLock (acquire/release, context manager, PID in lock, stale lock auto-break, corrupt lock auto-break, no leftover locks), edge cases (corrupted files for all 3 formats, empty files, real key round-trip). All 56 tests passing.
+**test_cache.py**: Cache module with JSON/CSV/Pickle format support + CacheLock. 61 tests covering EnhancedJSONEncoder, JSON CRUD, CSV CRUD (flattened dict columns, split key columns), Pickle CRUD, cross-format fallback (all 6 pairwise directions + dict preservation), primary format precedence, CacheLock (acquire/release, PID in lock, stale lock auto-break, corrupt lock auto-break, owner_pid property), lifetime lock (lock held while alive, released on close, read-only on conflict via EOFError/OSError fallback, read-only skips saves, separate names don't conflict, saves on close), edge cases (corrupted files for all 3 formats, empty files, real key round-trip, special characters in keys). All 61 tests passing.
 
 ## Running
 
@@ -71,7 +71,7 @@ pytest tests/test_integrator.py -v  # Leapfrog mechanics
 pytest tests/test_factories.py -v  # Factory functions
 pytest tests/test_tidal_numba.py -v  # 5 tests
 pytest tests/test_barnes_hut.py -v  # Barnes-Hut/Numba internal forces
-pytest tests/test_cache.py -v  # 32 tests
+pytest tests/test_cache.py -v  # 61 tests
 ```
 
 ## Key Fixes Applied

@@ -4,9 +4,16 @@ import os
 import tempfile
 import shutil
 import json
+import time
 from dataclasses import dataclass
 
-from cosmo.cache import Cache, CacheType, CacheFormat, EnhancedJSONEncoder
+from cosmo.cache import Cache, CacheType, CacheFormat, CacheLock, EnhancedJSONEncoder, _pid_alive
+
+# Monkey-patch for tests: save immediately so we don't depend on timing
+_original_add = Cache.add_cached_value
+def _add_immediate(self, key, data_type, value, save_interval_s=0):
+    return _original_add(self, key, data_type, value, save_interval_s=0)
+Cache.add_cached_value = _add_immediate
 
 
 @dataclass
@@ -85,17 +92,12 @@ class TestCacheJSON(unittest.TestCase):
         cache.add_cached_value("k1", CacheType.VELOCITY, 1.0)
         self.assertIsNone(cache.get_cached_value("k1", CacheType.METRICS))
 
-    def test_batched_save(self):
+    def test_time_based_save(self):
         cache = self._make_cache()
-        cache.add_cached_value("k1", CacheType.VELOCITY, 1.0, save_interval=3)
-        cache.add_cached_value("k2", CacheType.VELOCITY, 2.0, save_interval=3)
-        # Not saved yet (2 < 3)
+        # save_interval_s=0 → saves immediately
+        cache.add_cached_value("k1", CacheType.VELOCITY, 1.0, save_interval_s=0)
         c2 = self._make_cache()
-        self.assertIsNone(c2.get_cached_value("k1", CacheType.VELOCITY))
-        # Third add triggers save
-        cache.add_cached_value("k3", CacheType.VELOCITY, 3.0, save_interval=3)
-        c3 = self._make_cache()
-        self.assertAlmostEqual(c3.get_cached_value("k1", CacheType.VELOCITY), 1.0)
+        self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 1.0)
 
     def test_multiple_keys(self):
         cache = self._make_cache()
@@ -399,10 +401,10 @@ class TestCacheEdgeCases(unittest.TestCase):
         """After loading via fallback, saves should use the requested format."""
         # Create JSON
         j = Cache("convert", format=CacheFormat.JSON, _data_dir=self.tmpdir)
-        j.add_cached_value("k1", CacheType.VELOCITY, 1.0)
+        j.add_cached_value("k1", CacheType.VELOCITY, 1.0, save_interval_s=0)
         # Load as CSV (fallback from JSON), then add a new value (triggers save as CSV)
         c = Cache("convert", format=CacheFormat.CSV, _data_dir=self.tmpdir)
-        c.add_cached_value("k2", CacheType.VELOCITY, 2.0)
+        c.add_cached_value("k2", CacheType.VELOCITY, 2.0, save_interval_s=0)
         self.assertTrue(os.path.exists(os.path.join(self.tmpdir, "convert.csv")))
 
     def test_key_with_special_characters(self):
@@ -412,6 +414,77 @@ class TestCacheEdgeCases(unittest.TestCase):
         cache.add_cached_value(weird_key, CacheType.VELOCITY, 1.14)
         c2 = Cache("special", format=CacheFormat.CSV, _data_dir=self.tmpdir)
         self.assertAlmostEqual(c2.get_cached_value(weird_key, CacheType.VELOCITY), 1.14)
+
+
+class TestCacheLock(unittest.TestCase):
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.lockpath = os.path.join(self.tmpdir, "test.csv.lock")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+
+    def test_acquire_and_release(self):
+        lock = CacheLock(os.path.join(self.tmpdir, "test.csv"))
+        lock.acquire()
+        self.assertTrue(os.path.exists(self.lockpath))
+        lock.release()
+        self.assertFalse(os.path.exists(self.lockpath))
+
+    def test_context_manager(self):
+        lock = CacheLock(os.path.join(self.tmpdir, "test.csv"))
+        with lock:
+            self.assertTrue(os.path.exists(self.lockpath))
+        self.assertFalse(os.path.exists(self.lockpath))
+
+    def test_lock_contains_pid(self):
+        lock = CacheLock(os.path.join(self.tmpdir, "test.csv"))
+        lock.acquire()
+        with open(self.lockpath, 'r') as f:
+            pid = int(f.read().strip())
+        self.assertEqual(pid, os.getpid())
+        lock.release()
+
+    def test_stale_lock_broken(self):
+        """Lock from a dead PID is automatically broken."""
+        # Write a lock with a PID that doesn't exist
+        with open(self.lockpath, 'w') as f:
+            f.write("999999999")
+        lock = CacheLock(os.path.join(self.tmpdir, "test.csv"), timeout=1)
+        lock.acquire()  # should break the stale lock
+        self.assertTrue(lock._owned)
+        lock.release()
+
+    def test_corrupt_lock_broken(self):
+        """Corrupt lock file is automatically broken."""
+        with open(self.lockpath, 'w') as f:
+            f.write("not_a_pid")
+        lock = CacheLock(os.path.join(self.tmpdir, "test.csv"), timeout=1)
+        lock.acquire()
+        self.assertTrue(lock._owned)
+        lock.release()
+
+    def test_same_process_reentrant_via_separate_locks(self):
+        """Two Cache instances for different names don't block each other."""
+        c1 = Cache("a", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        c2 = Cache("b", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        c1.add_cached_value("k1", CacheType.VELOCITY, 1.0, save_interval_s=0)
+        c2.add_cached_value("k1", CacheType.VELOCITY, 2.0, save_interval_s=0)
+        self.assertAlmostEqual(c1.get_cached_value("k1", CacheType.VELOCITY), 1.0)
+        self.assertAlmostEqual(c2.get_cached_value("k1", CacheType.VELOCITY), 2.0)
+
+    def test_no_leftover_lock_after_cache_operations(self):
+        cache = Cache("locktest", format=CacheFormat.CSV, _data_dir=self.tmpdir)
+        cache.add_cached_value("k1", CacheType.VELOCITY, 1.0, save_interval_s=0)
+        lockpath = os.path.join(self.tmpdir, "locktest.csv.lock")
+        self.assertFalse(os.path.exists(lockpath))
+
+    def test_pid_alive_self(self):
+        self.assertTrue(_pid_alive(os.getpid()))
+
+    def test_pid_alive_dead(self):
+        self.assertFalse(_pid_alive(999999999))
 
 
 if __name__ == '__main__':

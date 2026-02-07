@@ -162,23 +162,27 @@ graph TD
 **Used by**: `run_simulation.py`, `parameter_sweep.py`
 
 ### `cosmo/cache.py`
-**Purpose**: Two-level key-value disk cache with JSON and CSV format support.
+**Purpose**: Two-level key-value disk cache with JSON, CSV, and Pickle format support.
 
 **Classes**:
 - `EnhancedJSONEncoder`: Custom JSON encoder that serializes dataclasses via `dataclasses.asdict()`
 - `CacheType`: Enum — VELOCITY, METRICS, RESULTS
 - `CacheFormat`: Enum — JSON, CSV, PICKLE (default: CSV)
+- `CacheLock`: File-based lock with PID staleness detection
 - `Cache`: Two-level `{key: {data_type: value}}` store persisted to `data/<name>.<ext>`
 
 **Constructor**: `Cache(name, format=CacheFormat.CSV, _data_dir="data")`
 
-**Key methods**:
-- `_load_from_disk()`: Loads primary format; falls back to alternate format if primary not found
-- `_save_to_disk()`: Saves in configured format
-- `get_cached_value(key, data_type)`: Two-level lookup, returns None if missing
-- `add_cached_value(key, data_type, value, save_interval=1)`: Set + batched save
+**Concurrency**: `CacheLock` creates `<filepath>.lock` containing the owning PID. Uses atomic `os.open(O_CREAT|O_EXCL)`. If an existing lock belongs to a dead process (checked via `os.kill(pid, 0)`), it's auto-broken. No zombie locks on Ctrl+C — the next process detects the dead PID and reclaims.
 
-**CSV format**: One row per cache key. Scalar values get a column named after data_type (e.g. `velocity`). Dict values are flattened: each field becomes `data_type.field` (e.g. `metrics.match_avg_pct`, `results.size_final_Gpc`). Nested dicts within fields are JSON-encoded per cell.
+**Key methods**:
+- `_load_from_disk()`: Loads primary format; falls back to other formats. Locked.
+- `_save_to_disk()`: Saves in configured format. Locked.
+- `get_cached_value(key, data_type)`: Two-level lookup, returns None if missing
+- `add_cached_value(key, data_type, value, save_interval_s=5)`: Set + time-based save
+- `__del__()`: Saves on garbage collection
+
+**CSV format**: One row per cache key. Cache keys are split on `_` into `key.{i}_{suffix}` columns (e.g. `key.0_p`, `key.1_Gyr`, `key.2_M`). Scalar values get a column named after data_type (e.g. `velocity`). Dict values are flattened: each field becomes `data_type.field` (e.g. `metrics.match_avg_pct`, `results.size_final_Gpc`). Nested dicts within fields are JSON-encoded per cell.
 
 **Used by**: `simulation.py` (velocity cache), `parameter_sweep.py` (metrics/results cache)
 

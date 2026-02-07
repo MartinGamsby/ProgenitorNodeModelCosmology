@@ -3,6 +3,7 @@ import json
 import os
 import pickle
 import re
+import time
 from enum import Enum
 import dataclasses
 import datetime as dt
@@ -23,6 +24,87 @@ class CacheFormat(Enum):
     CSV = "csv"
     PICKLE = "pkl"
 
+
+def _pid_alive(pid):
+    """Check whether a process with the given PID is still running."""
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+
+class CacheLock:
+    """File-based lock with PID staleness detection.
+
+    Creates <filepath>.lock containing the owning PID.
+    If an existing lock belongs to a dead process it is automatically broken.
+    """
+    def __init__(self, filepath, timeout=5, poll=0.05):
+        self.lockpath = filepath + ".lock"
+        self.timeout = timeout
+        self.poll = poll
+        self._owned = False
+
+    def acquire(self):
+        deadline = time.monotonic() + self.timeout
+        while True:
+            try:
+                # os.open with O_CREAT|O_EXCL is atomic on all platforms
+                fd = os.open(self.lockpath, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.write(fd, str(os.getpid()).encode())
+                os.close(fd)
+                self._owned = True
+                return
+            except FileExistsError:
+                # Lock exists — check if owner is still alive
+                try:
+                    with open(self.lockpath, 'r') as f:
+                        owner_pid = int(f.read().strip())
+                    if not _pid_alive(owner_pid):
+                        # Stale lock from dead process — break it
+                        try:
+                            os.remove(self.lockpath)
+                        except FileNotFoundError:
+                            pass
+                        continue  # retry immediately
+                except (ValueError, IOError):
+                    # Corrupt lock file — break it
+                    try:
+                        os.remove(self.lockpath)
+                    except FileNotFoundError:
+                        pass
+                    continue
+
+                if time.monotonic() >= deadline:
+                    raise TimeoutError(
+                        f"Could not acquire cache lock {self.lockpath} "
+                        f"(held by PID {owner_pid}) within {self.timeout}s"
+                    )
+                time.sleep(self.poll)
+
+    def release(self):
+        if not self._owned:
+            return
+        try:
+            # Only remove if it's still ours
+            with open(self.lockpath, 'r') as f:
+                owner_pid = int(f.read().strip())
+            if owner_pid == os.getpid():
+                os.remove(self.lockpath)
+        except (FileNotFoundError, ValueError, IOError):
+            pass
+        self._owned = False
+
+    def __enter__(self):
+        self.acquire()
+        return self
+
+    def __exit__(self, *exc):
+        self.release()
+        return False
+
+
 class Cache:
     _LOADERS = {
         CacheFormat.JSON: '_load_json',
@@ -41,6 +123,7 @@ class Cache:
         self._data_dir = _data_dir
         self.filepath = os.path.join(_data_dir, name + "." + format.value)
         self.last_change = dt.datetime.now()
+        self._lock = CacheLock(self.filepath)
         folder_path = os.path.dirname(self.filepath)
 
         # Only try to create if a folder path actually exists (handling strictly filenames)
@@ -51,7 +134,10 @@ class Cache:
         self.cache = self._load_from_disk()
 
     def __del__(self):
-        self._save_to_disk()
+        try:
+            self._save_to_disk()
+        except Exception:
+            pass
 
     def _filepath_for(self, fmt):
         return os.path.join(self._data_dir, self.name + "." + fmt.value)
@@ -60,23 +146,24 @@ class Cache:
         return getattr(self, self._LOADERS[fmt])(filepath)
 
     def _load_from_disk(self):
-        # Try primary format
-        if os.path.exists(self.filepath):
-            try:
-                return self._load_with(self.format, self.filepath)
-            except Exception:
-                return {}
-
-        # Fallback: try other formats
-        for fmt in CacheFormat:
-            if fmt == self.format:
-                continue
-            alt_path = self._filepath_for(fmt)
-            if os.path.exists(alt_path):
+        with self._lock:
+            # Try primary format
+            if os.path.exists(self.filepath):
                 try:
-                    return self._load_with(fmt, alt_path)
+                    return self._load_with(self.format, self.filepath)
                 except Exception:
+                    return {}
+
+            # Fallback: try other formats
+            for fmt in CacheFormat:
+                if fmt == self.format:
                     continue
+                alt_path = self._filepath_for(fmt)
+                if os.path.exists(alt_path):
+                    try:
+                        return self._load_with(fmt, alt_path)
+                    except Exception:
+                        continue
 
         return {}
 
@@ -115,7 +202,8 @@ class Cache:
             return pickle.load(f)
 
     def _save_to_disk(self):
-        getattr(self, self._SAVERS[self.format])()
+        with self._lock:
+            getattr(self, self._SAVERS[self.format])()
 
     def _save_json(self):
         with open(self.filepath, 'w') as f:
@@ -200,11 +288,11 @@ class Cache:
         data = {}
         for key, data_types in self.cache.items():
             data[key] = {}
-            for dt, value in data_types.items():
+            for data_type, value in data_types.items():
                 if dataclasses.is_dataclass(value):
-                    data[key][dt] = dataclasses.asdict(value)
+                    data[key][data_type] = dataclasses.asdict(value)
                 else:
-                    data[key][dt] = value
+                    data[key][data_type] = value
         with open(self.filepath, 'wb') as f:
             pickle.dump(data, f)
 
@@ -218,7 +306,7 @@ class Cache:
             self.cache[key] = {}
 
         self.cache[key][data_type.value] = value
-        
-        if (dt.datetime.now() - self.last_change).total_seconds() > save_interval_s:
+
+        if (dt.datetime.now() - self.last_change).total_seconds() >= save_interval_s:
             self._save_to_disk()
             self.last_change = dt.datetime.now()

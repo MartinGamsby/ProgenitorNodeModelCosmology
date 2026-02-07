@@ -173,7 +173,11 @@ graph TD
 
 **Constructor**: `Cache(name, format=CacheFormat.CSV, _data_dir="data")`
 
-**Concurrency**: `CacheLock` creates `<filepath>.lock` containing the owning PID. Uses atomic `os.open(O_CREAT|O_EXCL)`. Lock held for entire Cache lifetime (acquired in `__init__`, released in `close()`/`__del__`). `close()` is registered via `atexit` so it runs on normal exit and Ctrl+C. `close()` is idempotent (`_closed` flag). If lock is held by a live process, user gets `[Y/n/kill]` prompt: Y=read-only mode, n=abort, kill=terminate owner. Read-only caches skip all saves. Dead-process locks are auto-broken. Own-PID locks with no active `CacheLock` tracking them (`_active_locks` class-level set) are treated as stale Ctrl+C leftovers and reclaimed. PID liveness uses `ctypes`+`OpenProcess`/`GetExitCodeProcess` on Windows (safe), `os.kill(pid, 0)` on Unix. Kill uses `taskkill /F` on Windows, `SIGTERM` on Unix.
+**Concurrency**: `CacheLock` creates `<filepath>.lock` containing the owning PID. Uses atomic `os.open(O_CREAT|O_EXCL)`. Lock held for entire Cache lifetime (acquired in `__init__`, released in `close()`/`__del__`). `close()` registered via `atexit` for Ctrl+C cleanup; idempotent (`_closed` flag). Three conflict scenarios:
+- **Own PID**: prints BUG warning (duplicate Cache or crash leftover), prompts `[D/Y/n]` — D=delete lock and retry, Y=read-only, n=abort
+- **Other live PID**: prompts `[Y/n/kill]` — Y=read-only, n=abort, kill=terminate owner
+- **Dead PID**: auto-broken silently
+PID liveness: `ctypes`+`OpenProcess`/`GetExitCodeProcess` on Windows, `os.kill(pid, 0)` on Unix. Kill: `taskkill /F` on Windows, `SIGTERM` on Unix.
 
 **Key methods**:
 - `_load_from_disk()`: Loads primary format; falls back to other formats. Locked.

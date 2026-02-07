@@ -5,6 +5,7 @@ import pickle
 import re
 from enum import Enum
 import dataclasses
+import datetime as dt
 
 class EnhancedJSONEncoder(json.JSONEncoder):
         def default(self, o):
@@ -39,7 +40,7 @@ class Cache:
         self.name = name
         self._data_dir = _data_dir
         self.filepath = os.path.join(_data_dir, name + "." + format.value)
-        self.changes = 0
+        self.last_change = dt.datetime.now()
         folder_path = os.path.dirname(self.filepath)
 
         # Only try to create if a folder path actually exists (handling strictly filenames)
@@ -48,6 +49,9 @@ class Cache:
         # ------------------------------------
 
         self.cache = self._load_from_disk()
+
+    def __del__(self):
+        self._save_to_disk()
 
     def _filepath_for(self, fmt):
         return os.path.join(self._data_dir, self.name + "." + fmt.value)
@@ -209,13 +213,12 @@ class Cache:
             return None
         return self.cache[key].get(data_type.value)
 
-    def add_cached_value(self, key, data_type: CacheType, value, save_interval=1):
+    def add_cached_value(self, key, data_type: CacheType, value, save_interval_s=5):
         if key not in self.cache:
             self.cache[key] = {}
 
         self.cache[key][data_type.value] = value
-
-        self.changes += 1
-        if self.changes >= save_interval:
+        
+        if (dt.datetime.now() - self.last_change).total_seconds() > save_interval_s:
             self._save_to_disk()
-            self.changes = 0
+            self.last_change = dt.datetime.now()

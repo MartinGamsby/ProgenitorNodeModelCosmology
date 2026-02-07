@@ -60,7 +60,7 @@ CSV_COLUMNS = (
     + ['a_ext', 'size_ext', 'desc']
 )
 
-CACHE = Cache("metrics")
+CACHE = None
 
 
 class SearchMethod(Enum):
@@ -344,6 +344,12 @@ def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseli
     if config.damping_factor:
         parts.append(f"{config.damping_factor}d")
     cache_name =  "_".join(parts)
+
+    cache_filename = f"metrics_{config.particle_count}"
+    global CACHE
+    if not CACHE or CACHE.name != cache_filename:
+        CACHE = Cache(cache_filename)
+
     cached_metrics = CACHE.get_cached_value(cache_name, CacheType.METRICS)
     if cached_metrics:
         has_all_keys = True
@@ -359,7 +365,7 @@ def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseli
             if cached_metrics['match_avg_pct'] != new_avg:
                 print(f"Updating avg: from {cached_metrics['match_avg_pct']} to {new_avg}")
                 cached_metrics['match_avg_pct'] = new_avg
-                CACHE.add_cached_value(cache_name, CacheType.METRICS, cached_metrics, save_interval=100)
+                CACHE.add_cached_value(cache_name, CacheType.METRICS, cached_metrics, save_interval_s=100)
             # cached_results may be a dict (from JSON) or SimSimpleResult (in-memory)
             if isinstance(cached_results, dict):
                 results = SimSimpleResult(
@@ -393,7 +399,7 @@ def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseli
             worst_result = result
             worst_metrics = metrics
 
-    CACHE.add_cached_value(cache_name, CacheType.RESULTS, worst_result.results, save_interval=100)
+    CACHE.add_cached_value(cache_name, CacheType.RESULTS, worst_result.results, save_interval_s=100)
     CACHE.add_cached_value(cache_name, CacheType.METRICS, worst_metrics)
     return worst_result, worst_metrics
 
@@ -687,5 +693,7 @@ def run_sweep(
                 if prev_best_S == config.s_min_gpc:
                     break
                 prev_best_S = best_S
-
+    global CACHE
+    del CACHE
+    CACHE = None
     return all_results

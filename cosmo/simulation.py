@@ -244,7 +244,7 @@ class CosmologicalSimulation:
 
         # Apply calibrated velocity
         self.particles.set_velocities(updated_velocities)
-        self.cache.add_cached_value(calib_name, CacheType.VELOCITY, total_velocity_scale)
+        self.cache.add_cached_value(calib_name, CacheType.VELOCITY, total_velocity_scale, save_interval_s=0)
 
         print(f"[Velocity Calibration] Applied velocity scaling to all particles")
 

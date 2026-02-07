@@ -26,12 +26,33 @@ class CacheFormat(Enum):
 
 
 def _pid_alive(pid):
-    """Check whether a process with the given PID is still running."""
-    try:
-        os.kill(pid, 0)
-        return True
-    except (OSError, ProcessLookupError):
-        return False
+    """Check whether a process with the given PID is still running.
+
+    Uses ctypes on Windows (os.kill(pid, 0) is unsafe there — it can
+    terminate the target process).  Falls back to os.kill(pid, 0) on
+    Unix where signal-0 is a harmless existence check.
+    """
+    if os.name == 'nt':
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        STILL_ACTIVE = 259
+        handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not handle:
+            return False
+        try:
+            exit_code = ctypes.c_ulong()
+            if kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+                return exit_code.value == STILL_ACTIVE
+            return False
+        finally:
+            kernel32.CloseHandle(handle)
+    else:
+        try:
+            os.kill(pid, 0)
+            return True
+        except (OSError, ProcessLookupError):
+            return False
 
 
 class CacheLock:
@@ -131,10 +152,15 @@ class Cache:
             if answer == 'kill':
                 print(f"    Killing PID {owner}...")
                 try:
-                    import signal
-                    os.kill(owner, signal.SIGTERM)
+                    if os.name == 'nt':
+                        import subprocess
+                        subprocess.run(['taskkill', '/PID', str(owner), '/F'],
+                                       capture_output=True, timeout=5)
+                    else:
+                        import signal
+                        os.kill(owner, signal.SIGTERM)
                     time.sleep(0.5)
-                except (OSError, ProcessLookupError):
+                except Exception:
                     pass
                 if not self._lock.acquire():
                     print("    Still locked. Continuing in read-only mode.")

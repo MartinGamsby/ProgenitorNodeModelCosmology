@@ -161,6 +161,35 @@ graph TD
 
 **Used by**: `run_simulation.py`, `parameter_sweep.py`
 
+### `cosmo/cache.py`
+**Purpose**: Two-level key-value disk cache with JSON, CSV, and Pickle format support.
+
+**Classes**:
+- `EnhancedJSONEncoder`: Custom JSON encoder that serializes dataclasses via `dataclasses.asdict()`
+- `CacheType`: Enum — VELOCITY, METRICS, RESULTS
+- `CacheFormat`: Enum — JSON, CSV, PICKLE (default: CSV)
+- `CacheLock`: File-based lock with PID staleness detection
+- `Cache`: Two-level `{key: {data_type: value}}` store persisted to `data/<name>.<ext>`
+
+**Constructor**: `Cache(name, format=CacheFormat.CSV, _data_dir="data")`
+
+**Concurrency**: `CacheLock` creates `<filepath>.lock` containing the owning PID. Uses atomic `os.open(O_CREAT|O_EXCL)`. Lock held for entire Cache lifetime (acquired in `__init__`, released in `close()`/`__del__`). `close()` registered via `atexit` for Ctrl+C cleanup; idempotent (`_closed` flag). Three conflict scenarios:
+- **Own PID**: prints BUG warning (duplicate Cache or crash leftover), prompts `[D/Y/n]` — D=delete lock and retry, Y=read-only, n=abort
+- **Other live PID**: prompts `[Y/n/kill]` — Y=read-only, n=abort, kill=terminate owner
+- **Dead PID**: auto-broken silently
+PID liveness: `ctypes`+`OpenProcess`/`GetExitCodeProcess` on Windows, `os.kill(pid, 0)` on Unix. Kill: `taskkill /F` on Windows, `SIGTERM` on Unix.
+
+**Key methods**:
+- `_load_from_disk()`: Loads primary format; falls back to other formats. Locked.
+- `_save_to_disk()`: Saves in configured format. Locked.
+- `get_cached_value(key, data_type)`: Two-level lookup, returns None if missing
+- `add_cached_value(key, data_type, value, save_interval_s=5)`: Set + time-based save
+- `__del__()`: Saves on garbage collection
+
+**CSV format**: One row per cache key. Cache keys are split on `_` into `key.{i}_{suffix}` columns (e.g. `key.0_p`, `key.1_Gyr`, `key.2_M`). Scalar values get a column named after data_type (e.g. `velocity`). Dict values are flattened: each field becomes `data_type.field` (e.g. `metrics.match_avg_pct`, `results.size_final_Gpc`). Nested dicts within fields are JSON-encoded per cell.
+
+**Used by**: `simulation.py` (velocity cache), `parameter_sweep.py` (metrics/results cache)
+
 ### `cosmo/simulation.py`
 **Purpose**: High-level simulation orchestration.
 
@@ -274,6 +303,7 @@ graph TD
 
 | File | Lines | Purpose |
 |------|-------|---------|
+| `cosmo/cache.py` | 125 | JSON/CSV disk cache |
 | `cosmo/constants.py` | 175 | Parameter definitions |
 | `cosmo/cli.py` | 95 | CLI argument parsing |
 | `cosmo/particles.py` | 340 | Physical structures |

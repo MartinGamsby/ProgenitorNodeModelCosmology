@@ -105,7 +105,10 @@ def generate_output_filename(
     include_D=True
 ):
     """Generate standardized output filename with parameters."""
-    parts = [base_name]
+    if base_name:
+        parts = [base_name]
+    else:
+        parts = []
 
     if include_timestamp:
         parts.append(datetime.now().strftime("%Y-%m-%d_%H.%M.%S"))

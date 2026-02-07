@@ -21,8 +21,7 @@ except ImportError:
     def tqdm(iterable, *args, **kwargs):
         return iterable
 
-velocity_cache = Cache("velocity")
-
+velocity_cache = None
 
 class CosmologicalSimulation:
     """Main class for running cosmological simulations"""
@@ -38,6 +37,10 @@ class CosmologicalSimulation:
         Args:
             force_method: 'auto' (barnes_hut for N>=1000, numba_direct for N>=100, direct otherwise), 'direct', 'numba_direct', or 'barnes_hut'
         """
+        global velocity_cache
+        if not velocity_cache:
+            velocity_cache = Cache("velocity")
+
         self.const = CosmologicalConstants()
         self.sim_params = sim_params
         self.use_external_nodes = use_external_nodes

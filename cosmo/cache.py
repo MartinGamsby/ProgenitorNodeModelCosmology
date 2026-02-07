@@ -1,3 +1,4 @@
+import atexit
 import csv
 import json
 import os
@@ -60,7 +61,11 @@ class CacheLock:
 
     Creates <filepath>.lock containing the owning PID.
     If an existing lock belongs to a dead process it is automatically broken.
+    Own-PID locks with no active CacheLock are treated as stale (Ctrl+C leftover).
     """
+    # Track lock files actively owned by CacheLock instances in this process
+    _active_locks: set = set()
+
     def __init__(self, filepath):
         self.lockpath = filepath + ".lock"
         self._owned = False
@@ -72,19 +77,27 @@ class CacheLock:
             os.write(fd, str(os.getpid()).encode())
             os.close(fd)
             self._owned = True
+            CacheLock._active_locks.add(self.lockpath)
             return True
         except FileExistsError:
             try:
                 with open(self.lockpath, 'r') as f:
                     owner_pid = int(f.read().strip())
-                if not _pid_alive(owner_pid):
-                    # Stale lock — break it and retry
+                if owner_pid == os.getpid() and self.lockpath not in CacheLock._active_locks:
+                    # Our PID but no active CacheLock owns it — stale from crash
                     try:
                         os.remove(self.lockpath)
                     except FileNotFoundError:
                         pass
                     return self.acquire()
-                return False  # held by a live process
+                if not _pid_alive(owner_pid):
+                    # Dead process — break it
+                    try:
+                        os.remove(self.lockpath)
+                    except FileNotFoundError:
+                        pass
+                    return self.acquire()
+                return False  # held by a live process (possibly same PID, different CacheLock)
             except (ValueError, IOError):
                 # Corrupt lock file — break it
                 try:
@@ -103,6 +116,7 @@ class CacheLock:
                 os.remove(self.lockpath)
         except (FileNotFoundError, ValueError, IOError):
             pass
+        CacheLock._active_locks.discard(self.lockpath)
         self._owned = False
 
     @property
@@ -173,10 +187,18 @@ class Cache:
                 self.read_only = True
                 print("    Running in read-only mode. Changes will NOT be saved.\n")
 
+        self._closed = False
+        atexit.register(self.close)
         self.cache = self._load_from_disk()
 
     def close(self):
-        """Save and release the lock. Called automatically by __del__."""
+        """Save and release the lock. Safe to call multiple times.
+
+        Registered via atexit so it runs on normal exit and Ctrl+C.
+        """
+        if self._closed:
+            return
+        self._closed = True
         if not self.read_only:
             try:
                 self._save_to_disk()

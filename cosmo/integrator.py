@@ -15,6 +15,7 @@ except ImportError:
 from .constants import CosmologicalConstants, LambdaCDMParameters
 from .particles import ParticleSystem, HMEAGrid
 
+is_cuda_available = None
 
 class Integrator:
     """Base class for N-body integration"""
@@ -47,7 +48,23 @@ class Integrator:
         # Determine actual method to use
         N = len(particle_system.particles)
         if force_method == 'auto':
-            if N >= 1000:
+            if N >= 10000:
+                global is_cuda_available
+                if is_cuda_available == None:
+                    from numba import cuda
+                    is_cuda_available = cuda.is_available()
+                
+                    if is_cuda_available:
+                        print("GPU is supported and ready!")
+                        print(cuda.detect())
+                    else:
+                        print("CUDA GPU not found or drivers are missing.")
+                
+                if is_cuda_available:
+                    self._active_force_method = 'barnes_hut_gpu'
+                else:
+                    self._active_force_method = 'barnes_hut'
+            elif N >= 1000:
                 self._active_force_method = 'barnes_hut'
             elif N >= 100:
                 self._active_force_method = 'numba_direct'
@@ -172,6 +189,23 @@ class Integrator:
         tree.build_tree(positions, masses_kg)
         return tree.calculate_all_accelerations()
 
+    def calculate_internal_forces_barnes_hut_gpu(self) -> np.ndarray:
+        from cosmo.barnes_hut_numba import NumbaBarnesHutGPU
+
+        positions = self.particles.get_positions()
+        masses_kg = self.particles.get_masses()
+
+        tree = NumbaBarnesHutGPU(
+            theta=self.barnes_hut_theta,
+            softening_m=self.softening_m,
+            G=self.const.G
+        )
+        result = tree.calculate(positions, masses_kg)
+        if result:
+            return result
+        # Fallback to CPU for Barnes Hut
+        return self.calculate_internal_forces_barnes_hut()
+
     def calculate_external_forces(self) -> np.ndarray:
         """
         Calculate tidal forces from external HMEA nodes.
@@ -213,6 +247,8 @@ class Integrator:
             a_internal_mps2 = self.calculate_internal_forces_numba_direct()
         elif self._active_force_method == 'barnes_hut':
             a_internal_mps2 = self.calculate_internal_forces_barnes_hut()
+        elif self._active_force_method == 'barnes_hut_gpu':
+            a_internal_mps2 = self.calculate_internal_forces_barnes_hut_gpu()
         else:
             a_internal_mps2 = self.calculate_internal_forces()
 

@@ -61,6 +61,7 @@ CSV_COLUMNS = (
 )
 
 CACHE = None
+SKIP_CACHE = False
 
 
 class SearchMethod(Enum):
@@ -347,44 +348,45 @@ def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseli
 
     cache_filename = f"metrics_{config.particle_count}"
     global CACHE
-    if not CACHE or CACHE.name != cache_filename:
-        CACHE = Cache(cache_filename)
+    if not not SKIP_CACHE:
+        if not CACHE or CACHE.name != cache_filename:
+            CACHE = Cache(cache_filename)
 
-    cached_metrics = CACHE.get_cached_value(cache_name, CacheType.METRICS)
-    if cached_metrics:
-        has_all_keys = True
-        for key in USED_MATCH_METRIC_KEYS:
-            if not key in cached_metrics:
-                has_all_keys = False
-                break
-        if has_all_keys:
-            cached_results = CACHE.get_cached_value(cache_name, CacheType.RESULTS)
-            print(f"Using cache for {cache_name}")
+        cached_metrics = CACHE.get_cached_value(cache_name, CacheType.METRICS)
+        if cached_metrics:
+            has_all_keys = True
+            for key in USED_MATCH_METRIC_KEYS:
+                if not key in cached_metrics:
+                    has_all_keys = False
+                    break
+            if has_all_keys:
+                cached_results = CACHE.get_cached_value(cache_name, CacheType.RESULTS)
+                print(f"Using cache for {cache_name}")
 
-            new_avg = compute_avg(cached_metrics)
-            if cached_metrics['match_avg_pct'] != new_avg:
-                print(f"Updating avg: from {cached_metrics['match_avg_pct']} to {new_avg}")
-                cached_metrics['match_avg_pct'] = new_avg
-                CACHE.add_cached_value(cache_name, CacheType.METRICS, cached_metrics, save_interval_s=100)
-            # cached_results may be a dict (from JSON) or SimSimpleResult (in-memory)
-            if isinstance(cached_results, dict):
-                results = SimSimpleResult(
-                    size_final_Gpc=cached_results['size_final_Gpc'],
-                    radius_max_Gpc=cached_results['radius_max_Gpc'],
-                    a_final=cached_results['a_final'],
-                )
-            else:
-                results = cached_results
-            return SimResult(
-                size_curve_Gpc=None,
-                hubble_curve=None,
-                t_Gyr=None,
-                params=None,
-                results=results,
-            ), cached_metrics
+                new_avg = compute_avg(cached_metrics)
+                if cached_metrics['match_avg_pct'] != new_avg:
+                    print(f"Updating avg: from {cached_metrics['match_avg_pct']} to {new_avg}")
+                    cached_metrics['match_avg_pct'] = new_avg
+                    CACHE.add_cached_value(cache_name, CacheType.METRICS, cached_metrics, save_interval_s=100)
+                # cached_results may be a dict (from JSON) or SimSimpleResult (in-memory)
+                if isinstance(cached_results, dict):
+                    results = SimSimpleResult(
+                        size_final_Gpc=cached_results['size_final_Gpc'],
+                        radius_max_Gpc=cached_results['radius_max_Gpc'],
+                        a_final=cached_results['a_final'],
+                    )
+                else:
+                    results = cached_results
+                return SimResult(
+                    size_curve_Gpc=None,
+                    hubble_curve=None,
+                    t_Gyr=None,
+                    params=None,
+                    results=results,
+                ), cached_metrics
 
 
-        
+            
         
     sim_results = sim_callback(M_factor, S_val, centerM, seeds)
 
@@ -399,8 +401,9 @@ def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseli
             worst_result = result
             worst_metrics = metrics
 
-    CACHE.add_cached_value(cache_name, CacheType.RESULTS, worst_result.results, save_interval_s=100)
-    CACHE.add_cached_value(cache_name, CacheType.METRICS, worst_metrics)
+    if not not SKIP_CACHE:
+        CACHE.add_cached_value(cache_name, CacheType.RESULTS, worst_result.results, save_interval_s=100)
+        CACHE.add_cached_value(cache_name, CacheType.METRICS, worst_metrics)
     return worst_result, worst_metrics
 
 def ternary_search_S(

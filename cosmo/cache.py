@@ -390,7 +390,11 @@ class Cache:
         if key not in self.cache:
             self.cache[key] = {}
 
-        self.cache[key][data_type.value] = value
+        if not data_type.value in self.cache[key] or self.cache[key][data_type.value] != value:
+            self.cache[key][data_type.value] = value
+        else:
+            return
+
 
         if self.read_only:
             return

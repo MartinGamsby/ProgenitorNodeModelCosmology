@@ -163,7 +163,12 @@ def generate_increments(max_value, terms_per_decade=5, min_value=1):
             elif value < min_value:
                 added_something = True
         k += 1
-    return sorted(seq)  # Ensure sorted, though usually already is
+        
+    result = sorted(seq) # Ensure sorted, though usually already is
+    for i in range(10):
+        if terms_per_decade > 10*i:
+            result = add_mid_values(result)
+    return result
 
 
 def add_mid_values(input_list: list):
@@ -185,16 +190,13 @@ def build_m_list(many_search: int = 3, multiplier=1) -> List[int]:
     Fine increments when many_search=True, coarse otherwise.
     """
     m_list = generate_increments(25000*multiplier, terms_per_decade=many_search, min_value=20)
-    for i in range(10):
-        if many_search > 10*i:
-            m_list = add_mid_values(m_list)
     m_list.reverse()  # Search high M first
     return m_list
 
 
 def build_s_list(s_min: int, s_max: int) -> List[int]:
     """Build list of S values (grid spacing in Gpc) to search."""
-    return list(range(s_min, s_max + 1))
+    return generate_increments(s_max, terms_per_decade=31, min_value=s_min)#list(range(s_min, s_max + 1))
 
 
 def build_center_mass_list(search_center_mass: bool = True, many_search: int = 3) -> List[int]:
@@ -208,9 +210,6 @@ def build_center_mass_list(search_center_mass: bool = True, many_search: int = 3
         return [1]
 
     center_masses = generate_increments(1000, terms_per_decade=many_search, min_value=1)
-    for i in range(10):
-        if many_search > 10*i:
-            center_masses = add_mid_values(center_masses)
     return center_masses
 
 def compute_avg(metrics):
@@ -348,7 +347,7 @@ def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseli
 
     cache_filename = f"metrics_{config.particle_count}"
     global CACHE
-    if not not SKIP_CACHE:
+    if not SKIP_CACHE:
         if not CACHE or CACHE.name != cache_filename:
             CACHE = Cache(cache_filename)
 
@@ -401,7 +400,7 @@ def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseli
             worst_result = result
             worst_metrics = metrics
 
-    if not not SKIP_CACHE:
+    if not SKIP_CACHE:
         CACHE.add_cached_value(cache_name, CacheType.RESULTS, worst_result.results, save_interval_s=100)
         CACHE.add_cached_value(cache_name, CacheType.METRICS, worst_metrics)
     return worst_result, worst_metrics

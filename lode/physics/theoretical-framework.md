@@ -169,6 +169,19 @@ Virialized meta-grid is irregular → nearest HMEAs have different masses/distan
 
 **Observable**: Deep-field surveys (Euclid, LSST) should detect anisotropy.
 
+### 3. CMB Axis of Evil (Large-Angle Multipole Alignment)
+
+CMB l=2 (quadrupole) and l=3 (octopole) share anomalous preferred axis (Land & Magueijo 2005). Standard ΛCDM predicts uncorrelated orientations.
+
+**External-Node explanation**: 3×3×3 lattice has nodes at 3 distinct distances (face S, edge S√2, corner S√3). This geometry naturally produces:
+- Quadrupole (l=2) from face-node asymmetries along principal axes
+- Octopole (l=3) from 8 corner nodes with tetrahedral sub-symmetry
+- Guaranteed alignment because all multipoles derive from same lattice
+
+Low quadrupole power explained: cubic symmetry partially cancels l=2 (only asymmetries contribute).
+
+**Cross-check**: Predicted H₀ dipole (Section 7.2) should align with known Axis of Evil direction (l≈260°, b≈60° galactic). Testable with Euclid/LSST.
+
 ## Great Metabolism Hypothesis
 
 Cyclical evolutionary cosmology:
@@ -213,6 +226,7 @@ graph TD
     F --> G[Predictions]
     G --> H[Hyper-acceleration<br/>w < -1 in future]
     G --> I[Dipole anisotropy<br/>Hubble Tension?]
+    G --> K[Axis of Evil<br/>CMB multipole alignment]
     G --> J[Great Metabolism<br/>Cyclical cosmology]
 ```
 

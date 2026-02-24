@@ -10,6 +10,8 @@ Replace dark energy (Λ) with classical tidal forces from trans-observable Hyper
 
 **Key claim**: Dark energy not inevitable—classical gravity can reproduce ΛCDM expansion.
 
+**Differentiator from prior work**: Single discrete lattice geometry simultaneously explains cosmic acceleration AND three independent anomalies (Hubble Tension, Axis of Evil, dark flow) with no additional parameters. Prior proposals (Mersini-Houghton 2009, modified inflation models, local void models) address individual anomalies with purpose-built mechanisms. Unification under one geometric structure is novel. Introduction explicitly states this.
+
 ## Physical Model
 
 **Virialized Meta-Structure**: Crystal-lattice-like arrangement of HMEA nodes beyond observable universe. Stable, gravitationally balanced (like relaxed galaxy cluster), irregular in detail.
@@ -108,6 +110,26 @@ Paper Section 7 now includes quantitative predictions computed by `compute_predi
 - **Combined (single node, worst case)**: ΔH₀/H₀ ≈ 10.9% (~7.6 km/s/Mpc)
 - Hubble Tension: ~8.6% (6 km/s/Mpc)
 - Testable by Euclid/LSST: dipole at 4-10% level with no local structure correlation
+
+### 3. CMB Axis of Evil (Large-Angle Multipole Alignment)
+**Mechanism**: 3×3×3 lattice has nodes at 3 distinct distances (face S, edge S√2, corner S√3). Discrete geometry imprints quadrupole (l=2) from face-node asymmetries and octopole (l=3) from corner-node tetrahedral sub-symmetry. All multipoles share lattice axes → guaranteed alignment.
+
+**Qualitative predictions**:
+- Low quadrupole power (cubic symmetry partially cancels l=2)
+- Planar octopole (corner contributions project onto lattice planes)
+- Quadrupole-octopole mutual alignment (both derive from same lattice)
+- H₀ dipole aligned with Axis of Evil direction (cross-check with Section 7.2)
+
+**References**: Land & Magueijo 2005 (PRL 95:071301), de Oliveira-Costa+ 2004 (PRD 69:063516), Copi+ 2006 (MNRAS 367:79), Copi+ 2010 (Adv.Astron. 2010:847541)
+
+### 4. Dark Flow (Large-Scale Bulk Motions)
+**Mechanism**: Asymmetric HMEA lattice → net tidal pull on entire bubble. Scale-independent (externally sourced). ΔH₀/H₀ ~ 4.4% → v_bulk ~ 300 km/s, consistent with observed ~400 km/s (Watkins+ 2023, 4.8σ ΛCDM tension).
+
+**Key evidence**: Watkins & Feldman 2025 show flow dominated by external sources beyond survey volume — exactly what HMEAs predict.
+
+**Directional coherence**: Dark flow (l~290-298°), Axis of Evil (l~260°), H₀ dipole should all point toward nearest HMEA. Approximate concordance observed.
+
+**References**: Kashlinsky+ 2008 (ApJ 686:L49), Planck 2014 (A&A 561:A97), Watkins+ 2023 (MNRAS 524:1885), Watkins & Feldman 2025 (arXiv:2512.03168)
 
 ### Speculative Sections (marked in paper)
 - Section 6.2 Fossil Black Holes: Speculative, no simulation support

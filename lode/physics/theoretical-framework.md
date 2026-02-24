@@ -169,6 +169,27 @@ Virialized meta-grid is irregular → nearest HMEAs have different masses/distan
 
 **Observable**: Deep-field surveys (Euclid, LSST) should detect anisotropy.
 
+### 3. CMB Axis of Evil (Large-Angle Multipole Alignment)
+
+CMB l=2 (quadrupole) and l=3 (octopole) share anomalous preferred axis (Land & Magueijo 2005). Standard ΛCDM predicts uncorrelated orientations.
+
+**External-Node explanation**: 3×3×3 lattice has nodes at 3 distinct distances (face S, edge S√2, corner S√3). This geometry naturally produces:
+- Quadrupole (l=2) from face-node asymmetries along principal axes
+- Octopole (l=3) from 8 corner nodes with tetrahedral sub-symmetry
+- Guaranteed alignment because all multipoles derive from same lattice
+
+Low quadrupole power explained: cubic symmetry partially cancels l=2 (only asymmetries contribute).
+
+**Cross-check**: Predicted H₀ dipole (Section 7.2) should align with known Axis of Evil direction (l≈260°, b≈60° galactic). Testable with Euclid/LSST.
+
+### 4. Dark Flow (Large-Scale Bulk Motions)
+
+Anomalous coherent bulk flow of galaxy clusters ~400 km/s at ~290 Mpc, 4.8σ tension with ΛCDM (Watkins+ 2023, CosmicFlows-4). Flow dominated by sources external to survey volume (Watkins & Feldman 2025). Original detection by Kashlinsky+ 2008 via kSZ (disputed), but independent distance-indicator measurements confirm the anomaly.
+
+**External-Node explanation**: Asymmetric HMEA lattice produces net gravitational pull on entire bubble. Flow is scale-independent (every object experiences same tidal bias). Predicted ΔH₀/H₀ ~ 4.4% → v_bulk ~ 300 km/s, consistent with observations within factor of 2.
+
+**Directional coherence**: Dark flow direction (l~290-298°, b~-8 to 30°) is in same sky region as Axis of Evil (l~260°, b~60°) and CMB dipole. All three anomalies should point toward nearest/most massive HMEA.
+
 ## Great Metabolism Hypothesis
 
 Cyclical evolutionary cosmology:
@@ -213,6 +234,8 @@ graph TD
     F --> G[Predictions]
     G --> H[Hyper-acceleration<br/>w < -1 in future]
     G --> I[Dipole anisotropy<br/>Hubble Tension?]
+    G --> K[Axis of Evil<br/>CMB multipole alignment]
+    G --> L[Dark Flow<br/>bulk motions from nearest HMEA]
     G --> J[Great Metabolism<br/>Cyclical cosmology]
 ```
 

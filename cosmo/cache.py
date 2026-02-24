@@ -395,7 +395,6 @@ class Cache:
         else:
             return
 
-
         if self.read_only:
             return
 

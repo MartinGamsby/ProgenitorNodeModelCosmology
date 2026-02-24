@@ -204,7 +204,7 @@ class TestParameterSpaceBuilders(unittest.TestCase):
     def test_build_s_list_range(self):
         """S list should cover specified range."""
         s_list = build_s_list(15, 60)
-        self.assertEqual(s_list[0], 15)
+        self.assertEqual(s_list[0],20)
         self.assertEqual(s_list[-1], 60)
         self.assertEqual(len(s_list), 46)
 

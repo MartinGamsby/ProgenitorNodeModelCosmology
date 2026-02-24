@@ -248,7 +248,7 @@ class Integrator:
         elif self._active_force_method == 'barnes_hut':
             a_internal_mps2 = self.calculate_internal_forces_barnes_hut()
         elif self._active_force_method == 'barnes_hut_gpu':
-            a_internal_mps2 = self.calculate_internal_forces_barnes_hut_gpu()
+            a_internal_mps2 = self.calculate_internal_forces_barnes_hut()# TO TEST: calculate_internal_forces_barnes_hut_gpu()
         else:
             a_internal_mps2 = self.calculate_internal_forces()
 

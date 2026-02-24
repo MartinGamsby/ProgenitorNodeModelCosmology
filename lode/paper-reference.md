@@ -10,6 +10,8 @@ Replace dark energy (Λ) with classical tidal forces from trans-observable Hyper
 
 **Key claim**: Dark energy not inevitable—classical gravity can reproduce ΛCDM expansion.
 
+**Differentiator from prior work**: Single discrete lattice geometry simultaneously explains cosmic acceleration AND three independent anomalies (Hubble Tension, Axis of Evil, dark flow) with no additional parameters. Prior proposals (Mersini-Houghton 2009, modified inflation models, local void models) address individual anomalies with purpose-built mechanisms. Unification under one geometric structure is novel. Introduction explicitly states this.
+
 ## Physical Model
 
 **Virialized Meta-Structure**: Crystal-lattice-like arrangement of HMEA nodes beyond observable universe. Stable, gravitationally balanced (like relaxed galaxy cluster), irregular in detail.

@@ -9,12 +9,14 @@ import unittest
 import numpy as np
 from cosmo.parameter_sweep import (
     SearchMethod, SweepConfig, MatchWeights, SimResult, SimSimpleResult, LCDMBaseline,
-    MATCH_METRIC_KEYS,
+    MATCH_METRIC_KEYS, SKIP_CACHE,
     build_m_list, build_s_list, build_center_mass_list,
     compute_match_metrics, ternary_search_S, linear_search_S,
     brute_force_search, run_sweep
 )
 
+global SKIP_CACHE
+SKIP_CACHE = True
 
 def make_baseline(n_points: int = 31) -> LCDMBaseline:
     """Create a standard LCDM baseline for testing."""

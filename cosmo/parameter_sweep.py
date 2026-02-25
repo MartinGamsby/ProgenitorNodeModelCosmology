@@ -37,20 +37,22 @@ MATCH_METRIC_KEYS = (
     'match_hubble_end_pct',    
 )
 
+#USED_MATCH_METRIC_KEYS = (
+#    #'match_half_curve_pct',
+#    'match_half_rmse_pct',
+#    'match_half_rmse_pct',
+#    'match_half_rmse_pct',
+#    'match_half_rmse_pct',
+#    'match_end_pct',
+#    'match_end_pct',
+#    'match_end_pct',
+#    'match_end_pct',
+#    'match_curve_error_pct',
+#    'match_curve_error_max',
+#)
+
 USED_MATCH_METRIC_KEYS = (
-    #'match_half_curve_pct',
     'match_half_rmse_pct',
-    'match_half_rmse_pct',
-    'match_half_rmse_pct',
-    'match_end_pct',
-    'match_end_pct',
-    'match_end_pct',
-    #'match_hubble_half_curve_pct',
-    #'match_hubble_half_rmse_pct',
-    #'match_hubble_curve_r2',
-    #'match_hubble_end_pct',
-    'match_curve_error_pct',
-    'match_curve_error_max',
 )
 #USED_MATCH_METRIC_KEYS = USED_MATCH_METRIC_KEYS
 

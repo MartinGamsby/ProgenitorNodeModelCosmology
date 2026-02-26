@@ -38,7 +38,7 @@ MATCH_METRIC_KEYS = (
 )
 
 USED_MATCH_METRIC_KEYS = (
-    "match_curve_r2",
+    'match_curve_r2',
     'match_curve_rmse_pct',
     'match_end_pct',
     'match_hubble_curve_r2',
@@ -528,12 +528,19 @@ def linear_search_S(
         if current_evaluated:
             prev_result = current_evaluated[-1][1]
 
-        print(f"\tMatch: {result['match_avg_pct']:.2f}% (curve {result['match_curve_pct']:.2f}%, half {result['match_half_curve_pct']:.2f}%, end {result['match_end_pct']:.2f}%, radius {result['match_max_pct']:.2f}%, Hubble {result['match_hubble_curve_pct']:.2f}%)")
+        print(f"\tMatch:", end="")
+        for key in USED_MATCH_METRIC_KEYS:
+            simple_key = key.replace('match_', '').replace('curve_', ''). replace('_pct', '').replace('_', ' ')
+            if prev_result:
+                diff = result[key] - prev_result[key]
+                print(f" {simple_key}: {result[key]:.2f}% ({diff:.2f}%), ", end="")
+            else:
+                print(f" {simple_key}: {result[key]:.2f}, ", end="")
         if prev_result:
-            diff = result['match_half_curve_pct'] - prev_result['match_half_curve_pct']
-            print(f"\tHalf Curve Match: {result['match_half_curve_pct']:.4f}, CHANGE: {diff:.4f}%")
+            diff = result['match_avg_pct'] - prev_result['match_avg_pct']
+            print(f"\n\t Avg Match: {result['match_avg_pct']:.4f}%, CHANGE: {diff:.4f}%")
         else:
-            print(f"\tHalf Curve Match: {result['match_half_curve_pct']:.4f}")
+            print(f"\n\t Avg Match: {result['match_avg_pct']:.4f}%")
             
         print("\n")
         if current_evaluated:

@@ -78,15 +78,20 @@ def print_results_summary(size_ext_final, size_lcdm_final, size_matter_final,
     print("\nExternal Nodes:")
     print(f"\t{size_ext_final:.2f} Gpc")
     print(f"\tend size match: {ext_match:.2f}%")
-    print(f"\t(last 1/2) size R2 match: {(match_ext_curve_pct/100):.4f}")
-    print(f"\t(last 1/2) expansion rate R2 match: {(match_ext_hubble_curve_pct/100):.4f}")
+    #print(f"\t(last 1/2) size R2 match: {(match_ext_curve_pct/100):.4f}")
+    #print(f"\t(last 1/2) expansion rate R2 match: {(match_ext_hubble_curve_pct/100):.4f}")
+    print(f"\tsize R2 match: {(match_ext_curve_pct/100):.4f}")
+    print(f"\texpansion rate R2 match: {(match_ext_hubble_curve_pct/100):.4f}")
     print(f"\tMax particle: {max_ext_final:.1f} Gpc")
     
     print("\nMatter-only:")
     print(f"\t{size_matter_final:.2f} Gpc")
     print(f"\tend size match: {matter_match:.2f}%")
-    print(f"\t(last 1/2) size R2 match: {(match_matter_curve_pct/100):.4f}")
-    print(f"\t(last 1/2) expansion rate R2 match: {(match_matter_hubble_curve_pct/100):.4f}")
+    #print(f"\t(last 1/2) size R2 match: {(match_matter_curve_pct/100):.4f}")
+    #print(f"\t(last 1/2) expansion rate R2 match: {(match_matter_hubble_curve_pct/100):.4f}")
+    print(f"\tsize R2 match: {(match_matter_curve_pct/100):.4f}")
+    print(f"\texpansion rate R2 match: {(match_matter_hubble_curve_pct/100):.4f}")
+
 
     print("\nLCMD Summary:")
     print(f"\t{size_lcdm_final:.2f} Gpc")
@@ -130,13 +135,17 @@ def run_simulation(output_dir, sim_params, use_max_radius=False):
 
     size_lcdm_curve = baseline[size_key]
     H_lcdm_hubble = baseline['H_hubble']
-    half_point = len(size_lcdm_curve)//2
+    #half_point = len(size_lcdm_curve)//2
 
     # Hubble is now computed in factory functions
-    match_ext_curve_pct = compare_expansion_histories(nbody['ext'][size_key][half_point:], size_lcdm_curve[half_point:])
-    match_ext_hubble_curve_pct = compare_expansion_histories(nbody['ext']['H_hubble'][half_point:], H_lcdm_hubble[half_point:])
-    match_matter_curve_pct = compare_expansion_histories(nbody['matter'][size_key][half_point:], size_lcdm_curve[half_point:])
-    match_matter_hubble_curve_pct = compare_expansion_histories(nbody['matter']['H_hubble'][half_point:], H_lcdm_hubble[half_point:])
+    #match_ext_curve_pct = compare_expansion_histories(nbody['ext'][size_key][half_point:], size_lcdm_curve[half_point:])
+    #match_ext_hubble_curve_pct = compare_expansion_histories(nbody['ext']['H_hubble'][half_point:], H_lcdm_hubble[half_point:])
+    #match_matter_curve_pct = compare_expansion_histories(nbody['matter'][size_key][half_point:], size_lcdm_curve[half_point:])
+    #match_matter_hubble_curve_pct = compare_expansion_histories(nbody['matter']['H_hubble'][half_point:], H_lcdm_hubble[half_point:])
+    match_ext_curve_pct = compare_expansion_histories(nbody['ext'][size_key], size_lcdm_curve)
+    match_ext_hubble_curve_pct = compare_expansion_histories(nbody['ext']['H_hubble'], H_lcdm_hubble)
+    match_matter_curve_pct = compare_expansion_histories(nbody['matter'][size_key], size_lcdm_curve)
+    match_matter_hubble_curve_pct = compare_expansion_histories(nbody['matter']['H_hubble'], H_lcdm_hubble)
 
 
     # Check for runaway particles

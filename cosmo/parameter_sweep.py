@@ -47,6 +47,22 @@ USED_MATCH_METRIC_KEYS = (
     #'match_curve_error_max',
 )
 
+#USED_MATCH_METRIC_KEYS = (
+#    #'match_half_curve_pct',
+#    'match_half_rmse_pct',
+#    'match_half_rmse_pct',
+#    'match_half_rmse_pct',
+#    'match_half_rmse_pct',
+#    'match_end_pct',
+#    'match_end_pct',
+#    'match_end_pct',
+#    'match_end_pct',
+#    'match_curve_error_pct',
+#    'match_curve_error_max',
+#)
+
+USED_MATCH_METRIC_KEYS = MATCH_METRIC_KEYS
+
 CSV_COLUMNS = (
     ['M_factor', 'S_gpc', 'centerM', 'match_avg_pct', 'diff_pct']
     + list(MATCH_METRIC_KEYS)
@@ -69,6 +85,7 @@ class SweepConfig:
     """Configuration for parameter sweep."""
     quick_search: bool = False
     many_search: int = 3
+    leet_search: bool = False
     search_center_mass: bool = True
     t_start_Gyr: float = 5.8
     t_duration_Gyr: float = 8.0
@@ -79,6 +96,8 @@ class SweepConfig:
 
     @property
     def particle_count(self) -> int:
+        if self.leet_search:
+            return 1337//2
         if self.quick_search:
             return 200
         return 2000

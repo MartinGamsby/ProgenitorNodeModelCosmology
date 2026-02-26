@@ -29,19 +29,23 @@ const = CosmologicalConstants()
 # Configuration
 SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
 QUICK_SEARCH = False
+LEET_SEARCH = True
 MULTIPLY_PARTICLES = False
-SEARCH_CENTER_MASS = True
+SEARCH_CENTER_MASS = False
 MANY_SEARCH = 3 if QUICK_SEARCH else (10 if SEARCH_CENTER_MASS else 20)#21#3 and 10 are probably fine. You can go to 12,20,21!,31!!,...61!!!,...101!!!!
+
+
 
 config = SweepConfig(
     quick_search=QUICK_SEARCH,
     many_search=MANY_SEARCH,
+    leet_search=LEET_SEARCH,    
     search_center_mass=SEARCH_CENTER_MASS,
-    t_start_Gyr=5.8,
-    t_duration_Gyr=8.0,
+    t_start_Gyr=4.8 if LEET_SEARCH else 5.8,
+    t_duration_Gyr=9.0 if LEET_SEARCH else 8.0,
     damping_factor=None,
     s_min_gpc=15,
-    s_max_gpc=60+MANY_SEARCH,
+    s_max_gpc=60+MANY_SEARCH*2,
     save_interval=10
 )
 
@@ -128,7 +132,7 @@ def sim_callback(M_factor: int, S_gpc: int, centerM: int, seeds: List[int] = [42
    
 
 # Run the sweep
-results = run_sweep(config, SEARCH_METHOD, sim_callback, baseline, weights, seeds=[123] if QUICK_SEARCH else [42,123])
+results = run_sweep(config, SEARCH_METHOD, sim_callback, baseline, weights, seeds=[123] if QUICK_SEARCH else ([1337] if LEET_SEARCH else [42,123]))
 
 # Build best per S
 best_per_s = {}

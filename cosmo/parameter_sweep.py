@@ -334,6 +334,7 @@ def _build_result_dict(
 
 def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseline, weights):
     
+    seeds_slug = '_'.join([str(seed) for seed in seeds])
     parts = []
     parts.append(f"{config.particle_count}p")
     parts.append(f"{config.t_start_Gyr}-{config.t_duration_Gyr+config.t_start_Gyr}Gyr")
@@ -341,13 +342,13 @@ def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseli
     parts.append(f"{int(centerM)}centerM")
     parts.append(f"{S_val}S")
     parts.append(f"{config.n_steps}steps")
-    parts.append(f"{'_'.join([str(seed) for seed in seeds])}seeds")
+    parts.append(f"{seeds_slug}seeds")
     # No mass randomize??
     if config.damping_factor:
         parts.append(f"{config.damping_factor}d")
     cache_name =  "_".join(parts)
 
-    cache_filename = f"metrics_{config.particle_count}"
+    cache_filename = f"metrics_{config.particle_count}_s{seeds_slug}"
     global CACHE
     if not SKIP_CACHE:
         if not CACHE or CACHE.name != cache_filename:

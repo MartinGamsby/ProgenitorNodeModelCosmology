@@ -209,8 +209,8 @@ def create_comparison_plot(
     ax4.plot(t_lcdm, size_lcdm, 'b-', label='LCDM', linewidth=2)
     ax4.plot(t_ext, size_ext, 'r--', label='External-Node', linewidth=2)
     ax4.plot(t_matter, size_matter_sim, 'g:', label='Matter-only', linewidth=2)
-    ax4.axhline(sim_params.S_value, color='orange', linestyle='--',
-                label=f'Nodes ({sim_params.S_value} Gpc)', linewidth=2)
+    #ax4.axhline(sim_params.S_value, color='orange', linestyle='--',
+    #            label=f'Nodes ({sim_params.S_value} Gpc)', linewidth=2)
     if today:
         ax4.axvline(x=today, color='gray', linestyle=':', alpha=0.5)
     ax4.set_xlabel('Time [Gyr]', fontsize=11)

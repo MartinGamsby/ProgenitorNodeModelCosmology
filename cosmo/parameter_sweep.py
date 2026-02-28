@@ -61,7 +61,30 @@ USED_MATCH_METRIC_KEYS = (
 #    'match_curve_error_max',
 #)
 
-USED_MATCH_METRIC_KEYS = MATCH_METRIC_KEYS
+USED_MATCH_METRIC_KEYS = (
+    #'match_curve_pct',
+    'match_curve_r2',
+    'match_curve_rmse_pct',
+    'match_half_curve_pct',
+    'match_half_rmse_pct',
+
+    #'match_max_pct',
+    'match_curve_error_pct',
+    #'match_curve_error_max',
+
+    #'match_hubble_curve_pct',
+    'match_hubble_curve_r2',
+    'match_hubble_rmse_pct',
+    'match_hubble_half_curve_pct',
+    'match_hubble_half_rmse_pct',
+
+    'match_end_pct',
+    'match_end_pct',
+    'match_end_pct',
+    'match_hubble_end_pct',
+    'match_hubble_end_pct',
+    'match_hubble_end_pct',
+)
 
 CSV_COLUMNS = (
     ['M_factor', 'S_gpc', 'centerM', 'match_avg_pct', 'diff_pct']
@@ -291,6 +314,8 @@ def compute_match_metrics(
 
     # TODO: Do something better: (Right now: 5% buffer)
     match_end_pct = match_end_pct if (baseline.size_final_Gpc > sim_result.results.size_final_Gpc) else min(100.0, match_end_pct+5)
+    # 25%
+    match_hubble_end_pct = match_hubble_end_pct if (baseline.H_hubble[-1] > sim_result.hubble_curve[-1]) else min(100.0, match_hubble_end_pct+25)
     match_max_pct = compare_expansion_history(
         sim_result.results.radius_max_Gpc,
         baseline.radius_max_Gpc
@@ -558,6 +583,11 @@ def linear_search_S(
         if prev_result:
             diff = result['match_avg_pct'] - prev_result['match_avg_pct']
             print(f"\n\t Avg Match: {result['match_avg_pct']:.4f}%, CHANGE: {diff:.4f}%")
+            if diff < 0 and abs(diff) > result['match_avg_pct']//4:
+                print("\r\tMatch decreased significantly, stopping search for this M.\n")
+                current_evaluated.append((S, result))
+                break
+
         else:
             print(f"\n\t Avg Match: {result['match_avg_pct']:.4f}%")
             

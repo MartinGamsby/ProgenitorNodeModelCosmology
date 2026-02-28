@@ -29,7 +29,7 @@ const = CosmologicalConstants()
 # Configuration
 SEARCH_METHOD = SearchMethod.LINEAR_SEARCH
 QUICK_SEARCH = False
-LEET_SEARCH = True
+LEET_SEARCH = False
 MULTIPLY_PARTICLES = False
 SEARCH_CENTER_MASS = False
 MANY_SEARCH = 3 if QUICK_SEARCH else (10 if SEARCH_CENTER_MASS else 20)#21#3 and 10 are probably fine. You can go to 12,20,21!,31!!,...61!!!,...101!!!!

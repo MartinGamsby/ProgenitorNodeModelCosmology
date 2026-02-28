@@ -18,7 +18,7 @@ Replace dark energy (Λ) with classical tidal forces from trans-observable Hyper
 
 **Progenitor Hypothesis** (sec:progenitor): Big Bang = destabilization of a node in this meta-structure. Pre-existing equilibrium explains isotropy without fine-tuning. Introduction forward-references this.
 
-**Tidal Acceleration** (sec:tidal): Expanding universe climbs potential gradient of nearest HMEA. Only the closest node matters (equilibrium cancels distant nodes). Linear scaling: a_tidal ≈ (2 G M_ext / S³) × R. Mathematically equivalent to Λ term: H₀² Ω_Λ R.
+**Tidal Acceleration** (sec:tidal): Expanding universe climbs potential gradient of nearest HMEA. Only the closest node matters (virialized equilibrium cancels at center; nearest dominates via 1/d³ scaling; edge nodes ~35%, corner ~19% contribution vs face). Single-node derivation is conservative—adding nodes would increase tidal force, predicting smaller M or S. Linear scaling: a_tidal ≈ (2 G M_ext / S³) × R. Mathematically equivalent to Λ term: H₀² Ω_Λ R. N-body sim uses all 26 nodes.
 
 ## Parameter Estimates (from paper)
 
@@ -152,3 +152,8 @@ Predictions section includes quantitative results computed by `compute_predictio
 Paper uses `\label`/`\ref` for all cross-references and `hyperref` for clickable links.
 Figures include matter-only (green dotted) alongside ΛCDM (blue solid) and External-Node (red dashed).
 Hawking radiation defense uses T_H ∝ 1/M → T ~ 10⁻⁸³ K (negligible at source).
+Tables wrapped in `\begin{table}[htbp]` floats with `\caption`/`\label`: tab:results (parameter configs), tab:comparison (external-node vs matter-only).
+All R² formatted as `$R^2$` (fully in math mode) throughout.
+Hubble Tension discussed as potential consequence of directional dipole: CMB is all-sky avg, distance ladder is directional → dipole could manifest as method-dependent discrepancy.
+Numerical robustness paragraph covers seed variation, particle count convergence, resolution threshold.
+w_eff formula clarified as total effective equation of state (not DE component alone).

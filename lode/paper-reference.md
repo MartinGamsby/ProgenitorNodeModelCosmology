@@ -14,17 +14,17 @@ Replace dark energy (Λ) with classical tidal forces from trans-observable Hyper
 
 ## Physical Model
 
-**Virialized Meta-Structure**: Crystal-lattice-like arrangement of HMEA nodes beyond observable universe. Stable, gravitationally balanced (like relaxed galaxy cluster), irregular in detail.
+**Virialized Meta-Structure**: Crystal-lattice-like arrangement of HMEA nodes beyond observable universe. Stable, gravitationally balanced (like relaxed galaxy cluster), irregular in detail. HMEAs described as ancient black holes far older than 13.8 Gyr (possibly quadrillions of years).
 
-**Progenitor Hypothesis**: Big Bang = destabilization of a node in this meta-structure. Pre-existing equilibrium explains isotropy without fine-tuning.
+**Progenitor Hypothesis** (sec:progenitor): Big Bang = destabilization of a node in this meta-structure. Pre-existing equilibrium explains isotropy without fine-tuning. Introduction forward-references this.
 
-**Tidal Acceleration**: Expanding universe climbs potential gradient of nearest HMEAs. Linear scaling: a_tidal ≈ (2 G M_ext / S³) × R. Mathematically equivalent to Λ term: H₀² Ω_Λ R.
+**Tidal Acceleration** (sec:tidal): Expanding universe climbs potential gradient of nearest HMEA. Only the closest node matters (equilibrium cancels distant nodes). Linear scaling: a_tidal ≈ (2 G M_ext / S³) × R. Mathematically equivalent to Λ term: H₀² Ω_Λ R.
 
 ## Parameter Estimates (from paper)
 
 Analytical target: M_ext ≈ 5×10⁵⁵ kg, S ≈ 39 Gpc
 
-### Optimization Tradeoff (Section 4.3)
+### Optimization Tradeoff (sec:tradeoffs)
 Size R² is an integrated quantity (smooth, forgiving). Expansion rate R² is a derivative quantity (physically demanding). Optimizing only for size R² can produce configs that nail the size curve but follow a different H(t) path. Balanced optimization weights both.
 
 **Balanced-optimization configs** (primary):
@@ -35,14 +35,14 @@ Size R² is an integrated quantity (smooth, forgiving). Expansion rate R² is a 
 **Size-only optimization** (secondary):
 - M=800×M_obs, S=22 Gpc: 99.85% endpoint, R²_size=0.9991, R²_rate=poor
 
-**Matter-only baseline**: 96.06% endpoint, R²_size=0.989, R²_rate=0.835
+**Matter-only baseline**: 96.06% endpoint, R²_size=0.9890, R²_rate=0.8350 (full 8 Gyr period)
 
 Sweep range: M=92-9000+, S=15-70 Gpc, 2000 particles, 8 Gyr (t=5.8→13.8)
 Expansion rate comparison inherently approximate: isotropic RMS vs Friedmann H(t), model predicts anisotropy, Hubble tension means target H(t) itself uncertain.
 
 ## What Code Tests
 
-**Success criteria** (from paper Section 4):
+**Success criteria** (from sec:numerical):
 - Late-time acceleration (8 Gyr: t=5.8→13.8 Gyr) ✓
 - ΛCDM expansion match: R²_size>0.99, R²_rate>0.95 (balanced) ✓
 - Realistic H₀ ≈ 70 km/s/Mpc ✓
@@ -56,7 +56,7 @@ Expansion rate comparison inherently approximate: isotropic RMS vs Friedmann H(t
 - RMSE for absolute deviation
 - COM drift monitoring, runaway particle detection
 
-**Explicit non-goals** (Section 5.2):
+**Explicit non-goals** (sec:limitations):
 - Early universe (inflation, nucleosynthesis, baryogenesis)
 - CMB power spectrum / Planck constraints
 - Structure formation / density perturbations
@@ -73,11 +73,11 @@ Expansion rate comparison inherently approximate: isotropic RMS vs Friedmann H(t
 
 ## Key Sections for Code Alignment
 
-- Section 3.2: Tidal acceleration formula
-- Section 4.1: Grid configuration (3×3×3 lattice justification)
-- Section 4.2: Primary balanced configs M=9000/S=38, M=875/S=24, M=92/S=15
-- Section 4.3: Optimization tradeoff (size vs expansion rate)
-- Section 5: Limitations (what code doesn't need to address)
+- sec:tidal / sec:estimation: Tidal acceleration formula
+- sec:framework: Grid configuration (3×3×3 lattice justification)
+- sec:results: Primary balanced configs M=9000/S=38, M=875/S=24, M=92/S=15
+- sec:tradeoffs: Optimization tradeoff (size vs expansion rate)
+- sec:scope / sec:limitations: What code doesn't need to address
 
 ## Workflow
 
@@ -98,9 +98,9 @@ When requirements unclear, check paper for ground truth on:
 
 When paper contradicts code, paper defines intent; code is implementation-in-progress.
 
-## Quantified Predictions (Paper Section 7)
+## Quantified Predictions (sec:predictions)
 
-Paper Section 7 includes quantitative predictions computed by `compute_predictions.py`:
+Predictions section includes quantitative results computed by `compute_predictions.py`:
 
 ### 1. Phantom Energy Behavior (w < -1)
 **Mechanism**: As R→S, tidal force scales as (S-R)⁻². Effective w = -1 - (2/3)(d ln H / d ln a) should drift below ΛCDM.
@@ -130,7 +130,7 @@ Paper Section 7 includes quantitative predictions computed by `compute_predictio
 - Low quadrupole power (cubic symmetry partially cancels l=2)
 - Planar octopole (corner contributions project onto lattice planes)
 - Quadrupole-octopole mutual alignment (both derive from same lattice)
-- H₀ dipole aligned with Axis of Evil direction (cross-check with Section 7.2)
+- H₀ dipole aligned with Axis of Evil direction (cross-check with sec:dipole)
 
 **References**: Land & Magueijo 2005 (PRL 95:071301), de Oliveira-Costa+ 2004 (PRD 69:063516), Copi+ 2006 (MNRAS 367:79), Copi+ 2010 (Adv.Astron. 2010:847541)
 
@@ -144,5 +144,11 @@ Paper Section 7 includes quantitative predictions computed by `compute_predictio
 **References**: Kashlinsky+ 2008 (ApJ 686:L49), Planck 2014 (A&A 561:A97), Watkins+ 2023 (MNRAS 524:1885), Watkins & Feldman 2025 (arXiv:2512.03168)
 
 ### Speculative Sections (marked in paper)
-- Section 6.2 Fossil Black Holes: Speculative, no simulation support
-- Section 8 Great Metabolism: Speculative extension, not derived from simulation
+- sec:fossil: Fossil Black Holes—speculative, no simulation support
+- sec:metabolism: Great Metabolism—speculative extension, not derived from simulation
+
+## LaTeX Structure Notes
+
+Paper uses `\label`/`\ref` for all cross-references and `hyperref` for clickable links.
+Figures include matter-only (green dotted) alongside ΛCDM (blue solid) and External-Node (red dashed).
+Hawking radiation defense uses T_H ∝ 1/M → T ~ 10⁻⁸³ K (negligible at source).

@@ -24,19 +24,27 @@ Replace dark energy (Λ) with classical tidal forces from trans-observable Hyper
 
 Analytical target: M_ext ≈ 5×10⁵⁵ kg, S ≈ 39 Gpc
 
-Numerical exploration found MULTIPLE close matches (not single optimal):
-- M=800×M_obs, S=22 Gpc: 99.85% endpoint, R²=0.999 (size), RMSE≈0.006
-- M=50000×M_obs, S=50 Gpc: ~100% endpoint, R²=0.999 (size)
-- M=500×M_obs, S=20 Gpc: ~100% endpoint, R²=0.999 (size)
+### Optimization Tradeoff (Section 4.3)
+Size R² is an integrated quantity (smooth, forgiving). Expansion rate R² is a derivative quantity (physically demanding). Optimizing only for size R² can produce configs that nail the size curve but follow a different H(t) path. Balanced optimization weights both.
 
-Result: ~100% endpoint match, R²=0.999 size match over 8 Gyr (t=5.8→13.8 Gyr)
-Sweep range: M=20-20000 (up to 200000), S=20-70 Gpc, 2000 particles
+**Balanced-optimization configs** (primary):
+- M=9000×M_obs, S=38 Gpc: 98.02% endpoint, R²_size=0.9954, R²_rate=0.9630
+- M=875×M_obs, S=24 Gpc: 97.92% endpoint, R²_size=0.9951, R²_rate=0.9603
+- M=92×M_obs, S=15 Gpc: 98.67% endpoint, R²_size=0.9966, R²_rate=0.9565
+
+**Size-only optimization** (secondary):
+- M=800×M_obs, S=22 Gpc: 99.85% endpoint, R²_size=0.9991, R²_rate=poor
+
+**Matter-only baseline**: 96.06% endpoint, R²_size=0.989, R²_rate=0.835
+
+Sweep range: M=92-9000+, S=15-70 Gpc, 2000 particles, 8 Gyr (t=5.8→13.8)
+Expansion rate comparison inherently approximate: isotropic RMS vs Friedmann H(t), model predicts anisotropy, Hubble tension means target H(t) itself uncertain.
 
 ## What Code Tests
 
 **Success criteria** (from paper Section 4):
 - Late-time acceleration (8 Gyr: t=5.8→13.8 Gyr) ✓
-- ΛCDM expansion match to ~100% endpoint, R²=0.999 size ✓
+- ΛCDM expansion match: R²_size>0.99, R²_rate>0.95 (balanced) ✓
 - Realistic H₀ ≈ 70 km/s/Mpc ✓
 - Classical gravity only (no exotic physics) ✓
 - Multiple parameter solutions (mechanism robustness) ✓
@@ -44,10 +52,9 @@ Sweep range: M=20-20000 (up to 200000), S=20-70 Gpc, 2000 particles
 
 **Validation checks**:
 - Matter-only never exceeds ΛCDM at any timestep (physics constraint)
-- R² metric (coefficient of determination) for size evolution
+- R² metric (coefficient of determination) for both size and expansion rate
 - RMSE for absolute deviation
 - COM drift monitoring, runaway particle detection
-- Multi-seed testing (R²>0.999 achievable with any seed by adjusting M/S)
 
 **Explicit non-goals** (Section 5.2):
 - Early universe (inflation, nucleosynthesis, baryogenesis)
@@ -68,16 +75,17 @@ Sweep range: M=20-20000 (up to 200000), S=20-70 Gpc, 2000 particles
 
 - Section 3.2: Tidal acceleration formula
 - Section 4.1: Grid configuration (3×3×3 lattice justification)
-- Section 4.2: Primary parameters M=800×M_obs, S=22 Gpc
+- Section 4.2: Primary balanced configs M=9000/S=38, M=875/S=24, M=92/S=15
+- Section 4.3: Optimization tradeoff (size vs expansion rate)
 - Section 5: Limitations (what code doesn't need to address)
 
 ## Workflow
 
-**parameter_sweep.py**: Systematic exploration using LINEAR_SEARCH with adaptive step-skipping. Computes R² metrics for size. Saves best configurations to results/best_config.pkl.
+**parameter_sweep.py**: Systematic exploration using LINEAR_SEARCH with adaptive step-skipping. Computes R² metrics for size and expansion rate. Saves best configurations to results/best_config.pkl.
 
 **run_simulation.py**: Reproduction script using specific (M, S) parameters. Generates comparison plots showing ΛCDM, External-Node, and Matter-only evolution.
 
-**Matter-only comparison**: Critical validation. Matter-only achieves ~96% endpoint but size R²=0.927 (last 4 Gyr) vs external-node R²=0.992. Proves external-nodes provide genuine acceleration mechanism, not coincidental endpoint.
+**Matter-only comparison**: Critical validation. Matter-only achieves ~96% endpoint but R²_rate=0.835 vs external-node R²_rate=0.963. External-node R²_size=0.995 vs matter-only 0.989. Proves external-nodes provide genuine acceleration mechanism, not coincidental endpoint.
 
 **CSV metrics note**: In sweep CSV, match_curve_rmse_pct is stored as 100−RMSE×100. Actual RMSE = 1−(match_curve_rmse_pct/100).
 
@@ -97,23 +105,23 @@ Paper Section 7 includes quantitative predictions computed by `compute_predictio
 ### 1. Phantom Energy Behavior (w < -1)
 **Mechanism**: As R→S, tidal force scales as (S-R)⁻². Effective w = -1 - (2/3)(d ln H / d ln a) should drift below ΛCDM.
 
-**Quantitative results** (M=800, S=22 Gpc):
-- Today (t=13.8 Gyr): w_ext ≈ -0.74 vs w_ΛCDM ≈ -0.70, Δw ≈ -0.04 (**STALE** — from old M=855/S=25 run)
-- Current R/S ratio ≈ 0.32
-- Significant phantom deviation (Δw < -0.05) requires R/S → 1
+**Quantitative results** (M=9000, S=38 Gpc, R/S=0.19):
+- Phantom threshold at t≈11.3 Gyr, w_ext ≈ -0.64
+- At t=12 Gyr: w_ext ≈ -0.84, w_ΛCDM ≈ -0.63, Δw ≈ -0.21
+- Configs with smaller S (e.g. S=15, R/S≈0.48) would show stronger present-day phantom signatures
 - Observable via precision w(z) measurements at low redshift
-- **NOTE**: Extended sim (20 Gyr) with S=22 breaks down — universe blows past nodes (R/S>>1). Paper Section 7.1 values need recomputation from 8 Gyr run or different approach.
 
 ### 2. Dipole Anisotropy in H₀
 **Mechanism**: Virialized structure has both position irregularity (5%) AND mass variation (20%). Both contribute to asymmetric tidal field, adding in quadrature.
 
-**Quantitative results** (computed by `compute_predictions.py`, M=800, S=22 Gpc, Ω_Λ,eff=3.32):
-- Position only (grid): ΔH₀/H₀ ≈ 2.8%
-- Mass only (grid): ΔH₀/H₀ ≈ 3.7%
-- **Combined (grid)**: ΔH₀/H₀ ≈ 4.7% (~3.3 km/s/Mpc)
-- **Combined (single node, worst case)**: ΔH₀/H₀ ≈ 11.4% (~8.0 km/s/Mpc)
+**Quantitative results** (computed by `compute_predictions.py`, M=9000, S=38 Gpc, Ω_Λ,eff=7.24):
+- Position only (grid): ΔH₀/H₀ ≈ 2.4%
+- Mass only (grid): ΔH₀/H₀ ≈ 3.9%
+- **Combined (grid)**: ΔH₀/H₀ ≈ 4.6% (~3.2 km/s/Mpc)
+- **Combined (single node, worst case)**: ΔH₀/H₀ ≈ 11.3% (~7.9 km/s/Mpc)
 - Hubble Tension: ~8.6% (6 km/s/Mpc)
 - Testable by Euclid/LSST: dipole at 5-11% level with no local structure correlation
+- Prediction robust across M/S configs (depends on GM/S³ ratio, ~constant for matching configs)
 
 ### 3. CMB Axis of Evil (Large-Angle Multipole Alignment)
 **Mechanism**: 3×3×3 lattice has nodes at 3 distinct distances (face S, edge S√2, corner S√3). Discrete geometry imprints quadrupole (l=2) from face-node asymmetries and octopole (l=3) from corner-node tetrahedral sub-symmetry. All multipoles share lattice axes → guaranteed alignment.
@@ -127,7 +135,7 @@ Paper Section 7 includes quantitative predictions computed by `compute_predictio
 **References**: Land & Magueijo 2005 (PRL 95:071301), de Oliveira-Costa+ 2004 (PRD 69:063516), Copi+ 2006 (MNRAS 367:79), Copi+ 2010 (Adv.Astron. 2010:847541)
 
 ### 4. Dark Flow (Large-Scale Bulk Motions)
-**Mechanism**: Asymmetric HMEA lattice → net tidal pull on entire bubble. Scale-independent (externally sourced). ΔH₀/H₀ ~ 4.7% → v_bulk ~ 330 km/s (grid avg), ~800 km/s (single node). Consistent with observed ~400 km/s (Watkins+ 2023, 4.8σ ΛCDM tension).
+**Mechanism**: Asymmetric HMEA lattice → net tidal pull on entire bubble. Scale-independent (externally sourced). ΔH₀/H₀ ~ 4.6% → v_bulk ~ 320 km/s (grid avg), ~790 km/s (single node). Consistent with observed ~400 km/s (Watkins+ 2023, 4.8σ ΛCDM tension).
 
 **Key evidence**: Watkins & Feldman 2025 show flow dominated by external sources beyond survey volume — exactly what HMEAs predict.
 

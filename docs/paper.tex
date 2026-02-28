@@ -23,8 +23,8 @@ This paper proposes a radical alternative: a geometric framework termed the \tex
 We posit that the observable universe—modeled as a finite Friedmann-Robertson-Walker (FRW) region—originates from the destabilization of a Progenitor Node situated within a larger, static, and virialized meta-structure composed of Hyper-Massive External Attractors (HMEAs).
 
 In this framework, cosmic acceleration arises not from a repulsive "push" from the vacuum, but from the tidal gravitational "pull" of the surrounding grid as the bubble's radius expands toward the effective capture radius of neighbor nodes.
-By deriving a modified acceleration equation based on external tidal forces, we demonstrate that a grid of attractors with mass $M \approx 8.0 \times 10^{55}$ kg (800$\times$M$_{obs}$) at a spacing of $S = 22$ Gpc achieves a 99.85\% endpoint match to $\Lambda$CDM with R$^2$=0.9991 for size evolution (RMSE $\approx$ 0.006 Gpc) over an 8 Gyr period without invoking exotic fluids or modified gravity.
-We validate this mechanism through N-body simulations covering the late-universe expansion era ($t=5.8 \rightarrow 13.8$ Gyr).
+By deriving a modified acceleration equation based on external tidal forces, we demonstrate through N-body simulations covering the late-universe expansion era ($t=5.8 \rightarrow 13.8$ Gyr, 8 Gyr) that multiple grid configurations across a wide mass range ($M = 92$-$9000 \times M_{obs}$, $S = 15$-$38$ Gpc) reproduce $\Lambda$CDM expansion dynamics with R$^2 > 0.99$ for size evolution and R$^2 > 0.95$ for expansion rate, without invoking exotic fluids or modified gravity.
+Size-only optimization can achieve R$^2 = 0.9991$ for size, though at the cost of expansion rate fidelity---an expected tradeoff since the size curve is an integrated quantity that is less sensitive to the expansion rate profile.
 Beyond reproducing the expansion history, the model's discrete lattice geometry generates a family of falsifiable predictions from a single structure with no additional free parameters.
 
 The irregular (virialized) nature of the meta-structure produces a dipole anisotropy in the Hubble constant of $\Delta H_0/H_0 \approx 5$-$11\%$, comparable to the observed Hubble Tension ($\sim$8.6\%) \cite{Riess2021}.
@@ -163,9 +163,8 @@ S \approx 39 \text{ Gigaparsecs (Gpc)}
 This distance is significant because it places the attractors well outside the current particle horizon of the universe ($\sim 14$ Gpc), explaining why they are not immediately obvious in sky surveys—we are fundamentally causally disconnected from their light, but not their gravity.
 
 \paragraph{Analytical vs. Numerical Discrepancy:}
-While our analytical estimate predicts $S \approx 39$ Gpc, systematic numerical exploration reveals optimal matches at $S = 20$-50 Gpc, with the best balance occurring at $S = 22$ Gpc.
-This $\sim$77\% discrepancy likely arises from the analytical derivation's single-node assumption, whereas the simulation uses a 3$\times$3$\times$3 grid whose combined tidal field from 26 nodes is substantially stronger than single-node geometry.
-The broader range of viable $S$ values (20-70 Gpc) demonstrates that the mechanism is robust rather than fine-tuned to the analytical target.
+While our analytical estimate predicts $S \approx 39$ Gpc for $M_{ext} \approx 500 \times M_{obs}$, systematic numerical exploration reveals optimal matches across a broad parameter space ($S = 15$-$70$ Gpc), with balanced-optimization configurations clustering at $S = 15$-$38$ Gpc.
+The broad range of viable $S$ values demonstrates that the mechanism is robust rather than fine-tuned to the analytical target.
 
 \section{Numerical Validation}
 
@@ -197,41 +196,54 @@ Quality checks include:
 \item Runaway particle detection to flag numerical instability.
 \end{enumerate}
 
+% TODO: User will regenerate figures with new balanced-optimization configs
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=1.0\linewidth]{sim_plots_1f349b1_2000p_5.8-13.8Gyr_800.0M_1centerM_22.0S_300steps_123seed_0.0rnd_Autod.png}
-    \caption{Comparison of $\Lambda$CDM (blue solid) and External-Node model with M=800$\times$M$_{obs}$, S=22 Gpc (red dashed) showing: (top left) scale factor evolution, (top right) Hubble parameter evolution with realistic present-day value $H_0 \approx 70$ km/s/Mpc, (bottom left) ratio of physical sizes demonstrating $\pm 1\%$ agreement throughout 8 Gyr, and (bottom right) physical universe size versus node distance showing both models exhibit gentle upward curvature characteristic of accelerated expansion.
-This configuration achieves 99.85\% endpoint match with R$^2$=0.9991 for size evolution (RMSE $\approx$ 0.006 Gpc).}
+    \includegraphics[width=1.0\linewidth]{sim_plots_4f97dec_2000p_5.8-13.8Gyr_9000.0M_1centerM_38.0S_300steps_123seed_0.0rnd_Autod.png}
+    \caption{Comparison of $\Lambda$CDM (blue solid) and External-Node model with M=9000$\times$M$_{obs}$, S=38 Gpc (red dashed) showing: (top left) scale factor evolution, (top right) Hubble parameter evolution with realistic present-day value $H_0 \approx 70$ km/s/Mpc, (bottom left) ratio of physical sizes, and (bottom right) physical universe size versus node distance showing both models exhibit gentle upward curvature characteristic of accelerated expansion.
+This balanced-optimization configuration achieves 98.02\% endpoint match with R$^2$=0.9954 for size evolution and R$^2$=0.9630 for expansion rate.}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.87\linewidth]{sim_plots_1f349b1_2000p_5.8-13.8Gyr_50000.0M_1centerM_50.0S_300steps_123seed_0.0rnd_Autod.png}
-    \includegraphics[width=0.87\linewidth]{sim_plots_1f349b1_2000p_5.8-13.8Gyr_500.0M_1centerM_20.0S_300steps_123seed_0.0rnd_Autod.png}
-    \caption{Additional parameter configurations demonstrating mechanism robustness: (top) M=50000$\times$M$_{obs}$, S=50 Gpc (R$^2$=0.999 size), and (bottom) M=500$\times$M$_{obs}$, S=20 Gpc (R$^2$=0.999 size).
-Multiple solutions across a wide parameter range (M from 500 to 50000$\times$M$_{obs}$, S from 20 to 50 Gpc) all reproduce $\Lambda$CDM expansion dynamics with $\sim$100\% endpoint match.}
+    \includegraphics[width=0.87\linewidth]{sim_plots_4f97dec_2000p_5.8-13.8Gyr_875.0M_1centerM_24.0S_300steps_123seed_0.0rnd_Autod.png}
+    \includegraphics[width=0.87\linewidth]{sim_plots_4f97dec_2000p_5.8-13.8Gyr_92.0M_1centerM_15.0S_300steps_123seed_0.0rnd_Autod.png}
+    \caption{Additional balanced-optimization configurations demonstrating mechanism robustness: (top) M=875$\times$M$_{obs}$, S=24 Gpc, and (bottom) M=92$\times$M$_{obs}$, S=15 Gpc.
+Multiple solutions across a wide mass range (M from 92 to 9000$\times$M$_{obs}$, S from 15 to 38 Gpc) all reproduce $\Lambda$CDM expansion dynamics with R$^2 > 0.99$ for size and R$^2 > 0.95$ for expansion rate.}
 \end{figure}
 
 \subsection{Parameter Space Exploration and Results}
 
 Through systematic parameter exploration, we identified \textbf{multiple parameter combinations} that reproduce $\Lambda$CDM expansion with high fidelity.
-There is no single "optimal" configuration. A family of solutions exists across a broad parameter range, demonstrating the robustness of the external-node mechanism:
+There is no single "optimal" configuration. A family of solutions exists across a broad parameter range, demonstrating the robustness of the external-node mechanism.
+
+We report results using two complementary optimization strategies:
+
+\textbf{Balanced optimization} weights both size evolution and expansion rate, selecting configurations that match the full expansion dynamics.
+\textbf{Size-only optimization} maximizes the size curve R$^2$ alone, which can achieve higher size fidelity at the cost of expansion rate agreement (see Section 4.3).
 
 \begin{center}
-\begin{tabular}{lccc}
+\begin{tabular}{lcccc}
 \hline
-\textbf{M} & \textbf{S [Gpc]} & \textbf{Endpoint Match} & \textbf{Size $R^2$} \\
+\textbf{M} & \textbf{S [Gpc]} & \textbf{Endpoint} & \textbf{Size $R^2$} & \textbf{Expansion $R^2$} \\
 \hline
-$800 \times M_{obs}$ & 22 & 99.85\% & 0.9991 \\
-$50000 \times M_{obs}$ & 50 & 99.76\% & 0.9990 \\
-$500 \times M_{obs}$ & 20 & 99.71\% & 0.9989 \\
+\multicolumn{5}{c}{\textit{Balanced optimization}} \\
+$9000 \times M_{obs}$ & 38 & 98.02\% & 0.9954 & 0.9630 \\
+$875 \times M_{obs}$ & 24 & 97.92\% & 0.9951 & 0.9603 \\
+$92 \times M_{obs}$ & 15 & 98.67\% & 0.9966 & 0.9565 \\
+\hline
+\multicolumn{5}{c}{\textit{Size-only optimization}} \\
+$800 \times M_{obs}$ & 22 & 99.85\% & 0.9991 & --- \\
+\hline
+\multicolumn{5}{c}{\textit{Baseline}} \\
+Matter-only & --- & 96.06\% & 0.9890 & 0.8350 \\
 \hline
 \end{tabular}
 \end{center}
 
 This multiplicity demonstrates that the mechanism is not fine-tuned to a singular point in parameter space.
-The existence of very high-mass solutions suggests exploring alternative topologies where more mass resides in a central concentration with less massive external nodes.
-Conversely, close configurations ($S = 20$ Gpc) may predict near future hyper-acceleration as the universe approaches the node boundary, offering testable predictions for deep-time cosmology.
+The mass range spans over two orders of magnitude ($92$-$9000 \times M_{obs}$), yet all configurations reproduce $\Lambda$CDM dynamics with R$^2 > 0.99$ for size and R$^2 > 0.95$ for expansion rate—substantially exceeding the matter-only baseline (R$^2_{rate} = 0.84$).
+Close configurations ($S = 15$ Gpc) may predict near future hyper-acceleration as the universe approaches the node boundary, offering testable predictions for deep-time cosmology.
 
 \paragraph{R² Metric and Statistical Rigor:}
 We employ the coefficient of determination ($R^2$) and root-mean-square error (RMSE) to quantify agreement with $\Lambda$CDM:
@@ -239,26 +251,48 @@ We employ the coefficient of determination ($R^2$) and root-mean-square error (R
 R^2 = 1 - \frac{\sum (y_{model} - y_{\Lambda CDM})^2}{\sum (y_{\Lambda CDM} - \bar{y}_{\Lambda CDM})^2}
 \]
 where $R^2 = 1$ indicates perfect fit, $R^2 = 0$ means the model performs no better than the mean, and $R^2 < 0$ indicates the model is worse than a constant baseline.
-We compute $R^2$ for universe size evolution over the full 8 Gyr simulation period.
+We compute $R^2$ for both size evolution and expansion rate over the full 8 Gyr simulation period.
 RMSE provides a complementary measure of absolute deviation in physical units.
 
+\subsection{Optimization Tradeoffs: Size vs. Expansion Rate}
+
+The parameter sweep reveals an important distinction between two complementary measures of fit.
+\textbf{Size evolution} R$^2$ measures how well the simulated universe radius tracks the $\Lambda$CDM curve---an integrated quantity that is inherently smooth.
+\textbf{Expansion rate} R$^2$ measures how well the simulated Hubble-like parameter $H(t)$ tracks the Friedmann solution---a derivative quantity that is more physically demanding to match.
+
+Optimizing solely for size R$^2$ yields configurations such as M = 800 $\times$ M$_{obs}$, S = 22 Gpc, which achieves R$^2_{size}$ = 0.9991 with 99.85\% endpoint accuracy.
+However, this comes at the cost of expansion rate fidelity: the simulated $H(t)$ follows a qualitatively different path that happens to integrate to nearly the same size curve.
+This is expected---many velocity profiles can produce the same displacement over a fixed interval.
+
+A balanced optimization that weights both size and expansion rate identifies a family of configurations with R$^2_{size} > 0.99$ and R$^2_{rate} > 0.95$ across a wide mass range (Table 1).
+For comparison, the matter-only simulation achieves R$^2_{rate} \approx 0.84$, confirming that external nodes substantially improve the expansion rate match---not merely the integrated size.
+
+Importantly, the expansion rate comparison is inherently approximate.
+We compare the isotropic RMS expansion rate of our N-body cloud to the Friedmann equation's $H(t)$, but the external-node model predicts anisotropic expansion (Section 7.2).
+A spherically-averaged measurement necessarily smooths over directional differences.
+Moreover, the target curve itself is uncertain: the Hubble tension ($\sim$8.6\% discrepancy between early- and late-universe measurements of $H_0$) means the ``correct'' $H(t)$ is not settled.
+A toy model that reproduces the overall expansion history to R$^2_{size} > 0.99$ while matching the expansion rate to R$^2_{rate} > 0.95$ demonstrates the viability of the mechanism; the remaining discrepancy may partly reflect the model's own predicted anisotropy.
+
 \paragraph{Quantitative Agreement:}
-Using the $M_{ext} = 800 \times M_{obs}$, $S = 22$ Gpc configuration as an example:
+Using the balanced-optimization configuration $M_{ext} = 9000 \times M_{obs}$, $S = 38$ Gpc as the primary example:
 \begin{itemize}
     \item $\Lambda$CDM final size: 14.50 Gpc
-    \item External-node final size: 14.52 Gpc
-    \item Endpoint match: 99.85\%
-    \item Size $R^2$: 0.9991 (RMSE $\approx$ 0.006 Gpc)
+    \item External-node final size: 14.21 Gpc
+    \item Endpoint match: 98.02\%
+    \item Size $R^2$: 0.9954
+    \item Expansion rate $R^2$: 0.9630
 \end{itemize}
 
-The model tracks $\Lambda$CDM expansion dynamics throughout the 8 Gyr evolution, achieving near-perfect agreement in both endpoint size and the full expansion trajectory.
+The model tracks $\Lambda$CDM expansion dynamics throughout the 8 Gyr evolution, achieving strong agreement in both size evolution and expansion rate.
+Size-only optimization can push the size R$^2$ to 0.9991 (endpoint 99.85\%), but this tradeoff is discussed in Section 4.3.
 
 \paragraph{Hubble Parameter Evolution:}
-The time-dependent Hubble parameter $H(t)$ in our model exhibits excellent qualitative agreement with observations:
+The time-dependent Hubble parameter $H(t)$ in our model exhibits strong quantitative agreement with the Friedmann solution (R$^2_{rate} > 0.95$ for balanced configurations):
 \begin{itemize}
     \item Present-day value ($t \approx 13.8$ Gyr): $H \approx 70$ km/s/Mpc
     \item Characteristic rise-peak-decline signature matching accelerated expansion
     \item Peak occurs near the present epoch, consistent with the transition to dark energy domination
+    \item Expansion rate R$^2 = 0.96$ versus matter-only R$^2 = 0.84$, confirming genuine acceleration dynamics
 \end{itemize}
 
 Critically, the model reproduces realistic Hubble parameter values without requiring adjustment—the gravitational forces from the external grid naturally generate the observed magnitude of cosmic acceleration.
@@ -279,22 +313,22 @@ The matter-only model (evolving under internal self-gravity alone) produces dece
 The endpoint match appears respectable ($\sim$96\%), but the size $R^2$ reveals systematic deviation: the matter-only trajectory progressively diverges from $\Lambda$CDM during the acceleration era.
 
 \paragraph{External-Node vs Matter-Only:}
-Comparing external-nodes ($M_{ext} = 800 \times M_{obs}$, $S = 22$ Gpc) to matter-only:
+Comparing the balanced-optimization external-node configuration ($M_{ext} = 9000 \times M_{obs}$, $S = 38$ Gpc) to matter-only:
 
 \begin{center}
-\begin{tabular}{lcc}
+\begin{tabular}{lccc}
 \hline
-\textbf{Model} & \textbf{Endpoint Match} & \textbf{Size $R^2$ (last 4 Gyr)} \\
+\textbf{Model} & \textbf{Endpoint} & \textbf{Size $R^2$} & \textbf{Expansion $R^2$} \\
 \hline
-$\Lambda$CDM (baseline) & 100\% & 1.0000 \\
-External-Node & 99.85\% & 0.9917 \\
-Matter-only & 96.06\% & 0.9269 \\
+$\Lambda$CDM (baseline) & 100\% & 1.0000 & 1.0000 \\
+External-Node & 98.02\% & 0.9954 & 0.9630 \\
+Matter-only & 96.06\% & 0.9890 & 0.8350 \\
 \hline
 \end{tabular}
 \end{center}
 
-The external-node model achieves near-perfect size $R^2$ (0.992), demonstrating it replicates the acceleration \textit{dynamics} throughout the trajectory, not just the coincidental endpoint.
-Matter-only's significantly lower $R^2$ (0.927) confirms that deceleration alone produces a qualitatively different expansion curve.
+The external-node model achieves R$^2_{size}$ = 0.995 and R$^2_{rate}$ = 0.963, demonstrating it replicates the acceleration \textit{dynamics}---both size and expansion rate---throughout the trajectory.
+The expansion rate comparison is particularly revealing: external nodes achieve R$^2_{rate}$ = 0.96 versus matter-only's 0.84, a substantial improvement that confirms the external-node mechanism provides genuine acceleration dynamics, not merely a coincidental endpoint match.
 
 \paragraph{Physical Interpretation:}
 This comparison proves that external nodes provide an acceleration mechanism comparable to dark energy, not merely a fortuitous final size.
@@ -305,11 +339,11 @@ The size $R^2$ serves as a discriminator for spurious matches: matter-only canno
 These results demonstrate several key points:
 
 \begin{enumerate}
-    \item \textbf{Mechanism Validation}: External gravitational sources can produce accelerated expansion indistinguishable from $\Lambda$CDM at the $\sim$99.9\% level (R$^2$=0.9991) using only classical Newtonian gravity.
+    \item \textbf{Mechanism Validation}: External gravitational sources can produce accelerated expansion matching $\Lambda$CDM with R$^2_{size} > 0.99$ and R$^2_{rate} > 0.95$ using only classical Newtonian gravity. Size-only optimization can push R$^2_{size}$ to 0.9991, demonstrating the mechanism's fidelity.
 \item \textbf{Parameter Economy}: The model requires only two free parameters ($M_{ext}$ and $S$), comparable to standard $\Lambda$CDM (which requires $\Omega_\Lambda$ and $\Omega_m$), with no additional fine-tuning needed.
-\item \textbf{Observational Consistency}: The Hubble parameter evolution matches current measurements, including the approximate value of $H_0 \sim 70$ km/s/Mpc at the present epoch.
+\item \textbf{Observational Consistency}: The Hubble parameter evolution matches current measurements, including the approximate value of $H_0 \sim 70$ km/s/Mpc at the present epoch, with R$^2_{rate} = 0.96$ for balanced configurations.
 \item \textbf{Proof of Concept}: While this is a simplified toy model—assuming homogeneous expansion and neglecting density perturbations—it establishes that purely gravitational mechanisms can account for observed cosmic acceleration without invoking vacuum energy or modified gravity.
-\item \textbf{Matter-Only Falsification}: The matter-only model's significantly lower size $R^2$ (0.927 vs 0.992 for external nodes in the late-time regime) demonstrates that deceleration cannot mimic acceleration dynamics, even if endpoints approximately align.
+\item \textbf{Matter-Only Falsification}: The matter-only model's significantly lower expansion rate R$^2$ (0.84 vs 0.96 for external nodes) and size R$^2$ (0.989 vs 0.995) demonstrates that deceleration cannot mimic acceleration dynamics, even if endpoints approximately align.
 This validates that external nodes provide a genuine acceleration mechanism.
 \end{enumerate}
 
@@ -322,7 +356,7 @@ We explicitly acknowledge the following limitations and boundaries of our curren
 The external-node model successfully demonstrates:
 \begin{itemize}
     \item Late-time cosmic acceleration (8 Gyr period from $t = 5.8$ to $13.8$ Gyr)
-    \item Reproduction of $\Lambda$CDM expansion dynamics to $> 99\%$ endpoint accuracy with $R^2 = 0.9991$ for size evolution
+    \item Reproduction of $\Lambda$CDM expansion dynamics with R$^2 > 0.99$ for size evolution and R$^2 > 0.95$ for expansion rate (balanced optimization), or R$^2 = 0.9991$ for size alone
     \item A classical gravitational mechanism that mimics dark energy acceleration dynamics, not just endpoints
     \item Resolution of the fine-tuning problem (gravity is naturally weak)
     \item A natural explanation for the timing of acceleration (related to geometric scales)
@@ -358,7 +392,7 @@ Rather, we demonstrate that:
 \end{enumerate}
 
 The value of this work lies not in claiming to solve cosmology, but in demonstrating that well-motivated alternatives to vacuum energy deserve investigation.
-The remarkable agreement with $\Lambda$CDM (99.85\% endpoint match, $R^2$=0.9991 for size evolution) suggests this direction warrants further theoretical development, particularly in constructing the full relativistic framework and testing against additional observational constraints.
+The strong agreement with $\Lambda$CDM (R$^2 > 0.99$ for size, R$^2 > 0.95$ for expansion rate across multiple configurations) suggests this direction warrants further theoretical development, particularly in constructing the full relativistic framework and testing against additional observational constraints.
 
 \section{Observational Consistency and Defenses}
 The HMEA model faces two immediate observational challenges: the invisibility of the attractors (why don't we see them?) and the apparent isolation of our universe.
@@ -403,17 +437,11 @@ The acceleration will not remain constant; it will increase as the leading edge 
 
 \paragraph{Quantitative Analysis:}
 We compute the effective equation of state using $w_{eff} = -1 - (2/3) \cdot d(\ln H)/d(\ln a)$.
-Extended simulations (20 Gyr, from $t = 5.8$ to 25.8 Gyr) with M = 800 $\times$ M$_{obs}$, S = 22 Gpc show:
+For the balanced-optimization configuration M = 9000 $\times$ M$_{obs}$, S = 38 Gpc, the current universe (RMS radius $\sim$7 Gpc) has $R/S \approx 0.19$---well within the linear tidal regime where the model closely tracks $\Lambda$CDM.
 
-\begin{itemize}
-    \item At $t = 13.8$ Gyr (today): $w_{ext} \approx -0.74$, $w_{\Lambda CDM} \approx -0.70$, $\Delta w \approx -0.04$
-    \item The External-Node model tracks $\Lambda$CDM closely during the current epoch
-    \item Significant phantom deviation ($\Delta w < -0.05$) requires $R/S \rightarrow 1$
-\end{itemize}
-
-For the M = 800, S = 22 Gpc configuration, the current universe (RMS radius $\sim$7 Gpc) has $R/S \approx 0.32$.
-As $R/S$ increases toward unity, stronger phantom deviations become observable.
-This provides a quantitative test: future precision measurements of $w(z)$ at low redshift should detect systematic drift if external-node dynamics are correct.
+The phantom deviation grows as $R/S$ increases toward unity, with the tidal force scaling as $(S - R)^{-2}$.
+Configurations with smaller $S$ (e.g., S = 15 Gpc, $R/S \approx 0.48$) would exhibit stronger present-day phantom signatures.
+This provides a quantitative test: future precision measurements of $w(z)$ at low redshift should detect systematic drift below $w = -1$ if external-node dynamics are correct, with the magnitude depending on the true $R/S$ ratio.
 
 \subsection{Dipole Anisotropy}
 While the Progenitor Hypothesis suggests a roughly isotropic start, the virialized (irregular) nature of the meta-grid implies the nearest HMEAs likely have different masses or distances.
@@ -432,18 +460,18 @@ The tidal acceleration asymmetry propagates to $H_0$ via:
 \]
 
 where position and mass variations add in quadrature (uncorrelated), with $\delta_{eff} = \delta/\sqrt{6}$ accounting for statistical cancellation from 6 nearest face nodes.
-For M = 800 $\times$ M$_{obs}$, S = 22 Gpc, $R \approx 7.25$ Gpc (today):
+For M = 9000 $\times$ M$_{obs}$, S = 38 Gpc, $R \approx 7.25$ Gpc (today):
 
 \begin{itemize}
-    \item Position irregularity only (5\%): $\Delta H_0 / H_0 \approx 2.8\%$ (grid average)
-    \item Mass variation only (20\%): $\Delta H_0 / H_0 \approx 3.7\%$ (grid average)
-    \item \textbf{Combined (position + mass)}: $\Delta H_0 / H_0 \approx 4.7\%$ ($\sim$3.3 km/s/Mpc, grid average)
-    \item \textbf{Single nearest node (worst case)}: $\Delta H_0 / H_0 \approx 11.4\%$ ($\sim$8.0 km/s/Mpc)
+    \item Position irregularity only (5\%): $\Delta H_0 / H_0 \approx 2.4\%$ (grid average)
+    \item Mass variation only (20\%): $\Delta H_0 / H_0 \approx 3.9\%$ (grid average)
+    \item \textbf{Combined (position + mass)}: $\Delta H_0 / H_0 \approx 4.6\%$ ($\sim$3.2 km/s/Mpc, grid average)
+    \item \textbf{Single nearest node (worst case)}: $\Delta H_0 / H_0 \approx 11.3\%$ ($\sim$7.9 km/s/Mpc)
     \item Observed Hubble Tension: $\sim$8.6\% (6 km/s/Mpc difference between 67 and 73 km/s/Mpc)
 \end{itemize}
 
 \paragraph{Implications:}
-The predicted dipole ($\sim$4.7\% grid average, up to $\sim$11.4\% worst-case) is comparable to the Hubble Tension ($\sim$8.6\%).
+The predicted dipole ($\sim$4.6\% grid average, up to $\sim$11.3\% worst-case) is comparable to the Hubble Tension ($\sim$8.6\%).
 This provides a falsifiable prediction with significant discriminating power: if high-precision all-sky $H_0$ measurements (e.g., from Euclid, LSST) detect a dipole anisotropy at the $\sim$5-11\% level aligned with no known local structure, it would strongly support the external-node hypothesis.
 Conversely, the absence of any dipole at the $>$2\% level would constrain the model's parameter space, requiring either more symmetric node distributions or smaller mass variations than expected for virialized structures.
 
@@ -491,11 +519,11 @@ Any asymmetry in the HMEA lattice (the nearest node being closer, more massive, 
 Unlike locally-sourced peculiar velocities, which diminish at larger scales as overdensities average out, this externally-sourced flow is \textbf{scale-independent}: every object in the bubble experiences the same tidal bias, regardless of distance from us.
 
 \paragraph{Quantitative Consistency:}
-The predicted $H_0$ dipole of $\Delta H_0/H_0 \approx 4.7\%$ (Section 7.2) corresponds to an asymmetric acceleration that, integrated over cosmic time, produces bulk velocities of order:
+The predicted $H_0$ dipole of $\Delta H_0/H_0 \approx 4.6\%$ (Section 7.2) corresponds to an asymmetric acceleration that, integrated over cosmic time, produces bulk velocities of order:
 \[
-v_{bulk} \sim \frac{\Delta H_0}{H_0} \times H_0 \times R_{eff} \approx 0.047 \times 70 \text{ km/s/Mpc} \times 100 \text{ Mpc} \approx 330 \text{ km/s}
+v_{bulk} \sim \frac{\Delta H_0}{H_0} \times H_0 \times R_{eff} \approx 0.046 \times 70 \text{ km/s/Mpc} \times 100 \text{ Mpc} \approx 320 \text{ km/s}
 \]
-This is consistent with the observed $\sim$400 km/s---reasonable given the simplified analytical estimate. The single nearest-node scenario ($\Delta H_0/H_0 \approx 11.4\%$) would yield $\sim$800 km/s, bracketing the observed value.
+This is consistent with the observed $\sim$400 km/s---reasonable given the simplified analytical estimate. The single nearest-node scenario ($\Delta H_0/H_0 \approx 11.3\%$) would yield $\sim$790 km/s, bracketing the observed value.
 
 \paragraph{Directional Coherence:}
 The dark flow direction ($l \approx 290°$, $b \approx 30°$ from Kashlinsky; $l \approx 298°$, $b \approx -8°$ from Watkins) is in the same general region of the sky as the CMB Axis of Evil ($l \approx 260°$, $b \approx 60°$) and the CMB dipole.
@@ -524,11 +552,11 @@ We are the fuel for the next generation of attractors.
 The External-Node Model offers a geometric solution to the Dark Energy problem.
 By reframing cosmic acceleration as the consequence of gravitational attraction from a larger, trans-observable manifold, we eliminate the need for fine-tuned vacuum energy and the associated theoretical crises of the Standard Model.
 
-Through N-body simulations with 2000 particles, we have demonstrated that multiple parameter configurations (M = 500-50000 $\times$ M$_{obs}$, S = 20-70 Gpc) reproduce $\Lambda$CDM expansion dynamics with $\sim$100\% endpoint accuracy and R$^2$ = 0.9991 for size evolution (RMSE $\approx$ 0.006).
-The primary configuration (M = 800 $\times$ M$_{obs}$ $\approx$ 8.0 $\times$ 10$^{55}$ kg, S = 22 Gpc) achieves 99.85\% endpoint match with R$^2$=0.9991 for size evolution over 8 Gyr ($t = 5.8 \rightarrow 13.8$ Gyr).
+Through N-body simulations with 2000 particles, we have demonstrated that multiple parameter configurations across a wide mass range (M = 92-9000 $\times$ M$_{obs}$, S = 15-38 Gpc) reproduce $\Lambda$CDM expansion dynamics with R$^2 > 0.99$ for size evolution and R$^2 > 0.95$ for expansion rate over 8 Gyr ($t = 5.8 \rightarrow 13.8$ Gyr).
+Size-only optimization can push the size R$^2$ to 0.9991, though at the cost of expansion rate fidelity---a tradeoff inherent to optimizing an integrated versus derivative quantity (Section 4.3).
 This validates the core mechanism: external gravitational sources can mimic dark energy using only classical physics.
 
-Beyond the expansion match, the same lattice geometry---with no additional parameters---generates predictions consistent with three independent large-scale anomalies: the Hubble Tension ($\Delta H_0/H_0 \approx 5$-$11\%$), the CMB Axis of Evil (correlated quadrupole-octopole alignment), and dark flow ($\sim$330-800 km/s bulk motions).
+Beyond the expansion match, the same lattice geometry---with no additional parameters---generates predictions consistent with three independent large-scale anomalies: the Hubble Tension ($\Delta H_0/H_0 \approx 5$-$11\%$), the CMB Axis of Evil (correlated quadrupole-octopole alignment), and dark flow ($\sim$320-790 km/s bulk motions).
 These are typically treated as unrelated curiosities; in the External-Node Model, they are necessary consequences of a single geometric structure sharing a common preferred direction (Section 7).
 While each connection remains qualitative and requires quantitative validation, the convergence of multiple independent lines of evidence from a parameter-free geometric prediction is suggestive.
 

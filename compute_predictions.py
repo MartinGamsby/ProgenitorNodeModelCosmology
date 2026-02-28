@@ -42,16 +42,16 @@ def compute_phantom_w():
     print("PREDICTION 1: Phantom Energy Behavior (w < -1)")
     print("="*70)
 
-    # Best-fit parameters
-    M_VALUE = 855
-    S_VALUE = 25
-    T_START = 3.8
+    # Primary balanced-optimization parameters
+    M_VALUE = 9000
+    S_VALUE = 38
+    T_START = 5.8
 
-    # Run extended simulation: 3.8 -> 23.8 Gyr (10 Gyr beyond today)
-    T_DURATION = 20.0  # 20 Gyr total
-    N_STEPS = 600
-    N_PARTICLES = 200
-    SAVE_INTERVAL = 10
+    # Standard simulation: 5.8 -> 13.8 Gyr (same window as main results)
+    T_DURATION = 8.0  # 8 Gyr (matches primary simulation)
+    N_STEPS = 300
+    N_PARTICLES = 2000
+    SAVE_INTERVAL = 1
 
     print(f"\nRunning extended External-Node simulation: t={T_START}->{T_START+T_DURATION} Gyr")
     print(f"Parameters: M={M_VALUE}*M_obs, S={S_VALUE} Gpc, N={N_PARTICLES}")
@@ -101,20 +101,20 @@ def compute_phantom_w():
     w_lcdm = compute_w_eff(t_ext, a_lcdm, H_lcdm)
 
     # Report at key epochs
-    # Skip first and last 10% for edge effects
+    # Skip first and last 5% for edge effects
     n = len(t_ext)
-    start_idx = n // 10
-    end_idx = n - n // 10
+    start_idx = n // 20
+    end_idx = n - n // 20
 
     print(f"\n{'Epoch':<25} {'t_abs [Gyr]':<15} {'w_ext':<12} {'w_LambdaCDM':<12} {'Deltaw':<12}")
     print("-" * 76)
 
+    # Epochs within the simulation window
     epochs = {
+        'Early (8 Gyr)': 8.0,
+        'Transition (10 Gyr)': 10.0,
+        'Recent (12 Gyr)': 12.0,
         'Today (13.8 Gyr)': 13.8,
-        'Near future (15 Gyr)': 15.0,
-        'Medium future (18 Gyr)': 18.0,
-        'Far future (20 Gyr)': 20.0,
-        'Very far (23 Gyr)': 23.0,
     }
 
     for name, t_target in epochs.items():
@@ -172,9 +172,9 @@ def compute_dipole_anisotropy():
     print("PREDICTION 2: Dipole Anisotropy in H_0")
     print("="*70)
 
-    # Best-fit parameters
-    M_VALUE = 855
-    S_VALUE = 25  # Gpc
+    # Primary balanced-optimization parameters
+    M_VALUE = 9000
+    S_VALUE = 38  # Gpc
     S_m = S_VALUE * const.Gpc_to_m
     M_ext_kg = M_VALUE * const.M_observable_kg
 

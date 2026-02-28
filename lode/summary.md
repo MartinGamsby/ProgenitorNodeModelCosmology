@@ -16,5 +16,5 @@ Key technical insights:
 7. Three force methods: 'direct' (NumPy O(N^2)), 'numba_direct' (Numba JIT O(N^2), 14-17x speedup), 'barnes_hut' (real octree O(N log N))
 8. R² and RMSE metrics for statistical rigor; R²=0.999 for size evolution across full 8 Gyr
 9. Validation: 232 tests including matter-only never-exceeds-LCDM, Numba verification, reproducibility checks
-10. Paper predictions: dipole anisotropy deltaH0/H0 ~ 3.6-8.7% (comparable to Hubble Tension 8.6%)
+10. Paper predictions: dipole anisotropy deltaH0/H0 ~ 4.7-11.4% (comparable to Hubble Tension 8.6%); dark flow ~330-800 km/s
 11. Sweep CSV metric note: match_curve_rmse_pct = 100−RMSE×100; actual RMSE = 1−(match_curve_rmse_pct/100)

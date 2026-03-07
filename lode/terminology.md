@@ -10,7 +10,7 @@
 
 **S_value** - HMEA grid spacing in Gpc. Parameter being explored; balanced-optimization configs at S=15-38 Gpc.
 
-**Ω_Λ_eff** - Effective dark energy density from tidal forces. Ω_Λ_eff = G×M_ext/(S³×H₀²).
+**Ω_Λ_eff** - Effective dark energy density from tidal forces. Ω_Λ_eff = 2G×M_ext/(S³×H₀²).
 
 **Tidal acceleration** - Force from external nodes: a = GM_ext × r / |r_node - r|³
 

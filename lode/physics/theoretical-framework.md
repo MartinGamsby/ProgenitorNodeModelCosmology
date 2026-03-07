@@ -77,7 +77,7 @@ S ≈ (2GM_ext / (H₀²Ω_Λ))^(1/3)
 
 Result: S ≈ 39 Gpc
 
-**Significance**: Well outside particle horizon (~14 Gpc) → causally disconnected from light, not from gravity.
+**Significance**: Well beyond observable universe extent. HMEAs are electromagnetically silent (ancient black holes without accretion disks), detectable only via gravitational gradient (Section sec:defenses).
 
 ## Numerical Validation
 

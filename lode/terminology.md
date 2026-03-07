@@ -6,9 +6,9 @@
 
 **ΛCDM** - Lambda Cold Dark Matter. Standard cosmology with dark energy (cosmological constant Λ).
 
-**M_value** - External node mass as multiple of observable universe mass. Parameter being explored; M≈800 gives 99.4% ΛCDM match.
+**M_value** - External node mass as multiple of observable universe mass. Parameter being explored; balanced-optimization configs at M=92-9000 give R²_size>0.99.
 
-**S_value** - HMEA grid spacing in Gpc. Parameter being explored; S≈24 Gpc gives 99.4% ΛCDM match.
+**S_value** - HMEA grid spacing in Gpc. Parameter being explored; balanced-optimization configs at S=15-38 Gpc.
 
 **Ω_Λ_eff** - Effective dark energy density from tidal forces. Ω_Λ_eff = G×M_ext/(S³×H₀²).
 

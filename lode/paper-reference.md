@@ -77,7 +77,7 @@ Expansion rate comparison inherently approximate: isotropic RMS vs Friedmann H(t
 - sec:framework: Grid configuration (3×3×3 lattice justification)
 - sec:results: Primary balanced configs M=9000/S=38, M=875/S=24, M=92/S=15
 - sec:tradeoffs: Optimization tradeoff (size vs expansion rate)
-- sec:scope / sec:limitations: What code doesn't need to address
+- sec:scope (= sec:limitations): What code doesn't need to address
 
 ## Workflow
 
@@ -143,10 +143,6 @@ Predictions section includes quantitative results computed by `compute_predictio
 
 **References**: Kashlinsky+ 2008 (ApJ 686:L49), Planck 2014 (A&A 561:A97), Watkins+ 2023 (MNRAS 524:1885), Watkins & Feldman 2025 (arXiv:2512.03168)
 
-### Speculative Sections (marked in paper)
-- sec:fossil: Fossil Black Holes—speculative, no simulation support
-- sec:metabolism: Great Metabolism—speculative extension, not derived from simulation
-
 ## LaTeX Structure Notes
 
 Paper uses `\label`/`\ref` for all cross-references and `hyperref` for clickable links.
@@ -157,3 +153,8 @@ All R² formatted as `$R^2$` (fully in math mode) throughout.
 Hubble Tension discussed as potential consequence of directional dipole: CMB is all-sky avg, distance ladder is directional → dipole could manifest as method-dependent discrepancy.
 Numerical robustness paragraph covers seed variation, particle count convergence, resolution threshold.
 w_eff formula clarified as total effective equation of state (not DE component alone).
+
+## Section Structure (current)
+Sec 1: Introduction. Sec 2: Physical Model (Grid Topology, Progenitor Hypothesis). Sec 3: Dynamics (Tidal Acceleration, Estimation). Sec 4: Numerical Validation (Framework, Results, Tradeoffs, Matter-Only). Sec 5: Scope and Limitations (flat—no subsections, limitations only). Sec 6: Predictions (Phantom, Dipole, Axis of Evil, Dark Flow). Sec 7: Observational Consistency ("Dark Giant"). Sec 8: Great Metabolism (speculative, explicitly labeled). Sec 9: Conclusion.
+
+Removed in prior trims: Fossil Black Holes, Physical Interpretation subsection, "What the Model Addresses" subsection (redundant with results). Philosophical Stance collapsed to 2 sentences. Quantitative Agreement paragraph condensed—tables carry the data.

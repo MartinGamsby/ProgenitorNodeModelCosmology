@@ -61,13 +61,13 @@ In non-relativistic limit, uniform external tidal field is **mathematically indi
 Equate tidal acceleration to observed dark energy:
 
 ```
-H₀²Ω_Λ ≈ GM_ext/S³
+H₀²Ω_Λ ≈ 2GM_ext/S³
 ```
 
 Solve for grid spacing:
 
 ```
-S ≈ (GM_ext / (H₀²Ω_Λ))^(1/3)
+S ≈ (2GM_ext / (H₀²Ω_Λ))^(1/3)
 ```
 
 **Example calculation** (paper.tex:84-91):
@@ -75,7 +75,7 @@ S ≈ (GM_ext / (H₀²Ω_Λ))^(1/3)
 - H₀ ≈ 70 km/s/Mpc = 2.3×10⁻¹⁸ s⁻¹
 - Ω_Λ ≈ 0.7
 
-Result: S ≈ 31 Gpc
+Result: S ≈ 39 Gpc
 
 **Significance**: Well outside particle horizon (~14 Gpc) → causally disconnected from light, not from gravity.
 
@@ -89,31 +89,32 @@ Result: S ≈ 31 Gpc
 
 ### Parameter Exploration Results
 
-Through systematic exploration, identified configuration achieving 99.4% ΛCDM match:
-- M_ext = 800 × M_obs ≈ 8.0×10⁵⁵ kg
-- S = 24 Gpc
-- R₀ = 11.59 Gpc (initial radius)
-- Ω_Λ,eff = 2.555
+Multiple balanced-optimization configs across wide mass range (M=92-9000×M_obs, S=15-38 Gpc):
+- M=9000, S=38: 98.02% endpoint, R²_size=0.9954, R²_rate=0.9630 (primary)
+- M=875, S=24: 97.92% endpoint, R²_size=0.9951, R²_rate=0.9603
+- M=92, S=15: 98.67% endpoint, R²_size=0.9966, R²_rate=0.9565
 
-**Important**: M=800, S=24 are **exploratory results**, not fundamental predictions. They demonstrate parameter combinations exist within physically reasonable ranges that reproduce observations. Complete theory would need to explain why meta-structure adopts these scales (evolutionary dynamics, feedback processes, etc.).
+Size-only optimization: M=800, S=22 reaches R²_size=0.9991 but distorts expansion rate.
+
+**Important**: Multiple solutions demonstrate mechanism robustness, not fine-tuning. Complete theory would need to explain why meta-structure adopts these scales.
 
 ### Quantitative Agreement
 
-- ΛCDM final radius: 17.78 Gpc
-- External-Node final radius: 17.89 Gpc
-- Relative error: 0.6%
-- Agreement throughout 6 Gyr evolution: ±1%
+Primary balanced config (M=9000, S=38):
+- ΛCDM final size: 14.50 Gpc, External-node: 14.21 Gpc (98.02%)
+- R²_size=0.9954, R²_rate=0.9630
+- Agreement throughout 8 Gyr evolution (t=5.8→13.8 Gyr)
 - Hubble parameter at present: H ≈ 70 km/s/Mpc (no adjustment needed)
 
 ## Scope and Limitations
 
 ### What Model Addresses
 
-✓ Late-time cosmic acceleration (~6 Gyr)
-✓ Reproduction of ΛCDM expansion to 99.4%
-✓ Classical gravitational mechanism mimicking dark energy
+✓ Late-time cosmic acceleration (8 Gyr: t=5.8→13.8 Gyr)
+✓ Reproduction of ΛCDM expansion: R²_size>0.99, R²_rate>0.95 (balanced)
+✓ Classical gravitational mechanism mimicking dark energy dynamics, not just endpoints
 ✓ Resolution of fine-tuning problem (gravity naturally weak)
-✓ Natural timing explanation (geometric scales)
+✓ Multiple parameter solutions across two orders of magnitude in mass
 
 ### What Model Does NOT Address
 
@@ -144,10 +145,6 @@ Value: showing well-motivated alternatives to vacuum energy deserve investigatio
 HMEAs are Eon-spanning black holes (t_node ≫ 13.8 Gyr) that exhausted local fuel. Without accretion disk: electromagnetically silent. Hawking radiation redshifted/diluted over 30 Gpc → indistinguishable from CMB noise floor.
 
 Detectable through gravitational gradient (dark energy signature), not luminosity.
-
-### Fossil Black Holes
-
-Void space between bubble and nodes may contain remnant debris from meta-structure evolution. Intermediate-mass black holes (IMBHs) could be ancient compact objects from HMEA accretion cycles. Speculative dark matter contribution if sufficiently numerous.
 
 ## Predictions and Falsifiability
 
@@ -186,7 +183,7 @@ Low quadrupole power explained: cubic symmetry partially cancels l=2 (only asymm
 
 Anomalous coherent bulk flow of galaxy clusters ~400 km/s at ~290 Mpc, 4.8σ tension with ΛCDM (Watkins+ 2023, CosmicFlows-4). Flow dominated by sources external to survey volume (Watkins & Feldman 2025). Original detection by Kashlinsky+ 2008 via kSZ (disputed), but independent distance-indicator measurements confirm the anomaly.
 
-**External-Node explanation**: Asymmetric HMEA lattice produces net gravitational pull on entire bubble. Flow is scale-independent (every object experiences same tidal bias). Predicted ΔH₀/H₀ ~ 4.4% → v_bulk ~ 300 km/s, consistent with observations within factor of 2.
+**External-Node explanation**: Asymmetric HMEA lattice produces net gravitational pull on entire bubble. Flow is scale-independent (every object experiences same tidal bias). Predicted ΔH₀/H₀ ~ 4.6% → v_bulk ~ 320 km/s (grid avg), ~790 km/s (single node). Consistent with observed ~400 km/s.
 
 **Directional coherence**: Dark flow direction (l~290-298°, b~-8 to 30°) is in same sky region as Axis of Evil (l~260°, b~60°) and CMB dipole. All three anomalies should point toward nearest/most massive HMEA.
 
@@ -228,22 +225,20 @@ graph TD
     B -->|ΛCDM Standard| C[Dark Energy Λ<br/>Vacuum repulsion<br/>Fine-tuning problem]
     B -->|External-Node Alternative| D[HMEA Tidal Forces<br/>Classical gravity<br/>Natural weakness]
 
-    D --> E[Virialized Meta-Structure<br/>26 nodes, S≈24 Gpc]
+    D --> E[Virialized Meta-Structure<br/>26 nodes, S=15-38 Gpc]
     E --> F[Progenitor Node Destabilization<br/>Explains isotropy]
 
     F --> G[Predictions]
     G --> H[Hyper-acceleration<br/>w < -1 in future]
-    G --> I[Dipole anisotropy<br/>Hubble Tension?]
+    G --> I[Dipole anisotropy<br/>ΔH₀/H₀ ~ 4.6-11.3%]
     G --> K[Axis of Evil<br/>CMB multipole alignment]
-    G --> L[Dark Flow<br/>bulk motions from nearest HMEA]
+    G --> L[Dark Flow<br/>~320-790 km/s bulk motions]
     G --> J[Great Metabolism<br/>Cyclical cosmology]
 ```
 
 ## References
 
-- Tidal acceleration derivation: paper.tex:62-71
-- Parameter estimation: paper.tex:75-95
-- Numerical results: paper.tex:115-146
-- Scope/limitations: paper.tex:162-207
-- Predictions: paper.tex:231-249
-- Great Metabolism: paper.tex:251-262
+Cross-reference paper sections via \label keys:
+sec:tidal, sec:estimation, sec:framework, sec:results, sec:tradeoffs, sec:matter-only,
+sec:scope (=sec:limitations), sec:predictions, sec:phantom, sec:dipole, sec:axis-of-evil,
+sec:dark-flow, sec:defenses, sec:metabolism, sec:conclusion

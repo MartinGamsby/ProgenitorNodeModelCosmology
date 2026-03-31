@@ -44,7 +44,7 @@ config = SweepConfig(
     t_start_Gyr=4.8 if LEET_SEARCH else 5.8,
     t_duration_Gyr=9.0 if LEET_SEARCH else 8.0,
     damping_factor=None,
-    s_min_gpc=15,
+    s_min_gpc=14,
     s_max_gpc=60+MANY_SEARCH*2,
     save_interval=10
 )
@@ -149,11 +149,11 @@ print("\n" + "="*70)
 print("BEST PER S")
 print("="*70)
 
-print(f"\n{'Config':<20} {'M×M_obs':<10} {'centerM':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'Half%':<10} {'End%':<10} {'Hubble%':<10}")
+print(f"\n{'Config':<20} {'M×M_obs':<10} {'centerM':<10} {'S[Gpc]':<10} {'Match%':<10} {'Diff%':<10} {'Curve%':<10} {'Half%':<10} {'End%':<10} {'Hubble%':<10} {'HubbleEnd%':<10}")
 print("-" * 100)
 for r in best_per_s_list:
     print(f"{r['desc']:<20} {r['M_factor']:<10} {r['centerM']:<10} {r['S_gpc']:<10.1f} "
-          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_half_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_hubble_curve_pct']:<10.2f}")
+          f"{r['match_avg_pct']:<10.2f} {r['diff_pct']:<10.2f} {r['match_curve_pct']:<10.2f} {r['match_half_curve_pct']:<10.2f} {r['match_end_pct']:<10.2f} {r['match_hubble_curve_pct']:<10.2f} {r['match_hubble_end_pct']:<10.2f}")
 
 # Find overall best
 best = max(results, key=lambda x: x['match_avg_pct'])

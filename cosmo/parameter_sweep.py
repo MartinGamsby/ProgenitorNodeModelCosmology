@@ -34,7 +34,7 @@ MATCH_METRIC_KEYS = (
     'match_hubble_half_rmse_pct',
 
     'match_end_pct',
-    'match_hubble_end_pct',    
+    'match_hubble_end_pct',
 )
 
 USED_MATCH_METRIC_KEYS = (
@@ -65,26 +65,47 @@ USED_MATCH_METRIC_KEYS = (
     #'match_curve_pct',
     'match_curve_r2',
     'match_curve_rmse_pct',
-    'match_half_curve_pct',
+    #'match_half_curve_pct',
     'match_half_rmse_pct',
 
     #'match_max_pct',
-    'match_curve_error_pct',
+    #'match_curve_error_pct',
     #'match_curve_error_max',
 
     #'match_hubble_curve_pct',
     'match_hubble_curve_r2',
     'match_hubble_rmse_pct',
-    'match_hubble_half_curve_pct',
+    #'match_hubble_half_curve_pct',
     'match_hubble_half_rmse_pct',
 
-    'match_end_pct',
-    'match_end_pct',
-    'match_end_pct',
     'match_hubble_end_pct',
-    'match_hubble_end_pct',
-    'match_hubble_end_pct',
+    'match_end_pct',
+
 )
+#USED_MATCH_METRIC_KEYS = (
+#    #'match_curve_pct',
+#    'match_curve_r2',
+#    #'match_curve_rmse_pct',
+#    #'match_half_rmse_pct',
+#
+#    'match_hubble_curve_r2',
+#    #'match_hubble_rmse_pct',
+#    #'match_hubble_half_rmse_pct',
+#
+#    'match_hubble_end_pct',
+#    'match_end_pct',
+#)
+USED_MATCH_METRIC_KEYS = MATCH_METRIC_KEYS
+#for i in USED_MATCH_METRIC_KEYS:
+#    # Add to tuple: 'match_end_pct', 'match_hubble_end_pct' multiple times to increase their weight in the average
+#    USED_MATCH_METRIC_KEYS += ('match_hubble_end_pct',)
+
+#for i in range(5):
+#    USED_MATCH_METRIC_KEYS += ('match_hubble_end_pct',)
+#
+#for i in range(10//5):
+#    USED_MATCH_METRIC_KEYS += ('match_end_pct',)
+
 
 CSV_COLUMNS = (
     ['M_factor', 'S_gpc', 'centerM', 'match_avg_pct', 'diff_pct']
@@ -129,16 +150,33 @@ class SweepConfig:
     def n_steps(self) -> int:
         return 250 if self.quick_search else 300
 
+RMSE_WEIGHT = 1#25
+R2_WEIGHT = 1
+SIZE_WEIGHT_VS_HUBBLE = 250
+MAX_WEIGHT = 0.25
 
 @dataclass
 class MatchWeights:
     """Weights for computing weighted average match metric."""
-    hubble_half_curve: float = 0.025
-    hubble_curve: float = 0.025
-    size_half_curve: float = 0.25
-    size_curve: float = 0.2
-    endpoint: float = 0.4
-    max_radius: float = 0.1
+    curve: float = SIZE_WEIGHT_VS_HUBBLE
+    curve_r2: float = SIZE_WEIGHT_VS_HUBBLE*R2_WEIGHT
+    curve_rmse: float = RMSE_WEIGHT*SIZE_WEIGHT_VS_HUBBLE
+    half_curve: float = SIZE_WEIGHT_VS_HUBBLE/2
+    half_rmse: float = RMSE_WEIGHT*SIZE_WEIGHT_VS_HUBBLE/2
+
+    max: float = MAX_WEIGHT*SIZE_WEIGHT_VS_HUBBLE
+    curve_error: float = MAX_WEIGHT*SIZE_WEIGHT_VS_HUBBLE
+    curve_error_max: float = MAX_WEIGHT*SIZE_WEIGHT_VS_HUBBLE
+    
+    hubble_curve: float = 1
+    hubble_curve_r2: float = R2_WEIGHT
+    hubble_rmse: float = RMSE_WEIGHT
+    hubble_half_curve: float = 0.5
+    hubble_half_rmse: float = 0.5*RMSE_WEIGHT
+
+    end: float = 10*SIZE_WEIGHT_VS_HUBBLE
+    hubble_end: float = 10
+
 
 @dataclass
 class SimSimpleResult:
@@ -247,12 +285,23 @@ def build_center_mass_list(search_center_mass: bool = True, many_search: int = 3
     center_masses = generate_increments(1000, terms_per_decade=many_search, min_value=1)
     return center_masses
 
-def compute_avg(metrics):
+def compute_avg(metrics, multiplicative=False):
     # Multiplicative aggregate: product of all metric values (clamped to [0,1])
     match_avg_pct = 1.0
-    for key in USED_MATCH_METRIC_KEYS:
-        match_avg_pct *= max(0.0, min(1.0, metrics[key] / 100))
-    match_avg_pct *= 100
+    if multiplicative:
+        for key in USED_MATCH_METRIC_KEYS:
+            match_avg_pct *= max(0.0, min(1.0, metrics[key] / 100))
+        match_avg_pct *= 100
+    else:
+        # Additive aggregate: weighted average of metric values
+        total_weight = sum(getattr(MatchWeights(), key.replace('match_', '').replace('_pct', '')) for key in USED_MATCH_METRIC_KEYS)
+        if total_weight == 0:
+            return 0.0
+        for key in USED_MATCH_METRIC_KEYS:
+            weight = getattr(MatchWeights(), key.replace('match_', '').replace('_pct', ''))
+            match_avg_pct += (metrics[key] * weight) / total_weight
+        print(f"Total weight for average: {total_weight}, {list(getattr(MatchWeights(), key.replace('match_', '').replace('_pct', '')) for key in USED_MATCH_METRIC_KEYS)}, {match_avg_pct}")
+        
     return match_avg_pct
 
 def compute_match_metrics(
@@ -312,10 +361,12 @@ def compute_match_metrics(
         baseline.H_hubble[-1]
     )
 
-    # TODO: Do something better: (Right now: 5% buffer)
-    match_end_pct = match_end_pct if (baseline.size_final_Gpc > sim_result.results.size_final_Gpc) else min(100.0, match_end_pct+5)
-    # 25%
-    match_hubble_end_pct = match_hubble_end_pct if (baseline.H_hubble[-1] > sim_result.hubble_curve[-1]) else min(100.0, match_hubble_end_pct+25)
+    buffer_end_pct = 5#10
+    buffer_hubble_end_pct = 0#5
+    ## TODO: Do something better: (Right now: 5% buffer)
+    match_end_pct = match_end_pct if (baseline.size_final_Gpc > sim_result.results.size_final_Gpc) else min(100.0, match_end_pct+buffer_end_pct)
+    ## 5%
+    match_hubble_end_pct = match_hubble_end_pct if (baseline.H_hubble[-1] > sim_result.hubble_curve[-1]) else min(100.0, match_hubble_end_pct+buffer_hubble_end_pct)
     match_max_pct = compare_expansion_history(
         sim_result.results.radius_max_Gpc,
         baseline.radius_max_Gpc

@@ -330,3 +330,31 @@ from cosmo.cli import parse_arguments, args_to_sim_params
 ```
 
 No circular dependencies. Linear dependency chain: constants → cli → particles → integrator → simulation → scripts.
+
+## GR Subpackage (`cosmo/gr/`)
+
+New subpackage for Paper 2 GR formulation. Zero modifications to existing code; imports from `cosmo.constants` as read-only dependency.
+
+```mermaid
+graph TD
+    constants[cosmo/constants.py]
+    metric[gr/metric.py]
+    christoffel[gr/christoffel.py]
+    riemann[gr/riemann.py]
+
+    metric --> constants
+    christoffel --> constants
+    riemann --> constants
+    christoffel --> metric
+```
+
+Note: `riemann_schwarzschild` is fully analytic (no christoffel import). The numerical `riemann_from_christoffel` takes pre-computed Christoffel arrays as arguments.
+
+| File | Purpose |
+|------|---------|
+| `cosmo/gr/__init__.py` | Package init (empty) |
+| `cosmo/gr/metric.py` | Schwarzschild, FRW, Minkowski metrics; inverse, determinant, linearized |
+| `cosmo/gr/christoffel.py` | Analytic Christoffel symbols (Schwarzschild, FRW); numerical from metric+derivatives |
+| `cosmo/gr/riemann.py` | Analytic Riemann tensor (Schwarzschild); Ricci tensor/scalar, Einstein tensor, Weyl tensor, tidal tensor, Kretschner scalar; numerical Riemann from Christoffel+derivatives |
+
+Convention: SI units, explicit c factors, signature (-,+,+,+), index order (t,r,θ,φ) = (0,1,2,3), R^μ_νρσ (first up, rest down), θ=π/2 equatorial plane.

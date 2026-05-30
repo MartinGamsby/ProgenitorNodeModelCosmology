@@ -208,11 +208,16 @@ __marimo__/
 
 # Results
 *.pkl
-*.png
 *.gif
 *.pdf
 results/
 output/
+
+# 1. Ignore all .png files everywhere in the repository
+*.png
+
+# 2. But do not ignore .png files inside the docs folder (and its subfolders)
+!docs/**/*.png
 
 # Lode temporary session files
 lode/tmp/

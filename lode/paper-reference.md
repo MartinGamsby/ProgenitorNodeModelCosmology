@@ -73,10 +73,10 @@ Expansion rate comparison inherently approximate: isotropic RMS vs Friedmann H(t
 
 ## Key Sections for Code Alignment
 
-- sec:tidal / sec:estimation: Tidal acceleration formula
-- sec:framework: Grid configuration (3×3×3 lattice justification)
-- sec:results: Primary balanced configs M=9000/S=38, M=875/S=24, M=92/S=15
-- sec:tradeoffs: Optimization tradeoff (size vs expansion rate)
+- sec:tidal / sec:estimation: Tidal acceleration formula; sec:tidal introduces the 3×3×3 lattice (26 nodes) + idealization rationale (single-node deriv = sound order-of-mag estimate, not "excellent approx")
+- sec:framework: references the sec:tidal lattice (no longer re-defines it); holds sim params + Fit Metric (the R² definition formula lives here now)
+- sec:results: Primary balanced configs M=9000/S=38, M=875/S=24, M=92/S=15. M/S³ degeneracy framed as alleviating fine-tuning (NOT the coincidence problem)
+- sec:tradeoffs ("Optimization Tradeoffs: Model Accuracy and Expansion Dynamics"): size R² (integrated) vs rate R² (derivative, more stringent) tradeoff
 - sec:scope (= sec:limitations): What code doesn't need to address
 
 ## Workflow
@@ -149,7 +149,7 @@ Paper uses `\label`/`\ref` for all cross-references and `hyperref` for clickable
 Figures include matter-only (green dotted) alongside ΛCDM (blue solid) and External-Node (red dashed).
 Hawking radiation defense uses T_H ∝ 1/M → T ~ 10⁻⁸³ K (negligible at source).
 Tables wrapped in `\begin{table}[htbp]` floats with `\caption`/`\label`: tab:results (parameter configs), tab:comparison (external-node vs matter-only).
-All R² formatted as `$R^2$` (fully in math mode) throughout.
+All R² formatted as `$R^2$` (fully in math mode) throughout. R² definition formula lives in sec:framework "Fit Metric" paragraph (relocated from sec:results). Body text uses LaTeX ``...'' quotes (straight " only in bibitem entries).
 Hubble Tension discussed as potential consequence of directional dipole: CMB is all-sky avg, distance ladder is directional → dipole could manifest as method-dependent discrepancy.
 Numerical robustness paragraph covers seed variation, particle count convergence, resolution threshold.
 w_eff formula clarified as total effective equation of state (not DE component alone).

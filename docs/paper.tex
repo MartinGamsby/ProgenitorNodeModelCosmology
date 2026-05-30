@@ -26,7 +26,7 @@ It requires a 120-order-of-magnitude fine-tuning of vacuum energy \cite{Weinberg
 We present a toy model, the \textbf{External-Node Model}, in which the observable universe is a finite Friedmann-Robertson-Walker (FRW) region expanding within a lattice of Hyper-Massive External Attractors (HMEAs).
 In this model, cosmic acceleration comes from tidal gravity. As the bubble expands toward neighboring nodes, it is pulled apart. No exotic physics required.
 
-N-body simulations over the late-universe era ($t=5.8 \rightarrow 13.8$ Gyr) reproduce $\Lambda$CDM expansion with \textbf{$R^2 > 0.95$ for expansion rate} and \textbf{$R^2 > 0.99$ for size}, using configurations spanning $M = 92$-$9000 \times M_{obs}$, $S = 15$-$38$ Gpc
+N-body simulations over the late-universe era ($t=5.8 \rightarrow 13.8$ Gyr) reproduce $\Lambda$CDM expansion with \textbf{$R^2 > 0.95$ for expansion rate} and \textbf{$R^2 > 0.99$ for size}, using configurations spanning $M = 92$-$9000 \times M_{obs}$, $S = 15$-$38$ Gpc.
 
 The same lattice geometry, with no additional parameters, also produces patterns consistent with three large-scale anomalies: the Hubble Tension ($\Delta H_0/H_0 \approx 5$-$11\%$ \cite{Riess2022}), the CMB ``Axis of Evil'' \cite{Land2005}, and dark flow \cite{Watkins2023}. We do not attempt to model early-universe dynamics or provide a complete theoretical resolution to these large-scale anomalies; rather, our simulation provides a proof-of-concept that classical gravity is sufficient to reproduce late-time acceleration, implying that tidal forces alone might account for the dynamics we currently label as dark energy.
 \end{abstract}
@@ -45,7 +45,7 @@ The \textbf{Coincidence Problem} \cite{Steinhardt1999}: dark energy and matter d
 \textbf{We propose a different interpretation.} Rather than assuming the FRW metric describes all of spacetime, we model the observable universe as a finite FRW region expanding within a larger space containing discrete massive objects.
 In this picture, ``dark energy'' is a misidentification: the \textbf{intrinsic repulsion} attributed to the vacuum is actually \textbf{extrinsic attraction} from a surrounding mass distribution.
 We call this the \textbf{External-Node Model}.
-This resolves the fine-tuning problem directly, since gravity is weak at large scales, so the required forces are small.
+This resolves the fine-tuning problem directly: gravity is weak at large scales, so the required forces are small.
 A companion \textbf{Progenitor Hypothesis} (Section~\ref{sec:progenitor}) addresses isotropy. In this hypothesis, the Big Bang would have originated from a destabilized node within the meta-structure, inheriting the symmetry of its equilibrium position.
 
 The idea that trans-observable structure could affect cosmological dynamics is not new.
@@ -75,8 +75,8 @@ The Big Bang was not a creation event \textit{ex nihilo} in random empty space, 
 
 \begin{enumerate}
 \item \textbf{Origin}: Our universe originates from a \textbf{Progenitor Node} located at the gravitational equilibrium point between its neighbors, which was formerly a member of the Virialized Grid.
-\item \textbf{Event}: The \textbf{Progenitor Node} destabilized (via critical mass accumulation, quantum instability, or collision) and transitioned from a stable object into a rapidly expanding cloud of matter and radiation.
-\item \textbf{Isotropy}: Because the \textbf{Progenitor Node} was positioned at the equilibrium point, its subsequent expansion proceeded symmetrically into the potential wells of the surrounding structure, naturally accounting for isotropy without fine-tuning.
+\item \textbf{Event}: The Progenitor Node destabilized (via critical mass accumulation, quantum instability, or collision) and transitioned from a stable object into a rapidly expanding cloud of matter and radiation.
+\item \textbf{Isotropy}: Because the Progenitor Node was positioned at the equilibrium point, its subsequent expansion proceeded symmetrically into the potential wells of the surrounding structure, naturally accounting for isotropy without fine-tuning.
 \end{enumerate}
 
 \section{Dynamics and Quantitative Analysis}
@@ -103,9 +103,9 @@ a_{tidal} \approx \frac{2 G M_{ext}}{S^3} R
 \label{eq:tidal-linear}
 \end{equation}
 
-While this single-axis derivation isolates the nearest node, it serves as an excellent approximation for the full geometry. At the central equilibrium point ($R = 0$), all forces cancel. As the universe expands, tidal forces scale as $\sim G M / d^3$, meaning the nearest face node at distance $S$ dominates over edge nodes at $S\sqrt{2}$ ($\sim 35\%$ contribution) and corner nodes at $S\sqrt{3}$ ($\sim 19\%$). The full 26-node system is accounted for in our numerical simulation (Section~\ref{sec:numerical}).
+While this single-axis derivation isolates the nearest node, it captures the correct linear-in-$R$ scaling and provides a sound order-of-magnitude estimate of the tidal field. At the central equilibrium point ($R = 0$), all forces cancel. As the universe expands, tidal forces scale as $\sim G M / d^3$, so the nearest face node at distance $S$ dominates over edge nodes at $S\sqrt{2}$ ($\sim 35\%$ contribution) and corner nodes at $S\sqrt{3}$ ($\sim 19\%$). The full 26-node system is accounted for in our numerical simulation (Section~\ref{sec:numerical}).
 
-The critical result here is the linear $R$ dependence. In the standard Friedmann equations, the cosmological constant drives an acceleration of $H_0^2 \Omega_\Lambda R$. Consequently, in the non-relativistic limit, this localized external tidal field is mathematically indistinguishable from $\Lambda$.
+The critical result here is the linear $R$ dependence. In the standard Friedmann equations, the cosmological constant drives an acceleration of $H_0^2 \Omega_\Lambda R$. Consequently, in the non-relativistic limit, this uniform external tidal field is mathematically indistinguishable from $\Lambda$.
 
 \subsection{Estimation of Required Node Mass and Distance}
 \label{sec:estimation}
@@ -140,7 +140,7 @@ Their electromagnetic silence is expected—Section~\ref{sec:defenses} argues th
 
 \paragraph{Analytical vs. Numerical Range:}
 Equation~\ref{eq:matching} predicts $S \approx 39$ Gpc for $M_{ext} \approx 500 \times M_{obs}$.
-Numerical exploration finds viable configurations across $S = 15$-$70$ Gpc, with balanced-optimization results clustering at $S = 15$-$38$ Gpc. It's a broad possible range, not a fine-tuned point.
+Numerical exploration finds viable configurations across $S = 15$-$70$ Gpc, with balanced-optimization results clustering at $S = 15$-$38$ Gpc. This is a broad range, not a fine-tuned point.
 
 \section{Numerical Validation}
 \label{sec:numerical}
@@ -150,10 +150,8 @@ Numerical exploration finds viable configurations across $S = 15$-$70$ Gpc, with
 We validate the mechanism with an N-body simulation: tracer particles expanding under internal self-gravity and external tidal forces from the HMEA grid.
 
 \paragraph{Grid Configuration:}
-A 3$\times$3$\times$3 cubic lattice with 26 external nodes, our universe at the center (no node).
-HMEAs sit at integer multiples of the grid spacing $S$.
-A real meta-structure would have irregular spacing and varying masses; the symmetric grid is a simplification for testing viability.
-Distant nodes contribute negligibly to the tidal force, so 3$\times$3$\times$3 is sufficient.
+We use the same 3$\times$3$\times$3 lattice introduced in Section~\ref{sec:tidal}: 26 external nodes with our universe at the central vacancy, and HMEAs at integer multiples of the grid spacing $S$.
+Distant nodes contribute negligibly to the tidal force, so this lattice is sufficient.
 
 \paragraph{Simulation Parameters:}
 2000 particles, 8 Gyr ($t = 5.8 \rightarrow 13.8$ Gyr), covering the observed acceleration era.
@@ -166,10 +164,14 @@ The $\Lambda$CDM baseline is computed analytically via exact Friedmann solution 
 Quality checks: matter-only never exceeds $\Lambda$CDM at any timestep, center-of-mass drift is monitored, and runaway particles are flagged.
 
 \paragraph{Fit Metric:}
-Agreement is quantified using $R^2$ (coefficient of determination) computed for both size evolution and expansion rate over the full 8 Gyr period.
+Agreement is quantified using $R^2$ (coefficient of determination):
+\[
+R^2 = 1 - \frac{\sum (y_{model} - y_{\Lambda CDM})^2}{\sum (y_{\Lambda CDM} - \bar{y}_{\Lambda CDM})^2}
+\]
+computed for both size evolution and expansion rate over the full 8 Gyr period.
 
 \paragraph{Numerical Robustness:}
-We report the worst-performing random seed to prevent lucky seeds.
+We report the worst-performing random seed to guard against a fortuitously favorable seed.
 $R^2$ metrics converge above $N \sim 2000$; below $\sim$500 particles, individual particles can represent too large a mass fraction, producing ejection artifacts from close encounters.
 Above this threshold, expansion dynamics are mostly insensitive to particle count.
 
@@ -196,7 +198,7 @@ All achieve $R^2 > 0.99$ (size) and $R^2 > 0.95$ (expansion rate). Matter-only (
 \label{sec:results}
 
 Multiple parameter combinations reproduce $\Lambda$CDM expansion (Table~\ref{tab:results}).
-There is no unique optimal configuration. Rather, a family of solutions spans at least two orders of magnitude in mass, as the tidal field depends on the ratio $M/S^3$; this scaling allows for larger grid distances $S$ to compensate for larger nodal masses $M$, thereby alleviating the coincidence problem.
+There is no unique optimal configuration. Rather, a family of solutions spans nearly two orders of magnitude in mass, as the tidal field depends on the ratio $M/S^3$; this scaling allows larger grid distances $S$ to compensate for larger nodal masses $M$, thereby alleviating the need for fine-tuning.
 
 We use two optimization strategies:
 \textbf{Balanced optimization} weights both size and expansion rate.
@@ -229,11 +231,11 @@ Smaller-$S$ configurations ($S = 15$ Gpc) may predict hyper-acceleration as the 
 \subsection{Optimization Tradeoffs: Model Accuracy and Expansion Dynamics}
 \label{sec:tradeoffs}
 
-Evaluating the model’s performance requires balancing two distinct metrics: the fit to the cumulative expansion radius, $R(t)$, and the fit to the expansion rate, $H(t)$. Because the expansion rate is the first derivative of the radius, it imposes a more stringent constraint on the underlying dynamics. 
+Evaluating the model's performance requires balancing two distinct metrics: the fit to the cumulative expansion radius, $R(t)$, and the fit to the expansion rate, $H(t)$. Because the expansion rate is the first derivative of the radius, it imposes a more stringent constraint on the underlying dynamics. 
 
-A "size-only" optimization can achieve a near-perfect fit to the final radius (e.g., $M=800 M_{obs}, S=22$ Gpc, $R^2_{size} = 0.9991$), yet fail to reproduce the correct expansion history, as the path integrates to the same displacement despite different local dynamics. By contrast, a balanced approach yields $R^2_{size} > 0.99$ and $R^2_{rate} > 0.95$, significantly outperforming the matter-only baseline ($R^2_{rate} \approx 0.84$). 
+A ``size-only'' optimization can achieve a near-perfect fit to the final radius (e.g., $M=800 M_{obs}, S=22$ Gpc, $R^2_{size} = 0.9991$), yet fail to reproduce the correct expansion history, as the path integrates to the same displacement despite different local dynamics. By contrast, a balanced approach yields $R^2_{size} > 0.99$ and $R^2_{rate} > 0.95$, significantly outperforming the matter-only baseline ($R^2_{rate} \approx 0.84$). 
 
-Two factors limit these rate comparisons. First, we compare our model’s isotropic root-mean-square (RMS) expansion to the Friedmann $H(t)$, but the framework inherently predicts anisotropic expansion (Section~\ref{sec:dipole}); some discrepancy likely arises from this geometric effect. Second, the current Hubble tension ($\sim 8.6\%$) introduces inherent uncertainty into the "target" $H(t)$ of $\Lambda$CDM. 
+Two factors limit these rate comparisons. First, we compare our model's isotropic root-mean-square (RMS) expansion to the Friedmann $H(t)$, but the framework inherently predicts anisotropic expansion (Section~\ref{sec:dipole}); some discrepancy likely arises from this geometric effect. Second, the current Hubble tension ($\sim 8.6\%$) introduces inherent uncertainty into the ``target'' $H(t)$ of $\Lambda$CDM. 
 
 \paragraph{Primary Results.}
 Our primary configuration ($M_{ext} = 9000 M_{obs}$, $S = 38$ Gpc; Figure~\ref{fig:primary}) successfully tracks $\Lambda$CDM to within 2\% in total size ($R^2_{size} = 0.9954$) and matches the expansion history ($R^2_{rate} = 0.9630$), yielding an intrinsic $H_0 \approx 70$ km/s/Mpc without post-hoc adjustment.
@@ -259,7 +261,7 @@ Matter-only & 96.06\% & 0.9890 & 0.8350 \\
 \label{tab:comparison}
 \end{table}
 
-As shown in Table~\ref{tab:comparison}, the expansion rate $R^2$ serves as the definitive discriminator: our external-node model achieves a high correlation of 0.96, whereas the matter-only model drops to 0.84. This discrepancy highlights that the matter-only approach produces a coincidental endpoint agreement by attempting to "force" a fit at a specific time, whereas the external-node model reproduces the genuine acceleration dynamics required to match the full expansion history.
+As shown in Table~\ref{tab:comparison}, the expansion rate $R^2$ serves as the definitive discriminator: our external-node model achieves a high $R^2$ of 0.96, whereas the matter-only model drops to 0.84. This discrepancy highlights that the matter-only approach produces a coincidental endpoint agreement by attempting to ``force'' a fit at a specific time, whereas the external-node model reproduces the genuine acceleration dynamics required to match the full expansion history.
 
 \section{Scope and Limitations}
 \label{sec:scope}
@@ -280,7 +282,7 @@ We do not claim this model represents physical reality, but that classical alter
 
 \section{Predictions and Falsifiability}
 \label{sec:predictions}
-The model makes three distinct predictions, all from the same lattice geometry.
+The model makes three distinct predictions, plus one qualitative consistency, all from the same lattice geometry.
 Because the meta-structure is irregular (varying node masses and positions), it imprints angular signatures—dipole, quadrupole, octopole—sharing a common preferred direction.
 Confirming or ruling out any one constrains the others.
 

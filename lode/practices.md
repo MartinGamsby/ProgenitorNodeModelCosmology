@@ -113,7 +113,7 @@ def _validate_timestep(self, t_duration_Gyr: float, n_steps: int) -> None:
 
 ## Research Context
 
-**Draft paper**: docs/paper.tex is working document, not published. Code generates data for ongoing refinement.
+**Draft paper**: docs/VirializedMetaStructure.tex is working document, not published. Code generates data for ongoing refinement.
 
 **Purpose**: Validate proof-of-concept mechanism, explore parameter space, test theoretical claims before publication.
 

@@ -5,7 +5,7 @@
 - [terminology.md](./terminology.md) - Domain vocabulary (HMEA, Ω_Λ_eff, damping factor, etc.)
 - [practices.md](./practices.md) - Development patterns and conventions
 - [practices/unit-conventions.md](./practices/unit-conventions.md) - Unit naming conventions (_m, _s, _kg, _si, _mps2 suffixes)
-- [paper-reference.md](./paper-reference.md) - docs/paper.tex ground truth: what code tests, scope, success criteria
+- [paper-reference.md](./paper-reference.md) - docs/VirializedMetaStructure.tex ground truth: what code tests, scope, success criteria
 
 ## Architecture
 - [architecture/module-structure.md](./architecture/module-structure.md) - Code organization and dependencies

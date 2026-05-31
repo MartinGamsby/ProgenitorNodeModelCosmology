@@ -1,6 +1,6 @@
 # Paper Reference
 
-**File**: docs/paper.tex
+**File**: docs/VirializedMetaStructure.tex
 
 Draft paper defining theoretical framework and goals the code tests.
 
@@ -142,6 +142,10 @@ Predictions section includes quantitative results computed by `compute_predictio
 **Directional coherence**: Dark flow (l~290-298°), Axis of Evil (l~260°), H₀ dipole should all point toward nearest HMEA. Approximate concordance observed.
 
 **References**: Kashlinsky+ 2008 (ApJ 686:L49), Planck 2014 (A&A 561:A97), Watkins+ 2023 (MNRAS 524:1885), Watkins & Feldman 2025 (arXiv:2512.03168)
+
+## Model Naming
+
+Title brands the framework **"Progenitor Node Model"**; body intro defines this as the union of the **External-Node Model** (the tidal mechanism) + the **Progenitor Hypothesis** (initial conditions). Body still uses "External-Node Model" as the mechanism's primary name throughout. Abstract previews all four §6 items: three anomalies (Hubble Tension, Axis of Evil, dark flow) + phantom-like hyper-acceleration (Big Rip). Dark-flow concordance list cites the predicted $H_0$ dipole (not "CMB dipole").
 
 ## LaTeX Structure Notes
 

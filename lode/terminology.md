@@ -18,15 +18,15 @@
 
 **Deceleration parameter (q)** - Measure of expansion deceleration: q = 0.5×Ω_m(a)/[Ω_m(a)+Ω_Λ] - 1.0. Positive q means deceleration (matter-dominated), negative q means acceleration (Λ-dominated). Used to auto-calculate damping factor.
 
-**Progenitor Node** - Hypothesized source of Big Bang: a node in virialized meta-structure that destabilized, explaining isotropy without fine-tuning. (Draft theory in paper.tex)
+**Progenitor Node** - Hypothesized source of Big Bang: a node in virialized meta-structure that destabilized, explaining isotropy without fine-tuning. (Draft theory in VirializedMetaStructure.tex)
 
-**Virialized Meta-Structure** - Hypothesized static, gravitationally balanced lattice of HMEAs beyond observable universe. Analogous to relaxed galaxy cluster. (Draft theory in paper.tex)
+**Virialized Meta-Structure** - Hypothesized static, gravitationally balanced lattice of HMEAs beyond observable universe. Analogous to relaxed galaxy cluster. (Draft theory in VirializedMetaStructure.tex)
 
-**Great Metabolism Hypothesis** - Speculative cyclical cosmology where universes are transient accretion events feeding meta-structure nodes. (Draft theory in paper.tex)
+**Great Metabolism Hypothesis** - Speculative cyclical cosmology where universes are transient accretion events feeding meta-structure nodes. (Draft theory in VirializedMetaStructure.tex)
 
 **Toy Model** - Simplified proof-of-concept. Addresses late-time acceleration only; doesn't address CMB, BAO, structure formation, inflation, or early universe. Code supports draft paper development.
 
-**Draft Paper** - docs/paper.tex. Working document describing External-Node Model theoretical framework. Under development, not published.
+**Draft Paper** - docs/VirializedMetaStructure.tex. Working document describing External-Node Model theoretical framework. Under development, not published.
 
 **Scale factor (a)** - Cosmic expansion parameter. a=1 at present, a<1 in past, a>1 in future.
 

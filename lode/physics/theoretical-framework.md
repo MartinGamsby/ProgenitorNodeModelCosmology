@@ -1,6 +1,6 @@
 # Theoretical Framework
 
-**Status**: Draft theory documented in docs/paper.tex (working document, not published)
+**Status**: Draft theory documented in docs/VirializedMetaStructure.tex (working document, not published)
 
 ## Research Goal
 
@@ -70,7 +70,7 @@ Solve for grid spacing:
 S ≈ (2GM_ext / (H₀²Ω_Λ))^(1/3)
 ```
 
-**Example calculation** (paper.tex:84-91):
+**Example calculation** (VirializedMetaStructure.tex:84-91):
 - Assume M_ext = 5×10⁵⁵ kg (500 × M_obs)
 - H₀ ≈ 70 km/s/Mpc = 2.3×10⁻¹⁸ s⁻¹
 - Ω_Λ ≈ 0.7
@@ -126,7 +126,7 @@ Primary balanced config (M=9000, S=38):
   - Needs: relativistic metric, junction conditions, curved spacetime tidal forces
 ✗ Trans-observable structure details (formation, observability, verification)
 
-### Philosophical Stance (paper.tex:199-207)
+### Philosophical Stance (VirializedMetaStructure.tex:199-207)
 
 **Not claiming physical reality**. Demonstrating:
 1. Dark energy not inevitable—classical alternatives exist

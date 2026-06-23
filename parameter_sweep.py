@@ -33,26 +33,41 @@ LEET_SEARCH = False
 MULTIPLY_PARTICLES = False
 SEARCH_CENTER_MASS = False
 MANY_SEARCH = 3 if QUICK_SEARCH else (10 if SEARCH_CENTER_MASS else 20)#21#3 and 10 are probably fine. You can go to 12,20,21!,31!!,...61!!!,...101!!!!
+# Objective: "lcdm" (default, R^2 vs LCDM baseline) or "pantheon" (chi^2 vs real Pantheon+ data)
+OBJECTIVE = "lcdm"
 
 
 
 config = SweepConfig(
     quick_search=QUICK_SEARCH,
     many_search=MANY_SEARCH,
-    leet_search=LEET_SEARCH,    
+    leet_search=LEET_SEARCH,
     search_center_mass=SEARCH_CENTER_MASS,
     t_start_Gyr=4.8 if LEET_SEARCH else 5.8,
     t_duration_Gyr=9.0 if LEET_SEARCH else 8.0,
     damping_factor=None,
     s_min_gpc=14,
     s_max_gpc=60+MANY_SEARCH*2,
-    save_interval=10
+    save_interval=10,
+    objective=OBJECTIVE,
 )
 
 weights = MatchWeights()#TODO:Remove
 
+# Load Pantheon+ data if using from-data objective
+pantheon_data = None
+if OBJECTIVE == "pantheon":
+    try:
+        from cosmo.pantheon import load_pantheon
+        pantheon_data = load_pantheon()
+        print(f"Loaded Pantheon+ data: {pantheon_data['n']} SNe after cuts")
+    except FileNotFoundError as exc:
+        print(f"\nERROR: {exc}")
+        print("Cannot run pantheon objective without the data file. Exiting.")
+        raise SystemExit(1)
+
 print("="*70)
-print("PARAMETER SWEEP: Finding Best Match to ΛCDM")
+print(f"PARAMETER SWEEP: Finding Best Match to {'ΛCDM' if OBJECTIVE == 'lcdm' else 'Real Pantheon+ Data'}")
 print("="*70)
 
 # Setup initial conditions and LCDM baseline (shared with run_simulation.py)
@@ -132,7 +147,11 @@ def sim_callback(M_factor: int, S_gpc: int, centerM: int, seeds: List[int] = [42
    
 
 # Run the sweep
-results = run_sweep(config, SEARCH_METHOD, sim_callback, baseline, weights, seeds=[123] if QUICK_SEARCH else ([1337] if LEET_SEARCH else [42,123]))
+results = run_sweep(
+    config, SEARCH_METHOD, sim_callback, baseline, weights,
+    seeds=[123] if QUICK_SEARCH else ([1337] if LEET_SEARCH else [42, 123]),
+    pantheon_data=pantheon_data,
+)
 
 # Build best per S
 best_per_s = {}
@@ -173,19 +192,32 @@ print(f"Speedup: {nbConfigs_bruteforce/sim_count:.1f}×")
 
 # Save all results to CSV
 os.makedirs('./results', exist_ok=True)
-csv_path = './results/sweep_results.csv'
+
+if OBJECTIVE == "pantheon":
+    PANTHEON_EXTRA_COLUMNS = ['chi2', 'chi2_dof', 'R2', 'n_sne_used']
+    pantheon_csv_columns = (
+        ['M_factor', 'S_gpc', 'centerM', 'match_avg_pct', 'diff_pct']
+        + PANTHEON_EXTRA_COLUMNS
+        + ['a_ext', 'size_ext', 'desc']
+    )
+    csv_path = './results/sweep_results_pantheon.csv'
+    csv_path_best_s = './results/sweep_best_per_S_pantheon.csv'
+    active_columns = pantheon_csv_columns
+else:
+    csv_path = './results/sweep_results.csv'
+    csv_path_best_s = './results/sweep_best_per_S.csv'
+    active_columns = CSV_COLUMNS
 
 with open(csv_path, 'w', newline='') as f:
-    writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS, extrasaction='ignore')
+    writer = csv.DictWriter(f, fieldnames=active_columns, extrasaction='ignore')
     writer.writeheader()
     writer.writerows(results)
 
 print(f"\n✓ Saved {len(results)} results to {csv_path}")
 
 # Save best per S to CSV
-csv_path_best_s = './results/sweep_best_per_S.csv'
 with open(csv_path_best_s, 'w', newline='') as f:
-    writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS, extrasaction='ignore')
+    writer = csv.DictWriter(f, fieldnames=active_columns, extrasaction='ignore')
     writer.writeheader()
     writer.writerows(best_per_s_list)
 

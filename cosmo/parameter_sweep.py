@@ -137,6 +137,7 @@ class SweepConfig:
     s_min_gpc: int = 15
     s_max_gpc: int = 60
     save_interval: int = 10
+    objective: str = "lcdm"  # "lcdm" or "pantheon"
 
     @property
     def particle_count(self) -> int:
@@ -192,6 +193,7 @@ class SimResult:
     t_Gyr: np.ndarray
     params: Any  # ExternalNodeParameters
     results: SimSimpleResult
+    a_curve: Optional[np.ndarray] = None  # Full scale-factor array; populated by results_to_sim_result
 
 
 @dataclass
@@ -398,6 +400,101 @@ def compute_match_metrics(
     return metrics
 
 
+_PANTHEON_WORST_SCORE: Dict[str, float] = {
+    'chi2': float('inf'),
+    'chi2_dof': float('inf'),
+    'R2': -float('inf'),
+    'n_sne_used': 0,
+    'match_avg_pct': 0.0,
+    'diff_pct': 100.0,
+}
+
+
+def compute_pantheon_metrics(
+    sim_result: "SimResult",
+    pantheon_data: Dict[str, Any],
+    t_start_Gyr: float,
+) -> Dict[str, float]:
+    """
+    Score a SimResult against REAL Pantheon+ via its sim-derived mu(z).
+
+    Scoring pipeline:
+      1. mu = sim_to_distance_modulus(z_pantheon, a_curve, t_Gyr, t_start_Gyr)
+         -> in-range subset of SNe.
+      2. evaluate_precomputed(z_in, mu_obs_in, sigma_in, mu) -> chi2, chi2_dof, R2.
+      3. match_avg_pct = 100 / (1 + chi2_dof)  — monotone-decreasing in chi2_dof
+         so the existing max-by-match_avg_pct logic selects the best config.
+
+    Edge cases handled gracefully (returns worst-case score, does NOT raise):
+      - a_curve is None  (SimResult from cache without a_curve)
+      - too few in-range SNe (< 2)
+      - non-finite chi2 / ValueError from the distance kernel
+      - empty in-range subset
+
+    Returns dict with keys:
+        chi2, chi2_dof, R2, n_sne_used, match_avg_pct, diff_pct
+    Also contains all MATCH_METRIC_KEYS set to 0.0 for CSV compatibility.
+    """
+    from .sim_distance import sim_to_distance_modulus
+    from .hubble_diagram import evaluate_precomputed
+
+    # Build a worst-case return dict with zero-filled MATCH_METRIC_KEYS
+    def worst_case():
+        metrics = dict(_PANTHEON_WORST_SCORE)
+        for k in MATCH_METRIC_KEYS:
+            metrics.setdefault(k, 0.0)
+        return metrics
+
+    if sim_result.a_curve is None:
+        return worst_case()
+
+    try:
+        dist = sim_to_distance_modulus(
+            z_target=pantheon_data['z'],
+            a=sim_result.a_curve,
+            t_Gyr=sim_result.t_Gyr,
+            t_start_Gyr=t_start_Gyr,
+        )
+    except (ValueError, Exception):
+        return worst_case()
+
+    in_range = dist['in_range']
+    z_in = pantheon_data['z'][in_range]
+    mu_obs_in = pantheon_data['mu'][in_range]
+    sigma_in = pantheon_data['sigma'][in_range]
+    mu_model = dist['mu']
+
+    if len(z_in) < 2:
+        return worst_case()
+
+    try:
+        ev = evaluate_precomputed(z_in, mu_obs_in, sigma_in, mu_model)
+    except (ValueError, Exception):
+        return worst_case()
+
+    chi2 = ev['chi2']
+    chi2_dof = ev['chi2_dof']
+    R2 = ev['R2']
+
+    if not np.isfinite(chi2_dof):
+        return worst_case()
+
+    # Monotone-decreasing score: closer to 100 as chi2_dof -> 0
+    match_avg_pct = 100.0 / (1.0 + chi2_dof)
+
+    metrics = {
+        'chi2': chi2,
+        'chi2_dof': chi2_dof,
+        'R2': R2,
+        'n_sne_used': int(len(z_in)),
+        'match_avg_pct': match_avg_pct,
+        'diff_pct': 100.0 - match_avg_pct,
+    }
+    for k in MATCH_METRIC_KEYS:
+        metrics.setdefault(k, 0.0)
+    return metrics
+
+
 def _build_result_dict(
     M_factor: int,
     S_gpc: int,
@@ -418,8 +515,10 @@ def _build_result_dict(
     }
 
 
-def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseline, weights):
-    
+def worst_callback(
+    sim_callback, config, M_factor, S_val, centerM, seeds, baseline, weights,
+    pantheon_data=None,
+):
     seeds_slug = '_'.join([str(seed) for seed in seeds])
     parts = []
     parts.append(f"{config.particle_count}p")
@@ -429,10 +528,12 @@ def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseli
     parts.append(f"{S_val}S")
     parts.append(f"{config.n_steps}steps")
     parts.append(f"{seeds_slug}seeds")
+    # Include objective so lcdm and pantheon caches never collide
+    parts.append(f"{config.objective}obj")
     # No mass randomize??
     if config.damping_factor:
         parts.append(f"{config.damping_factor}d")
-    cache_name =  "_".join(parts)
+    cache_name = "_".join(parts)
 
     cache_filename = f"metrics_{config.particle_count}_s{seeds_slug}"
     global CACHE
@@ -443,7 +544,8 @@ def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseli
         cached_metrics = CACHE.get_cached_value(cache_name, CacheType.METRICS)
         if cached_metrics:
             has_all_keys = True
-            for key in USED_MATCH_METRIC_KEYS:
+            check_keys = USED_MATCH_METRIC_KEYS if config.objective == "lcdm" else ('match_avg_pct',)
+            for key in check_keys:
                 if not key in cached_metrics:
                     has_all_keys = False
                     break
@@ -451,11 +553,12 @@ def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseli
                 cached_results = CACHE.get_cached_value(cache_name, CacheType.RESULTS)
                 print(f"Using cache for {cache_name}")
 
-                new_avg = compute_avg(cached_metrics)
-                if cached_metrics['match_avg_pct'] != new_avg:
-                    print(f"Updating avg: from {cached_metrics['match_avg_pct']} to {new_avg}")
-                    cached_metrics['match_avg_pct'] = new_avg
-                    CACHE.add_cached_value(cache_name, CacheType.METRICS, cached_metrics, save_interval_s=100)
+                if config.objective == "lcdm":
+                    new_avg = compute_avg(cached_metrics)
+                    if cached_metrics['match_avg_pct'] != new_avg:
+                        print(f"Updating avg: from {cached_metrics['match_avg_pct']} to {new_avg}")
+                        cached_metrics['match_avg_pct'] = new_avg
+                        CACHE.add_cached_value(cache_name, CacheType.METRICS, cached_metrics, save_interval_s=100)
                 # cached_results may be a dict (from JSON) or SimSimpleResult (in-memory)
                 if isinstance(cached_results, dict):
                     results = SimSimpleResult(
@@ -471,17 +574,18 @@ def worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseli
                     t_Gyr=None,
                     params=None,
                     results=results,
+                    # a_curve is not cached; pantheon scorer handles None gracefully
                 ), cached_metrics
 
-
-            
-        
     sim_results = sim_callback(M_factor, S_val, centerM, seeds)
 
     worst_result = None
     worst_metrics = None
     for result in sim_results:
-        metrics = compute_match_metrics(result, baseline, weights)
+        if config.objective == "pantheon":
+            metrics = compute_pantheon_metrics(result, pantheon_data, config.t_start_Gyr)
+        else:
+            metrics = compute_match_metrics(result, baseline, weights)
         if not worst_result:
             worst_result = result
             worst_metrics = metrics
@@ -505,7 +609,8 @@ def ternary_search_S(
     s_max: int,
     s_hint: Optional[int] = None,
     hint_window: int = 10,
-    seeds: List[int] = [42]
+    seeds: List[int] = [42],
+    pantheon_data: Optional[Dict] = None,
 ) -> Tuple[int, float, Dict[str, Any], List[Dict[str, Any]]]:
     """
     Ternary search for optimal S given fixed M.
@@ -523,6 +628,7 @@ def ternary_search_S(
         s_hint: Previous best S (warm start)
         hint_window: Search within +/- hint_window of s_hint first
         seed: Random seed for simulations
+        pantheon_data: Loaded Pantheon+ dict; required when config.objective=="pantheon".
 
     Returns:
         (best_S, best_match_pct, best_result_dict, all_results)
@@ -534,8 +640,10 @@ def ternary_search_S(
         """Evaluate and cache simulation result for given S."""
         S_val = round(S_val)
         if S_val not in evaluated:
-            sim_result, metrics = worst_callback(sim_callback, config, M_factor, S_val, centerM, seeds, baseline, weights)
-
+            sim_result, metrics = worst_callback(
+                sim_callback, config, M_factor, S_val, centerM, seeds, baseline, weights,
+                pantheon_data=pantheon_data,
+            )
             evaluated[S_val] = (sim_result, metrics)
             result_dict = _build_result_dict(M_factor, S_val, centerM, sim_result, metrics)
             all_results.append(result_dict)
@@ -582,7 +690,8 @@ def linear_search_S(
     s_min: int,
     s_max: int,
     prev_best_S: Optional[int] = None,
-    seeds: List[int] = [42]
+    seeds: List[int] = [42],
+    pantheon_data: Optional[Dict] = None,
 ) -> Tuple[int, Dict[str, Any], bool, List[Dict[str, Any]]]:
     """
     Linear search for optimal S given fixed M.
@@ -600,6 +709,7 @@ def linear_search_S(
         s_max: Maximum S value to search
         prev_best_S: Previous best S (search starts here, going down)
         seed: Random seed for simulations
+        pantheon_data: Loaded Pantheon+ dict; required when config.objective=="pantheon".
 
     Returns:
         (best_S, best_result_dict, should_stop_M_search, all_results)
@@ -616,7 +726,10 @@ def linear_search_S(
         S = S_list[i]
 
         # Run simulation
-        sim_result, metrics = worst_callback(sim_callback, config, M_factor, S, centerM, seeds, baseline, weights)
+        sim_result, metrics = worst_callback(
+            sim_callback, config, M_factor, S, centerM, seeds, baseline, weights,
+            pantheon_data=pantheon_data,
+        )
         result = _build_result_dict(M_factor, S, centerM, sim_result, metrics)
         all_results.append(result)
 
@@ -703,7 +816,8 @@ def brute_force_search(
     sim_callback: SimCallback,
     baseline: LCDMBaseline,
     weights: MatchWeights,
-    seeds: List[int] = [42]
+    seeds: List[int] = [42],
+    pantheon_data: Optional[Dict] = None,
 ) -> List[Dict[str, Any]]:
     """
     Exhaustive search over all M x S x centerM combinations.
@@ -716,7 +830,10 @@ def brute_force_search(
         m_list = build_m_list(many_search, multiplier=many_search)#centerM)
         for M in m_list:
             for S in s_list:
-                sim_result, metrics = worst_callback(sim_callback, config, M, S, centerM, seeds, baseline, weights)
+                sim_result, metrics = worst_callback(
+                    sim_callback, config, M, S, centerM, seeds, baseline, weights,
+                    pantheon_data=pantheon_data,
+                )
                 result = _build_result_dict(M, S, centerM, sim_result, metrics)
                 results.append(result)
 
@@ -727,9 +844,10 @@ def run_sweep(
     config: SweepConfig,
     search_method: SearchMethod,
     sim_callback: SimCallback,
-    baseline: LCDMBaseline,
+    baseline: Optional[LCDMBaseline],
     weights: Optional[MatchWeights] = None,
-    seeds = [42,123]
+    seeds = [42,123],
+    pantheon_data: Optional[Dict] = None,
 ) -> List[Dict[str, Any]]:
     """
     Run parameter sweep using specified search method.
@@ -738,9 +856,10 @@ def run_sweep(
         config: Sweep configuration
         search_method: Search algorithm to use
         sim_callback: Callback to run simulations
-        baseline: LCDM baseline for comparison
+        baseline: LCDM baseline for comparison (may be None when objective="pantheon")
         weights: Match metric weights (uses defaults if None)
-        seed: Random seed for simulations
+        seeds: Random seeds for simulations
+        pantheon_data: Loaded Pantheon+ dict; required when config.objective=="pantheon".
 
     Returns:
         List of result dicts for all evaluated configurations
@@ -756,12 +875,13 @@ def run_sweep(
     if search_method == SearchMethod.BRUTE_FORCE:
         all_results = brute_force_search(
             config, config.many_search, s_list, center_masses,
-            sim_callback, baseline, weights, seeds
+            sim_callback, baseline, weights, seeds,
+            pantheon_data=pantheon_data,
         )
 
     elif search_method == SearchMethod.TERNARY_SEARCH:
         for centerM in center_masses:
-            prev_best_S = None            
+            prev_best_S = None
             m_list = build_m_list(config.many_search, multiplier=config.many_search)#centerM)
             for M in m_list:
                 S_best, _, _, results = ternary_search_S(
@@ -770,7 +890,8 @@ def run_sweep(
                     prev_best_S if prev_best_S else config.s_max_gpc,
                     s_hint=prev_best_S,
                     hint_window=(prev_best_S // 4) if prev_best_S else (config.s_max_gpc // 4),
-                    seeds=seeds
+                    seeds=seeds,
+                    pantheon_data=pantheon_data,
                 )
                 all_results.extend(results)
                 prev_best_S = S_best
@@ -789,7 +910,8 @@ def run_sweep(
                     config.s_min_gpc,
                     prev_best_S if prev_best_S else config.s_max_gpc,
                     prev_best_S=prev_best_S,
-                    seeds=seeds
+                    seeds=seeds,
+                    pantheon_data=pantheon_data,
                 )
                 all_results.extend(results)
 

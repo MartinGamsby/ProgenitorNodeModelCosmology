@@ -200,5 +200,6 @@ def results_to_sim_result(ext_results: Dict, sim_params: SimulationParameters):
             a_final=ext_results['a'][-1],
         ),
         t_Gyr=ext_results['t_Gyr'],
-        params=sim_params.external_params
+        params=sim_params.external_params,
+        a_curve=ext_results['a'],  # Full scale-factor array for from-data chi^2 scoring
     )

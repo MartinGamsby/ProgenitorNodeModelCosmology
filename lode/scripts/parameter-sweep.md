@@ -1,6 +1,7 @@
 # Parameter Sweep
 
-Grid search over M (mass factor), S (spacing), and centerM (center node mass) to find optimal LCDM match.
+Grid search over M (mass factor), S (spacing), and centerM (center node mass) to find the best match.
+Two scoring modes: `objective="lcdm"` (default, R^2 vs LCDM baseline) and `objective="pantheon"` (chi^2 vs real Pantheon+ data).
 
 ## Architecture
 
@@ -42,15 +43,19 @@ class MatchWeights:  # Legacy, currently unused
     max_radius: float = 0.1
 
 @dataclass
+class SweepConfig:
+    ...
+    objective: str = "lcdm"  # "lcdm" or "pantheon"
+
+@dataclass
 class SimResult:
     """Raw simulation output passed from callback"""
     size_curve_Gpc: np.ndarray
     hubble_curve: np.ndarray
-    size_final_Gpc: float
-    radius_max_Gpc: float
-    a_final: float
     t_Gyr: np.ndarray
     params: Any
+    results: SimSimpleResult
+    a_curve: Optional[np.ndarray] = None  # populated by results_to_sim_result; needed for pantheon objective
 
 @dataclass
 class LCDMBaseline:
@@ -134,17 +139,41 @@ graph TD
     K --> L[Sort, display, save best_config.pkl]
 ```
 
+## Scoring Objectives
+
+### objective="lcdm" (default)
+Scores each config by R^2/RMSE vs analytic LCDM baseline. Uses `compute_match_metrics(result, baseline, weights)`.
+`match_avg_pct` = weighted aggregate of MATCH_METRIC_KEYS (product or weighted mean).
+
+### objective="pantheon"
+Scores each config by chi^2 of sim-derived mu(z) vs real Pantheon+ SNe. Uses `compute_pantheon_metrics(result, pantheon_data, t_start_Gyr)`.
+- Requires `sim_result.a_curve` (full scale-factor array from the N-body)
+- `match_avg_pct = 100 / (1 + chi2_dof)` — monotone-decreasing so existing max-by-match logic works
+- Extra CSV keys: `chi2`, `chi2_dof`, `R2`, `n_sne_used`
+- baseline may be None; objective must include t_end=13.8 (t_start+t_duration=13.8)
+- Edge cases (None a_curve, <2 SNe in range, ValueError from kernel) return worst-case score (match_avg_pct=0, n_sne_used=0), do not raise.
+- Cache key includes `lcdmobj` or `pantheonobj` suffix to prevent collisions between objectives.
+
+## From-data sweep results (Stage 3, coarse grid, 200p/250steps, seed=42)
+| M | S (Gpc) | chi2_dof | R2 | n_sne | notes |
+|---|---------|----------|----|-------|-------|
+| 2000 | 15 | 0.431 | 0.989 | 971 | best fit (limited z coverage) |
+| 5000 | 15 | 0.434 | 0.991 | 1007 | 2nd best |
+| 5000 | 40 | 0.461 | 0.997 | 1393 | good coverage |
+Reference: LCDM analytic chi2_dof=0.436, R2=0.997 (1580 SNe); matter-only chi2_dof=0.517.
+
 ## Key Functions
 
 **cosmo/parameter_sweep.py:**
 - `build_m_list(many_search)` - returns descending M values
 - `build_s_list(s_min, s_max)` - returns S range
 - `build_center_mass_list(search_center_mass, many_search)` - returns centerM values
-- `compute_match_metrics(sim_result, baseline, weights)` - returns match dict
+- `compute_match_metrics(sim_result, baseline, weights)` - LCDM scoring
+- `compute_pantheon_metrics(sim_result, pantheon_data, t_start_Gyr)` - Pantheon+ chi^2 scoring
 - `ternary_search_S(...)` - ternary search for optimal S
 - `linear_search_S(...)` - linear search with early stopping
 - `brute_force_search(...)` - exhaustive evaluation
-- `run_sweep(config, method, callback, baseline, weights)` - main entry
+- `run_sweep(config, method, callback, baseline, weights, pantheon_data)` - main entry
 
 **parameter_sweep.py:**
 - `sim_callback(M, S, centerM, seed)` - runs real simulation, returns SimResult
@@ -176,7 +205,9 @@ CSV columns defined by `CSV_COLUMNS` constant (cosmo/parameter_sweep.py):
 python parameter_sweep.py
 ```
 
-Edit script constants (SEARCH_METHOD, QUICK_SEARCH, MANY_SEARCH, SEARCH_CENTER_MASS) to change behavior.
+Edit script constants (SEARCH_METHOD, QUICK_SEARCH, MANY_SEARCH, SEARCH_CENTER_MASS, OBJECTIVE) to change behavior.
+Set `OBJECTIVE = "pantheon"` to score against real Pantheon+ data instead of LCDM.
+Output CSVs: `results/sweep_results.csv` (lcdm) or `results/sweep_results_pantheon.csv` (pantheon).
 
 ## Best Known Configurations
 

@@ -34,6 +34,18 @@ import argparse
 import os
 import sys
 
+# The summary table and plot titles use Greek characters (Λ, Ω, χ²).  On
+# Windows the console defaults to cp1252, which cannot encode them and would
+# raise UnicodeEncodeError on the first print.  Reconfigure stdout/stderr to
+# UTF-8 (with a safe fallback) so the script runs on any platform.
+for _stream in (sys.stdout, sys.stderr):
+    _reconfigure = getattr(_stream, "reconfigure", None)
+    if _reconfigure is not None:
+        try:
+            _reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            pass
+
 # Headless backend — must be set BEFORE pyplot is imported anywhere in this
 # process.  Matches the approach in the other plotting scripts (run_simulation.py
 # uses plt.savefig without plt.show, so Agg is safe here too).

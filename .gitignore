@@ -225,3 +225,7 @@ lode/tmp/
 # Claude temp files
 tmpclaude-*
 .claude/settings.local.json
+/docs/archive/VirializedMetaStructure_v0
+/docs/VirializedMetaStructure_v1.0.1
+/docs/VirializedMetaStructure_v1
+/data/pantheon_plus

@@ -19,6 +19,10 @@ graph TD
     run[run_simulation.py<br/>Main entry point]
     sweep[parameter_sweep.py<br/>Grid search script]
     viz3d[visualize_3d.py<br/>3D visualizations]
+    distances[cosmo/distances.py<br/>Distance kernel: H z, d_L, mu]
+    pantheon[cosmo/pantheon.py<br/>Pantheon+ loader]
+    hd_engine[cosmo/hubble_diagram.py<br/>Offset fit + chi2/R2]
+    hd_script[hubble_diagram.py<br/>Hubble-diagram script]
 
     cli --> constants
     param_sweep --> analysis
@@ -50,7 +54,20 @@ graph TD
     viz3d --> constants
     viz3d --> analysis
     viz3d --> viz
+    distances --> constants
+    hd_engine --> analysis
+    hd_engine --> constants
+    hd_engine --> distances
+    hd_script --> cli
+    hd_script --> distances
+    hd_script --> hd_engine
+    hd_script --> pantheon
+    hd_script --> viz
 ```
+
+The Hubble-diagram modules (distances, pantheon, hd_engine, hd_script) form an
+independent additive branch: they do NOT touch the
+particles -> integrator -> simulation N-body chain.
 
 ## Module Responsibilities
 
@@ -299,6 +316,44 @@ PID liveness: `ctypes`+`OpenProcess`/`GetExitCodeProcess` on Windows, `os.kill(p
 
 **Uses**: `cosmo.parameter_sweep.run_sweep()` for search algorithms, `cosmo.factories` for simulation consistency.
 
+### `cosmo/distances.py`
+**Purpose**: Pure-function cosmological distance kernel for the Hubble-diagram test. No I/O, no plotting.
+
+**Functions**:
+- `hubble_z(z, Omega_m, Omega_de, H0)`: H(z)=H0*sqrt(Omega_m(1+z)^3+Omega_k(1+z)^2+Omega_de); Omega_k derived (no flat assumption); raises ValueError on E^2<0 (turnaround in closed models)
+- `comoving_distance`, `transverse_comoving_distance` (sinh/flat/sin curvature branches), `luminosity_distance`, `distance_modulus`
+- `model_distance_modulus(z, model, sim_params, H0=70)`: builds mu(z) for `lcdm` / `matter_only` / `external_node` (latter uses `sim_params.external_params.Omega_Lambda_eff`)
+
+**Used by**: `cosmo/hubble_diagram.py`, `hubble_diagram.py`
+
+### `cosmo/pantheon.py`
+**Purpose**: Loader for the vendored Pantheon+SH0ES SN Ia compilation. No network access.
+
+**Functions**:
+- `load_pantheon(path=DEFAULT_PATH, z_min=0.01, exclude_calibrators=True)`: reads `data/pantheon_plus/Pantheon+SH0ES.dat` by COLUMN NAME (zHD, MU_SH0ES, MU_SH0ES_ERR_DIAG, IS_CALIBRATOR); applies z_min and calibrator cuts; returns dict {z, mu, sigma, n} sorted by z. Raises FileNotFoundError pointing to data/pantheon_plus/README.md if absent.
+- `bin_for_plot(z, mu, sigma, n_bins=20)`: inverse-variance log-z binning for plot overlays only (statistics use unbinned data)
+
+**Used by**: `hubble_diagram.py`. Real data file NOT committed; tests use `tests/fixtures/pantheon_synthetic.dat`.
+
+### `cosmo/hubble_diagram.py`
+**Purpose**: Offset-marginalized chi^2/R^2 comparison engine. Pure numpy.
+
+**Functions**:
+- `fit_offset(mu_obs, mu_model, sigma)`: analytic inverse-variance-weighted additive offset DeltaM (closed form)
+- `evaluate_model(z, mu_obs, sigma, model, sim_params, H0=70)`: computes mu_model, fits DeltaM, returns {model, DeltaM, chi2, dof=n-1, chi2_dof, R2, residuals, mu_fit}; surfaces turnaround ValueError descriptively
+- `compare_all_models(data, sim_params, H0=70)`: runs all three models, returns dict keyed by model name
+
+**Uses**: `cosmo.analysis.calculate_r_squared`, `cosmo.distances.model_distance_modulus`.
+
+### `hubble_diagram.py` (top-level script)
+**Purpose**: Standalone Hubble-diagram-vs-Pantheon+ runner. INDEPENDENT of run_simulation.py — semi-analytic, never calls CosmologicalSimulation.run().
+
+**Workflow**: load_pantheon -> compare_all_models -> print per-model chi^2/dof/R^2 table -> save 2-panel PNG (data+curves / residuals) via `visualization.generate_output_filename`.
+
+**CLI**: `--M`/`--S` (via `cosmo.cli.add_common_arguments`, defaulted to M=855,S=37.8 -> Omega_Lambda_eff~=0.70), `--pantheon-path`, `--z-min`, `--n-bins`, `--output-dir`. Reconfigures stdout/stderr to UTF-8 so Greek labels print on Windows cp1252.
+
+See [../physics/hubble-diagram.md](../physics/hubble-diagram.md) for the physics, offset rationale, and the open (M,S) discrepancy.
+
 ## File Locations
 
 | File | Lines | Purpose |
@@ -316,8 +371,12 @@ PID liveness: `ctypes`+`OpenProcess`/`GetExitCodeProcess` on Windows, `os.kill(p
 | `cosmo/tidal_forces_numba.py` | 60 | Numba JIT tidal forces |
 | `cosmo/factories.py` | 120 | Shared simulation functions |
 | `cosmo/parameter_sweep.py` | 350 | Search algorithms, dataclasses |
+| `cosmo/distances.py` | 309 | Cosmological distance kernel (H z, d_L, mu) |
+| `cosmo/pantheon.py` | 207 | Pantheon+SH0ES loader + plot binning |
+| `cosmo/hubble_diagram.py` | 238 | Offset-marginalized chi^2/R^2 engine |
 | `run_simulation.py` | 280 | Main comparison script |
 | `parameter_sweep.py` | 210 | Parameter exploration script |
+| `hubble_diagram.py` | 345 | Hubble-diagram vs Pantheon+ script |
 | `visualize_3d.py` | 765 | 3D visualization |
 
 ## Import Pattern

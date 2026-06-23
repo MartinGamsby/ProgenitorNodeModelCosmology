@@ -10,6 +10,8 @@ Size-only optimization can reach R²_size=0.9991 (M=800 S=22) but distorts expan
 
 Matter-only comparison validates mechanism: N-body matter-only NEVER exceeds LCDM (physics constraint enforced via velocity calibration at sim.run()). Velocity calibration scales initial velocities to compensate for N-body's ~65-80% deceleration compared to Friedmann; auto-calculated from t_start or passed as explicit damping parameter. Without external-nodes, matter-only has R²_rate=0.835 vs external-node 0.963, and R²_size=0.989 vs 0.995.
 
+The project also includes a separate, data-anchored Hubble-diagram test (hubble_diagram.py + cosmo/distances.py, cosmo/pantheon.py, cosmo/hubble_diagram.py): it turns each model's semi-analytic H(z) into a distance-modulus mu(z) curve, overlays REAL Pantheon+SH0ES supernovae, and reports per-model chi^2/R^2 after marginalizing an additive magnitude offset. This is model-vs-real-data (distinct from the N-body model-vs-LCDM-theory R^2) and leaves the N-body path untouched. Open issue: the (M,S) matching real SNe (Omega_Lambda_eff~=0.70, near M=855,S=37.8) differs from the paper's primary N-body config (M=9000,S=38 -> Omega_Lambda_eff~=7.24, a closed universe) — see lode/physics/hubble-diagram.md.
+
 Toy model scope: late-time acceleration (t=5.8->13.8 Gyr, 8 Gyr period); doesn't address CMB, BAO, structure formation, or early universe. Starts at t=5.8 Gyr (not Big Bang) to focus on late-universe expansion. Code purpose: test mechanism viability, explore parameters, generate data for ongoing draft refinement.
 
 Key technical insights:

@@ -16,7 +16,7 @@
 - [physics/theoretical-framework.md](./physics/theoretical-framework.md) - External-Node Model, Progenitor Hypothesis, predictions, scope/limitations
 - [physics/force-calculations.md](./physics/force-calculations.md) - Internal gravity, tidal forces, dark energy, Hubble drag
 - [physics/barnes-hut-optimization.md](./physics/barnes-hut-optimization.md) - Force methods: direct, numba_direct (O(N²) JIT), barnes_hut (real octree O(N log N))
-- [physics/initial-conditions.md](./physics/initial-conditions.md) - Damped Hubble flow setup and rationale
+- [physics/initial-conditions.md](./physics/initial-conditions.md) - Damped Hubble flow setup, velocity calibration, validated t_start range (safe floor 2.9 Gyr, z_max~2.23)
 - [physics/integration.md](./physics/integration.md) - Leapfrog algorithm implementation
 - [physics/hubble-diagram.md](./physics/hubble-diagram.md) - Data-anchored mu(z) Hubble-diagram test vs real Pantheon+ SNe (semi-analytic H(z), offset marginalization); open M,S discrepancy
 

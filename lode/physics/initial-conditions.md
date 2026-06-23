@@ -153,12 +153,33 @@ graph TD
 
 **Current approach**: One-time velocity scaling at sim.run() based on predicted final expansion. Damping factor auto-calculated from t_start or passed explicitly.
 
+## Validated t_start Range (Stage 2)
+
+The auto-damping formula and physics constraints were validated via sweep
+across t_start ∈ {5.8, 4.8, 3.8, 3.3, 2.9} Gyr with n_steps=ceil(duration/0.04):
+
+| t_start | a_start | damping | max_excess% | runaway ok |
+|---------|---------|---------|-------------|-----------|
+| 5.8 Gyr | 0.503   | 0.890   | 0.000       | yes       |
+| 4.8 Gyr | 0.439   | 0.867   | 0.000       | yes       |
+| 3.8 Gyr | 0.373   | 0.840   | 0.000       | yes       |
+| 3.3 Gyr | 0.339   | 0.824   | 0.000       | yes       |
+| 2.9 Gyr | 0.310   | 0.810   | 0.000       | yes       |
+
+**Safe floor: t_start >= 2.9 Gyr** (a~0.310, z_max~2.23 — full Pantheon+ range covered).
+The damping formula was NOT modified; t_start=5.8 behavior is unchanged.
+
 ## Tests
 
 **File**: tests/test_early_time_behavior.py
 - test_matter_only_never_exceeds_lcdm: Verifies relative <= 1.0 at all timesteps
 - test_initial_size_exact_match: Verifies identical starting size
 - test_models_use_appropriate_hubble: Verifies H_lcdm vs H_matter
+
+**File**: tests/test_early_start_validation.py (Stage 2 harness)
+- test_matter_only_never_exceeds_lcdm_t_start_4p8/3p8: invariant at early starts
+- test_timestep_scaling_t_start_4p8/3p8/2p9: dt<0.05 and no runaway at early starts
+- test_safe_floor_documented: SAFE_T_START_FLOOR_GYR==2.9, z_max>2, damping/n_steps range
 
 ## References
 

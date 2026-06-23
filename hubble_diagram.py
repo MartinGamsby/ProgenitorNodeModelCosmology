@@ -119,14 +119,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # External-node model parameters (M, S, …) — reuse shared CLI definitions.
     # Defaults here give Omega_Lambda_eff ~ 0.70, suitable for the full
-    # Pantheon+ z range.  The raw SimulationParameters default (M~855, S~25)
+    # Pantheon+ z range.  The raw SimulationParameters default (M=800, S=24)
     # gives Omega_Lambda_eff ~ 2.55 (closed universe, turnaround at z ~ 0.32).
     add_common_arguments(parser)
 
     # Override the add_common_arguments defaults so the script works out of the
     # box with a physically matched config (Omega_Lambda_eff ~ 0.70).
     # M=855, S=37.8 gives Omega_Lambda_eff = 0.6988 ≈ 0.70.
-    # The raw SimulationParameters default (M~800, S~24) gives ~2.55 — a closed
+    # The raw SimulationParameters default (M=800, S=24) gives ~2.55 — a closed
     # universe that turns around at z~0.32, incompatible with Pantheon+ data.
     parser.set_defaults(M=855.0, S=37.8)
 

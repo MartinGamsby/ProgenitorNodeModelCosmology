@@ -128,6 +128,16 @@ def evaluate_model(
     mu_obs = np.asarray(mu_obs, dtype=float)
     sigma = np.asarray(sigma, dtype=float)
 
+    # Explicit empty-data guard so an empty array (e.g. an over-aggressive
+    # z_min cut leaving no SNe) yields an actionable message instead of the
+    # turnaround error model_distance_modulus would otherwise raise on np.max
+    # of a zero-size array.
+    if len(z) == 0:
+        raise ValueError(
+            "No data points to evaluate (empty z array). "
+            "Check the z_min cut and the loaded Pantheon+ data."
+        )
+
     # Compute model distance moduli — may raise ValueError for turnaround
     try:
         mu_model = model_distance_modulus(z, model, sim_params=sim_params, H0=H0)

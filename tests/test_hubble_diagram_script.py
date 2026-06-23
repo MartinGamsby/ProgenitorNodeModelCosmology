@@ -168,9 +168,10 @@ class TestCLIHelp(unittest.TestCase):
 
 class TestDefaultOmegaLambda(unittest.TestCase):
     """
-    The default CLI parameters (M=9000, S=38) must yield an Omega_Lambda_eff
+    The default CLI parameters (M=855, S=37.8) must yield an Omega_Lambda_eff
     that keeps the external-node model well within the flat/mildly-open regime
-    (0.5 < Omega_Lambda_eff < 1.0), NOT the raw default (~2.55).
+    (0.5 < Omega_Lambda_eff < 1.0), NOT the raw SimulationParameters default
+    (M=800, S=24 -> ~2.55).
     """
 
     def test_default_params_give_sensible_omega(self):

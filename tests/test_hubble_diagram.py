@@ -373,6 +373,20 @@ class TestValidationErrors(unittest.TestCase):
         with self.assertRaises(ValueError):
             fit_offset(mu_obs, mu_model, sigma)
 
+    def test_empty_data_raises_descriptive_error(self):
+        """
+        Empty z (e.g. an over-aggressive z_min cut leaving no SNe) must raise a
+        ValueError whose message names the empty/z_min problem, not a turnaround.
+        """
+        empty = np.array([])
+        with self.assertRaises(ValueError) as ctx:
+            evaluate_model(empty, empty, empty, model="lcdm")
+        msg = str(ctx.exception).lower()
+        self.assertTrue(
+            "empty" in msg or "z_min" in msg,
+            f"Empty-data error should mention empty/z_min, got: {ctx.exception}",
+        )
+
     def test_two_points_is_valid_minimum(self):
         """n=2 must succeed (dof = 1, minimum valid)."""
         mu_obs = np.array([43.0, 44.0])

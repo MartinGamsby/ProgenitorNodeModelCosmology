@@ -148,25 +148,58 @@ def evaluate_model(
             f"Original error: {exc}"
         ) from exc
 
-    DeltaM, mu_fit = fit_offset(mu_obs, mu_model, sigma)
+    return _evaluate_from_precomputed_mu(
+        z, mu_obs, sigma, mu_model, model_name=model
+    )
 
-    residuals = mu_obs - mu_fit
-    chi2 = float(np.sum((residuals / sigma) ** 2))
-    n = len(mu_obs)
-    dof = n - 1  # one free parameter: DeltaM
-    chi2_dof = chi2 / dof
-    R2 = float(calculate_r_squared(mu_obs, mu_fit))
 
-    return {
-        "model": model,
-        "DeltaM": DeltaM,
-        "chi2": chi2,
-        "dof": dof,
-        "chi2_dof": chi2_dof,
-        "R2": R2,
-        "residuals": residuals,
-        "mu_fit": mu_fit,
-    }
+def evaluate_precomputed(
+    z: np.ndarray,
+    mu_obs: np.ndarray,
+    sigma: np.ndarray,
+    mu_model: np.ndarray,
+    model_name: str = "external_node_nbody",
+) -> dict:
+    """
+    Same offset-marginalized chi^2/R^2/residuals as evaluate_model, but
+    mu_model is supplied directly (e.g. from the N-body a(t) via
+    sim_to_distance_modulus) instead of computed analytically.
+
+    This is the entry-point for the from-simulation Hubble-diagram comparison
+    (Stage 1 gating). It uses the same _evaluate_from_precomputed_mu helper
+    as evaluate_model so the two share one source of truth for chi2/dof/R2.
+
+    Args:
+        z:          Redshift array (n,), sorted ascending, all > 0.
+        mu_obs:     Observed distance moduli (n,).
+        sigma:      Diagonal 1-sigma uncertainties (n,), strictly positive.
+        mu_model:   Model distance moduli computed externally (n,).
+        model_name: Label stored in the returned dict (default
+                    'external_node_nbody').
+
+    Returns:
+        dict with the same keys as evaluate_model:
+            'model', 'DeltaM', 'chi2', 'dof', 'chi2_dof', 'R2',
+            'residuals', 'mu_fit'.
+
+    Raises:
+        ValueError: Propagated from fit_offset (bad sigma, length mismatch,
+                    fewer than 2 points).
+    """
+    z = np.asarray(z, dtype=float)
+    mu_obs = np.asarray(mu_obs, dtype=float)
+    sigma = np.asarray(sigma, dtype=float)
+    mu_model = np.asarray(mu_model, dtype=float)
+
+    if len(z) == 0:
+        raise ValueError(
+            "No data points to evaluate (empty z array). "
+            "Check the z_min cut and the loaded Pantheon+ data."
+        )
+
+    return _evaluate_from_precomputed_mu(
+        z, mu_obs, sigma, mu_model, model_name=model_name
+    )
 
 
 def compare_all_models(
@@ -219,6 +252,40 @@ def compare_all_models(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+def _evaluate_from_precomputed_mu(
+    z: np.ndarray,
+    mu_obs: np.ndarray,
+    sigma: np.ndarray,
+    mu_model: np.ndarray,
+    model_name: str,
+) -> dict:
+    """
+    Shared chi^2/dof/R^2 computation for evaluate_model and evaluate_precomputed.
+
+    Both callers supply mu_model; this helper does the offset fit and stats.
+    Single source of truth — never call this directly from outside the module.
+    """
+    DeltaM, mu_fit = fit_offset(mu_obs, mu_model, sigma)
+
+    residuals = mu_obs - mu_fit
+    chi2 = float(np.sum((residuals / sigma) ** 2))
+    n = len(mu_obs)
+    dof = n - 1  # one free parameter: DeltaM
+    chi2_dof = chi2 / dof
+    R2 = float(calculate_r_squared(mu_obs, mu_fit))
+
+    return {
+        "model": model_name,
+        "DeltaM": DeltaM,
+        "chi2": chi2,
+        "dof": dof,
+        "chi2_dof": chi2_dof,
+        "R2": R2,
+        "residuals": residuals,
+        "mu_fit": mu_fit,
+    }
+
 
 def _validate_arrays(
     mu_obs: np.ndarray,

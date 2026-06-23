@@ -9,9 +9,10 @@ import unittest
 import pathlib
 import numpy as np
 
+import cosmo.parameter_sweep as ps
 from cosmo.parameter_sweep import (
     SearchMethod, SweepConfig, MatchWeights, SimResult, SimSimpleResult, LCDMBaseline,
-    compute_pantheon_metrics, compute_match_metrics, run_sweep, SKIP_CACHE,
+    compute_pantheon_metrics, compute_match_metrics, run_sweep, worst_callback, SKIP_CACHE,
 )
 from cosmo.pantheon import load_pantheon
 from cosmo.analysis import solve_friedmann_at_times
@@ -255,6 +256,190 @@ class TestLCDMObjectiveUnchanged(unittest.TestCase):
         # The unimodal peak is at S=30; allow ±5 tolerance for coarse M grid
         self.assertLessEqual(abs(best['S_gpc'] - optimal_S), 5,
                              f"Best S={best['S_gpc']} not near optimal {optimal_S}")
+
+
+class TestPantheonObjectiveSweepEndToEnd(unittest.TestCase):
+    """
+    Run a tiny BRUTE_FORCE sweep with objective="pantheon" end-to-end, using a
+    dummy callback that returns SimResults carrying an analytic-LCDM a_curve.
+
+    This exercises the from-data path that compute_pantheon_metrics alone does
+    NOT cover: the objective branch in worst_callback, and pantheon_data being
+    threaded through run_sweep -> brute_force_search -> worst_callback.
+
+    Cache is disabled at the MODULE level (ps.SKIP_CACHE) so the test is fully
+    hermetic and never touches data/*.csv. (Reassigning the imported SKIP_CACHE
+    name would NOT disable the cache — worst_callback reads the module global.)
+    """
+
+    def setUp(self):
+        self._saved_skip = ps.SKIP_CACHE
+        ps.SKIP_CACHE = True
+        self.pantheon = _load_synthetic_pantheon()
+
+    def tearDown(self):
+        ps.SKIP_CACHE = self._saved_skip
+
+    def _a_curve_callback(self):
+        """Callback returning SimResults whose a_curve is analytic LCDM."""
+        a_curve, t_Gyr = _make_lcdm_a_curve()
+
+        def callback(M, S, centerM, seeds):
+            n = len(a_curve)
+            return [
+                SimResult(
+                    size_curve_Gpc=np.linspace(10.0, 14.5, n),
+                    hubble_curve=np.linspace(75.0, 68.0, n),
+                    t_Gyr=t_Gyr,
+                    params=None,
+                    results=SimSimpleResult(14.5, 9.4, float(a_curve[-1])),
+                    a_curve=a_curve,
+                )
+                for _ in seeds
+            ]
+        return callback
+
+    def test_pantheon_sweep_returns_finite_chi2_results(self):
+        """A pantheon-objective sweep produces results with finite chi2_dof."""
+        config = SweepConfig(
+            search_center_mass=False,
+            s_min_gpc=20,
+            s_max_gpc=30,
+            objective="pantheon",
+        )
+        results = run_sweep(
+            config, SearchMethod.BRUTE_FORCE,
+            self._a_curve_callback(),
+            baseline=None,                 # pantheon objective needs no LCDM baseline
+            seeds=[42],
+            pantheon_data=self.pantheon,
+        )
+        self.assertGreater(len(results), 0)
+        # Every config scored with the pantheon scorer -> chi2_dof present & finite
+        for r in results:
+            self.assertIn('chi2_dof', r)
+            self.assertTrue(np.isfinite(r['chi2_dof']),
+                            f"chi2_dof not finite for {r.get('desc')}: {r['chi2_dof']}")
+            self.assertGreater(r['n_sne_used'], 0)
+
+    def test_pantheon_sweep_baseline_none_does_not_crash(self):
+        """objective='pantheon' must work with baseline=None (no LCDM ref needed)."""
+        config = SweepConfig(
+            search_center_mass=False,
+            s_min_gpc=20, s_max_gpc=25,
+            objective="pantheon",
+        )
+        # Should not raise even though baseline is None
+        results = run_sweep(
+            config, SearchMethod.TERNARY_SEARCH,
+            self._a_curve_callback(),
+            baseline=None,
+            seeds=[42],
+            pantheon_data=self.pantheon,
+        )
+        self.assertGreater(len(results), 0)
+
+
+class TestCacheKeyObjectiveIsolation(unittest.TestCase):
+    """
+    The cache key built in worst_callback MUST include the objective so that
+    lcdm and pantheon scores for the SAME (M, S, centerM, seeds, timing) config
+    never collide in the shared cache file.
+
+    This guards the exact regression the cache-key change could have introduced:
+    a pantheon score being served from an lcdm cache entry (or vice versa).
+
+    Strategy: monkeypatch cosmo.parameter_sweep.Cache with a spy that records
+    every key passed to add_cached_value, run one lcdm and one pantheon
+    evaluation of an identical config, and assert the recorded key sets are
+    disjoint and carry the expected '<objective>obj' suffix.
+    """
+
+    def setUp(self):
+        self._saved_skip = ps.SKIP_CACHE
+        self._saved_cache_cls = ps.Cache
+        self._saved_cache_singleton = ps.CACHE
+        ps.SKIP_CACHE = False          # we WANT the cache path to run (spied)
+        ps.CACHE = None
+        self.pantheon = _load_synthetic_pantheon()
+
+    def tearDown(self):
+        ps.SKIP_CACHE = self._saved_skip
+        ps.Cache = self._saved_cache_cls
+        ps.CACHE = self._saved_cache_singleton
+
+    def _install_spy_cache(self):
+        recorded_keys = []
+
+        class _SpyCache:
+            def __init__(self, name, *a, **k):
+                self.name = name
+
+            def get_cached_value(self, key, data_type):
+                return None  # always a miss so the scorer runs
+
+            def add_cached_value(self, key, data_type, value, save_interval_s=5):
+                recorded_keys.append(key)
+
+        ps.Cache = _SpyCache
+        ps.CACHE = None
+        return recorded_keys
+
+    def _eval_once(self, objective):
+        """Run worst_callback once for a fixed config under the given objective."""
+        a_curve, t_Gyr = _make_lcdm_a_curve()
+        n = len(a_curve)
+
+        def callback(M, S, centerM, seeds):
+            return [
+                SimResult(
+                    size_curve_Gpc=np.linspace(10.0, 14.5, n),
+                    hubble_curve=np.linspace(75.0, 68.0, n),
+                    t_Gyr=t_Gyr,
+                    params=None,
+                    results=SimSimpleResult(14.5, 9.4, float(a_curve[-1])),
+                    a_curve=a_curve,
+                )
+                for _ in seeds
+            ]
+
+        config = SweepConfig(objective=objective)
+        baseline = LCDMBaseline(
+            t_Gyr=np.linspace(5.8, 13.8, n),
+            size_Gpc=np.linspace(10.0, 14.5, n),
+            H_hubble=np.linspace(75.0, 68.0, n),
+            size_final_Gpc=14.5, radius_max_Gpc=9.4, a_final=1.0,
+        )
+        ps.CACHE = None  # force a fresh spy cache instance
+        worst_callback(
+            callback, config, M_factor=500, S_val=25, centerM=1,
+            seeds=[42], baseline=baseline, weights=MatchWeights(),
+            pantheon_data=self.pantheon,
+        )
+
+    def test_lcdm_and_pantheon_keys_are_disjoint(self):
+        recorded = self._install_spy_cache()
+
+        self._eval_once("lcdm")
+        lcdm_keys = set(recorded)
+
+        recorded.clear()
+        self._eval_once("pantheon")
+        pantheon_keys = set(recorded)
+
+        self.assertTrue(lcdm_keys, "lcdm path recorded no cache keys")
+        self.assertTrue(pantheon_keys, "pantheon path recorded no cache keys")
+
+        # The objective suffix must make the key sets disjoint.
+        self.assertEqual(
+            lcdm_keys & pantheon_keys, set(),
+            f"lcdm and pantheon cache keys collide: {lcdm_keys & pantheon_keys}",
+        )
+        # Every key must carry its objective suffix.
+        self.assertTrue(all(k.endswith("lcdmobj") for k in lcdm_keys),
+                        f"lcdm keys missing 'lcdmobj' suffix: {lcdm_keys}")
+        self.assertTrue(all(k.endswith("pantheonobj") for k in pantheon_keys),
+                        f"pantheon keys missing 'pantheonobj' suffix: {pantheon_keys}")
 
 
 if __name__ == '__main__':

@@ -22,7 +22,12 @@ v1 uses the diagonal MU_SH0ES_ERR_DIAG column only. A covariant chi^2 would load
 Pantheon+SH0ES_STAT+SYS.cov (hook noted in cosmo/pantheon.py and
 data/pantheon_plus/README.md).
 
-## 4. N-body-derived d_L (future)
-Currently H(z) is semi-analytic. An N-body-derived d_L is deliberate future work
-(N-body a(t) only covers z~0..1.2; differentiation edge artifacts) — would
-require extending the sim earlier and a robust a(t)->H(z) path.
+## 4. N-body-derived d_L — DONE
+The from-sim N-body mu(z) path now exists (cosmo/sim_distance.py,
+hubble_diagram_nbody.py, and the objective="pantheon" sweep). It integrates
+D_C = c*integral dt/a directly from the real a(t) (no differentiation), avoiding
+the edge artifacts. Validated safe floor t_start=2.9 Gyr -> z~2.23 covers the
+full Pantheon+ range. See
+[../physics/hubble-diagram-nbody.md](../physics/hubble-diagram-nbody.md).
+Remaining open: a production-scale (2000-particle, deep-t_start) from-data sweep
+to see whether the from-sim curve sharpens away from LCDM at high z.

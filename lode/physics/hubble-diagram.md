@@ -1,8 +1,15 @@
-# Hubble-Diagram Test vs Real Pantheon+ Supernovae
+# Hubble-Diagram Test vs Real Pantheon+ Supernovae (SEMI-ANALYTIC)
 
 Data-anchored background test. Turns each model's H(z) into a distance-modulus
 mu(z) Hubble diagram, overlays real Pantheon+SH0ES Type Ia SNe, and reports a
 per-model chi^2 / R^2 after marginalizing the magnitude offset.
+
+> NOTE: this file documents the SEMI-ANALYTIC test (H(z) from Omega_Lambda_eff).
+> The genuine FROM-SIM N-body test (mu(z) integrated from the real a(t)) is the
+> non-circular companion — see
+> [./hubble-diagram-nbody.md](./hubble-diagram-nbody.md). The semi-analytic
+> `external_node` curve at Omega_Lambda_eff~=0.70 is mathematically == LCDM
+> (CIRCULAR); the from-sim curve is not.
 
 This is DISTINCT from the N-body model-vs-LCDM-theory R^2 (see
 [../numerics/lcdm-baseline.md](../numerics/lcdm-baseline.md) and
@@ -36,17 +43,21 @@ Three models (all Omega_m = 0.3, H0 = 70 km/s/Mpc):
 External-Node H(a) equals LCDM with Omega_Lambda := Omega_Lambda_eff in the
 linear regime, so using Omega_Lambda_eff IS the model's faithful prediction.
 
-### Why semi-analytic, not N-body-derived d_L
-1. N-body a(t) only spans t=5.8->13.8 Gyr (z~0 to ~1.2); Pantheon+ reaches
-   z~2.3. Semi-analytic covers the full SN range with no extrapolation.
-2. Numerical differentiation of RMS-size a(t) has documented edge artifacts
-   ([../numerics/expansion-rate-calculation.md](../numerics/expansion-rate-calculation.md));
-   feeding that into a distance integral compounds error.
-3. The model's whole claim IS equivalence to Lambda in this regime; the existing
-   R^2_rate result already validates the N-body tracks this H(a), which licenses
-   the semi-analytic background.
+### Semi-analytic vs from-sim N-body d_L (both now exist)
+This semi-analytic curve is fast and covers the full SN range, BUT at the
+data-matching config (Omega_Lambda_eff~=0.70) the `external_node` curve is
+CIRCULAR — identical to LCDM by construction, so it cannot test the mechanism.
 
-N-body-derived d_L is deliberate FUTURE WORK (see [../plans/](../plans/)).
+The from-sim N-body path now EXISTS as the non-circular test
+([./hubble-diagram-nbody.md](./hubble-diagram-nbody.md)): it integrates
+`D_C = c*integral dt/a` from the real a(t) (NO differentiation, so it sidesteps
+the edge artifacts in
+[../numerics/expansion-rate-calculation.md](../numerics/expansion-rate-calculation.md)).
+The from-sim curve only covers up to z~0.96 at t_start=5.8 (validated safe floor
+t_start=2.9 -> z~2.23 covers full Pantheon+); the semi-analytic curve still
+serves as the full-range reference. Honest result: the from-sim curve is
+currently INDISTINGUISHABLE from LCDM within the covered range
+(~0.77 sigma) — real, not circular.
 
 ## Distance kernel (curvature-aware)
 
@@ -133,6 +144,7 @@ config needs revisiting — is unresolved. See
 [../paper-reference.md](../paper-reference.md).
 
 ## Related
+- [./hubble-diagram-nbody.md](./hubble-diagram-nbody.md) — the FROM-SIM N-body (non-circular) companion test
 - [../paper-reference.md](../paper-reference.md)
 - [./theoretical-framework.md](./theoretical-framework.md)
 - [../numerics/expansion-rate-calculation.md](../numerics/expansion-rate-calculation.md)

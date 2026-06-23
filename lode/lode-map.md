@@ -18,7 +18,8 @@
 - [physics/barnes-hut-optimization.md](./physics/barnes-hut-optimization.md) - Force methods: direct, numba_direct (O(N²) JIT), barnes_hut (real octree O(N log N))
 - [physics/initial-conditions.md](./physics/initial-conditions.md) - Damped Hubble flow setup, velocity calibration, validated t_start range (safe floor 2.9 Gyr, z_max~2.23)
 - [physics/integration.md](./physics/integration.md) - Leapfrog algorithm implementation
-- [physics/hubble-diagram.md](./physics/hubble-diagram.md) - Data-anchored mu(z) Hubble-diagram test vs real Pantheon+ SNe (semi-analytic H(z), offset marginalization); open M,S discrepancy
+- [physics/hubble-diagram.md](./physics/hubble-diagram.md) - SEMI-ANALYTIC mu(z) Hubble-diagram test vs real Pantheon+ SNe (H(z) from Omega_Lambda_eff; CIRCULAR == LCDM at 0.70); open M,S discrepancy
+- [physics/hubble-diagram-nbody.md](./physics/hubble-diagram-nbody.md) - FROM-SIM N-body mu(z) test (D_C=c∫dt/a from real a(t); NON-circular). Stage-1 gating (~indistinguishable from LCDM at z<=0.96), Stage-2 safe floor t_start=2.9, Stage-3 pantheon sweep objective
 
 ## Numerics
 - [numerics/timestep-stability.md](./numerics/timestep-stability.md) - Timestep requirements, instability symptoms, energy monitoring
@@ -29,11 +30,12 @@
 ## Scripts
 - [scripts/parameter-sweep.md](./scripts/parameter-sweep.md) - Grid search methodology, match metrics, best configurations
 - [scripts/visualization.md](./scripts/visualization.md) - 3D visualization pipeline, comparison mode, animation
-- hubble_diagram.py - Standalone Hubble-diagram-vs-Pantheon+ script (documented in [physics/hubble-diagram.md](./physics/hubble-diagram.md))
+- hubble_diagram.py - Standalone SEMI-ANALYTIC Hubble-diagram-vs-Pantheon+ script (documented in [physics/hubble-diagram.md](./physics/hubble-diagram.md))
+- hubble_diagram_nbody.py + cosmo/sim_distance.py - FROM-SIM N-body Hubble-diagram Stage-1 gating script + a(t)->mu(z) kernel (documented in [physics/hubble-diagram-nbody.md](./physics/hubble-diagram-nbody.md))
 
 ## Plans
 - [plans/](./plans/) - Future enhancements and TODOs
-- [plans/hubble-diagram-followups.md](./plans/hubble-diagram-followups.md) - Reconcile (M,S) discrepancy, optional paper edit, full-covariance chi^2, N-body-derived d_L
+- [plans/hubble-diagram-followups.md](./plans/hubble-diagram-followups.md) - Reconcile (M,S) discrepancy, optional paper edit, full-covariance chi^2 (N-body-derived d_L now DONE)
 
 ## Temporary
 - [tmp/](./tmp/) - Session scraps (git-ignored)

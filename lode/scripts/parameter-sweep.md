@@ -23,29 +23,39 @@ class SearchMethod(Enum):
 
 @dataclass
 class SweepConfig:
-    quick_search: bool = False      # 150 particles, 250 steps
-    many_search: bool = False       # 1000 particles (vs 10000)
+    quick_search: bool = False      # 200 particles, 250 steps (else 2000 / 300)
+    many_search: int = 3            # terms-per-decade granularity for M/centerM lists
+    leet_search: bool = False       # 668 particles
     search_center_mass: bool = True # search 3D: M x S x centerM
     t_start_Gyr: float = 5.8
-    t_duration_Gyr: float = 10.0
+    t_duration_Gyr: float = 8.0     # t_start + t_duration = 13.8 (today)
     damping_factor: float = None
     s_min_gpc: int = 15
-    s_max_gpc: int = 60             # 100 if many_search
+    s_max_gpc: int = 60
     save_interval: int = 10
+    objective: str = "lcdm"         # "lcdm" or "pantheon"
 
 @dataclass
-class MatchWeights:  # Legacy, currently unused
-    hubble_half_curve: float = 0.025
-    hubble_curve: float = 0.025
-    size_half_curve: float = 0.25
-    size_curve: float = 0.2
-    endpoint: float = 0.4
-    max_radius: float = 0.1
-
-@dataclass
-class SweepConfig:
-    ...
-    objective: str = "lcdm"  # "lcdm" or "pantheon"
+class MatchWeights:  # USED by compute_avg (additive aggregate). Field names map
+                     # to MATCH_METRIC_KEYS via key.replace('match_','').replace('_pct','')
+    curve: float            # = SIZE_WEIGHT_VS_HUBBLE (250)
+    curve_r2: float
+    curve_rmse: float
+    half_curve: float
+    half_rmse: float
+    max: float
+    curve_error: float
+    curve_error_max: float
+    hubble_curve: float = 1
+    hubble_curve_r2: float = 1
+    hubble_rmse: float = 1
+    hubble_half_curve: float = 0.5
+    hubble_half_rmse: float = 0.5
+    end: float              # = 10 * SIZE_WEIGHT_VS_HUBBLE
+    hubble_end: float = 10
+# NOTE: the old field names (size_curve/size_half_curve/endpoint/max_radius) are
+# GONE — stale tests in test_parameter_sweep.py still reference them (pre-existing
+# failure, out of scope).
 
 @dataclass
 class SimResult:
@@ -104,9 +114,13 @@ Exhaustive grid: all M x all S x all centerM. Most thorough, slowest.
 
 `MATCH_METRIC_KEYS` tuple (cosmo/parameter_sweep.py) is the single source of truth for individual metric keys. Used by `compute_match_metrics` return dict, early-stop check in `linear_search_S`, and `CSV_COLUMNS`.
 
-`match_avg_pct` = multiplicative aggregate: product of all `MATCH_METRIC_KEYS` values clamped to [0,1], times 100. `diff_pct` = 100 - match_avg_pct.
-
-`MatchWeights` dataclass exists but is currently unused (legacy from weighted-average approach).
+`match_avg_pct` (lcdm objective) = `compute_avg(metrics)`, which defaults to the
+ADDITIVE aggregate: weighted mean of `USED_MATCH_METRIC_KEYS` values, weights from
+the `MatchWeights` dataclass (so MatchWeights IS used). `compute_avg` also has a
+`multiplicative=True` branch (product of values clamped to [0,1]) but it is not
+the default. `USED_MATCH_METRIC_KEYS` is currently set to all of `MATCH_METRIC_KEYS`
+(several commented-out experimental subsets remain in the file). `diff_pct` = 100 - match_avg_pct.
+For the pantheon objective, `match_avg_pct = 100/(1 + chi2_dof)` instead.
 
 Metrics in `MATCH_METRIC_KEYS`:
 - `match_curve_pct`: Full size curve match (match_pct from diagnostics)
@@ -180,13 +194,35 @@ Reference: LCDM analytic chi2_dof=0.436, R2=0.997 (1580 SNe); matter-only chi2_d
 
 ## Testing
 
-`tests/test_parameter_sweep.py` - 37 tests using dummy callbacks:
+`tests/test_parameter_sweep.py` - 36 tests using dummy callbacks (lcdm objective):
 - Parameter space builders
 - Match metric computation
 - Search algorithm correctness with unimodal callbacks
 - Early stopping, adaptive skipping, boundary handling
 
+`tests/test_parameter_sweep_pantheon.py` - 15 hermetic tests (pantheon objective,
+synthetic fixture + analytic-LCDM a_curve, no real sim):
+- SimResult.a_curve optional + populated by results_to_sim_result
+- compute_pantheon_metrics finite chi2/R2; worst-case fallback (None a_curve / 0 SNe)
+- objective="lcdm" sweep unchanged
+- End-to-end objective="pantheon" sweep (covers worst_callback pantheon branch +
+  pantheon_data threading through run_sweep)
+- Cache-key objective isolation: lcdm and pantheon cache keys are DISJOINT
+  (each carries its '<objective>obj' suffix), so the two objectives never collide
+  in the shared cache file.
+
 Dummy callbacks create SimResult with predictable quality based on distance from optimal point, enabling search algorithm testing without real simulations.
+
+NOTE (pre-existing, OUT OF SCOPE): `tests/test_parameter_sweep.py` has 3 known
+failing tests unrelated to the objectives work — `TestMatchWeights.test_defaults`
+and `test_weights_sum_to_one` reference old MatchWeights field names
+(size_curve/endpoint/max_radius) that were renamed (curve/curve_r2/end/...), and
+`test_build_s_list_range` asserts len 46 while `build_s_list(15,60)` now returns
+41. These predate the Stage-3 work (which did not touch this test file).
+Hermetic-cache caveat: those tests set a module-LOCAL `SKIP_CACHE = True` which
+does NOT disable the real cache (worst_callback reads the module global), so they
+do read/write `data/metrics_2000_s42*.csv`; the pantheon tests instead set
+`cosmo.parameter_sweep.SKIP_CACHE` on the module object to stay truly hermetic.
 
 ## Output
 

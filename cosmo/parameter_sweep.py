@@ -455,7 +455,11 @@ def compute_pantheon_metrics(
             t_Gyr=sim_result.t_Gyr,
             t_start_Gyr=t_start_Gyr,
         )
-    except (ValueError, Exception):
+    except ValueError:
+        # The kernel raises ValueError for every documented bad-input case
+        # (today_tol guard, non-positive a, all-out-of-range, length/shape
+        # mismatch). Score those as worst-case so a long sweep keeps going.
+        # Any other exception is a genuine bug and is allowed to propagate.
         return worst_case()
 
     in_range = dist['in_range']
@@ -469,7 +473,9 @@ def compute_pantheon_metrics(
 
     try:
         ev = evaluate_precomputed(z_in, mu_obs_in, sigma_in, mu_model)
-    except (ValueError, Exception):
+    except ValueError:
+        # evaluate_precomputed raises ValueError for empty data / bad sigma;
+        # score worst-case. Other exceptions surface as real bugs.
         return worst_case()
 
     chi2 = ev['chi2']

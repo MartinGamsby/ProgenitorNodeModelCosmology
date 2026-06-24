@@ -7,6 +7,9 @@ Uses cosmo.parameter_sweep module for search algorithms.
 This script handles simulation setup, callback wiring, and output formatting.
 """
 
+from cosmo.encoding import configure_utf8_stdout
+configure_utf8_stdout()  # must run before any print() that emits Greek/non-ASCII
+
 import numpy as np
 import math
 import csv

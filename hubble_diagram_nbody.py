@@ -47,13 +47,8 @@ import sys
 # UTF-8 stdout/stderr reconfiguration (Windows cp1252 guard).
 # Must happen BEFORE any print() that might emit Greek characters (chi, Omega).
 # ---------------------------------------------------------------------------
-for _stream in (sys.stdout, sys.stderr):
-    _reconfigure = getattr(_stream, "reconfigure", None)
-    if _reconfigure is not None:
-        try:
-            _reconfigure(encoding="utf-8", errors="replace")
-        except (ValueError, OSError):
-            pass
+from cosmo.encoding import configure_utf8_stdout
+configure_utf8_stdout()
 
 # ---------------------------------------------------------------------------
 # Headless backend — BEFORE pyplot is imported anywhere in this process.

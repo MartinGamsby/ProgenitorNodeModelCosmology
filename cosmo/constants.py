@@ -157,7 +157,9 @@ class SimulationParameters:
                  t_start_Gyr: float = 10.8, t_duration_Gyr: float = 6.0, n_steps: int = 150,
                  damping_factor: float = None, center_node_mass: float = 1.0,
                  mass_randomize: float = 0.5,
-                 node_mass_seed: int = 0, node_mass_amplitude: float = 0.0):
+                 node_mass_seed: int = 0, node_mass_amplitude: float = 0.0,
+                 init_distribution: str = "uniform_sphere",
+                 init_kwargs: dict = None):
         """
         Initialize simulation parameters.
 
@@ -180,6 +182,14 @@ class SimulationParameters:
             node_mass_amplitude: Log-normal width of per-node mass distribution.
                                  0.0 (default) => all 26 nodes have identical mass
                                  M_ext_kg (backward compatible, byte-identical).
+            init_distribution: Particle position sampler.
+                               "uniform_sphere" (default) — current behaviour,
+                               backward-compatible with all existing tests.
+                               "grf" — Gaussian random field + Zel'dovich displacement
+                               shaped by approximate LCDM P(k) (BBKS transfer function).
+            init_kwargs: Optional dict of keyword arguments forwarded to the sampler.
+                         Supported for "grf": Ng (int, default 64), n_s, Omega_m, h.
+                         Ignored for "uniform_sphere".
         """
         self.M_value = M_value
         self.S_value = S_value
@@ -193,6 +203,8 @@ class SimulationParameters:
         self.mass_randomize = mass_randomize
         self.node_mass_seed = node_mass_seed
         self.node_mass_amplitude = node_mass_amplitude
+        self.init_distribution = init_distribution
+        self.init_kwargs = init_kwargs if init_kwargs is not None else {}
 
         # Calculate derived quantities
         self._calculate_derived()

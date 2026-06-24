@@ -71,7 +71,9 @@ class CosmologicalSimulation:
                                        total_mass_kg=total_mass_kg,
                                        a_start=self.a_start,
                                        use_dark_energy=self.use_dark_energy,
-                                       mass_randomize=sim_params.mass_randomize)
+                                       mass_randomize=sim_params.mass_randomize,
+                                       init_distribution=sim_params.init_distribution,
+                                       init_kwargs=sim_params.init_kwargs)
 
         # Initialize HMEA grid if using External-Node Model
         self.hmea_grid = None

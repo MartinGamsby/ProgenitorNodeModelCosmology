@@ -25,11 +25,13 @@ class Particle:
 
 class ParticleSystem:
     """Collection of particles representing the observable universe"""
-    
+
     def __init__(self, n_particles: int = 1000, box_size_m: Optional[float] = None,
                  total_mass_kg: Optional[float] = None, a_start: float = 1.0,
                  use_dark_energy: bool = True,
-                 mass_randomize: float = 0.5):
+                 mass_randomize: float = 0.5,
+                 init_distribution: str = "uniform_sphere",
+                 init_kwargs: Optional[dict] = None):
         """
         Initialize particle system with damped Hubble flow initial conditions.
 
@@ -41,6 +43,10 @@ class ParticleSystem:
             use_dark_energy: Whether dark energy is enabled
             mass_randomize: Mass distribution randomness (0.0 = equal masses,
                            1.0 = masses from 0 to 2x mean, 0.5 = default)
+            init_distribution: Position sampler: "uniform_sphere" (default,
+                               backward-compatible) or "grf" (Gaussian random field
+                               + Zel'dovich displacement shaped by BBKS LCDM P(k)).
+            init_kwargs: Optional dict forwarded to the sampler (e.g. Ng for grf).
         """
         const = CosmologicalConstants()
 
@@ -50,6 +56,8 @@ class ParticleSystem:
         self.a_start = a_start
         self.use_dark_energy = use_dark_energy
         self.mass_randomize = np.clip(mass_randomize, 0.0, 1.0)
+        self.init_distribution = init_distribution
+        self.init_kwargs = init_kwargs if init_kwargs is not None else {}
 
         self.particles = []
         self.time = 0.0
@@ -57,6 +65,55 @@ class ParticleSystem:
         # Initialize particles
         self._initialize_particles()
         
+    # ------------------------------------------------------------------
+    # Private position samplers
+    # ------------------------------------------------------------------
+
+    def _init_uniform_sphere(self) -> np.ndarray:
+        """Uniform sphere rejection sampler (legacy behaviour).
+
+        Reproduces the ORIGINAL positions loop from the pre-refactor code so
+        existing tests that pin output to a fixed np.random seed remain valid.
+
+        Returns:
+            positions : (N, 3) float64, raw (not centred / normalised).
+        """
+        sphere_radius_m = (self.box_size_m / 2) / np.sqrt(3 / 5)
+        positions = []
+        for i in range(self.n_particles):
+            while True:
+                pos = np.random.uniform(-sphere_radius_m, sphere_radius_m, 3)
+                if np.linalg.norm(pos) <= sphere_radius_m:
+                    break
+            positions.append(pos)
+        return np.array(positions)
+
+    def _init_grf(self) -> np.ndarray:
+        """Gaussian random field + Zel'dovich displacement sampler.
+
+        Uses the current np.random seed (set by simulation.py) as the integer
+        seed forwarded to sample_grf so the result is reproducible for a given
+        SimulationParameters.seed.
+
+        Returns:
+            positions : (N, 3) float64, raw (not centred / normalised).
+        """
+        from .initial_distributions import sample_grf
+        # Use the seed established by np.random.seed() in simulation.py.
+        # np.random.randint gives a fresh deterministic integer from that stream.
+        grf_seed = int(np.random.randint(0, 2**31))
+        kwargs = dict(self.init_kwargs)  # copy so we don't mutate the original
+        return sample_grf(
+            n_particles=self.n_particles,
+            box_size_m=self.box_size_m,
+            seed=grf_seed,
+            **kwargs,
+        )
+
+    # ------------------------------------------------------------------
+    # Main initializer
+    # ------------------------------------------------------------------
+
     def _initialize_particles(self) -> None:
         """Create initial particle distribution with Hubble flow."""
         lcdm = LambdaCDMParameters()
@@ -72,8 +129,7 @@ class ParticleSystem:
             H_start = lcdm.H_matter_only(self.a_start)
             print(f"[ParticleSystem] Using matter-only H(a={self.a_start:.3f}) = {H_start:.3e} /s")
 
-
-        # Generate particle masses
+        # Generate particle masses (shared by all init modes)
         mean_mass_kg = self.total_mass_kg / self.n_particles
         if self.mass_randomize > 0 and self.n_particles > 1:
             # Generate random masses with specified randomization level
@@ -96,28 +152,25 @@ class ParticleSystem:
         else:
             particle_masses_kg = np.full(self.n_particles, mean_mass_kg)
 
-        # Scale box_size so that the RMS radius matches the target
-        # For a uniform sphere of radius R, RMS radius = R * sqrt(3/5) ≈ 0.775*R
-        # We want RMS = box_size/2, so R_sphere = box_size/2 / 0.775
-        # This means we need to use a sphere of radius: box_size/2 / sqrt(3/5)
-        sphere_radius_m = (self.box_size_m / 2) / np.sqrt(3/5)
-
-        # First, generate all positions using rejection sampling
-        # This keeps position RNG calls separate from velocity RNG calls
-        positions = []
-        for i in range(self.n_particles):
-            # Random position uniformly in sphere of radius sphere_radius_m
-            # Using rejection sampling for clarity
-            while True:
-                pos = np.random.uniform(-sphere_radius_m, sphere_radius_m, 3)
-                if np.linalg.norm(pos) <= sphere_radius_m:
-                    break
-            positions.append(pos)
+        # -------------------------------------------------------------------
+        # POSITION SAMPLING: branch on init_distribution
+        # The sampler must return raw (N, 3) positions; post-processing below
+        # (centre + RMS-norm) is SHARED and UNCHANGED for both modes.
+        # -------------------------------------------------------------------
+        print(f"[ParticleSystem] init_distribution={self.init_distribution!r}")
+        if self.init_distribution == "uniform_sphere":
+            positions_arr = self._init_uniform_sphere()
+        elif self.init_distribution == "grf":
+            positions_arr = self._init_grf()
+        else:
+            raise ValueError(
+                f"Unknown init_distribution {self.init_distribution!r}. "
+                "Valid choices: 'uniform_sphere', 'grf'."
+            )
 
         # CRITICAL: Center positions FIRST before calculating velocities
         # Random particle distribution creates non-zero COM position
         # We must center BEFORE velocity calculation so v_hubble = H*r uses centered positions
-        positions_arr = np.array(positions)
         com_position = np.mean(positions_arr, axis=0)
 
         print(f"[ParticleSystem] Centering COM position: [{com_position[0]:.3e}, {com_position[1]:.3e}, {com_position[2]:.3e}] m")

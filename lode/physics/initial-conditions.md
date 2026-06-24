@@ -6,9 +6,31 @@ N-body gravity provides ~65-80% of Friedmann deceleration. Without correction, m
 
 **Solution**: Velocity calibration at `sim.run()` scales initial velocities so matter-only/external-node NEVER exceeds LCDM.
 
-## Position Initialization
+## Selectable init_distribution
 
-**File**: particles.py:100-150
+`SimulationParameters.init_distribution` (default `"uniform_sphere"`) selects the position sampler.
+An optional `init_kwargs` dict passes sampler-specific knobs (e.g. `Ng` for `"grf"`).
+
+Sampler | Description
+--------|------------
+`"uniform_sphere"` | Rejection-sampling uniform sphere (default, backward-compatible)
+`"grf"` | Gaussian random field + Zel'dovich displacement; BBKS LCDM P(k); deterministic via seed
+
+The sampler selection is threaded through `SimulationParameters` → `CosmologicalSimulation.__init__`
+→ `ParticleSystem.__init__` → `_initialize_particles`. The shared COM-centering and RMS-normalisation
+post-processing block is unchanged and applies to BOTH modes.
+
+GRF recipe (`cosmo/initial_distributions.py`):
+1. Gaussian white noise on Ng³ grid → FFT → multiply by `sqrt(P(k))` (BBKS transfer function).
+2. Inverse-FFT → density contrast δ(x); Zel'dovich displacement Psi = -∇∇⁻²δ in k-space.
+3. Displace regular Lagrangian grid; subsample to N particles; clip to box.
+4. Hand raw positions to shared centering + RMS-norm (identical to uniform_sphere path).
+
+CLI: `--init-distribution {uniform_sphere,grf}` (forwarded via `args_to_sim_params`).
+
+## Position Initialization (uniform_sphere detail)
+
+**File**: particles.py (method `_init_uniform_sphere`)
 
 Random uniform within sphere of radius `box_size/2`, centered at origin. Uses rejection sampling from cubic volume.
 

@@ -60,6 +60,14 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
                         help='Log-normal width of per-node mass distribution. '
                              '0.0 (default) = all 26 nodes uniform = M_ext_kg (backward compatible).')
 
+    # Particle initialisation
+    parser.add_argument('--init-distribution', type=str, default='uniform_sphere',
+                        choices=['uniform_sphere', 'grf'],
+                        help='Initial particle position distribution. '
+                             '"uniform_sphere" (default) is backward-compatible. '
+                             '"grf" uses a Gaussian random field with BBKS LCDM P(k) '
+                             '+ Zel\'dovich displacement for realistic large-scale structure.')
+
     # Mode flags
     parser.add_argument('--compare', action='store_true',
                         help='Enable comparison mode (External-Node vs Matter-only vs LCDM)')
@@ -114,4 +122,5 @@ def args_to_sim_params(args: argparse.Namespace) -> SimulationParameters:
         mass_randomize=args.mass_randomize,
         node_mass_seed=args.node_mass_seed,
         node_mass_amplitude=args.node_mass_amplitude,
+        init_distribution=args.init_distribution,
     )

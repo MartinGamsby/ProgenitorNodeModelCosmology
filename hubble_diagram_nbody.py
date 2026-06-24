@@ -14,12 +14,14 @@ Standalone script that:
   5. DEVIATION DIAGNOSTIC: prints max and RMS of
      (mu_from_sim - mu_LCDM) offset-marginalized over the covered range.
      States plainly whether the deviation exceeds a typical data sigma.
-  6. Saves a 2-panel PNG (top: data + curves; bottom: residuals).
+  6. Saves a 2-panel PNG (top: data + curves; bottom: Delta-mu vs LCDM
+     residuals with LCDM as zero reference).
+  7. Writes a JSON sidecar next to the PNG with per-model stats + config.
 
 Scientific purpose
 ------------------
 Answer the gating question: does the real nonlinear N-body a(t) deviate
-from LCDM within z <= ~1.2, or does it hug LCDM?  If the from-sim curve
+from LCDM within z <= ~2.3, or does it hug LCDM?  If the from-sim curve
 hugs LCDM, the honest conclusion is "viable, currently indistinguishable
 from LCDM with this data" — this script reports that faithfully.
 
@@ -27,19 +29,22 @@ Timing constraint
 -----------------
 t_start + t_duration MUST equal 13.8 Gyr so the last snapshot is z = 0.
 t_duration is therefore DERIVED as 13.8 - t_start; --t-start controls it.
-The sim only covers up to z ~ 1.2 at t_start = 5.8 Gyr; data outside that
-range is excluded and the excluded count is reported.
+The full-coverage default (t_start=2.9) covers up to z ~ 2.3; at t_start=5.8
+the sim only reaches z ~ 1.2.
 
 Usage
 -----
-    python hubble_diagram_nbody.py                        # defaults
+    python hubble_diagram_nbody.py                        # defaults (t_start=2.9)
     python hubble_diagram_nbody.py --t-start 5.8 --particles 80 --n-steps 300
+    python hubble_diagram_nbody.py --from-best-config results/sweep_results_pantheon.csv
     python hubble_diagram_nbody.py --output-dir ./results --z-min 0.023
 
 Requires the real Pantheon+SH0ES data file — see data/pantheon_plus/README.md.
 """
 
 import argparse
+import json
+import math
 import os
 import sys
 
@@ -76,7 +81,10 @@ from cosmo.visualization import generate_output_filename
 # ---------------------------------------------------------------------------
 _TODAY_GYR: float = 13.8
 _MIN_DT_GYR: float = 0.05      # dt must be < this; bump n_steps if not
-_DEFAULT_T_START: float = 5.8  # Gyr
+_DEFAULT_T_START: float = 2.9  # Gyr — full-coverage default (z up to ~2.3)
+_DEFAULT_PARTICLES: int = 2000  # full-coverage default
+_DEFAULT_N_STEPS: int = math.ceil((_TODAY_GYR - _DEFAULT_T_START) / 0.04)
+# dt = (13.8 - 2.9) / 273 ~ 0.040 Gyr < _MIN_DT_GYR = 0.05 ✓
 
 # ---------------------------------------------------------------------------
 # Color/style convention (mirrors hubble_diagram.py)
@@ -102,16 +110,21 @@ _PLOT_ORDER = ("external_node_nbody", "lcdm", "analytic_shortcut", "einstein_de_
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Hubble-diagram Stage 1 gating: from-sim N-body a(t) vs Pantheon+SH0ES.\n"
-            "Runs one N-body simulation, converts a(t)->mu(z), compares to real data\n"
-            "clipped to the sim-covered z-range, prints deviation diagnostic."
+            "Hubble-diagram comparison: from-sim N-body a(t) vs Pantheon+SH0ES.\n"
+            "Runs one N-body simulation, converts a(t)->mu(z), compares to real\n"
+            "data clipped to the sim-covered z-range. Saves a 2-panel PNG and a\n"
+            "JSON sidecar with per-model chi2/dof + config for reproducibility.\n"
+            "\n"
+            "Full-coverage default: t_start=2.9 Gyr, particles=2000,\n"
+            f"n_steps={_DEFAULT_N_STEPS} (dt~0.040 Gyr, z coverage up to ~2.3).\n"
+            "For a quick/cheap run use --t-start 5.8 --particles 80 --n-steps 300."
         ),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     parser.add_argument(
         "--output-dir", type=str, default="./results",
-        help="Directory to save the output figure.",
+        help="Directory to save the output figure and JSON sidecar.",
     )
     parser.add_argument(
         "--pantheon-path", type=str, default=None,
@@ -128,15 +141,127 @@ def _build_parser() -> argparse.ArgumentParser:
         "--n-bins", type=int, default=20,
         help="Number of log-z bins for the binned data overlay.",
     )
+    parser.add_argument(
+        "--from-best-config", type=str, default=None, metavar="PATH",
+        help=(
+            "Path to a sweep results CSV (e.g. results/sweep_results_pantheon.csv). "
+            "The best row (lowest chi2_dof) is loaded and its M, S, centerM are "
+            "used as defaults. Explicit --M / --S / --center-node-mass flags override "
+            "the loaded values."
+        ),
+    )
     add_common_arguments(parser)
 
     # Override add_common_arguments defaults for this script's physics.
-    # M=855, S=37.8 gives Omega_Lambda_eff ~ 0.70.
-    # t_start default is also overridden here (add_common_arguments sets 5.8).
-    parser.set_defaults(M=855.0, S=37.8, particles=80, n_steps=300,
-                        t_start=_DEFAULT_T_START)
+    # Full-coverage defaults: t_start=2.9, particles=2000, n_steps=273.
+    parser.set_defaults(
+        M=855.0,
+        S=37.8,
+        particles=_DEFAULT_PARTICLES,
+        n_steps=_DEFAULT_N_STEPS,
+        t_start=_DEFAULT_T_START,
+    )
 
     return parser
+
+
+# ---------------------------------------------------------------------------
+# Best-config loader
+# ---------------------------------------------------------------------------
+
+def load_best_config(csv_path: str) -> dict:
+    """
+    Load the best-fit configuration from a pantheon sweep results CSV.
+
+    Reads the CSV produced by the pantheon parameter sweep, finds the row with
+    the lowest chi2_dof (best fit), and returns a dict with keys:
+        'M'       – float, M_factor (external node mass)
+        'S'       – float, S_gpc (node separation in Gpc)
+        'centerM' – float, centerM (central node mass multiplier)
+        'chi2_dof' – float, reduced chi-squared of the best row
+        'chi2'     – float, chi-squared of the best row (if present)
+        'R2'       – float, R^2 of the best row (if present)
+
+    Args:
+        csv_path: Path to the sweep CSV file.
+
+    Returns:
+        Dict with at minimum 'M', 'S', 'centerM'.
+
+    Raises:
+        FileNotFoundError: If the CSV does not exist.
+        ValueError:        If required columns are missing or the file is empty.
+    """
+    if not os.path.isfile(csv_path):
+        raise FileNotFoundError(
+            f"--from-best-config: sweep CSV not found: {csv_path!r}\n"
+            "Run the pantheon parameter sweep first to generate this file."
+        )
+
+    try:
+        import csv as _csv
+        rows = []
+        with open(csv_path, newline="", encoding="utf-8") as fh:
+            reader = _csv.DictReader(fh)
+            for row in reader:
+                rows.append(row)
+    except Exception as exc:
+        raise ValueError(
+            f"--from-best-config: failed to read CSV {csv_path!r}: {exc}"
+        ) from exc
+
+    if not rows:
+        raise ValueError(
+            f"--from-best-config: sweep CSV is empty: {csv_path!r}"
+        )
+
+    required = {"M_factor", "S_gpc", "centerM"}
+    missing = required - set(rows[0].keys())
+    if missing:
+        raise ValueError(
+            f"--from-best-config: CSV {csv_path!r} is missing required columns: "
+            f"{sorted(missing)}. "
+            f"Available columns: {sorted(rows[0].keys())}"
+        )
+
+    # Find best row: prefer chi2_dof (pantheon sweep), fall back to diff_pct
+    if "chi2_dof" in rows[0]:
+        sort_key = "chi2_dof"
+    elif "diff_pct" in rows[0]:
+        sort_key = "diff_pct"
+    else:
+        sort_key = None
+
+    if sort_key is not None:
+        try:
+            best = min(rows, key=lambda r: float(r[sort_key]))
+        except (ValueError, KeyError):
+            best = rows[0]
+    else:
+        best = rows[0]
+
+    def _float(key: str, default=None):
+        try:
+            return float(best[key])
+        except (KeyError, ValueError, TypeError):
+            return default
+
+    result = {
+        "M":        _float("M_factor"),
+        "S":        _float("S_gpc"),
+        "centerM":  _float("centerM"),
+        "chi2_dof": _float("chi2_dof"),
+        "chi2":     _float("chi2"),
+        "R2":       _float("R2"),
+    }
+
+    if result["M"] is None or result["S"] is None:
+        raise ValueError(
+            f"--from-best-config: could not parse M_factor / S_gpc from "
+            f"best row in {csv_path!r}: {dict(best)}"
+        )
+
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -151,16 +276,17 @@ def run(
     n_bins: int = 20,
 ) -> dict:
     """
-    Run the full Stage-1 gating comparison.
+    Run the full Hubble-diagram comparison.
 
     Runs the N-body simulation, converts a(t)->mu(z), evaluates chi^2/R^2
     on the Pantheon+ data clipped to the sim-covered z-range, prints the
-    deviation diagnostic table, and saves a 2-panel PNG.
+    deviation diagnostic table, saves a 2-panel PNG, and writes a JSON
+    sidecar next to the PNG with per-model stats + config.
 
     Args:
         sim_params:    SimulationParameters with t_start_Gyr and t_duration_Gyr
                        set so that t_start + t_duration == 13.8 Gyr.
-        output_dir:    Directory for the output PNG.
+        output_dir:    Directory for the output PNG and JSON sidecar.
         pantheon_path: Path to Pantheon+SH0ES.dat (None = default location).
         z_min:         Minimum redshift cut before z-range clipping.
         n_bins:        Number of log-z bins for the plot overlay.
@@ -174,6 +300,11 @@ def run(
             'deviation_max'    – max |mu_sim - mu_lcdm| after offset marg.
             'deviation_rms'    – RMS of (mu_sim - mu_lcdm) after offset marg.
             'typical_sigma'    – median data sigma (for comparison).
+            'growth_factor'    – model a(today)/a(t_start).
+            'growth_target'    – physical (LCDM) a(today)/a(t_start).
+            'anchor_ok'        – bool, whether growth anchor passes tolerance.
+            'out_path'         – path to saved PNG.
+            'sidecar_path'     – path to saved JSON sidecar.
 
     Raises:
         FileNotFoundError: If the Pantheon+ data file is absent.
@@ -281,7 +412,7 @@ def run(
         model_name="external_node_nbody",
     )
 
-    # Analytic LCDM (comparison line)
+    # Analytic LCDM (comparison / zero reference for residual panel)
     results["lcdm"] = hd_engine.evaluate_model(
         z_in, mu_in, sigma_in, model="lcdm"
     )
@@ -370,6 +501,27 @@ def run(
     plt.close(fig)
     print(f"\nFigure saved: {out_path}")
 
+    # ------------------------------------------------------------------
+    # 8. JSON sidecar
+    # ------------------------------------------------------------------
+    sidecar_path = out_path + ".summary.json"
+    summary = _build_sidecar(
+        sim_params=sim_params,
+        results=results,
+        n_in_range=n_in_range,
+        n_dropped=n_dropped,
+        z_cover=z_cover,
+        dev_max=dev_max,
+        dev_rms=dev_rms,
+        typical_sigma=typical_sigma,
+        model_growth=model_growth,
+        target_growth=target_growth,
+        anchor_ok=anchor_ok,
+    )
+    with open(sidecar_path, "w", encoding="utf-8") as fh:
+        json.dump(summary, fh, indent=2)
+    print(f"Sidecar written: {sidecar_path}")
+
     return {
         "results_in_range": results,
         "n_in_range": n_in_range,
@@ -378,6 +530,80 @@ def run(
         "deviation_max": dev_max,
         "deviation_rms": dev_rms,
         "typical_sigma": typical_sigma,
+        "growth_factor": model_growth,
+        "growth_target": target_growth,
+        "anchor_ok": anchor_ok,
+        "out_path": out_path,
+        "sidecar_path": sidecar_path,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Sidecar builder
+# ---------------------------------------------------------------------------
+
+def _build_sidecar(
+    sim_params: SimulationParameters,
+    results: dict,
+    n_in_range: int,
+    n_dropped: int,
+    z_cover: tuple,
+    dev_max: float,
+    dev_rms: float,
+    typical_sigma: float,
+    model_growth: float,
+    target_growth: float,
+    anchor_ok: bool,
+) -> dict:
+    """
+    Build the JSON-serializable sidecar dict.
+
+    Contains: config (M, S, centerM, t_start, particles, n_steps),
+    coverage stats, per-model chi2/dof/R2/DeltaM, deviation diagnostics,
+    and growth anchor.
+    """
+    def _model_entry(key: str) -> dict | None:
+        r = results.get(key)
+        if r is None:
+            return None
+        return {
+            "chi2":     float(r["chi2"]),
+            "dof":      int(r["dof"]),
+            "chi2_dof": float(r["chi2_dof"]),
+            "R2":       float(r["R2"]),
+            "DeltaM":   float(r["DeltaM"]),
+        }
+
+    return {
+        "config": {
+            "M":          float(sim_params.M_value),
+            "S":          float(sim_params.S_value),
+            "centerM":    float(sim_params.center_node_mass),
+            "t_start":    float(sim_params.t_start_Gyr),
+            "particles":  int(sim_params.n_particles),
+            "n_steps":    int(sim_params.n_steps),
+        },
+        "coverage": {
+            "n_in_range": n_in_range,
+            "n_dropped":  n_dropped,
+            "z_cover":    list(z_cover),
+        },
+        "models": {
+            "external_node_nbody": _model_entry("external_node_nbody"),
+            "lcdm":                _model_entry("lcdm"),
+            "analytic_shortcut":   _model_entry("analytic_shortcut"),
+            "einstein_de_sitter":  _model_entry("einstein_de_sitter"),
+        },
+        "deviation": {
+            "deviation_max":   dev_max,
+            "deviation_rms":   dev_rms,
+            "typical_sigma":   typical_sigma,
+        },
+        "growth_anchor": {
+            "growth_factor": model_growth,
+            "growth_target": target_growth,
+            "anchor_ok":     anchor_ok,
+        },
     }
 
 
@@ -487,8 +713,10 @@ def _make_figure(
     """
     Build the 2-panel Hubble-diagram figure.
 
-    Top panel  : data (scatter + binned) + model curves.
-    Bottom panel: residuals (mu_obs - mu_fit) for the in-range subset.
+    Top panel  : data (scatter + binned errorbars) + model curves (mu vs z).
+    Bottom panel: Delta-mu vs LCDM residuals. LCDM is the zero reference line;
+                  the binned Ext-Node residual (mu_obs - mu_fit_LCDM) is
+                  overlaid so deviations from LCDM are directly readable.
     """
     fig = plt.figure(figsize=(11, 8))
     gs = gridspec.GridSpec(
@@ -581,7 +809,7 @@ def _make_figure(
     ax_top.set_ylabel("Distance modulus mu [mag]", fontsize=12)
     ax_top.legend(fontsize=8.5, loc="upper left")
     ax_top.set_title(
-        f"Hubble Diagram (Stage 1 gating) — N-body a(t) vs Pantheon+SH0ES\n"
+        f"Hubble Diagram — N-body a(t) vs Pantheon+SH0ES\n"
         f"M={sim_params.M_value}, S={sim_params.S_value}, "
         f"Omega_Lambda_eff={sim_params.external_params.Omega_Lambda_eff:.4f}, "
         f"t_start={sim_params.t_start_Gyr} Gyr  "
@@ -591,36 +819,57 @@ def _make_figure(
     ax_top.grid(True, alpha=0.3, which="both")
     plt.setp(ax_top.get_xticklabels(), visible=False)
 
-    # --- Residual panel ---
-    ax_res.axhline(0.0, color="black", lw=0.8, ls="-", zorder=2)
+    # -----------------------------------------------------------------------
+    # --- Residual panel: Delta-mu vs LCDM ---
+    # LCDM is the zero reference. We plot:
+    #   - a horizontal zero line (= LCDM)
+    #   - binned (mu_obs - mu_fit_LCDM) with errorbars  (data residuals to LCDM)
+    #   - binned (mu_obs - mu_fit_nbody) with errorbars (data residuals to N-body)
+    # This makes the two models' shapes directly comparable against the data.
+    # -----------------------------------------------------------------------
+    ax_res.axhline(0.0, color=_MODEL_STYLES["lcdm"]["color"],
+                   lw=1.5, ls="--", zorder=2,
+                   label="LCDM (zero reference, Delta-mu = 0)")
     for zv in z_cover:
         ax_res.axvline(zv, color="gray", ls=":", lw=0.8, alpha=0.7)
 
-    for key, st_key, z_arr, res_arr in [
-        ("external_node_nbody", "external_node_nbody", z_in,
-         results["external_node_nbody"]["residuals"]),
-        ("lcdm", "lcdm", z_in, results["lcdm"]["residuals"]),
+    # Scatter: raw per-SN residuals for both models (faint, for context)
+    for key, st_key in [
+        ("external_node_nbody", "external_node_nbody"),
+        ("lcdm", "lcdm"),
     ]:
         st = _MODEL_STYLES[st_key]
         ax_res.scatter(
-            z_arr, res_arr,
-            s=1.5, alpha=0.25, color=st["color"], rasterized=True, zorder=3,
+            z_in, results[key]["residuals"],
+            s=1.5, alpha=0.18, color=st["color"], rasterized=True, zorder=3,
         )
 
-    # Binned residuals for the N-body curve
-    bin_res = pantheon_loader.bin_for_plot(
+    # Binned residuals for the N-body curve (delta-mu vs LCDM visible as offset)
+    bin_res_nbody = pantheon_loader.bin_for_plot(
         z_in, results["external_node_nbody"]["residuals"], sigma_in, n_bins=n_bins
     )
     ax_res.errorbar(
-        bin_res["z"], bin_res["mu"], yerr=bin_res["err"],
+        bin_res_nbody["z"], bin_res_nbody["mu"], yerr=bin_res_nbody["err"],
         fmt="o", color=_MODEL_STYLES["external_node_nbody"]["color"],
         ms=3.5, lw=1.0, capsize=2.0, zorder=4,
-        label="N-body (binned residuals)",
+        label="Ext-Node N-body (binned Delta-mu)",
+    )
+
+    # Binned residuals for LCDM (should sit on or near zero by construction,
+    # but binning scatter makes this a useful visual check)
+    bin_res_lcdm = pantheon_loader.bin_for_plot(
+        z_in, results["lcdm"]["residuals"], sigma_in, n_bins=n_bins
+    )
+    ax_res.errorbar(
+        bin_res_lcdm["z"], bin_res_lcdm["mu"], yerr=bin_res_lcdm["err"],
+        fmt="s", color=_MODEL_STYLES["lcdm"]["color"],
+        ms=3.0, lw=1.0, capsize=2.0, zorder=4, alpha=0.7,
+        label="LCDM (binned Delta-mu, reference check)",
     )
 
     ax_res.set_xscale("log")
     ax_res.set_xlabel("Redshift z", fontsize=12)
-    ax_res.set_ylabel("mu_obs - mu_fit", fontsize=10)
+    ax_res.set_ylabel("Delta-mu vs LCDM [mag]", fontsize=10)
     ax_res.set_ylim(-1.5, 1.5)
     ax_res.grid(True, alpha=0.3, which="both")
     ax_res.legend(fontsize=8, loc="upper right")
@@ -635,6 +884,35 @@ def _make_figure(
 if __name__ == "__main__":
     parser = _build_parser()
     args = parser.parse_args()
+
+    # ------------------------------------------------------------------
+    # --from-best-config: load M, S, centerM from sweep CSV (if provided).
+    # Explicit CLI --M / --S / --center-node-mass override the loaded values.
+    # ------------------------------------------------------------------
+    if args.from_best_config is not None:
+        try:
+            cfg = load_best_config(args.from_best_config)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"\nERROR: {exc}", file=sys.stderr)
+            sys.exit(1)
+
+        print(
+            f"\nLoaded best config from {args.from_best_config!r}: "
+            f"M={cfg['M']}, S={cfg['S']}, centerM={cfg['centerM']}  "
+            f"(chi2_dof={cfg['chi2_dof']})"
+        )
+
+        # Only apply if the user did NOT explicitly supply them on the CLI.
+        # argparse doesn't track which args were explicitly set vs defaulted,
+        # so we check whether the parsed value still equals the parser default.
+        defaults = parser._defaults  # combined set_defaults values
+        if args.M == defaults.get("M", None):
+            args.M = cfg["M"]
+        if args.S == defaults.get("S", None):
+            args.S = cfg["S"]
+        if (args.center_node_mass == defaults.get("center_node_mass", 1.0)
+                and cfg["centerM"] is not None):
+            args.center_node_mass = cfg["centerM"]
 
     t_start = args.t_start
     t_duration = _TODAY_GYR - t_start

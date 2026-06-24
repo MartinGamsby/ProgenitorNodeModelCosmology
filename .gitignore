@@ -229,3 +229,6 @@ tmpclaude-*
 /docs/VirializedMetaStructure_v1.0.1
 /docs/VirializedMetaStructure_v1
 /data/pantheon_plus
+
+# root scratch dir (one-off scripts, never committed)
+tmp/

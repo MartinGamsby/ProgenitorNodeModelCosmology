@@ -69,6 +69,7 @@ from cosmo.cli import add_common_arguments, args_to_sim_params
 from cosmo.constants import SimulationParameters
 from cosmo.distances import model_distance_modulus
 from cosmo.factories import run_external_node_simulation, setup_simulation_context
+from cosmo.parameter_sweep import expected_growth_factor, GROWTH_ANCHOR_TOL
 import cosmo.hubble_diagram as hd_engine
 import cosmo.pantheon as pantheon_loader
 from cosmo.sim_distance import sim_to_distance_modulus
@@ -92,11 +93,11 @@ _MODEL_STYLES = {
                              "label": "LCDM (analytic)"},
     "analytic_shortcut":   {"color": "#9467bd", "ls": ":",  "lw": 1.8,
                              "label": "Analytic shortcut (const-Omega_Lambda_eff)"},
-    "matter_only":         {"color": "#2ca02c", "ls": "-.", "lw": 1.8,
-                             "label": "Matter-only (analytic)"},
+    "einstein_de_sitter":  {"color": "#2ca02c", "ls": "-.", "lw": 1.8,
+                             "label": "Matter-only, no Λ (Ωm=1)"},
 }
 
-_PLOT_ORDER = ("external_node_nbody", "lcdm", "analytic_shortcut", "matter_only")
+_PLOT_ORDER = ("external_node_nbody", "lcdm", "analytic_shortcut", "einstein_de_sitter")
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +239,19 @@ def run(
         f"a range: [{a_sim.min():.4f}, {a_sim.max():.4f}]"
     )
 
+    # Physical expansion anchor: the model's total growth a(today)/a(t_start) must
+    # match the real ~1+z(t_start), else its renormalized shape is physically
+    # meaningless (a runaway config can fit the z-window while expanding absurdly).
+    model_growth = float(a_sim[-1] / a_sim[0])
+    target_growth = expected_growth_factor(t_start)
+    growth_dev = abs(model_growth / target_growth - 1.0)
+    anchor_ok = growth_dev <= GROWTH_ANCHOR_TOL
+    print(
+        f"Expansion anchor: model a(today)/a(t_start) = {model_growth:.3f}  "
+        f"vs physical {target_growth:.3f}  "
+        f"({growth_dev*100:.1f}% off -> {'PHYSICAL' if anchor_ok else 'UNPHYSICAL, would be rejected by sweep'})"
+    )
+
     # ------------------------------------------------------------------
     # 3. Convert a(t) -> mu(z); clip data to sim-covered z-range
     # ------------------------------------------------------------------
@@ -278,8 +292,11 @@ def run(
     )
 
     # Analytic matter-only (comparison line)
-    results["matter_only"] = hd_engine.evaluate_model(
-        z_in, mu_in, sigma_in, model="matter_only"
+    # Einstein-de Sitter (flat Omega_m=1): the meaningful "no dark energy" null
+    # that the SN data decisively rule out. (The open Omega_m=0.3 "matter_only" is
+    # nearly degenerate with LCDM in the Hubble diagram and is a misleading null.)
+    results["einstein_de_sitter"] = hd_engine.evaluate_model(
+        z_in, mu_in, sigma_in, model="einstein_de_sitter"
     )
 
     # Analytic constant-Omega_Lambda_eff shortcut (old circular approach)
@@ -437,13 +454,13 @@ def _print_table(results: dict, sim_params, analytic_shortcut_ok: bool) -> None:
         "external_node_nbody",
         "lcdm",
         "analytic_shortcut",
-        "matter_only",
+        "einstein_de_sitter",
     ]
     labels = {
         "external_node_nbody": "Ext-Node N-body",
         "lcdm":                "LCDM (analytic)",
         "analytic_shortcut":   "Analytic shortcut",
-        "matter_only":         "Matter-only",
+        "einstein_de_sitter":  "Matter-only (no L)",
     }
 
     header = f"{'Model':<22} {'chi2':>10} {'dof':>6} {'chi2/dof':>10} {'R2':>8}"
@@ -553,11 +570,11 @@ def _make_figure(
             zorder=3,
         )
 
-    # --- Matter-only curve ---
-    r_mo = results["matter_only"]
-    mu_mo_dense = model_distance_modulus(z_dense, "matter_only")
+    # --- Matter-only (Einstein-de Sitter) null curve ---
+    r_mo = results["einstein_de_sitter"]
+    mu_mo_dense = model_distance_modulus(z_dense, "einstein_de_sitter")
     mu_mo_shifted = mu_mo_dense + r_mo["DeltaM"]
-    st_mo = _MODEL_STYLES["matter_only"]
+    st_mo = _MODEL_STYLES["einstein_de_sitter"]
     ax_top.plot(
         z_dense, mu_mo_shifted,
         color=st_mo["color"], ls=st_mo["ls"], lw=st_mo["lw"],

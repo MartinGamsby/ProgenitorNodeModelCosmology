@@ -194,7 +194,7 @@ print(f"Speedup: {nbConfigs_bruteforce/sim_count:.1f}×")
 os.makedirs('./results', exist_ok=True)
 
 if OBJECTIVE == "pantheon":
-    PANTHEON_EXTRA_COLUMNS = ['chi2', 'chi2_dof', 'R2', 'n_sne_used']
+    PANTHEON_EXTRA_COLUMNS = ['chi2', 'chi2_dof', 'R2', 'n_sne_used', 'growth_factor', 'growth_target']
     pantheon_csv_columns = (
         ['M_factor', 'S_gpc', 'centerM', 'match_avg_pct', 'diff_pct']
         + PANTHEON_EXTRA_COLUMNS

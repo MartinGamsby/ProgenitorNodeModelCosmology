@@ -340,6 +340,53 @@ class TestPantheonObjectiveSweepEndToEnd(unittest.TestCase):
         self.assertGreater(len(results), 0)
 
 
+class TestGrowthAnchor(unittest.TestCase):
+    """
+    The physical expansion anchor rejects configs whose total expansion
+    a(today)/a(t_start) is not the real ~1+z(t_start), even if their
+    renormalized shape could fit the SN window.
+    """
+
+    def setUp(self):
+        self.pantheon = _load_synthetic_pantheon()
+
+    def test_expected_growth_factor_is_physical(self):
+        from cosmo.parameter_sweep import expected_growth_factor
+        g58 = expected_growth_factor(5.8)
+        g29 = expected_growth_factor(2.9)
+        # Universe expands from t_start to today: growth > 1, and starting earlier
+        # (2.9 Gyr) means MORE total expansion than starting at 5.8 Gyr.
+        self.assertGreater(g58, 1.0)
+        self.assertGreater(g29, g58)
+
+    def test_runaway_growth_rejected(self):
+        """An a_curve that over-expands (growth >> physical) scores worst-case."""
+        from cosmo.parameter_sweep import expected_growth_factor
+        n = 81
+        # Growth of 100x over [5.8,13.8] is wildly above the physical ~1.7x.
+        a_curve = np.linspace(1.0, 100.0, n)
+        sim_result = SimResult(
+            size_curve_Gpc=np.zeros(n), hubble_curve=np.zeros(n),
+            t_Gyr=np.linspace(0.0, _T_DURATION, n),
+            params=None, results=SimSimpleResult(0.0, 0.0, 100.0),
+            a_curve=a_curve,
+        )
+        metrics = compute_pantheon_metrics(sim_result, self.pantheon, _T_START)
+        self.assertEqual(metrics['match_avg_pct'], 0.0)
+        self.assertEqual(metrics['n_sne_used'], 0)
+        # Diagnostic fields are surfaced on rejection
+        self.assertAlmostEqual(metrics['growth_factor'], 100.0, places=3)
+        self.assertAlmostEqual(metrics['growth_target'],
+                               expected_growth_factor(_T_START), places=6)
+
+    def test_physical_growth_accepted(self):
+        """The analytic-LCDM a_curve (correct growth) is NOT rejected."""
+        sim_result = _make_sim_result_with_a_curve()
+        metrics = compute_pantheon_metrics(sim_result, self.pantheon, _T_START)
+        self.assertGreater(metrics['n_sne_used'], 0)
+        self.assertTrue(np.isfinite(metrics['chi2_dof']))
+
+
 class TestCacheKeyObjectiveIsolation(unittest.TestCase):
     """
     The cache key built in worst_callback MUST include the objective so that

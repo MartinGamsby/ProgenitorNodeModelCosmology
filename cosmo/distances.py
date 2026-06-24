@@ -244,7 +244,7 @@ def distance_modulus(
 # Model-curve helper
 # ---------------------------------------------------------------------------
 
-_VALID_MODELS = {"external_node", "lcdm", "matter_only"}
+_VALID_MODELS = {"external_node", "lcdm", "matter_only", "einstein_de_sitter"}
 
 
 def model_distance_modulus(
@@ -262,7 +262,14 @@ def model_distance_modulus(
         Standard ΛCDM: Omega_m = 0.3, Omega_de = 0.7.
     "matter_only"
         Matter-only (open): Omega_m = 0.3, Omega_de = 0.0, Omega_k = 0.7.
-        Uses the sinh curvature branch.
+        Uses the sinh curvature branch. NOTE: an open low-density universe is
+        nearly degenerate with LCDM in the SN Hubble diagram (negative curvature
+        mimics dark energy), so it is a WEAK null. For the "dark energy is
+        required" comparison use "einstein_de_sitter".
+    "einstein_de_sitter"
+        Flat matter-dominated null: Omega_m = 1.0, Omega_de = 0.0, Omega_k = 0.
+        The decelerating universe that the 1998/2011 SN data decisively rule out;
+        this is the meaningful matter-only null.
     "external_node"
         External-Node Model: Omega_m = 0.3,
         Omega_de = sim_params.external_params.Omega_Lambda_eff.
@@ -288,12 +295,16 @@ def model_distance_modulus(
     if H0 is None:
         H0 = lcdm_defaults.H0_km_s_Mpc
 
-    Omega_m = lcdm_defaults.Omega_m  # 0.3 for all models
+    Omega_m = lcdm_defaults.Omega_m  # 0.3 for all models except Einstein-de Sitter
 
     if model == "lcdm":
         Omega_de = lcdm_defaults.Omega_Lambda  # 0.7
 
     elif model == "matter_only":
+        Omega_de = 0.0
+
+    elif model == "einstein_de_sitter":
+        Omega_m = 1.0   # flat, fully matter-dominated
         Omega_de = 0.0
 
     else:  # "external_node"

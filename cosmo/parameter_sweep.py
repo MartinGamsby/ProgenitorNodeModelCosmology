@@ -6,13 +6,38 @@ External-Node parameters (M, S, centerM) that match LCDM expansion.
 """
 from enum import Enum
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Callable, List, Dict, Any, Optional, Tuple
 from .visualization import generate_output_filename
 from .cache import Cache, CacheType
 from cosmo.constants import SimulationParameters
 import numpy as np
 
-from .analysis import compare_expansion_histories, compare_expansion_history
+from .analysis import (
+    compare_expansion_histories, compare_expansion_history, solve_friedmann_at_times
+)
+
+# Tolerance on the physical expansion anchor (see expected_growth_factor). A from-sim
+# config must reproduce the real total expansion a(today)/a(t_start) to within this
+# fractional tolerance to be physically admissible; otherwise its renormalized shape
+# could fit the SN window while predicting a nonsensical expansion history.
+GROWTH_ANCHOR_TOL = 0.20
+
+
+@lru_cache(maxsize=16)
+def expected_growth_factor(t_start_Gyr: float, t_today_Gyr: float = 13.8) -> float:
+    """Physical scale-factor growth a(today)/a(t_start) from the LCDM background.
+
+    A from-sim External-Node model normalizes a=1 at t_start and is compared to the
+    SNe only over the observed z-range; nothing in that comparison forces its TOTAL
+    expansion to be physical. This anchor supplies the missing constraint: over
+    [t_start, today] the universe expands by 1+z(t_start) (~3.2x for t_start=2.9 Gyr),
+    so the model's a_curve[-1]/a_curve[0] must match that. Runaway configs (e.g. huge
+    M expanding thousands-fold) violate it and are rejected.
+    """
+    res = solve_friedmann_at_times(np.array([float(t_start_Gyr), float(t_today_Gyr)]))
+    a = res['a']
+    return float(a[-1] / a[0])
 
 # Canonical list of individual match metric keys (excludes derived match_avg_pct / diff_pct).
 # Used by compute_match_metrics return dict, early-stop checks, and CSV columns.
@@ -448,6 +473,22 @@ def compute_pantheon_metrics(
     if sim_result.a_curve is None:
         return worst_case()
 
+    # Physical expansion anchor: reject configs whose TOTAL expansion over
+    # [t_start, today] is not the real ~1+z(t_start). Without this, a runaway config
+    # (e.g. M huge, expanding thousands-fold) renormalizes a=1 at the last snapshot and
+    # can fit the z<z_start window while predicting a nonsensical history. See
+    # expected_growth_factor.
+    a_curve = np.asarray(sim_result.a_curve, dtype=float)
+    if a_curve.size < 2 or a_curve[0] <= 0.0:
+        return worst_case()
+    model_growth = float(a_curve[-1] / a_curve[0])
+    target_growth = expected_growth_factor(t_start_Gyr)
+    if not np.isfinite(model_growth) or abs(model_growth / target_growth - 1.0) > GROWTH_ANCHOR_TOL:
+        metrics = worst_case()
+        metrics['growth_factor'] = model_growth
+        metrics['growth_target'] = target_growth
+        return metrics
+
     try:
         dist = sim_to_distance_modulus(
             z_target=pantheon_data['z'],
@@ -493,6 +534,8 @@ def compute_pantheon_metrics(
         'chi2_dof': chi2_dof,
         'R2': R2,
         'n_sne_used': int(len(z_in)),
+        'growth_factor': model_growth,
+        'growth_target': target_growth,
         'match_avg_pct': match_avg_pct,
         'diff_pct': 100.0 - match_avg_pct,
     }

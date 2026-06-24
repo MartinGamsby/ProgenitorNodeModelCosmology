@@ -78,12 +78,16 @@ At t_start=5.8 (sim reaches only z ~ 0.96), 1464 in-range SNe:
 | Matter-only | 0.523 | 0.9965 |
 
 Max |mu_sim - mu_LCDM| = 0.16 mag, RMS 0.097 mag; typical sigma 0.21 mag
-=> ~0.77 sigma. CONCLUSION (honest): within the covered z-range the real N-body
-a(t) is currently **INDISTINGUISHABLE from LCDM** at the individual-SN level
-(deviation below typical data uncertainty). It is real, not circular: the from-sim
-curve is slightly WORSE than LCDM, consistent with genuine nonlinear dynamics —
-NOT identical by construction the way the analytic shortcut is. A
-2000-particle production run + the Stage-2 higher-z extension may sharpen this.
+=> ~0.77 sigma. (The "Matter-only" row above was the OLD open Omega_m=0.3 null,
+since replaced by Einstein-de Sitter — see anchor/null sections below.)
+
+**Full-resolution run** (2000 particles, t_start=2.9 Gyr, full z to ~2.1, M=855):
+from-sim chi2/dof=0.494 vs LCDM 0.431; max|mu_sim-mu_LCDM|=0.21 mag, RMS 0.156,
+sigma~0.21 => ~1.0 sigma — a DETECTABLE (not conclusive) deviation, and the model
+fits the SNe slightly WORSE than LCDM over the full range. CONCLUSION (honest):
+the real mechanism produces effective dark energy (sits with LCDM, far from the
+matter-only null) but does NOT beat LCDM; at observable z it is ~indistinguishable
+from / marginally worse than LCDM. Real, not circular.
 
 ## Stage 2 — earlier t_start for full Pantheon+ coverage
 
@@ -101,6 +105,36 @@ mu(z) vs real Pantheon+ instead of R^2 vs the LCDM baseline. Additive; the lcdm
 objective stays the default and unchanged. See
 [../scripts/parameter-sweep.md](../scripts/parameter-sweep.md).
 
+## Physical expansion ANCHOR (critical — fixes an under-constrained comparison)
+
+`sim_to_distance_modulus` renormalizes a=1 at the LAST snapshot ("today") and only
+compares the SHAPE over the observed z-range. By itself that lets a RUNAWAY config
+(e.g. M=100000 expanding ~25000x in the 10.9 Gyr) renormalize and fit the z<z_start
+window while predicting a nonsensical history — so the bare Stage-3 sweep was nearly
+INSENSITIVE to (M,S) and wandered to absurd M. The missing constraint: total
+expansion over [t_start, today] must equal the real `1+z(t_start)` (~3.2x for
+t_start=2.9 Gyr).
+
+`cosmo.parameter_sweep.expected_growth_factor(t_start_Gyr)` returns the physical
+`a(today)/a(t_start)` from the LCDM background. `compute_pantheon_metrics` rejects
+(worst-case score) any config whose `a_curve[-1]/a_curve[0]` deviates from it by
+more than `GROWTH_ANCHOR_TOL` (0.20). Rejected metrics carry `growth_factor` and
+`growth_target` for transparency; both are also CSV columns. The from-sim script
+prints the same anchor check ("PHYSICAL" / "UNPHYSICAL, would be rejected").
+This is NOT velocity calibration masking the nodes — a(t) is in fact hugely
+sensitive to M (growth 3.1x at M=20 vs 25000x at M=100000); the flaw was the
+floating-"today" normalization, now anchored.
+
+## The matter-only null: use Einstein-de Sitter, NOT open Omega_m=0.3
+
+`model_distance_modulus(z, "matter_only")` is Omega_m=0.3 / Omega_k=0.7 (OPEN). An
+open low-density universe is nearly degenerate with LCDM in the SN Hubble diagram
+(negative curvature's sinh term mimics dark energy) — a MISLEADING null that hugs
+LCDM. The meaningful "dark energy is required" null is
+`model_distance_modulus(z, "einstein_de_sitter")` = flat Omega_m=1, which the SN
+data decisively rule out (sweeps to ~-0.6 mag vs LCDM by z~2). `hubble_diagram_nbody.py`
+plots Einstein-de Sitter as its matter-only null.
+
 ## Module map
 
 | File | Role |
@@ -117,8 +151,9 @@ objective stays the default and unchanged. See
 - `tests/test_hubble_diagram_nbody.py` (15) — evaluate_precomputed == evaluate_model;
   deviation-metric sanity; 3 slow integration smokes (real Pantheon+, tiny sim).
 - `tests/test_early_start_validation.py` (9) — Stage-2 safe-floor / dt / damping.
-- `tests/test_parameter_sweep_pantheon.py` (15) — pantheon scorer, end-to-end
-  pantheon sweep, and cache-key objective isolation (lcdm vs pantheon disjoint).
+- `tests/test_parameter_sweep_pantheon.py` (18) — pantheon scorer, end-to-end
+  pantheon sweep, cache-key objective isolation (lcdm vs pantheon disjoint), and
+  the growth anchor (runaway rejected, physical accepted, expected_growth_factor).
 
 ## Related
 - [./hubble-diagram.md](./hubble-diagram.md) — the semi-analytic sibling test

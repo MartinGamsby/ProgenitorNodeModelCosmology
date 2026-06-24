@@ -163,8 +163,9 @@ Scores each config by R^2/RMSE vs analytic LCDM baseline. Uses `compute_match_me
 Scores each config by chi^2 of sim-derived mu(z) vs real Pantheon+ SNe. Uses `compute_pantheon_metrics(result, pantheon_data, t_start_Gyr)`.
 - Requires `sim_result.a_curve` (full scale-factor array from the N-body)
 - `match_avg_pct = 100 / (1 + chi2_dof)` — monotone-decreasing so existing max-by-match logic works
-- Extra CSV keys: `chi2`, `chi2_dof`, `R2`, `n_sne_used`
+- Extra CSV keys: `chi2`, `chi2_dof`, `R2`, `n_sne_used`, `growth_factor`, `growth_target`
 - baseline may be None; objective must include t_end=13.8 (t_start+t_duration=13.8)
+- **Physical expansion anchor (REQUIRED for a meaningful sweep):** rejects any config whose total expansion `a_curve[-1]/a_curve[0]` deviates from the real `expected_growth_factor(t_start)` (~1+z(t_start)) by more than `GROWTH_ANCHOR_TOL=0.20`. Without it the sweep is degenerate — the floating-"today" renormalization lets runaway configs (e.g. M=100000 expanding ~25000x) fit the z-window and the "best fit" wanders to absurd M. See [../physics/hubble-diagram-nbody.md](../physics/hubble-diagram-nbody.md).
 - Edge cases (None a_curve, <2 SNe in range, ValueError from kernel) return worst-case score (match_avg_pct=0, n_sne_used=0), do not raise.
 - Cache key includes `lcdmobj` or `pantheonobj` suffix to prevent collisions between objectives.
 

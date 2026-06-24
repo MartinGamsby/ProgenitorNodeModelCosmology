@@ -48,3 +48,13 @@
 **RMS radius** - Root-mean-square distance of particles from center of mass. Proxy for universe size.
 
 **center_node_mass** - Central progenitor node mass as multiple of M_observable_kg. Default 1.0. Controls total_mass_kg for particle system and softening_m scaling in CosmologicalSimulation. Larger values model more massive central structures.
+
+**Node-mass amplitude / seed** - `node_mass_amplitude` and `node_mass_seed` on SimulationParameters/ExternalNodeParameters. Make the 26 HMEA node masses log-normal: m_i = M_ext_kg·w_i/mean(w), w_i = exp(amplitude·g_i), g_i = default_rng(seed) standard normals. amplitude=0 (default) => all nodes uniform = M_ext_kg (backward compatible). MEAN-PRESERVING (mean == M_ext_kg exactly), so Omega_Lambda_eff/growth/never-exceed-LCDM stay fixed; the seed selects the anisotropy (shear/dipole) ORIENTATION only. Sweepable. See lode/physics/force-calculations.md.
+
+**Shear index / inertia-tensor spread** - Anisotropy diagnostic: eigenvalue spread of the particle cloud's inertia tensor (axis-dependent expansion). ~0 for an isotropic cloud; nonzero under anisotropic node masses. See lode/physics/anisotropy-diagnostic.md.
+
+**Hubble dipole (ΔH/H)** - Directional expansion-rate asymmetry from a v·r̂-vs-r fit by hemisphere. Predicted dark-flow / Hubble-tension-scale signal of the External-Node Model; measured by cosmo/anisotropy.py. See lode/physics/anisotropy-diagnostic.md.
+
+**GRF / Zel'dovich** - Gaussian Random Field initial particle distribution (init_distribution="grf"): density field with approximate LCDM P(k), displaced by the Zel'dovich approximation (linear-order particle displacement from the density field). Deterministic per seed. Alternative to the default uniform_sphere. See lode/physics/realistic-initial-conditions.md.
+
+**BBKS** - Bardeen-Bond-Kaiser-Szalay transfer function: the approximate LCDM matter transfer function shaping P(k) for the GRF init. See lode/physics/realistic-initial-conditions.md.

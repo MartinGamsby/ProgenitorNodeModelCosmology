@@ -34,6 +34,8 @@ class SweepConfig:
     s_max_gpc: int = 60
     save_interval: int = 10
     objective: str = "lcdm"         # "lcdm" or "pantheon"
+    node_mass_seed: int = 0         # per-node HMEA mass anisotropy (Deliverable B)
+    node_mass_amplitude: float = 0.0  # 0.0 => uniform 26 nodes (backward compatible)
 
 @dataclass
 class MatchWeights:  # USED by compute_avg (additive aggregate). Field names map
@@ -168,6 +170,15 @@ Scores each config by chi^2 of sim-derived mu(z) vs real Pantheon+ SNe. Uses `co
 - **Physical expansion anchor (REQUIRED for a meaningful sweep):** rejects any config whose total expansion `a_curve[-1]/a_curve[0]` deviates from the real `expected_growth_factor(t_start)` (~1+z(t_start)) by more than `GROWTH_ANCHOR_TOL=0.20`. Without it the sweep is degenerate — the floating-"today" renormalization lets runaway configs (e.g. M=100000 expanding ~25000x) fit the z-window and the "best fit" wanders to absurd M. See [../physics/hubble-diagram-nbody.md](../physics/hubble-diagram-nbody.md).
 - Edge cases (None a_curve, <2 SNe in range, ValueError from kernel) return worst-case score (match_avg_pct=0, n_sne_used=0), do not raise.
 - Cache key includes `lcdmobj` or `pantheonobj` suffix to prevent collisions between objectives.
+
+### Sweepable per-node HMEA mass anisotropy (Deliverable B)
+`SweepConfig.node_mass_seed` / `node_mass_amplitude` thread to
+`ExternalNodeParameters.node_masses()` (mean-preserving log-normal; details in
+[../physics/force-calculations.md](../physics/force-calculations.md)). `amplitude=0.0`
+(default) => uniform, byte-identical to legacy; `amplitude>0` selects shear/dipole
+ORIENTATION only (Omega_Lambda_eff/growth/never-exceed-LCDM stay fixed).
+**Cache key:** `worst_callback` appends `<seed>nmseed_<amp>nmamp` slugs ONLY when
+`amplitude != 0.0`, so uniform runs keep their existing cache keys.
 
 ## From-data sweep results (Stage 3, anchored, 2000p/300steps, t_start=2.9, seed=42)
 LINEAR_SEARCH on S per M, full z to ~2.1. All 98 configs passed the growth anchor

@@ -64,7 +64,25 @@ diagnostic (max/RMS of mu_sim - mu_LCDM vs typical data sigma).
 
 Timing constraint: `t_duration = 13.8 - t_start` so the last snapshot is z=0.
 dt = t_duration/n_steps must stay < 0.05 Gyr (leapfrog limit) — script errors
-with the needed n_steps otherwise. Default M=855, S=37.8, 80 particles, 300 steps.
+with the needed n_steps otherwise.
+
+**Full-coverage DEFAULT: t_start=2.9 Gyr, M=855, S=37.8, particles=2000,
+n_steps=273** (dt~0.040 Gyr, z up to ~2.3 — full Pantheon+). For a quick run use
+`--t-start 5.8 --particles 80 --n-steps 300`.
+
+CLI extras:
+- `--from-best-config <sweep_csv>` loads the best row (lowest `chi2_dof`, else
+  `diff_pct`) from a pantheon sweep CSV and uses its M/S/centerM as defaults;
+  explicit `--M/--S/--center-node-mass` still override.
+- A **JSON sidecar** `<png>.summary.json` is written next to the PNG with config
+  (M,S,centerM,t_start,particles,n_steps), coverage (n_in_range, z_cover),
+  per-model {chi2,dof,chi2_dof,R2,DeltaM}, deviation diagnostics, and the growth
+  anchor {growth_factor, growth_target, anchor_ok} — the machine-readable source
+  the paper cites. Canonical numbers: [./pantheon-comparison-results.md](./pantheon-comparison-results.md).
+- The residual panel uses LCDM as the zero reference (Delta-mu vs LCDM). The
+  Einstein-de Sitter null (Omega_m=1) is the plotted "no dark energy" comparison
+  (see EdS-null section below). `node_mass_amplitude` / `init_distribution` are
+  also exposed as flags (uniform / uniform_sphere defaults).
 
 ### Honest Stage-1 result (the gating answer)
 
@@ -142,7 +160,7 @@ plots Einstein-de Sitter as its matter-only null.
 | `cosmo/sim_distance.py` | Pure a(t) -> mu(z) kernel (`sim_to_distance_modulus`). No I/O. |
 | `cosmo/hubble_diagram.py` | `evaluate_precomputed` (precomputed-mu entry) + shared `_evaluate_from_precomputed_mu` helper used by `evaluate_model` too. |
 | `cosmo/factories.py` | `results_to_sim_result` populates `SimResult.a_curve` from the sim's full a array. |
-| `hubble_diagram_nbody.py` | Stage-1 gating script: run sim -> mu(z) -> clip -> 4-curve compare -> deviation diagnostic -> 2-panel PNG. |
+| `hubble_diagram_nbody.py` | Comparison tool: run sim -> mu(z) -> clip -> 4-curve compare (incl. LCDM residual reference + EdS null) -> deviation diagnostic -> 2-panel PNG + JSON sidecar. `--from-best-config` loads M/S/centerM from a sweep CSV; t_start=2.9 full-coverage default. |
 
 ## Tests
 

@@ -21,6 +21,7 @@
 - [physics/integration.md](./physics/integration.md) - Leapfrog algorithm implementation
 - [physics/hubble-diagram.md](./physics/hubble-diagram.md) - SEMI-ANALYTIC mu(z) Hubble-diagram test vs real Pantheon+ SNe (H(z) from Omega_Lambda_eff; CIRCULAR == LCDM at 0.70); open M,S discrepancy
 - [physics/hubble-diagram-nbody.md](./physics/hubble-diagram-nbody.md) - FROM-SIM N-body mu(z) test (D_C=c∫dt/a from real a(t); NON-circular). Stage-1 gating (~indistinguishable from LCDM at z<=0.96), Stage-2 safe floor t_start=2.9, Stage-3 pantheon sweep objective
+- [physics/pantheon-comparison-results.md](./physics/pantheon-comparison-results.md) - CANONICAL from-sim vs Pantheon+ numbers (chi2/dof: model 0.50, LCDM 0.44, EdS null 0.84; growth anchor 3.10 vs 3.30; honest "with-LCDM, doesn't beat it, M/S^3 degenerate" verdict); comparison tool + JSON sidecar + --from-best-config
 
 ## Numerics
 - [numerics/timestep-stability.md](./numerics/timestep-stability.md) - Timestep requirements, instability symptoms, energy monitoring

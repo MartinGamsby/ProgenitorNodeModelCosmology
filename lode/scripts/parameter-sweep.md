@@ -169,13 +169,24 @@ Scores each config by chi^2 of sim-derived mu(z) vs real Pantheon+ SNe. Uses `co
 - Edge cases (None a_curve, <2 SNe in range, ValueError from kernel) return worst-case score (match_avg_pct=0, n_sne_used=0), do not raise.
 - Cache key includes `lcdmobj` or `pantheonobj` suffix to prevent collisions between objectives.
 
-## From-data sweep results (Stage 3, coarse grid, 200p/250steps, seed=42)
-| M | S (Gpc) | chi2_dof | R2 | n_sne | notes |
-|---|---------|----------|----|-------|-------|
-| 2000 | 15 | 0.431 | 0.989 | 971 | best fit (limited z coverage) |
-| 5000 | 15 | 0.434 | 0.991 | 1007 | 2nd best |
-| 5000 | 40 | 0.461 | 0.997 | 1393 | good coverage |
-Reference: LCDM analytic chi2_dof=0.436, R2=0.997 (1580 SNe); matter-only chi2_dof=0.517.
+## From-data sweep results (Stage 3, anchored, 2000p/300steps, t_start=2.9, seed=42)
+LINEAR_SEARCH on S per M, full z to ~2.1. All 98 configs passed the growth anchor
+(the per-M S-search already co-adjusts S to keep growth physical, so nothing was
+rejected here — the anchor still guards brute-force/finer grids).
+| M | S (Gpc) | chi2_dof | R2 | growth | n_sne |
+|---|---------|----------|----|--------|-------|
+| 100000 | 75 | 0.477 | 0.99648 | 3.13 | 1374 |
+| 60000 | 71 | 0.482 | 0.99645 | 3.12 | 1378 |
+| (M=20..200000) | co-fit S | 0.477-0.50 | ~0.996 | 3.10-3.18 | — |
+Reference: LCDM analytic chi2_dof=0.431 (1580 SNe).
+
+KEY: chi2_dof ~= 0.48 is essentially FLAT across M from 20 to 200000 (each paired
+with its best S). This is the M/S^3 degeneracy — SNe constrain the effective
+expansion (~effective Omega_Lambda), NOT M and S separately. Once anchored to
+physical growth, the model fits Pantheon+ at chi2_dof ~0.48: viable but slightly
+WORSE than LCDM (0.43), and under-constrained by SN data alone. (The earlier
+"best M=100000 is absurd" reading was wrong: M=100000 at S=75 has physical growth
+3.13; it only runs away at small S, which the search avoids.)
 
 ## Key Functions
 

@@ -32,6 +32,7 @@
 - [scripts/visualization.md](./scripts/visualization.md) - 3D visualization pipeline, comparison mode, animation
 - hubble_diagram.py - Standalone SEMI-ANALYTIC Hubble-diagram-vs-Pantheon+ script (documented in [physics/hubble-diagram.md](./physics/hubble-diagram.md))
 - hubble_diagram_nbody.py + cosmo/sim_distance.py - FROM-SIM N-body Hubble-diagram Stage-1 gating script + a(t)->mu(z) kernel (documented in [physics/hubble-diagram-nbody.md](./physics/hubble-diagram-nbody.md))
+- anisotropy_report.py + cosmo/anisotropy.py - Directional shear / Hubble-dipole anisotropy diagnostic (documented in [physics/anisotropy-diagnostic.md](./physics/anisotropy-diagnostic.md))
 
 ## Plans
 - [plans/](./plans/) - Future enhancements and TODOs

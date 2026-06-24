@@ -121,12 +121,47 @@ graph LR
 
 ## 2. External Tidal Forces
 
-**File**: particles.py:238-272
+**File**: particles.py — `HMEAGrid._create_grid`, `HMEAGrid.get_masses`; `tidal_forces_numba.py`
 
 **Formula**:
 ```
-a_tidal = Σ_nodes [G × M_ext × (r - r_node) / |r - r_node|³]
+a_tidal = Σ_nodes [G × m_node_i × (r - r_node_i) / |r - r_node_i|³]
 ```
+
+### Per-node mass distribution (Deliverable B)
+
+Each of the 26 nodes can have a distinct mass via `ExternalNodeParameters.node_masses(26)`.
+Controlled by two `SimulationParameters` fields (also in `SweepConfig`):
+
+| Field | Default | Effect |
+|---|---|---|
+| `node_mass_seed` | 0 | RNG seed for independent `default_rng(seed)` |
+| `node_mass_amplitude` | 0.0 | Log-normal width; 0.0 => uniform (backward compat) |
+
+**Computation** (inside `ExternalNodeParameters.node_masses(n_nodes=26)`):
+```python
+rng = np.random.default_rng(node_mass_seed)     # independent of particle RNG
+g   = rng.standard_normal(n_nodes)
+w   = np.exp(node_mass_amplitude * g)           # strictly positive
+m   = M_ext_kg * w / w.mean()                  # MEAN-PRESERVING
+```
+
+**INVARIANTS** (must never be broken):
+- **(a) Deterministic**: same `(seed, amplitude)` → identical 26-vector.
+- **(b) Strictly positive**: `exp(·) > 0` always.
+- **(c) MEAN-PRESERVING**: `mean(m_i) == M_ext_kg` exactly. This pins total external
+  mass / `Omega_Lambda_eff` / growth-anchor / never-exceed-LCDM background.
+  The seed selects shear/dipole **orientation**, not the isotropic background.
+
+**amplitude == 0.0**: fast path returns `np.full(n_nodes, M_ext_kg)` — byte-identical
+to the legacy uniform behavior, so existing cached sim results are unaffected.
+
+**Cache key**: anisotropic runs (`amplitude != 0.0`) append `{seed}nmseed` and
+`{amplitude}nmamp` slugs to `worst_callback`'s cache name so they never reuse a
+uniform cache entry. Uniform runs keep their existing keys unchanged.
+
+**Force layer**: `tidal_forces_numba.py` already indexed `node_masses[j]` per-node;
+no force-code changes were needed (Deliverable B is grid-construction only).
 
 **Implementation**:
 ```python

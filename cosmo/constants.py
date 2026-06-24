@@ -63,13 +63,24 @@ class LambdaCDMParameters:
 
 class ExternalNodeParameters:
     """External-Node Model parameters from the paper"""
-    
-    def __init__(self, M_ext_kg: float = None, S: float = None):
-        """Initialize External-Node parameters (M_ext_kg in kg, S in meters)."""
+
+    def __init__(self, M_ext_kg: float = None, S: float = None,
+                 node_mass_seed: int = 0, node_mass_amplitude: float = 0.0):
+        """Initialize External-Node parameters (M_ext_kg in kg, S in meters).
+
+        Args:
+            M_ext_kg: External node mass in kg (mean mass per node).
+            S: Node separation in meters.
+            node_mass_seed: RNG seed for per-node mass distribution (default 0).
+            node_mass_amplitude: Log-normal width of per-node mass distribution.
+                0.0 (default) => all 26 nodes have identical mass M_ext_kg (backward compatible).
+        """
         # Default values - S is tuned to give Ω_Λ_eff ≈ 0.7 with M_ext_kg = 5e55
         self.M_ext_kg = M_ext_kg if M_ext_kg is not None else 5e55  # kg
         self.S = S if S is not None else 31.6 * CosmologicalConstants.Gpc_to_m  # meters
-        
+        self.node_mass_seed = node_mass_seed
+        self.node_mass_amplitude = node_mass_amplitude
+
         # Calculate derived parameters
         self._calculate_derived()
         
@@ -90,6 +101,29 @@ class ExternalNodeParameters:
         # Mass ratio to observable universe
         self.M_ratio = self.M_ext_kg / const.M_observable_kg
         
+    def node_masses(self, n_nodes: int = 26) -> np.ndarray:
+        """Return per-node mass array of length n_nodes.
+
+        INVARIANTS:
+        - (a) Deterministic & reproducible: identical output for the same
+          (node_mass_seed, node_mass_amplitude) regardless of global RNG state.
+          Uses np.random.default_rng(seed) — independent of particle/simulation RNG.
+        - (b) All masses strictly positive: guaranteed by exp() > 0.
+        - (c) MEAN-PRESERVING: mean(m_i) == M_ext_kg EXACTLY (within float precision).
+          The / w.mean() step enforces this, keeping total external mass /
+          Omega_Lambda_eff / growth-anchor / never-exceed-LCDM background fixed.
+          The seed selects shear/dipole ORIENTATION only, not the isotropic background.
+
+        When node_mass_amplitude == 0.0 (default): returns np.full(n_nodes, M_ext_kg),
+        which is byte-identical to the legacy uniform behavior.
+        """
+        if self.node_mass_amplitude == 0.0:
+            return np.full(n_nodes, self.M_ext_kg)
+        rng = np.random.default_rng(self.node_mass_seed)
+        g = rng.standard_normal(n_nodes)
+        w = np.exp(self.node_mass_amplitude * g)
+        return self.M_ext_kg * w / w.mean()
+
     def set_grid_spacing(self, S_Gpc: float) -> None:
         """Set grid spacing in Gigaparsecs."""
         self.S = S_Gpc * CosmologicalConstants.Gpc_to_m
@@ -122,7 +156,8 @@ class SimulationParameters:
     def __init__(self, M_value: float = 800, S_value: float = 24.0, n_particles: int = 300, seed: int = 42,
                  t_start_Gyr: float = 10.8, t_duration_Gyr: float = 6.0, n_steps: int = 150,
                  damping_factor: float = None, center_node_mass: float = 1.0,
-                 mass_randomize: float = 0.5):
+                 mass_randomize: float = 0.5,
+                 node_mass_seed: int = 0, node_mass_amplitude: float = 0.0):
         """
         Initialize simulation parameters.
 
@@ -140,6 +175,11 @@ class SimulationParameters:
                               Affects total_mass_kg and softening scaling.
             mass_randomize: Particle mass randomization (0.0=equal masses,
                            1.0=masses from 0 to 2x mean). Default 0.5.
+            node_mass_seed: RNG seed for per-node mass distribution (default 0).
+                            Independent of particle/simulation RNG.
+            node_mass_amplitude: Log-normal width of per-node mass distribution.
+                                 0.0 (default) => all 26 nodes have identical mass
+                                 M_ext_kg (backward compatible, byte-identical).
         """
         self.M_value = M_value
         self.S_value = S_value
@@ -151,6 +191,8 @@ class SimulationParameters:
         self.damping_factor = damping_factor
         self.center_node_mass = center_node_mass
         self.mass_randomize = mass_randomize
+        self.node_mass_seed = node_mass_seed
+        self.node_mass_amplitude = node_mass_amplitude
 
         # Calculate derived quantities
         self._calculate_derived()
@@ -170,7 +212,12 @@ class SimulationParameters:
         self.center_node_mass_kg = self.center_node_mass * const.M_observable_kg
 
         # Create external node parameters for this configuration
-        self.external_params = ExternalNodeParameters(M_ext_kg=self.M_ext_kg, S=self.S)
+        self.external_params = ExternalNodeParameters(
+            M_ext_kg=self.M_ext_kg,
+            S=self.S,
+            node_mass_seed=self.node_mass_seed,
+            node_mass_amplitude=self.node_mass_amplitude,
+        )
 
     def __str__(self):
         return (f"Simulation Parameters:\n"

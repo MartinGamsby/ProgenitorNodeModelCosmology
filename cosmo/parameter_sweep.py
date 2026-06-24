@@ -163,6 +163,9 @@ class SweepConfig:
     s_max_gpc: int = 60
     save_interval: int = 10
     objective: str = "lcdm"  # "lcdm" or "pantheon"
+    # Per-node mass anisotropy (Deliverable B). Defaults keep backward compatibility.
+    node_mass_seed: int = 0
+    node_mass_amplitude: float = 0.0
 
     @property
     def particle_count(self) -> int:
@@ -569,6 +572,10 @@ def worst_callback(
     pantheon_data=None,
 ):
     seeds_slug = '_'.join([str(seed) for seed in seeds])
+    # Read node-mass anisotropy from config (defaults to 0/0.0 — backward compatible)
+    node_mass_seed = getattr(config, 'node_mass_seed', 0)
+    node_mass_amplitude = getattr(config, 'node_mass_amplitude', 0.0)
+
     parts = []
     parts.append(f"{config.particle_count}p")
     parts.append(f"{config.t_start_Gyr}-{config.t_duration_Gyr+config.t_start_Gyr}Gyr")
@@ -582,6 +589,11 @@ def worst_callback(
     # No mass randomize??
     if config.damping_factor:
         parts.append(f"{config.damping_factor}d")
+    # Node-mass anisotropy slugs: append only when amplitude > 0 so uniform runs
+    # keep their existing cache keys and only anisotropic runs get distinct keys.
+    if node_mass_amplitude != 0.0:
+        parts.append(f"{node_mass_seed}nmseed")
+        parts.append(f"{node_mass_amplitude}nmamp")
     cache_name = "_".join(parts)
 
     cache_filename = f"metrics_{config.particle_count}_s{seeds_slug}"

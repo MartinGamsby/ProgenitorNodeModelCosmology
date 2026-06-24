@@ -53,6 +53,12 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--mass-randomize', type=float, default=0.0,
                         help='Particle mass randomization (0.0=equal, 1.0=0 to 2x mean). '
                              'Total mass is preserved. Default 0.0 for deterministic results.')
+    parser.add_argument('--node-mass-seed', type=int, default=0,
+                        help='RNG seed for per-node mass distribution. '
+                             'Independent of particle RNG. Default 0.')
+    parser.add_argument('--node-mass-amplitude', type=float, default=0.0,
+                        help='Log-normal width of per-node mass distribution. '
+                             '0.0 (default) = all 26 nodes uniform = M_ext_kg (backward compatible).')
 
     # Mode flags
     parser.add_argument('--compare', action='store_true',
@@ -105,5 +111,7 @@ def args_to_sim_params(args: argparse.Namespace) -> SimulationParameters:
         n_steps=args.n_steps,
         damping_factor=args.damping,
         center_node_mass=args.center_node_mass,
-        mass_randomize=args.mass_randomize
+        mass_randomize=args.mass_randomize,
+        node_mass_seed=args.node_mass_seed,
+        node_mass_amplitude=args.node_mass_amplitude,
     )

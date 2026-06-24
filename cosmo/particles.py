@@ -282,29 +282,36 @@ class HMEAGrid:
 
         Grid is perfectly symmetric to ensure tidal forces cancel at origin.
         Any drift indicates either numerical issues or particle asymmetry.
+
+        Per-node masses are drawn from ExternalNodeParameters.node_masses().
+        When node_mass_amplitude == 0.0 (default), all masses equal M_ext_kg
+        (byte-identical to the legacy uniform behavior).
+        When node_mass_amplitude > 0.0, masses are log-normally distributed
+        with mean M_ext_kg exactly (mean-preserving normalization), preserving
+        Omega_Lambda_eff / growth-anchor / isotropic background.
         """
         S = self.params.S
 
-        # 3x3x3 grid positions: -1, 0, +1 in each direction
-        # Skip (0,0,0) - that's our universe
-        node_id = 0
+        # Build positions first (fixed traversal order), then assign masses
+        # by node_id so the mass vector aligns with node order.
+        positions = []
         for i in [-1, 0, 1]:
             for j in [-1, 0, 1]:
                 for k in [-1, 0, 1]:
-                    # Skip center - that's us!
                     if i == 0 and j == 0 and k == 0:
                         continue
+                    positions.append(np.array([i, j, k], dtype=float) * S)
 
-                    # Position with spacing S (perfectly symmetric)
-                    pos = np.array([i, j, k], dtype=float) * S
+        n = len(positions)  # 26
+        masses = self.params.node_masses(n)
 
-                    node = {
-                        'id': node_id,
-                        'position': pos,
-                        'mass': self.params.M_ext_kg,
-                    }
-                    self.nodes.append(node)
-                    node_id += 1
+        for node_id, (pos, mass) in enumerate(zip(positions, masses)):
+            node = {
+                'id': node_id,
+                'position': pos,
+                'mass': mass,
+            }
+            self.nodes.append(node)
     
     def get_positions(self) -> np.ndarray:
         """Get all node positions as (N, 3) array."""

@@ -133,7 +133,9 @@ def sim(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResult:
         n_steps=config.n_steps,
         damping_factor=config.damping_factor,
         center_node_mass=centerM,
-        mass_randomize=0.0  # Matches CLI default for deterministic results
+        mass_randomize=0.0,  # Matches CLI default for deterministic results
+        node_mass_seed=config.node_mass_seed,
+        node_mass_amplitude=config.node_mass_amplitude,
     )
 
     # Run simulation and convert to SimResult (both use shared factory functions)

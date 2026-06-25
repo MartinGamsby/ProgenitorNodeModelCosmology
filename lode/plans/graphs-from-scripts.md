@@ -57,15 +57,55 @@ A workstream's claim is only "pinned" when its figure(s) from the table above ex
 (e.g. a good chi2 sitting on a runaway edge, a degenerate flat band, a mask-shaped
 anisotropy).
 
+## Implementation status (WS2 Phase 1 — DONE)
+
+`cosmo/plots.py` is IMPLEMENTED. All functions below are live:
+
+| Function | Figure |
+|----------|--------|
+| `figure_path(workstream, name)` | path helper; creates dir |
+| `plot_ms_heatmap(df, metric_col, ws, name)` | F1/F2/F3 |
+| `plot_growth_map(df, ws, name)` | F4 |
+| `plot_eds_overlay(a_sim, t_Gyr, t_start_Gyr, ws, name)` | F5 |
+| `plot_mu_z_panel(sim_dist, results, sim_params, ws, name)` | F6 |
+| `plot_shear_vs_lever(levers, shear, label, ws, name)` | F7 |
+| `plot_dipole_vs_lever(levers, dipole, label, ws, name)` | F8 |
+| `plot_runaway_boundary(df, ws, name)` | F9 |
+| `plots_from_csv(csv_path, workstream)` | F1+F4+F9 from CSV |
+
+Style: dpi=150, bbox_inches="tight", log-scale M axis when range > 1.5 dex,
+git-rev footer on every figure. Output: `results/figures/<workstream>/<name>.png`.
+
+Validated PNGs already on disk (regenerable by `python _generate_ws2_figs.py`):
+- `results/figures/ws2/eds_overlay_M0.png` (F5, PF1 proof)
+- `results/figures/ws2/mu_z_panel_M855_S37.8.png` (F6, nominal config)
+- `results/figures/ws2/shear_vs_nma.png` (F7, PF2 proof)
+- `results/figures/ws2/dipole_vs_nma.png` (F8, PF2 proof)
+- `results/figures/ws2/ms_chi2_dof_heatmap.png` (F1 from sweep CSV)
+- `results/figures/ws2/growth_map.png` (F4)
+- `results/figures/ws2/runaway_boundary.png` (F9)
+
+Tests: `tests/test_plots.py` — 21 tests, all pass, fast (< 15 s), no sims.
+
+## Still to wire (remaining WS2 work)
+
+- `hubble_diagram_nbody.py` — call `plot_mu_z_panel` instead of inline `_make_figure`
+  (low priority: existing script already saves PNGs; refactor when convenient).
+- `anisotropy_report.py` — add `--png` flag that calls F7/F8 after printing table.
+- `convergence_check.py` — route its existing `--png` through the shared helper (F11).
+- F2/F3 (chi2 vs LCDM / EdS) need separate columns in the sweep CSV; WS1 must add them.
+- F10, F11, F12 remain for WS5, WS6, WS3 respectively.
+
 ## Files this workstream touches
 
-- NEW: `cosmo/plots.py` (shared style + save helper + the heatmap/map plotters).
-- `hubble_diagram_nbody.py` — already saves PNG; reuse the shared helper, add F5/F6 modes.
-- `anisotropy_report.py` — add F7/F8 figure output (it currently only prints a table).
-- `convergence_check.py` — already has `--png`; route through the shared helper (F11).
-- WS1 sweep tool — F1-F4, F9, F10, F12 from its results CSV via `--plots-only`.
+- DONE: `cosmo/plots.py` (shared style + save helper + the heatmap/map plotters).
+- DONE: `tests/test_plots.py` — 21 fast unit tests.
+- DONE: `_generate_ws2_figs.py` — standalone figure regeneration script.
+- Pending: `hubble_diagram_nbody.py`, `anisotropy_report.py`, `convergence_check.py`,
+  WS1 sweep tool.
 
 ## Deliverables
 
-- A shared plotting helper and a uniform `results/figures/` layout.
+- A shared plotting helper and a uniform `results/figures/` layout. ✓
 - The full F1-F12 figure set, regenerable from CSVs without re-running sims.
+  F1, F4, F5, F6, F7, F8, F9 done; F2, F3, F10-F12 pending their workstreams.

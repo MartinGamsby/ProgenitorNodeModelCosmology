@@ -30,10 +30,11 @@ import argparse
 import time
 import numpy as np
 
-# UTF-8 stdout guard (section-1 requirement)
-if sys.stdout.encoding and sys.stdout.encoding.lower() not in ('utf-8', 'utf8'):
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+# UTF-8 stdout/stderr guard (section-1 requirement). Use the shared helper so
+# BOTH stdout and stderr are converted (a hand-rolled stdout-only wrapper would
+# still crash on a non-ASCII traceback written to stderr on a cp1252 console).
+from cosmo.encoding import configure_utf8_stdout
+configure_utf8_stdout()
 
 from cosmo.constants import CosmologicalConstants, LambdaCDMParameters, SimulationParameters
 from cosmo.particles import ParticleSystem

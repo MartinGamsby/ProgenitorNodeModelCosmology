@@ -233,9 +233,21 @@ def load_best_config(csv_path: str) -> dict:
         sort_key = None
 
     if sort_key is not None:
-        try:
-            best = min(rows, key=lambda r: float(r[sort_key]))
-        except (ValueError, KeyError):
+        # Filter to rows whose sort key parses as a finite float, then take the
+        # minimum. A single malformed/empty cell must NOT abort the whole sort
+        # and silently fall back to rows[0] (which is not the best fit).
+        def _sortable(r):
+            try:
+                v = float(r[sort_key])
+            except (KeyError, ValueError, TypeError):
+                return None
+            return v if math.isfinite(v) else None
+
+        scored = [(v, r) for r in rows if (v := _sortable(r)) is not None]
+        if scored:
+            best = min(scored, key=lambda vr: vr[0])[1]
+        else:
+            # No row has a parseable sort key — fall back to the first row.
             best = rows[0]
     else:
         best = rows[0]
@@ -902,16 +914,25 @@ if __name__ == "__main__":
             f"(chi2_dof={cfg['chi2_dof']})"
         )
 
-        # Only apply if the user did NOT explicitly supply them on the CLI.
-        # argparse doesn't track which args were explicitly set vs defaulted,
-        # so we check whether the parsed value still equals the parser default.
-        defaults = parser._defaults  # combined set_defaults values
-        if args.M == defaults.get("M", None):
+        # Only apply the loaded config to flags the user did NOT explicitly
+        # supply on the CLI. argparse stores the same value whether a flag was
+        # passed or defaulted, so comparing against the default misfires when a
+        # user explicitly passes a value equal to the default (e.g. --M 855.0).
+        # Detect explicit flags directly from sys.argv instead.
+        def _flag_given(*option_strings: str) -> bool:
+            for tok in sys.argv[1:]:
+                # Matches "--M", "--M=855", but not "--M-something".
+                if tok in option_strings or any(
+                    tok.startswith(opt + "=") for opt in option_strings
+                ):
+                    return True
+            return False
+
+        if not _flag_given("--M"):
             args.M = cfg["M"]
-        if args.S == defaults.get("S", None):
+        if not _flag_given("--S"):
             args.S = cfg["S"]
-        if (args.center_node_mass == defaults.get("center_node_mass", 1.0)
-                and cfg["centerM"] is not None):
+        if not _flag_given("--center-node-mass") and cfg["centerM"] is not None:
             args.center_node_mass = cfg["centerM"]
 
     t_start = args.t_start

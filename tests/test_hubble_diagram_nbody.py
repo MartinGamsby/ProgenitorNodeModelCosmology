@@ -363,6 +363,41 @@ class TestLoadBestConfig(unittest.TestCase):
         self.assertAlmostEqual(cfg["M"], 777.0, places=5)
         self.assertAlmostEqual(cfg["S"], 42.0, places=5)
 
+    def test_malformed_sort_cell_does_not_derail_best_selection(self):
+        """A single unparseable chi2_dof cell must not abort the sort and
+        silently fall back to the FIRST row; the true minimum among the
+        parseable rows must still be chosen."""
+        hdn = self._import()
+        rows = [
+            {"M_factor": "500", "S_gpc": "30", "centerM": "1",
+             "chi2_dof": "", "chi2": "900", "R2": "0.99"},      # malformed (empty)
+            {"M_factor": "855", "S_gpc": "37", "centerM": "1",
+             "chi2_dof": "0.9", "chi2": "600", "R2": "0.998"},  # true best
+            {"M_factor": "200", "S_gpc": "20", "centerM": "2",
+             "chi2_dof": "2.1", "chi2": "1200", "R2": "0.95"},
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = _write_sweep_csv(tmp, rows)
+            cfg = hdn.load_best_config(path)
+        # Must pick the chi2_dof=0.9 row, NOT the first (malformed) row.
+        self.assertAlmostEqual(cfg["M"], 855.0, places=5)
+        self.assertAlmostEqual(cfg["chi2_dof"], 0.9, places=5)
+
+    def test_nan_sort_cell_is_ignored(self):
+        """A 'nan' chi2_dof must be treated as non-finite and skipped, not
+        chosen as the minimum (float('nan') compares oddly in min())."""
+        hdn = self._import()
+        rows = [
+            {"M_factor": "500", "S_gpc": "30", "centerM": "1",
+             "chi2_dof": "nan", "chi2": "900", "R2": "0.99"},
+            {"M_factor": "855", "S_gpc": "37", "centerM": "1",
+             "chi2_dof": "1.2", "chi2": "600", "R2": "0.998"},
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = _write_sweep_csv(tmp, rows)
+            cfg = hdn.load_best_config(path)
+        self.assertAlmostEqual(cfg["M"], 855.0, places=5)
+
 
 # ---------------------------------------------------------------------------
 # 4. JSON sidecar — _build_sidecar contents

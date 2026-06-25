@@ -567,10 +567,18 @@ def _build_result_dict(
     }
 
 
-def worst_callback(
-    sim_callback, config, M_factor, S_val, centerM, seeds, baseline, weights,
-    pantheon_data=None,
-):
+def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
+    """Build the metrics/results cache slug for a single sweep configuration.
+
+    The slug must be UNIQUE per distinct physical configuration so two configs
+    never share a cache entry. Node-mass anisotropy slugs are appended ONLY when
+    node_mass_amplitude != 0.0, so uniform runs keep their pre-existing cache
+    keys (backward compatible) and distinct (seed, amplitude) anisotropic runs
+    get distinct keys.
+
+    Extracted from worst_callback so it is a single source of truth that tests
+    can exercise directly (instead of re-implementing the format by hand).
+    """
     seeds_slug = '_'.join([str(seed) for seed in seeds])
     # Read node-mass anisotropy from config (defaults to 0/0.0 — backward compatible)
     node_mass_seed = getattr(config, 'node_mass_seed', 0)
@@ -594,7 +602,15 @@ def worst_callback(
     if node_mass_amplitude != 0.0:
         parts.append(f"{node_mass_seed}nmseed")
         parts.append(f"{node_mass_amplitude}nmamp")
-    cache_name = "_".join(parts)
+    return "_".join(parts)
+
+
+def worst_callback(
+    sim_callback, config, M_factor, S_val, centerM, seeds, baseline, weights,
+    pantheon_data=None,
+):
+    seeds_slug = '_'.join([str(seed) for seed in seeds])
+    cache_name = build_cache_name(config, M_factor, S_val, centerM, seeds)
 
     cache_filename = f"metrics_{config.particle_count}_s{seeds_slug}"
     global CACHE

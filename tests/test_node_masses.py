@@ -197,32 +197,18 @@ class TestCacheKeySlug:
     """Distinct (seed, amplitude) specs produce distinct cache keys."""
 
     def _make_cache_name(self, seed, amplitude):
-        """Reproduce worst_callback cache-name logic for given node-mass params."""
-        from cosmo.parameter_sweep import SweepConfig
+        """Call the REAL production cache-name builder so these tests guard the
+        actual slug logic (not a hand-rolled copy that could drift from it)."""
+        from cosmo.parameter_sweep import SweepConfig, build_cache_name
         config = SweepConfig(
             quick_search=True,
             objective='pantheon',
             node_mass_seed=seed,
             node_mass_amplitude=amplitude,
         )
-        seeds = [42]
-        seeds_slug = '_'.join(str(s) for s in seeds)
-        M_factor, S_val, centerM = 800, 25, 1
-        parts = []
-        parts.append(f"{config.particle_count}p")
-        parts.append(f"{config.t_start_Gyr}-{config.t_duration_Gyr+config.t_start_Gyr}Gyr")
-        parts.append(f"{M_factor}M")
-        parts.append(f"{int(centerM)}centerM")
-        parts.append(f"{S_val}S")
-        parts.append(f"{config.n_steps}steps")
-        parts.append(f"{seeds_slug}seeds")
-        parts.append(f"{config.objective}obj")
-        if config.damping_factor:
-            parts.append(f"{config.damping_factor}d")
-        if amplitude != 0.0:
-            parts.append(f"{seed}nmseed")
-            parts.append(f"{amplitude}nmamp")
-        return "_".join(parts)
+        return build_cache_name(
+            config, M_factor=800, S_val=25, centerM=1, seeds=[42],
+        )
 
     def test_different_seeds_produce_different_cache_keys(self):
         """Two different seeds with same amplitude>0 => distinct cache keys."""

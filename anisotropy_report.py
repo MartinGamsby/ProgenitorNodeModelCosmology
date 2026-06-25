@@ -55,29 +55,18 @@ def _parse_args() -> argparse.Namespace:
         description="Anisotropy diagnostic: uniform vs anisotropic HMEA node masses."
     )
     add_common_arguments(parser)
-    parser.add_argument(
-        "--node-mass-seed", type=int, default=42,
-        help="RNG seed for anisotropic run (default: 42).",
-    )
-    parser.add_argument(
-        "--node-mass-amplitude", type=float, default=0.5,
-        help="Log-normal width for anisotropic run (default: 0.5).",
-    )
-    parser.add_argument(
-        "--t-start", type=float, default=5.8,
-        help="Simulation start time in Gyr (default: 5.8).",
-    )
-    parser.add_argument(
-        "--t-duration", type=float, default=8.0,
-        help="Simulation duration in Gyr (default: 8.0).",
-    )
-    parser.add_argument(
-        "--particles", type=int, default=80,
-        help="Number of particles (default: 80; use >=2000 for stable dipole).",
-    )
-    parser.add_argument(
-        "--n-steps", type=int, default=150,
-        help="Number of integration steps (default: 150).",
+    # add_common_arguments already registers --node-mass-seed, --node-mass-amplitude,
+    # --t-start, --t-duration, --particles, and --n-steps. Re-adding them would raise
+    # argparse.ArgumentError (conflicting option string). Override only the defaults
+    # this report needs (notably a NON-ZERO node_mass_amplitude so the anisotropic run
+    # actually breaks the lattice symmetry).
+    parser.set_defaults(
+        node_mass_seed=42,
+        node_mass_amplitude=0.5,
+        t_start=5.8,
+        t_duration=8.0,
+        particles=80,
+        n_steps=150,
     )
     return parser.parse_args()
 

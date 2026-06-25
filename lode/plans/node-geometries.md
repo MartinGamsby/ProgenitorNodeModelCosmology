@@ -81,15 +81,40 @@ graph TD
   apples on Ω_Λ_eff. (Recommend holding total external mass fixed so Ω_Λ_eff stays
   comparable across geometries.)
 
-## Files this workstream touches
+## Implementation status (COMPLETE as of WS3 coding pass)
 
-- NEW: `cosmo/node_geometry.py` (`build_node_positions` + the geometry registry).
-- `cosmo/particles.py` — `HMEAGrid._create_grid` calls the factory; n_nodes derived.
-- `cosmo/constants.py` — `node_geometry` / `geometry_kwargs` on the param dataclasses;
-  Ω_Λ_eff bookkeeping decision (total vs per-node mass).
-- WS1 sweep + cache key; `anisotropy_report.py` per-geometry; figures F12.
-- Tests: geometry factory shapes, symmetric-geometry-has-no-spurious-shear, M=0==EdS for
-  a non-cube geometry, total-mass bookkeeping.
+### Files added / modified
+- **NEW `cosmo/node_geometry.py`** — `build_node_positions(geometry, S, **kwargs)` factory
+  + `list_geometries()` + `effective_M_ext_kg()` helper. Registry-based; six geometries.
+- **`cosmo/particles.py`** — `HMEAGrid._create_grid` replaced hard-coded cube loop with
+  `build_node_positions` call; `n_nodes` set from actual geometry count.
+- **`cosmo/constants.py`** — `node_geometry: str = "cube26"` + `geometry_kwargs: dict = {}`
+  added to both `ExternalNodeParameters` and `SimulationParameters`; threaded into
+  `external_params` in `_calculate_derived`.
+- **`cosmo/parameter_sweep.py`** — `SweepConfig` gains `node_geometry` / `geometry_kwargs`;
+  `build_cache_name` appends `{geo}geo` slug only when geometry != `"cube26"`.
+- **`cosmo/cli.py`** — `--node-geometry` argument + threaded in `args_to_sim_params`.
+- **NEW `tests/test_node_geometry.py`** — 53 tests, all pass.
+
+### Geometries implemented
+| id | nodes | kwargs |
+|----|-------|--------|
+| `cube26` | 26 | — (DEFAULT, byte-identical to old loop) |
+| `cube_dense` | (n³-1), default n=5 → 124 | `n_per_side` (odd ≥3) |
+| `shell` | default 50 | `n_nodes` |
+| `shell_multi` | default 150 (50×3) | `n_nodes`, `n_shells` |
+| `fcc` | ~54 (n_shells=2) | `n_shells` |
+| `bcc` | ~26 (n_shells=2) | `n_shells` |
+
+### Mass bookkeeping (DECIDED: hold per-node mean fixed)
+`M_ext_kg` is the per-node mean mass. Total external mass = `n_nodes * M_ext_kg`.
+For cross-geometry Ω_Λ_eff comparisons, use `effective_M_ext_kg(M_ref, n, ref_nodes=26)`
+to rescale so total stays equal to 26 * M_ref. `node_masses(n)` and `node_scale_factors(n)`
+already adapt to any n; no other change needed.
+
+### Remaining (deferred to WS2 / graphs agent)
+- F12 geometry-comparison figures (anisotropy diagnostic per geometry).
+- Honest verdict on geometry vs cube26 on shear/dipole signal.
 
 ## Deliverables
 

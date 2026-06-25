@@ -43,24 +43,43 @@ Source: [../scripts/parameter-sweep.md](../scripts/parameter-sweep.md) Stage-3 t
 
 ## PF4 — Corrected framing: near-LCDM, far-from-null (NOT a failure)
 
-The honest read of the isotropic fit (corrected from an earlier over-negative framing):
+**RE-PINNED from WS1 targeted_near_lcdm sweep (2026-06-25), 400p/273 steps, t_start=2.9,
+one consistent kernel/anchor.**
 
-- On chi2/dof, the model's best physical configs (~0.48-0.51) are CLOSE to LCDM (~0.43)
-  and FAR from the Einstein-de Sitter no-dark-energy null (~0.85, which the SNe
-  decisively disfavor).
-- So the toy model lands NEAR LCDM and DECISIVELY REJECTS no-dark-energy — a genuine
-  success for a toy model. It produces real effective dark energy.
-- It is NOT an exact LCDM match (does not beat LCDM) and is M/S³-degenerate.
-- The landscape is config/init-sensitive: the symmetric base at the paper-nominal
-  M=855/S=37.8 can sit ON the EdS null (~0.67-0.85 depending on kernel/anchor), and
-  GRF-vs-uniform swung the chi2 (0.51 → 1.56) at M=1500/S=30 — see
-  [grf-vs-uniform.md](./grf-vs-uniform.md).
+Honest isotropic (amp=0) result at the best S per M:
+- Best isotropic chi2/dof ≈ 0.52 (M=200/S=20, M=1500/S=30, degeneracy band ~0.52-0.54)
+- LCDM reference: 0.436
+- EdS null: 0.843
 
-**Therefore the exact numbers must be PINNED DOWN with finer sweeps + graphs (WS1+WS2)
-before any claim is published. Reframe to fair "near-LCDM / far-from-null" wording, but
-do NOT over-claim an LCDM match either.** Several chi2 numbers currently in the Lode
-predate the current kernel/anchor and disagree with each other (0.50 vs 0.67 vs 0.85 at
-nominal config); WS1 re-runs them on ONE consistent kernel/anchor and graphs them.
+So the model sits between LCDM and EdS at ~0.52, roughly halfway in log-chi2 space.
+It lands closer to LCDM than to EdS, confirming genuine effective dark energy.
+It does NOT match LCDM (gap ~0.08 chi2/dof units is not noise).
+
+With node_mass_amplitude=0.5 (symmetry-breaking amplitude), best chi2/dof ≈ 0.487
+(M=1500/S=55) — a modest improvement driven by the amplitude growth nudge (PF2/PF3).
+
+Particle-count stability at low-S best configs (amp=0):
+- M=200/S=20: 400p→0.52, 1000p→0.53, 2000p→0.53 (stable within 0.01)
+- M=1500/S=30: 400p→0.52, 1000p→0.54, 2000p→0.53 (stable within 0.01)
+- CONCLUSION: low-S near-LCDM band is NOT sensitive to N=400→2000 at these configs.
+
+The ~0.50 chi2 cited in prior Lode entries came from cache entries with a different
+key format (n_sne_used=1339 vs 1425, different Pantheon cut or amplitude runs), not from
+current amp=0 runs on the same kernel. They should NOT be used as isotropic baselines.
+
+Near-LCDM band (amp=0): M=200-3000 at S=20-35 gives chi2/dof 0.52-0.54 (flat band).
+S must be LOW (20-35 Gpc); high-S (80-90) gives 0.69 (wrong part of landscape).
+
+The M/S^3 degeneracy is confirmed: chi2/dof is essentially flat across M when S is
+co-varied to maintain constant effective Ω_Λ. Report "near-LCDM isotropic band ~0.52-0.54"
+not a single "best M" number.
+
+**Runaway boundary** (PF5): S_crit ∝ M^(1/3). At M=3000, all S≤45 amp=0.5 runaway.
+At M=1500, S=20-25 runaway for both amp=0 and amp=0.5. The boundary is real.
+
+GRF-vs-uniform sensitivity (from prior work at M=1500/S=30): uniform_sphere gives
+chi2~0.52, GRF gives chi2~1.56 — large swing. Not re-run here; still an open question
+(WS5). Do NOT claim 0.52 for GRF init.
 
 ## PF5 — Runaway boundary is real physics
 

@@ -123,14 +123,74 @@ Config: M=[100..50000], S=co-fit [20..90], amp=[0, 0.5], 400p/273steps/t_start=2
 - **amp=0.5**: runaways at M≥1000/S=20; M=200/S=20 gives 1.16, M=100/S=20 gives 0.83
 - **Runaway cells**: 7/18 (all amp=0.5 at M≥1000 fell to s_min and failed anchor)
 
-HONEST OBSERVATION: chi2/dof at 400p/273steps (~0.69) is higher than Stage-3
-(2000p/300steps, chi2/dof~0.48). This is particle-count noise sensitivity — 400p
-at S≥80 underestimates the effective dark energy. High-N convergence is WS6.
-The M/S^3 degeneracy and near-EdS range at these S values (>80 Gpc) confirm the
-degeneracy band exists but is displaced from near-LCDM region.
+HONEST OBSERVATION: chi2/dof at S=80-90 sits at ~0.69 (far from near-LCDM),
+because the M/S^3 degeneracy band at S>80 is NOT the near-LCDM band.
+Near-LCDM requires smaller S (see targeted_near_lcdm sweep below).
+The ~0.50 chi2 in older cache entries (metrics_400_s42.csv) came from a different
+code/key format (those entries have n_sne_used=1339, not 1425); they do NOT
+correspond to the current amp=0 flat-key. This is a lode correction.
 
-To find the near-LCDM region at 400p, need smaller S range (S=20..50) and/or
-more M values in the mid-range (100..5000).
+## Targeted near-LCDM results (targeted_near_lcdm tag, 2026-06-25)
+
+Config: M=[50, 200, 855, 1500, 3000], S=[20..60] explicit list,
+amp=[0.0, 0.5], 400p/273steps/t_start=2.9. sweeps/targeted_near_lcdm.json.
+
+- **LCDM reference**: chi2/dof = 0.4360  (1580 SNe)
+- **EdS null**: chi2/dof = 0.8430
+- **Growth target**: 3.304
+
+**Best overall (all knobs, anchor_ok)**:
+M=1500, S=55, amp=0.5, chi2/dof=0.4866 — near-LCDM band confirmed!
+growth=2.990, anchor_ok=True.
+
+**Best isotropic (amp=0, anchor_ok)**:
+M=200, S=20: chi2/dof=0.5195, growth=2.88
+M=1500, S=30: chi2/dof=0.5217, growth=2.88
+M=3000, S=35: chi2/dof=0.5300, growth=2.87
+M=855, S=25: chi2/dof=0.5322, growth=2.91
+(M/S^3 degeneracy confirmed: very flat across M at matched S; best band 0.52-0.54)
+
+**amp=0.5 results**:
+M=855/S=45: chi2/dof=0.4887, M=1500/S=55: 0.4866 (best). These amplitude
+configs sit between LCDM (0.436) and the isotropic floor (0.52). The amplitude
+lever is a growth nudge per PF2/PF3 — it does NOT represent a clean independent
+fit knob (anisotropy is the primary effect).
+
+**Runaway cells**: 17/90
+- M=855 at S=20, S=25: amp=0.5 runaways
+- M=1500 at S=20, S=25: both amp=0 and amp=0.5 runaways
+- M=3000 at S=20..45 (all amp variants): heavy runaways
+- Runaway boundary: S_crit ∝ M^(1/3), confirmed (larger M → larger minimum S needed)
+
+**Near-LCDM band at amp=0**: chi2/dof 0.52–0.54 for M=200-3000 at S=20-35.
+Band is at lower S than first-exploration searched (S=20-35 vs S=80-90).
+
+**Particle-count sensitivity (at best isotropic cells, amp=0)**:
+M=200/S=20: 400p→0.5195, 1000p→0.5319, 2000p→0.5269 (within ~0.01, stable)
+M=1500/S=30: 400p→0.5217, 1000p→0.5350, 2000p→0.5293 (within ~0.01, stable)
+CONCLUSION: chi2/dof is stable across N=400..2000 at the low-S best configs.
+The previous note "400p gives 0.69 vs 2000p gives 0.48" was a CONFIGURATION
+artifact (that comparison used different M/S; the high-S region IS sensitive to N
+but the low-S near-LCDM band is NOT). No large particle-count shift here.
+
+**Shell geometry thread-through (at M=200/S=20, amp=0, N=400)**:
+cube26: chi2/dof=0.5195  shell(n=50): chi2/dof=0.6267
+NOTE: shell geometry gives higher chi2 at this config. The traceless argument
+predicts SIMILAR isotropic chi2 across geometries, but the shell geometry uses 50
+nodes at S=20 Gpc while cube26 uses 26 at S=20 Gpc — the effective M_ext_kg per
+node differs, so the total tidal strength differs unless rescaled via
+effective_M_ext_kg(). This is NOT a traceless-argument failure; it is an M
+normalization difference. A fair comparison needs effective_M_ext_kg() rescaling.
+
+**Figures** (results/figures/ws1/):
+- ms_chi2_dof_heatmap_targeted_near_lcdm.png
+- ms_chi2_lcdm_targeted_near_lcdm.png
+- ms_chi2_eds_targeted_near_lcdm.png
+- growth_map_targeted_near_lcdm.png
+- runaway_boundary_targeted_near_lcdm.png
+- mu_z_panel_M1500_S55_targeted_near_lcdm.png  (best all-knobs)
+- mu_z_panel_M200_S20_targeted_near_lcdm_iso_400p.png  (best isotropic 400p)
+- mu_z_panel_M200_S20_targeted_near_lcdm_iso_2000p.png  (best isotropic 2000p)
 
 ## Tests
 

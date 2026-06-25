@@ -1,19 +1,12 @@
 # Canonical From-Sim vs Pantheon+ Comparison Results
 
-> **STALE — numbers below predate the EdS initial-conditions fix.** The from-sim
-> curve used to look LCDM-like at M=855 ONLY because of the velocity-calibration
-> fudge. That fudge is now removed: with self-consistent EdS ICs (default), the
-> WEAK symmetric 26-node field at the paper-nominal M=855/S=37.8 sits near the
-> Einstein-de Sitter end (chi2/dof ~0.67-0.85 depending on kernel/anchor), NOT at
-> LCDM (see [./initial-conditions.md](./initial-conditions.md) "Mechanism
-> direction"). But STRONGER physical configs (e.g. M=1500/S=30, chi2/dof ~0.51) DO
-> land near LCDM and far from the EdS null — so the mechanism does produce genuine
-> effective dark energy; the nominal config is just under-powered. The tool
-> `hubble_diagram_nbody.py` now inherits `eds_consistent=True`, so its chi2 vs
-> Pantheon+ at the NOMINAL config is worse than the numbers in this file. All these
-> numbers need re-running on one consistent kernel/anchor (with graphs) before they
-> can be cited — see [../plans/pinned-findings.md](../plans/pinned-findings.md). Do
-> NOT trust the chi2/dof/R2 values below as current.
+> **PARTIALLY UPDATED 2026-06-25**: The WS1 targeted_near_lcdm sweep (400p,
+> t_start=2.9, uniform_sphere, eds_consistent=True) has RE-PINNED the isotropic
+> numbers on one consistent kernel/anchor. See "Re-pinned WS1 numbers" section below.
+> The Section-1 knob sweep numbers (~0.50-0.51 for GRF runs, n_sne=1339) used a
+> different Pantheon cut and should not be mixed with the WS1 isotropic band (0.52,
+> n_sne=1425). The "canonical numbers" table at M=855/S=37.8 is still STALE; that
+> config gives chi2/dof~0.69 with current ICs (below). Do NOT cite the 0.50 table below.
 
 The publication-style numbers the paper cites for the from-sim N-body mu(z) vs
 REAL Pantheon+SH0ES test. Produced by the comparison tool `hubble_diagram_nbody.py`
@@ -28,6 +21,25 @@ each model's additive magnitude (`DeltaM`), and reports chi2/dof + R2. It saves 
 2-panel PNG (mu(z) + Delta-mu-vs-LCDM residual panel) and a **machine-readable JSON
 sidecar** (`<png>.summary.json`) with config + per-model stats + growth anchor.
 `--from-best-config <sweep_csv>` loads the best (M,S,centerM) from a pantheon sweep.
+
+## Re-pinned WS1 numbers (2026-06-25)
+
+One consistent kernel: uniform_sphere, 400p, 273 steps, t_start=2.9, eds_consistent=True, n_sne=1425.
+
+**Best isotropic (amp=0)**:
+M=200/S=20: chi2/dof=0.519, growth=2.88
+M=1500/S=30: chi2/dof=0.522, growth=2.88
+Isotropic band: 0.52-0.54 across M=200-3000 at matched low-S (20-35 Gpc).
+LCDM=0.436, EdS=0.843. Gap to LCDM: ~0.08 chi2/dof — real, not noise.
+
+Particle-count stability at best isotropic cells: N=400→0.52, N=1000→0.53, N=2000→0.53.
+No large convergence shift at low-S.
+
+**Best overall (amp=0.5)**: M=1500/S=55, chi2/dof=0.487, growth=2.99 (PF3: growth nudge).
+
+**Nominal M=855/S=37.8**: chi2/dof ≈ 0.69 at current ICs (not near-LCDM; see note).
+
+**Figures**: results/figures/ws1/ mu_z_panel_M200_S20_targeted_near_lcdm_iso_{400,2000}p.png
 
 ## The default config
 

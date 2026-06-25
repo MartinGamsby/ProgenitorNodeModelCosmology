@@ -51,7 +51,74 @@ Omega_Lambda), not M and S separately, so chi2/dof ~ 0.48-0.50 is essentially
 flat across M from 20 to 200000 once each M is paired with its growth-anchored S
 (see [../scripts/parameter-sweep.md](../scripts/parameter-sweep.md) Stage-3 table).
 
+## Section-1 Pantheon knob sweep (910 sims, June 2026)
+
+Full-factorial sweep over M ∈ {50,100,250,500,700,750,800,850,900,1000},
+S ∈ {20..80 step 5}, amplitude ∈ {0,0.25,0.5,0.75}, seed ∈ {42,7},
+init_distribution="grf", particles=400, n_steps=273, t_start=2.9. Growth anchor ON.
+Executed by `pantheon_knob_sweep.py` → `results/sweep_results_pantheon.csv` (isotropic
+rows, load_best_config-compatible) + `results/knob_sweep_summary.csv` (all 910 rows).
+Runtime: ~1.8 s/sim probe → 1638 s estimated; actual ~25 min (cache assisted for amplitude>0).
+
+### HEADLINE (defensible, paper-quotable)
+The from-sim Pantheon+ result is the best **isotropic** (amplitude=0) config:
+**M=50, S=80, chi2/dof=0.5056**, R2=0.99607, growth=3.085, n_sne=1339. This is the
+number to cite. It controls for selection bias (min over 130 isotropic configs, not
+the min over the full 910-config pool). The M/S³ degeneracy holds: per-M best chi2/dof
+at amp=0 spans only 0.5056..0.5063; the good band (chi2/dof<0.55) is 100/130 rows,
+all M, S=25..80.
+
+### Verified status of node_mass_amplitude / node_mass_seed (skeptical re-audit)
+The "amplitude>0 systematically beats isotropic" claim was re-investigated with
+controlled experiments. Conclusion: the effect is **REAL but indirect — it is a growth
+nudge, not an anisotropy fit improvement** — and the earlier framing was misleading.
+
+What is TRUE (proven):
+- **No bug.** End-to-end through `CosmologicalSimulation`, `HMEAGrid.get_masses()` sums
+  to exactly 26·M_ext_kg and mean==M_ext_kg for amp=0 AND amp=0.5/0.75 (std/mean≈0.38).
+  Mean-preservation is intact in the real force path, not just the unit test.
+- **No particle confound.** Particle positions AND velocities are byte-identical across
+  node_mass_amplitude and across node_mass_seed (node_masses() uses an independent
+  default_rng drawn AFTER the particle cloud; it never touches the global RNG). So
+  "seed=42 wins" is NOT a lucky cloud. Guarded by
+  `tests/test_node_masses.py::TestSimPathNodeMassInvariants`.
+- **Amplitude raises the realized growth factor toward the physical target** wherever the
+  tidal field is strong (small S / large M): e.g. M=1000,S=50 growth 3.078→3.100→3.139→
+  3.191 as amp 0→0.25→0.5→0.75. At weak tidal field (M=50,S=80) growth is FLAT
+  (3.0849→3.0852) and chi2/dof is FLAT (0.5054..0.5057). The traceless/shear argument
+  holds to LINEAR order; amplitude injects variance that back-reacts on the bulk
+  RMS-radius a(t) at SECOND order only when nodes are close.
+
+Why the chi2 "improvement" is mostly selection + a growth artifact:
+- The "overall best" M=1000,S=50,amp=0.5 (chi2/dof=0.4619) is computed over only **1295
+  SNe**, vs **1339** for the isotropic best — the higher growth raises z_min_cover and
+  drops the lowest-z SNe. On a COMMON (identical 1295-SNe) window the gap shrinks:
+  amp=0 → 0.5025, amp=0.5 → 0.4619 (Δ=0.040). Of the raw 0.054 delta, ~0.013 is the
+  changing-window/selection effect; ~0.040 survives as a genuine better fit ON the same
+  SNe — but it is genuine **only because all from-sim runs sit BELOW the physical growth
+  3.304, so any growth INCREASE moves toward the target** (Pearson corr |growth−3.304|
+  vs chi2/dof = 0.31 over 821 configs).
+- **Noise floor** (chi2/dof across particle realizations at amp=0, M=1000/S=50) = 0.0008,
+  so 0.040 is far above shot noise — the effect is not noise, it is real growth physics.
+
+The "seed=42 ~0.005 advantage" is **NOT systematic** — it is misread. Paired seed42−seed7
+(341 pairs, same M/S/amp): median +0.0031 (seed42 better in the typical pair, 295/341)
+but MEAN −0.018 (seed7 better on average; outliers dominate), std 0.12. nm_seed is a
+noisy orientation knob with no defensible preferred value; do NOT claim a seed preference.
+
+**Interpretation for the paper**: amplitude is NOT an independent fit knob that "beats"
+the isotropic model. It is degenerate with M/S — it modestly raises the realized growth
+toward physical and the SN fit follows, but the model still sits above LCDM (0.46–0.51 vs
+0.44) and never crosses it. Quote the isotropic 0.5056 as the headline. The grf
+init_distribution at 400p is chi2/dof-indistinguishable from uniform_sphere.
+
+**Anisotropy-showcase config** (Section 4 — its job is to MOVE shear/dipole, not the
+chi2): **M=1000, S=50, amplitude=0.75, nm_seed=42, init='grf'** — the strongest-tidal,
+largest-spread config (std/mean≈0.38), where anisotropy is maximal. (The flat-chi2 point
+M=50,S=80,amp=0.75 has the cleanest "same chi2, only shear moves" story but the weakest
+shear; pick by what the figure needs to show.)
+
 ## Related
 - [./hubble-diagram-nbody.md](./hubble-diagram-nbody.md) — kernel, anchor, EdS null, module map
-- [../scripts/parameter-sweep.md](../scripts/parameter-sweep.md) — Stage-3 M/S^3 degeneracy table
+- [../scripts/parameter-sweep.md](../scripts/parameter-sweep.md) — Stage-3 M/S^3 degeneracy table + knob sweep harness
 - [./hubble-diagram.md](./hubble-diagram.md) — the semi-analytic (circular) sibling

@@ -149,9 +149,16 @@ m   = M_ext_kg * w / w.mean()                  # MEAN-PRESERVING
 **INVARIANTS** (must never be broken):
 - **(a) Deterministic**: same `(seed, amplitude)` → identical 26-vector.
 - **(b) Strictly positive**: `exp(·) > 0` always.
-- **(c) MEAN-PRESERVING**: `mean(m_i) == M_ext_kg` exactly. This pins total external
-  mass / `Omega_Lambda_eff` / growth-anchor / never-exceed-LCDM background.
-  The seed selects shear/dipole **orientation**, not the isotropic background.
+- **(c) MEAN-PRESERVING**: `mean(m_i) == M_ext_kg` exactly. This pins the total external
+  mass and `Omega_Lambda_eff` (both linear in the masses) — verified end-to-end via
+  `HMEAGrid.get_masses().sum() == 26*M_ext_kg` in the real force path.
+  CAVEAT: mean-preservation does NOT fully pin the realized growth factor. The tidal
+  acceleration and the RMS-radius a(t) are NONLINEAR in the node configuration, so at
+  strong tidal field (small S / large M) `amplitude>0` raises the realized growth by a
+  few % (e.g. M=1000,S=50: 3.078→3.191 as amp 0→0.75). The seed selects shear/dipole
+  **orientation**; amplitude selects orientation AND a second-order growth nudge. At weak
+  tidal field (large S) growth is flat and the "orientation only" reading holds. See
+  [pantheon-comparison-results.md](./pantheon-comparison-results.md).
 
 **amplitude == 0.0**: fast path returns `np.full(n_nodes, M_ext_kg)` — byte-identical
 to the legacy uniform behavior, so existing cached sim results are unaffected.

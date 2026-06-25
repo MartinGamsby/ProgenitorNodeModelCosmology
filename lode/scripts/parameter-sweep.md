@@ -175,10 +175,31 @@ Scores each config by chi^2 of sim-derived mu(z) vs real Pantheon+ SNe. Uses `co
 `SweepConfig.node_mass_seed` / `node_mass_amplitude` thread to
 `ExternalNodeParameters.node_masses()` (mean-preserving log-normal; details in
 [../physics/force-calculations.md](../physics/force-calculations.md)). `amplitude=0.0`
-(default) => uniform, byte-identical to legacy; `amplitude>0` selects shear/dipole
-ORIENTATION only (Omega_Lambda_eff/growth/never-exceed-LCDM stay fixed).
+(default) => uniform, byte-identical to legacy. Total external mass is fixed exactly
+(mean-preserving), and `amplitude`/`node_mass_seed` do NOT perturb the particle
+realization (independent default_rng, drawn after the cloud — guarded by
+`tests/test_node_masses.py::TestSimPathNodeMassInvariants`).
+
+VERIFIED CAVEAT (corrects an earlier overstatement): `amplitude>0` does NOT leave the
+realized expansion fixed. The traceless/shear argument holds only to LINEAR order. When
+the tidal field is strong (small S / large M) the mass variance back-reacts on the bulk
+RMS-radius a(t) at second order, RAISING the realized growth factor (e.g. M=1000,S=50:
+growth 3.078→3.191 as amp 0→0.75). At weak tidal field (e.g. M=50,S=80) growth and
+chi2/dof are flat across amplitude — there `amplitude` does select shear/dipole
+orientation only. So for the Pantheon objective amplitude is **degenerate with M/S via
+growth**, not an independent fit knob; the headline number must stay the best ISOTROPIC
+config. See [../physics/pantheon-comparison-results.md](../physics/pantheon-comparison-results.md).
 **Cache key:** `worst_callback` appends `<seed>nmseed_<amp>nmamp` slugs ONLY when
 `amplitude != 0.0`, so uniform runs keep their existing cache keys.
+
+### Sweepable init_distribution
+`SweepConfig.init_distribution` (default `"uniform_sphere"`) is threaded into
+`SimulationParameters` in both `parameter_sweep.py`'s `sim_callback` and the new
+`pantheon_knob_sweep.py`. `build_cache_name` appends `<init>init` slug ONLY when
+`init_distribution != "uniform_sphere"`, so existing uniform_sphere cache keys are
+unchanged. `"grf"` runs get distinct keys and NEVER collide with uniform_sphere.
+Expected physics: chi2/dof is clustering-insensitive at 400p (isotropic chi2 is
+shape-driven, not sampling-driven), so grf and uniform_sphere give ~same chi2/dof.
 
 ## From-data sweep results (Stage 3, anchored, 2000p/300steps, t_start=2.9, seed=42)
 LINEAR_SEARCH on S per M, full z to ~2.1. All 98 configs passed the growth anchor
@@ -215,6 +236,34 @@ WORSE than LCDM (0.43), and under-constrained by SN data alone. (The earlier
 **parameter_sweep.py:**
 - `sim_callback(M, S, centerM, seed)` - runs real simulation, returns SimResult
 
+## Pantheon Knob Sweep Harness
+
+`pantheon_knob_sweep.py` — standalone orchestrator for the full M/S × amplitude ×
+nm_seed × init_distribution factorial sweep. Entry point: `python pantheon_knob_sweep.py`.
+
+Grid (user-chosen): M∈{50,100,250,500,700,750,800,850,900,1000}, S∈{20..80 step 5},
+amplitude∈{0.0,0.25,0.5,0.75}, nm_seed∈{42,7} (collapsed to 1 run at amplitude=0),
+init_distribution="grf" (ALWAYS). Fixed: 400p, 273 steps, t_start=2.9, centerM=1.
+Total: 10×13×7 = 910 sims. At 1.8 s/sim ≈ 27 min on current hardware.
+
+Outputs:
+- `results/sweep_results_pantheon.csv` — amplitude=0 rows, columns compatible with
+  `hubble_diagram_nbody.py --from-best-config`.
+- `results/knob_sweep_summary.csv` — one row per (M,S,amplitude,nm_seed,init) with
+  chi2_dof, chi2, R2, growth_factor, anchor_ok, n_sne_used.
+
+Uses `_SweepConfigFixed` (subclass of `SweepConfig`) that hard-codes `particle_count=400`
+and `n_steps=273` via property overrides so the cache key matches the actual sim params.
+amplitude=0 combos are collapsed to a single nm_seed=42 run (seed is a no-op when amp=0).
+
+`tests/test_pantheon_knob_sweep.py` — 24 hermetic unit tests covering:
+- `_expand_grid` amplitude=0 collapse and total count
+- CSV column contracts (_BEST_ISO_COLS / _KNOB_SUMMARY_COLS)
+- `load_best_config` compatibility (finds lowest chi2_dof)
+- Cache-key uniqueness across (amplitude, init_distribution, nm_seed)
+- `SweepConfig.init_distribution` default and getattr fallback
+- `_SweepConfigFixed` particle_count/n_steps overrides
+
 ## Testing
 
 `tests/test_parameter_sweep.py` - 36 tests using dummy callbacks (lcdm objective):
@@ -223,7 +272,7 @@ WORSE than LCDM (0.43), and under-constrained by SN data alone. (The earlier
 - Search algorithm correctness with unimodal callbacks
 - Early stopping, adaptive skipping, boundary handling
 
-`tests/test_parameter_sweep_pantheon.py` - 15 hermetic tests (pantheon objective,
+`tests/test_parameter_sweep_pantheon.py` - 18 hermetic tests (pantheon objective,
 synthetic fixture + analytic-LCDM a_curve, no real sim):
 - SimResult.a_curve optional + populated by results_to_sim_result
 - compute_pantheon_metrics finite chi2/R2; worst-case fallback (None a_curve / 0 SNe)

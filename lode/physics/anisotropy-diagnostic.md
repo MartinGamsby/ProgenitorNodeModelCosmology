@@ -6,11 +6,15 @@ Related: [theoretical-framework.md](./theoretical-framework.md),
 ## Purpose
 
 Measures directional expansion anisotropy in an evolved N-body snapshot.
-The isotropic mu(z) chi^2 is barely sensitive to node-mass variation
-(mean-preserving → isotropic background fixed). The SHEAR + HUBBLE DIPOLE
-are the discriminating signal: per-node mass variation breaks the traceless
-HMEA tidal tensor symmetry and produces measurable stretch / dipole aligned
-with the mass-heavy face of the lattice.
+The SHEAR + HUBBLE DIPOLE are the discriminating signal: per-node mass variation
+breaks the traceless HMEA tidal tensor symmetry and produces measurable stretch /
+dipole aligned with the mass-heavy face of the lattice.
+NOTE: the isotropic mu(z) chi^2 is the WRONG place to look for the node-mass effect —
+it is only weakly and INDIRECTLY sensitive (via a small second-order growth nudge at
+strong tidal field), and that growth coupling is degenerate with M/S. The defensible
+Pantheon headline is the best isotropic config; node-mass amplitude is a SHEAR/DIPOLE
+story, not a chi^2 story. See
+[pantheon-comparison-results.md](./pantheon-comparison-results.md).
 
 ## Module: `cosmo/anisotropy.py`
 

@@ -190,6 +190,75 @@ class TestHMEAGridNodeMasses:
 
 
 # ---------------------------------------------------------------------------
+# End-to-end sim-path invariants (confound guards)
+# ---------------------------------------------------------------------------
+
+class TestSimPathNodeMassInvariants:
+    """Guard the invariants that make the node-mass knobs a CLEAN experiment.
+
+    These protect against a future refactor that would let node_mass_amplitude /
+    node_mass_seed perturb anything OTHER than the node masses (e.g. the particle
+    realization), which would turn the measured amplitude->growth effect into a
+    particle-cloud confound. Verified end-to-end through CosmologicalSimulation,
+    not just the node_masses() unit.
+    """
+
+    def _build_sim(self, amplitude, nm_seed):
+        from cosmo.constants import SimulationParameters
+        from cosmo.simulation import CosmologicalSimulation
+        from cosmo.factories import setup_simulation_context
+        import io, contextlib
+        with contextlib.redirect_stdout(io.StringIO()):
+            box, a_start, _ = setup_simulation_context(2.9, 13.8 - 2.9, 273, 10)
+            params = SimulationParameters(
+                M_value=1000, S_value=50, n_particles=120, seed=42,
+                t_start_Gyr=2.9, t_duration_Gyr=13.8 - 2.9, n_steps=273,
+                center_node_mass=1, mass_randomize=0.0,
+                node_mass_seed=nm_seed, node_mass_amplitude=amplitude,
+                init_distribution="grf",
+            )
+            sim = CosmologicalSimulation(params, box, a_start,
+                                         use_external_nodes=True, use_dark_energy=False)
+        return sim
+
+    def test_total_external_mass_fixed_across_amplitude(self):
+        """get_masses() sums to 26*M_ext_kg EXACTLY for amp=0 and amp>0 (no bug)."""
+        s0 = self._build_sim(0.0, 42)
+        s5 = self._build_sim(0.5, 42)
+        M_ext = s0.sim_params.external_params.M_ext_kg
+        np.testing.assert_allclose(s0.hmea_grid.get_masses().sum(), 26 * M_ext, rtol=1e-12)
+        np.testing.assert_allclose(s5.hmea_grid.get_masses().sum(), 26 * M_ext, rtol=1e-12)
+        # amplitude>0 really does spread the masses (not a no-op)
+        assert s5.hmea_grid.get_masses().std() > 0
+
+    def test_particle_realization_independent_of_amplitude(self):
+        """Particle positions+velocities are byte-identical across node_mass_amplitude.
+
+        node_masses() draws from its OWN default_rng AFTER the particle system is
+        built, so it must not consume/advance the global RNG that seeds the cloud.
+        """
+        s0 = self._build_sim(0.0, 42)
+        s5 = self._build_sim(0.5, 42)
+        np.testing.assert_array_equal(s0.particles.get_positions(),
+                                      s5.particles.get_positions())
+        np.testing.assert_array_equal(s0.particles.get_velocities(),
+                                      s5.particles.get_velocities())
+
+    def test_particle_realization_independent_of_node_mass_seed(self):
+        """Particle cloud is byte-identical across node_mass_seed at fixed amplitude.
+
+        This is what makes a 'seed=42 vs seed=7' comparison a node-mass effect and
+        NOT a lucky particle realization (confound guard).
+        """
+        s42 = self._build_sim(0.5, 42)
+        s7 = self._build_sim(0.5, 7)
+        np.testing.assert_array_equal(s42.particles.get_positions(),
+                                      s7.particles.get_positions())
+        np.testing.assert_array_equal(s42.particles.get_velocities(),
+                                      s7.particles.get_velocities())
+
+
+# ---------------------------------------------------------------------------
 # Cache-key slug tests
 # ---------------------------------------------------------------------------
 

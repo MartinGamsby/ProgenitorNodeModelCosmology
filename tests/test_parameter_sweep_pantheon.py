@@ -203,7 +203,19 @@ class TestLCDMObjectiveUnchanged(unittest.TestCase):
     """
     A tiny LCDM-objective sweep behaves exactly as before (additive, no regressions).
     The test replicates the dummy-callback pattern from test_parameter_sweep.py.
+
+    Cache is disabled at the MODULE level (ps.SKIP_CACHE) so the dummy-callback
+    metrics are never served from a warm real cache left by an earlier (real-sim)
+    test in a full cross-file run. Without this the test flakes depending on test
+    order (the shared data/*.csv cache leaks across files).
     """
+
+    def setUp(self):
+        self._saved_skip = ps.SKIP_CACHE
+        ps.SKIP_CACHE = True
+
+    def tearDown(self):
+        ps.SKIP_CACHE = self._saved_skip
 
     def _make_baseline(self, n=31):
         return LCDMBaseline(
@@ -482,11 +494,82 @@ class TestCacheKeyObjectiveIsolation(unittest.TestCase):
             lcdm_keys & pantheon_keys, set(),
             f"lcdm and pantheon cache keys collide: {lcdm_keys & pantheon_keys}",
         )
-        # Every key must carry its objective suffix.
-        self.assertTrue(all(k.endswith("lcdmobj") for k in lcdm_keys),
-                        f"lcdm keys missing 'lcdmobj' suffix: {lcdm_keys}")
-        self.assertTrue(all(k.endswith("pantheonobj") for k in pantheon_keys),
-                        f"pantheon keys missing 'pantheonobj' suffix: {pantheon_keys}")
+        # Every key must carry its objective slug (now followed by the trailing
+        # physics-version token, so it is no longer the final part).
+        self.assertTrue(all("lcdmobj" in k for k in lcdm_keys),
+                        f"lcdm keys missing 'lcdmobj' slug: {lcdm_keys}")
+        self.assertTrue(all("pantheonobj" in k for k in pantheon_keys),
+                        f"pantheon keys missing 'pantheonobj' slug: {pantheon_keys}")
+        # And every key must end with the physics-version token (defense-in-depth:
+        # the token is appended last and applies to both objectives).
+        from cosmo.parameter_sweep import PHYSICS_CACHE_VERSION
+        tok = f"phys{PHYSICS_CACHE_VERSION}"
+        self.assertTrue(all(k.endswith(tok) for k in lcdm_keys | pantheon_keys),
+                        f"keys missing trailing physics token {tok!r}: "
+                        f"{lcdm_keys | pantheon_keys}")
+
+
+class TestPhysicsCacheVersionToken(unittest.TestCase):
+    """The cache key MUST embed a physics-version token so that a change to the
+    simulation physics (e.g. EdS-consistent ICs, the pre-start tidal boost)
+    invalidates every pre-change entry instead of silently reusing it.
+
+    Guards the exact regression the user flagged: a stale parameter-only cache
+    entry computed under old physics being served for matching parameters after
+    the physics changed.
+    """
+
+    def _key(self, **cfg_kwargs):
+        from cosmo.parameter_sweep import build_cache_name
+        cfg = SweepConfig(**cfg_kwargs)
+        return build_cache_name(cfg, M_factor=500, S_val=25, centerM=1, seeds=[42])
+
+    def test_token_is_part_of_every_key(self):
+        from cosmo.parameter_sweep import PHYSICS_CACHE_VERSION
+        tok = f"phys{PHYSICS_CACHE_VERSION}"
+        for obj in ("lcdm", "pantheon"):
+            key = self._key(objective=obj)
+            self.assertIn(tok, key, f"physics token {tok!r} missing from {key!r}")
+            self.assertTrue(key.endswith(tok),
+                            f"physics token must be the LAST part of {key!r}")
+
+    def test_different_version_does_not_collide_with_old_key(self):
+        """Bumping PHYSICS_CACHE_VERSION must produce a key disjoint from the old
+        one for the SAME parameters (so old entries become unreachable)."""
+        import cosmo.parameter_sweep as _ps
+        saved = _ps.PHYSICS_CACHE_VERSION
+        try:
+            _ps.PHYSICS_CACHE_VERSION = "v2"
+            key_v2 = self._key(objective="pantheon")
+            _ps.PHYSICS_CACHE_VERSION = "v3"
+            key_v3 = self._key(objective="pantheon")
+        finally:
+            _ps.PHYSICS_CACHE_VERSION = saved
+        self.assertNotEqual(key_v2, key_v3,
+                            "different physics versions produced the SAME key")
+        # Only the trailing token differs; everything before it is identical.
+        self.assertEqual(key_v2.rsplit("_", 1)[0], key_v3.rsplit("_", 1)[0])
+
+    def test_legacy_physics_flags_give_distinct_key(self):
+        """A legacy (eds_consistent=False) or boost-off config must NOT share a
+        key with the current-physics defaults at the same parameters."""
+        default_key = self._key(objective="pantheon")
+        no_eds_key = self._key(objective="pantheon", eds_consistent=False)
+        no_boost_key = self._key(objective="pantheon", pre_start_tidal_boost=False)
+        self.assertNotEqual(default_key, no_eds_key)
+        self.assertNotEqual(default_key, no_boost_key)
+        self.assertNotEqual(no_eds_key, no_boost_key)
+
+    def test_token_round_trips_through_real_cache(self):
+        """The token must survive Cache._split_key/_join_key (CSV column round
+        trip) so a cached key reads back byte-identically."""
+        from cosmo.cache import Cache
+        for obj in ("lcdm", "pantheon"):
+            key = self._key(objective=obj)
+            cols = Cache._split_key(key)
+            rejoined = Cache._join_key(cols)
+            self.assertEqual(key, rejoined,
+                             f"key did not round-trip: {key!r} -> {rejoined!r}")
 
 
 if __name__ == '__main__':

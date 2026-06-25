@@ -263,6 +263,8 @@ def _make_sim_callback(sweep_cfg: _FixedSweepConfig, box_size_Gpc: float, a_star
             node_mass_amplitude=sweep_cfg.node_mass_amplitude,
             node_s_amplitude=getattr(sweep_cfg, "node_s_amplitude", 0.0),
             init_distribution=sweep_cfg.init_distribution,
+            node_geometry=getattr(sweep_cfg, "node_geometry", "cube26"),
+            geometry_kwargs=getattr(sweep_cfg, "geometry_kwargs", {}),
         )
         ext_results = run_external_node_simulation(
             sim_params, box_size_Gpc, a_start, sweep_cfg.save_interval

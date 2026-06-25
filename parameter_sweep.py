@@ -136,7 +136,10 @@ def sim(M_factor: int, S_gpc: int, centerM: int, seed: int) -> SimResult:
         mass_randomize=0.0,  # Matches CLI default for deterministic results
         node_mass_seed=config.node_mass_seed,
         node_mass_amplitude=config.node_mass_amplitude,
+        node_s_amplitude=getattr(config, 'node_s_amplitude', 0.0),
         init_distribution=getattr(config, 'init_distribution', 'uniform_sphere'),
+        node_geometry=getattr(config, 'node_geometry', 'cube26'),
+        geometry_kwargs=getattr(config, 'geometry_kwargs', {}),
     )
 
     # Run simulation and convert to SimResult (both use shared factory functions)

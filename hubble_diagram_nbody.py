@@ -946,19 +946,14 @@ if __name__ == "__main__":
         )
         sys.exit(1)
 
-    # Build sim_params with the derived t_duration (override what argparse set)
-    sim_params = SimulationParameters(
-        M_value=args.M,
-        S_value=args.S,
-        n_particles=args.particles,
-        seed=args.seed,
-        t_start_Gyr=t_start,
-        t_duration_Gyr=t_duration,
-        n_steps=args.n_steps,
-        damping_factor=args.damping,
-        center_node_mass=args.center_node_mass,
-        mass_randomize=args.mass_randomize,
-    )
+    # Build sim_params via the shared converter so EVERY CLI knob actually reaches
+    # the simulation (node_mass_amplitude/seed, node_s_amplitude, init_distribution,
+    # node_geometry). Previously this block re-implemented the conversion by hand and
+    # silently DROPPED those flags, so e.g. --node-mass-amplitude was a no-op here.
+    # Override t_duration with the t_start-derived value (argparse's --t-duration is
+    # ignored in this tool because t_end is pinned to today).
+    args.t_duration = t_duration
+    sim_params = args_to_sim_params(args)
 
     try:
         run(

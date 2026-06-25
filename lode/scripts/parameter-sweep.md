@@ -171,6 +171,28 @@ Scores each config by chi^2 of sim-derived mu(z) vs real Pantheon+ SNe. Uses `co
 - Edge cases (None a_curve, <2 SNe in range, ValueError from kernel) return worst-case score (match_avg_pct=0, n_sne_used=0), do not raise.
 - Cache key includes `lcdmobj` or `pantheonobj` suffix to prevent collisions between objectives.
 
+### Physics-version cache token (REQUIRED — guards against stale-physics reuse)
+The metrics/results cache (`data/metrics_*.csv`) is keyed on PARAMETERS only, which
+is unsafe across a physics change: the SAME (M,S,centerM,particles,steps,seeds,
+objective) tuple computed under different sim physics (e.g. EdS-consistent ICs +
+pre-start boost vs the legacy calibrated ICs) would silently reuse the old entry and
+return STALE chi2/results. `build_cache_name` therefore ALWAYS appends a physics token
+`physics_cache_token(config)` as the LAST key part:
+- `PHYSICS_CACHE_VERSION` (module constant in `cosmo/parameter_sweep.py`, currently
+  `"v2"`) is a MANUALLY-BUMPED token. **Bump it whenever a change alters a(t) for a
+  fixed parameter tuple** (ICs, force law, boost, integrator, softening). v1=legacy
+  calibrated ICs; v2=EdS-consistent ICs + pre-start tidal boost (current default).
+- It also folds in the physics-affecting IC flags `eds_consistent` /
+  `pre_start_tidal_boost` (now `SweepConfig` fields, default True): a legacy
+  `eds_consistent=False` run gets a DISTINCT key (`...physv2noeds`) so it can never
+  collide with a current run at the same params.
+- Token shape `phys<ver>[<flags>]` (e.g. `physv2`) round-trips cleanly through
+  `Cache._split_key`/`_join_key`. SKIP_CACHE still bypasses caching entirely.
+- Tests: `tests/test_parameter_sweep_pantheon.py::TestPhysicsCacheVersionToken`
+  (token in key, different version → disjoint key, legacy flags → distinct key,
+  CSV round-trip) + the objective-isolation test asserts the trailing token.
+- The stale pre-token `data/metrics_*.csv` were CLEARED; caches regenerate on demand.
+
 ### Sweepable per-node HMEA mass anisotropy (Deliverable B)
 `SweepConfig.node_mass_seed` / `node_mass_amplitude` thread to
 `ExternalNodeParameters.node_masses()` (mean-preserving log-normal; details in
@@ -200,6 +222,16 @@ config. See [../physics/pantheon-comparison-results.md](../physics/pantheon-comp
 unchanged. `"grf"` runs get distinct keys and NEVER collide with uniform_sphere.
 Expected physics: chi2/dof is clustering-insensitive at 400p (isotropic chi2 is
 shape-driven, not sampling-driven), so grf and uniform_sphere give ~same chi2/dof.
+
+### Sweepable node_geometry (WS3) — MUST be threaded into the sim, not just the key
+`SweepConfig.node_geometry` / `geometry_kwargs` and `node_s_amplitude` are now passed
+into `SimulationParameters` by BOTH `sweep.py::_make_sim_callback` AND
+`parameter_sweep.py::sim`. `build_cache_name` appends a `<geom>geo` slug only for
+non-`cube26` geometries. INVARIANT: anything that distinguishes the cache key MUST
+also reach the actual sim — a prior bug had `sweep.py` keying cells by `node_geometry`
+while always running `cube26`, so a `shell`/`fcc` cell silently produced cube26 physics
+cached under a `shellgeo` key. (`pantheon_knob_sweep.py` never varies geometry, so it
+correctly leaves it at the cube26 default in both sim and key.)
 
 ## From-data sweep results (Stage 3, anchored, 2000p/300steps, t_start=2.9, seed=42)
 LINEAR_SEARCH on S per M, full z to ~2.1. All 98 configs passed the growth anchor

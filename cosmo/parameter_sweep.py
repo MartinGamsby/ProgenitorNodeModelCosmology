@@ -141,6 +141,57 @@ CSV_COLUMNS = (
 CACHE = None
 SKIP_CACHE = False
 
+# ---------------------------------------------------------------------------
+# Physics-version cache token
+# ---------------------------------------------------------------------------
+# The metrics/results cache is keyed on PARAMETERS only. That is unsafe across a
+# physics change: if the simulation's a(t) is computed differently for the SAME
+# (M, S, centerM, particles, steps, seeds, objective) tuple, an old cache entry
+# would be silently reused and return STALE numbers.
+#
+# PHYSICS_CACHE_VERSION is a manually-bumped token that MUST be incremented
+# whenever a change alters the from-sim a(t) for a fixed parameter tuple (initial
+# conditions, force law, the pre-start boost, integrator, softening, etc.). It is
+# appended to every cache key (via build_cache_name), so bumping it makes all
+# pre-change entries unreachable — old and new physics can never collide.
+#
+# History (bump + one-line reason; keep newest last):
+#   v1  legacy calibrated-velocity ICs (pre-EdS-consistent).
+#   v2  EdS-consistent ICs (M=0 == EdS critical mass + H_EdS Hubble flow) and the
+#       pre-t_start HMEA tidal velocity boost. Both change a(t) for fixed params,
+#       so every v1 entry is stale under the current defaults.
+PHYSICS_CACHE_VERSION = "v2"
+
+
+def physics_cache_token(config) -> str:
+    """Return the per-config physics-version slug appended to every cache key.
+
+    Combines the manually-bumped PHYSICS_CACHE_VERSION with the physics-affecting
+    flags that the sweep does NOT otherwise encode (eds_consistent,
+    pre_start_tidal_boost). Those flags default to True (current physics) but a
+    config may override them; encoding them means a legacy (eds_consistent=False)
+    run gets a DISTINCT key from a current run with the same parameters, so the
+    two never share a cache entry even within the same PHYSICS_CACHE_VERSION.
+
+    Format: ``phys<VERSION>[<flags>]`` where <flags> is a compact suffix that only
+    appears when a flag deviates from the current-physics default, e.g.
+    ``physv2`` (defaults) or ``physv2noeds`` / ``physv2noboost``. The leading
+    'phys' keeps the slug self-describing; the trailing digit/letter shape is
+    chosen so cache._split_key round-trips it cleanly.
+    """
+    eds = bool(getattr(config, "eds_consistent", True))
+    boost = bool(getattr(config, "pre_start_tidal_boost", True))
+    suffix = ""
+    if not eds:
+        suffix += "noeds"
+    if not boost:
+        suffix += "noboost"
+    # Token shape: "phys" + version (e.g. "v2") + optional deviation suffix.
+    # build_cache_name appends it as one part; cache._split_key will split it at
+    # the last digit ("physv2" -> value "physv2", or "physv2noeds" -> "physv2"
+    # value + "noeds" suffix), which round-trips back to the same string.
+    return f"phys{PHYSICS_CACHE_VERSION}{suffix}"
+
 
 class SearchMethod(Enum):
     """Search algorithm selection for parameter sweep."""
@@ -176,6 +227,12 @@ class SweepConfig:
     # does NOT add a slug to the cache key. Any other geometry appends a slug.
     node_geometry: str = "cube26"
     geometry_kwargs: dict = field(default_factory=dict)
+    # Physics-affecting IC flags (mirror SimulationParameters defaults). These are
+    # NOT otherwise encoded in the cache key, so they are folded into the physics
+    # token (physics_cache_token) — a legacy run with these turned off gets a
+    # DISTINCT cache key from a current-physics run with the same parameters.
+    eds_consistent: bool = True
+    pre_start_tidal_boost: bool = True
 
     @property
     def particle_count(self) -> int:
@@ -631,6 +688,10 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     # existing cache keys and alternative geometries get distinct keys.
     if node_geometry != "cube26":
         parts.append(f"{node_geometry}geo")
+    # Physics-version token (ALWAYS appended): invalidates entries computed under a
+    # different simulation-physics version (e.g. pre-EdS-ICs / pre-boost), so a
+    # physics change can never silently reuse a stale parameter-only cache entry.
+    parts.append(physics_cache_token(config))
     return "_".join(parts)
 
 

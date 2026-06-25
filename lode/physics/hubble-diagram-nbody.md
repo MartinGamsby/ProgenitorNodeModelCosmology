@@ -81,8 +81,16 @@ CLI extras:
   the paper cites. Canonical numbers: [./pantheon-comparison-results.md](./pantheon-comparison-results.md).
 - The residual panel uses LCDM as the zero reference (Delta-mu vs LCDM). The
   Einstein-de Sitter null (Omega_m=1) is the plotted "no dark energy" comparison
-  (see EdS-null section below). `node_mass_amplitude` / `init_distribution` are
-  also exposed as flags (uniform / uniform_sphere defaults).
+  (see EdS-null section below). `--node-mass-amplitude` / `--node-mass-seed` /
+  `--node-s-amplitude` / `--init-distribution` / `--node-geometry` are exposed as
+  flags (uniform / uniform_sphere / cube26 defaults) and ALL now actually reach the
+  sim — `main()` builds `SimulationParameters` via the shared
+  `cosmo.cli.args_to_sim_params(args)`. (A prior bug re-implemented the conversion
+  by hand and SILENTLY DROPPED every anisotropy/init/geometry flag, so e.g.
+  `--node-mass-amplitude 0.5` ran the isotropic config: M=1500/S=55 amp=0.5 read
+  0.689 instead of the true 0.487.) The JSON sidecar `config` block records only
+  M/S/centerM/t_start/particles/n_steps — it does NOT yet echo the anisotropy/
+  geometry knobs, so read the filename/console for those.
 
 ### Honest Stage-1 result (the gating answer)
 

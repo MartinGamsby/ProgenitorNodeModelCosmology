@@ -378,12 +378,13 @@ class HMEAGrid:
         
     def _create_grid(self) -> None:
         """
-        Create 3x3x3 grid of HMEA nodes (26 total, excluding center).
+        Create HMEA node grid using the geometry factory.
 
-        Grid is perfectly symmetric to ensure tidal forces cancel at origin.
-        Any drift indicates either numerical issues or particle asymmetry.
+        The base node positions come from build_node_positions(geometry, S, **kwargs)
+        in cosmo/node_geometry.py.  Default geometry "cube26" produces a 3×3×3-1
+        cubic lattice (26 nodes) byte-identical to the previous hard-coded loop.
 
-        Per-node masses are drawn from ExternalNodeParameters.node_masses().
+        Per-node masses are drawn from ExternalNodeParameters.node_masses(n).
         When node_mass_amplitude == 0.0 (default), all masses equal M_ext_kg
         (byte-identical to the legacy uniform behavior).
         When node_mass_amplitude > 0.0, masses are log-normally distributed
@@ -391,38 +392,42 @@ class HMEAGrid:
         Omega_Lambda_eff / growth-anchor / isotropic background.
 
         Per-node RADIAL position perturbation is drawn from
-        ExternalNodeParameters.node_scale_factors(). When node_s_amplitude == 0.0
-        (default), all factors are 1.0 => the perfect symmetric lattice
-        (byte-identical to the legacy positions). When node_s_amplitude > 0.0,
+        ExternalNodeParameters.node_scale_factors(n). When node_s_amplitude == 0.0
+        (default), all factors are 1.0 => the geometry's symmetric node positions
+        (byte-identical to the legacy positions for cube26). When node_s_amplitude > 0.0,
         each node's DISTANCE from the origin is scaled by a mean-preserving
         log-normal factor (mean scale == S preserved) while its DIRECTION (ray)
-        is held fixed, breaking the lattice symmetry radially.
+        is held fixed, breaking the symmetry radially.
+
+        Mass bookkeeping: total external mass = n_nodes * M_ext_kg.  The
+        Omega_Lambda_eff formula uses M_ext_kg (per-node mean), so to keep
+        Omega_Lambda_eff comparable across geometries the caller should rescale
+        M_ext_kg via effective_M_ext_kg() from cosmo/node_geometry.py.
         """
+        from .node_geometry import build_node_positions
+
         S = self.params.S
+        geometry = getattr(self.params, 'node_geometry', 'cube26')
+        geometry_kwargs = getattr(self.params, 'geometry_kwargs', {})
 
-        # Build base lattice positions (fixed traversal order), then apply the
-        # per-node radial scale factors and assign masses by node_id so all three
-        # vectors (position, scale, mass) align with node order.
-        base_positions = []
-        for i in [-1, 0, 1]:
-            for j in [-1, 0, 1]:
-                for k in [-1, 0, 1]:
-                    if i == 0 and j == 0 and k == 0:
-                        continue
-                    base_positions.append(np.array([i, j, k], dtype=float) * S)
+        # Build base positions via the factory (cube26 is byte-identical to old loop)
+        base_positions_arr = build_node_positions(geometry, S, **geometry_kwargs)
+        n = len(base_positions_arr)
 
-        n = len(base_positions)  # 26
         scale_factors = self.params.node_scale_factors(n)  # mean == 1.0; ones() when amp=0
-        positions = [pos * s for pos, s in zip(base_positions, scale_factors)]
         masses = self.params.node_masses(n)
 
-        for node_id, (pos, mass) in enumerate(zip(positions, masses)):
+        for node_id in range(n):
+            pos = base_positions_arr[node_id] * scale_factors[node_id]
             node = {
                 'id': node_id,
                 'position': pos,
-                'mass': mass,
+                'mass': masses[node_id],
             }
             self.nodes.append(node)
+
+        # Update n_nodes to match actual geometry (callers may rely on len(grid.nodes))
+        self.n_nodes = n
     
     def get_positions(self) -> np.ndarray:
         """Get all node positions as (N, 3) array."""

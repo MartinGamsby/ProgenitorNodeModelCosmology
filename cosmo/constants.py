@@ -91,7 +91,9 @@ class ExternalNodeParameters:
 
     def __init__(self, M_ext_kg: float = None, S: float = None,
                  node_mass_seed: int = 0, node_mass_amplitude: float = 0.0,
-                 node_s_amplitude: float = 0.0):
+                 node_s_amplitude: float = 0.0,
+                 node_geometry: str = "cube26",
+                 geometry_kwargs: dict = None):
         """Initialize External-Node parameters (M_ext_kg in kg, S in meters).
 
         Args:
@@ -110,6 +112,10 @@ class ExternalNodeParameters:
                 node on its original ray (direction unchanged) and preserving the
                 MEAN radial scale exactly, so it isolates symmetry-breaking from a
                 net S change.
+            node_geometry: Geometry identifier for the HMEA node layout
+                (default "cube26" = current 3×3×3-1 lattice, backward-compatible).
+            geometry_kwargs: Optional dict forwarded to the geometry factory.
+                Default None (uses each geometry's built-in defaults).
         """
         # Default values - S is tuned to give Ω_Λ_eff ≈ 0.7 with M_ext_kg = 5e55
         self.M_ext_kg = M_ext_kg if M_ext_kg is not None else 5e55  # kg
@@ -117,6 +123,8 @@ class ExternalNodeParameters:
         self.node_mass_seed = node_mass_seed
         self.node_mass_amplitude = node_mass_amplitude
         self.node_s_amplitude = node_s_amplitude
+        self.node_geometry = node_geometry
+        self.geometry_kwargs = geometry_kwargs if geometry_kwargs is not None else {}
 
         # Calculate derived parameters
         self._calculate_derived()
@@ -229,7 +237,9 @@ class SimulationParameters:
                  init_distribution: str = "uniform_sphere",
                  init_kwargs: dict = None,
                  eds_consistent: bool = True,
-                 pre_start_tidal_boost: bool = True):
+                 pre_start_tidal_boost: bool = True,
+                 node_geometry: str = "cube26",
+                 geometry_kwargs: dict = None):
         """
         Initialize simulation parameters.
 
@@ -290,6 +300,13 @@ class SimulationParameters:
                             it VANISHES as M_ext -> 0, preserving M=0 == EdS exactly.
                             This is NOT a fit-to-LCDM knob. Set False to start from
                             pure EdS Hubble flow with no pre-history boost.
+            node_geometry:  Geometry identifier for the HMEA node layout (default
+                            "cube26" = current 3×3×3-1 lattice, backward-compatible).
+                            Other choices: "cube_dense", "shell", "shell_multi",
+                            "fcc", "bcc".  See cosmo/node_geometry.py for details.
+            geometry_kwargs: Optional dict of keyword arguments forwarded to the
+                            geometry factory (e.g. n_nodes=50 for "shell").
+                            Default None (uses each geometry's own defaults).
         """
         self.M_value = M_value
         self.S_value = S_value
@@ -308,6 +325,8 @@ class SimulationParameters:
         self.init_kwargs = init_kwargs if init_kwargs is not None else {}
         self.eds_consistent = eds_consistent
         self.pre_start_tidal_boost = pre_start_tidal_boost
+        self.node_geometry = node_geometry
+        self.geometry_kwargs = geometry_kwargs if geometry_kwargs is not None else {}
 
         # Calculate derived quantities
         self._calculate_derived()
@@ -333,6 +352,8 @@ class SimulationParameters:
             node_mass_seed=self.node_mass_seed,
             node_mass_amplitude=self.node_mass_amplitude,
             node_s_amplitude=self.node_s_amplitude,
+            node_geometry=self.node_geometry,
+            geometry_kwargs=self.geometry_kwargs,
         )
 
     def __str__(self):

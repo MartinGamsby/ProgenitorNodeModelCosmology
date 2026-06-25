@@ -172,6 +172,10 @@ class SweepConfig:
     # Particle initial-condition sampler. "uniform_sphere" keeps backward-compatible
     # cache keys; "grf" appends a slug to the cache key so the two never collide.
     init_distribution: str = "uniform_sphere"
+    # Node geometry (WS3). "cube26" is the default/backward-compatible value and
+    # does NOT add a slug to the cache key. Any other geometry appends a slug.
+    node_geometry: str = "cube26"
+    geometry_kwargs: dict = field(default_factory=dict)
 
     @property
     def particle_count(self) -> int:
@@ -591,6 +595,7 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     node_mass_amplitude = getattr(config, 'node_mass_amplitude', 0.0)
     node_s_amplitude = getattr(config, 'node_s_amplitude', 0.0)
     init_distribution = getattr(config, 'init_distribution', 'uniform_sphere')
+    node_geometry = getattr(config, 'node_geometry', 'cube26')
 
     parts = []
     parts.append(f"{config.particle_count}p")
@@ -622,6 +627,10 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     # keep their existing cache keys and grf runs get distinct keys.
     if init_distribution != "uniform_sphere":
         parts.append(f"{init_distribution}init")
+    # node_geometry slug: append only when non-default so cube26 runs keep their
+    # existing cache keys and alternative geometries get distinct keys.
+    if node_geometry != "cube26":
+        parts.append(f"{node_geometry}geo")
     return "_".join(parts)
 
 

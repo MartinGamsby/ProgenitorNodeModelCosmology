@@ -72,6 +72,17 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
                              '"grf" uses a Gaussian random field with BBKS LCDM P(k) '
                              '+ Zel\'dovich displacement for realistic large-scale structure.')
 
+    # Node geometry (WS3)
+    parser.add_argument('--node-geometry', type=str, default='cube26',
+                        choices=['cube26', 'cube_dense', 'shell', 'shell_multi', 'fcc', 'bcc'],
+                        help='HMEA node geometry. "cube26" (default) = 3×3×3-1 cubic lattice '
+                             '(26 nodes, backward-compatible). Alternatives: "cube_dense" '
+                             '(5×5×5-1, 124 nodes), "shell" (Fibonacci sphere, 50 nodes), '
+                             '"shell_multi" (3 concentric shells, 150 nodes), '
+                             '"fcc" / "bcc" (close-packed lattices). '
+                             'For a fair Omega_Lambda_eff comparison across geometries, '
+                             'scale --M so M*26/n_nodes is constant.')
+
     # Mode flags
     parser.add_argument('--compare', action='store_true',
                         help='Enable comparison mode (External-Node vs Matter-only vs LCDM)')
@@ -128,4 +139,5 @@ def args_to_sim_params(args: argparse.Namespace) -> SimulationParameters:
         node_mass_amplitude=args.node_mass_amplitude,
         node_s_amplitude=getattr(args, 'node_s_amplitude', 0.0),
         init_distribution=args.init_distribution,
+        node_geometry=getattr(args, 'node_geometry', 'cube26'),
     )

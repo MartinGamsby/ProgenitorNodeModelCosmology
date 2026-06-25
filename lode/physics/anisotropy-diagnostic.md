@@ -6,9 +6,14 @@ Related: [theoretical-framework.md](./theoretical-framework.md),
 ## Purpose
 
 Measures directional expansion anisotropy in an evolved N-body snapshot.
-The SHEAR + HUBBLE DIPOLE are the discriminating signal: per-node mass variation
-breaks the traceless HMEA tidal tensor symmetry and produces measurable stretch /
-dipole aligned with the mass-heavy face of the lattice.
+The SHEAR + HUBBLE DIPOLE are the discriminating signal: breaking the traceless
+HMEA tidal-tensor symmetry produces measurable stretch / dipole. TWO knobs drive
+it — per-node MASS variation (`node_mass_amplitude`) and per-node radial POSITION
+variation (`node_s_amplitude`); both raise shear/dipole ~10x while leaving the
+isotropic mu(z) chi^2 in the same band as the symmetric model. The lever experiment
+(see [force-calculations.md](./force-calculations.md#lever-experiment--can-breaking-lattice-symmetry-reach-lcdm-honest-verdict-no))
+confirms symmetry-breaking CANNOT reach LCDM isotropically — the anisotropy IS the
+signal.
 NOTE: the isotropic mu(z) chi^2 is the WRONG place to look for the node-mass effect —
 it is only weakly and INDIRECTLY sensitive (via a small second-order growth nudge at
 strong tidal field), and that growth coupling is degenerate with M/S. The defensible

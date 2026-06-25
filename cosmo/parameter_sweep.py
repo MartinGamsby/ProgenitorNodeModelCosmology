@@ -166,6 +166,9 @@ class SweepConfig:
     # Per-node mass anisotropy (Deliverable B). Defaults keep backward compatibility.
     node_mass_seed: int = 0
     node_mass_amplitude: float = 0.0
+    # Per-node RADIAL position anisotropy (analogous to node_mass_amplitude, but
+    # perturbs node POSITIONS). Reuses node_mass_seed. Default 0 = symmetric lattice.
+    node_s_amplitude: float = 0.0
     # Particle initial-condition sampler. "uniform_sphere" keeps backward-compatible
     # cache keys; "grf" appends a slug to the cache key so the two never collide.
     init_distribution: str = "uniform_sphere"
@@ -586,6 +589,7 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     # Read node-mass anisotropy from config (defaults to 0/0.0 — backward compatible)
     node_mass_seed = getattr(config, 'node_mass_seed', 0)
     node_mass_amplitude = getattr(config, 'node_mass_amplitude', 0.0)
+    node_s_amplitude = getattr(config, 'node_s_amplitude', 0.0)
     init_distribution = getattr(config, 'init_distribution', 'uniform_sphere')
 
     parts = []
@@ -606,6 +610,14 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     if node_mass_amplitude != 0.0:
         parts.append(f"{node_mass_seed}nmseed")
         parts.append(f"{node_mass_amplitude}nmamp")
+    # Node-position anisotropy slug: append only when amplitude > 0 so symmetric
+    # runs keep their existing cache keys. node_s also depends on node_mass_seed,
+    # so include the seed here too (guarded so an amp=0/s>0 run is still distinct
+    # per seed even when no nmseed slug was added above).
+    if node_s_amplitude != 0.0:
+        if node_mass_amplitude == 0.0:
+            parts.append(f"{node_mass_seed}nmseed")
+        parts.append(f"{node_s_amplitude}nsamp")
     # init_distribution slug: append only when non-default so uniform_sphere runs
     # keep their existing cache keys and grf runs get distinct keys.
     if init_distribution != "uniform_sphere":

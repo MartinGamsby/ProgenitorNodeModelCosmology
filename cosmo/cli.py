@@ -59,6 +59,10 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--node-mass-amplitude', type=float, default=0.0,
                         help='Log-normal width of per-node mass distribution. '
                              '0.0 (default) = all 26 nodes uniform = M_ext_kg (backward compatible).')
+    parser.add_argument('--node-s-amplitude', type=float, default=0.0,
+                        help='Log-normal width of per-node RADIAL position perturbation. '
+                             '0.0 (default) = perfect symmetric lattice (backward compatible). '
+                             'Reuses --node-mass-seed. Mean radial scale (S) preserved.')
 
     # Particle initialisation
     parser.add_argument('--init-distribution', type=str, default='uniform_sphere',
@@ -122,5 +126,6 @@ def args_to_sim_params(args: argparse.Namespace) -> SimulationParameters:
         mass_randomize=args.mass_randomize,
         node_mass_seed=args.node_mass_seed,
         node_mass_amplitude=args.node_mass_amplitude,
+        node_s_amplitude=getattr(args, 'node_s_amplitude', 0.0),
         init_distribution=args.init_distribution,
     )

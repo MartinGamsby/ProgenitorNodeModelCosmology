@@ -72,7 +72,7 @@ _BEST_ISO_COLS = [
 # CSV columns for the full knob-summary output
 _KNOB_SUMMARY_COLS = [
     "M_factor", "S_gpc", "centerM",
-    "node_mass_amplitude", "node_mass_seed", "init_distribution",
+    "node_mass_amplitude", "node_mass_seed", "node_s_amplitude", "init_distribution",
     "chi2_dof", "chi2", "R2",
     "n_sne_used", "growth_factor", "anchor_ok",
     "match_avg_pct", "diff_pct",
@@ -103,7 +103,8 @@ class _SweepConfigFixed(SweepConfig):
         return N_STEPS
 
 
-def _make_sweep_config(amplitude: float, seed: int, init: str) -> _SweepConfigFixed:
+def _make_sweep_config(amplitude: float, seed: int, init: str,
+                       s_amplitude: float = 0.0) -> _SweepConfigFixed:
     cfg = _SweepConfigFixed(
         quick_search=False,
         many_search=3,
@@ -118,6 +119,7 @@ def _make_sweep_config(amplitude: float, seed: int, init: str) -> _SweepConfigFi
         objective=OBJECTIVE,
         node_mass_seed=seed,
         node_mass_amplitude=amplitude,
+        node_s_amplitude=s_amplitude,
         init_distribution=init,
     )
     return cfg
@@ -147,6 +149,7 @@ def _make_sim_callback(config, box_size_Gpc: float, a_start: float):
             mass_randomize=0.0,
             node_mass_seed=config.node_mass_seed,
             node_mass_amplitude=config.node_mass_amplitude,
+            node_s_amplitude=getattr(config, "node_s_amplitude", 0.0),
             init_distribution=config.init_distribution,
         )
         ext_results = run_external_node_simulation(sim_params, box_size_Gpc, a_start,
@@ -166,9 +169,15 @@ def _run_single(
     pantheon_data: dict,
     baseline,
     weights,
+    s_amplitude: float = 0.0,
 ) -> dict:
-    """Run one (M, S, amplitude, nm_seed, init) combination and return a result row."""
-    config = _make_sweep_config(amplitude, nm_seed, init)
+    """Run one (M, S, amplitude, nm_seed, init[, s_amplitude]) combination.
+
+    s_amplitude (node_s_amplitude, the per-node RADIAL position perturbation)
+    defaults to 0.0 so existing callers are unaffected; pass >0 to sweep node
+    POSITIONS the way `amplitude` sweeps node masses.
+    """
+    config = _make_sweep_config(amplitude, nm_seed, init, s_amplitude=s_amplitude)
     sim_cb, _ = _make_sim_callback(config, box_size_Gpc, a_start)
 
     sim_result, metrics = worst_callback(
@@ -186,6 +195,7 @@ def _run_single(
         "centerM": centerM,
         "node_mass_amplitude": amplitude,
         "node_mass_seed": nm_seed,
+        "node_s_amplitude": s_amplitude,
         "init_distribution": init,
         "chi2_dof": metrics.get("chi2_dof", float("inf")),
         "chi2": metrics.get("chi2", float("inf")),

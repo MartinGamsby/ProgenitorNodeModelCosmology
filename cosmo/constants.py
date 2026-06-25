@@ -90,21 +90,33 @@ class ExternalNodeParameters:
     """External-Node Model parameters from the paper"""
 
     def __init__(self, M_ext_kg: float = None, S: float = None,
-                 node_mass_seed: int = 0, node_mass_amplitude: float = 0.0):
+                 node_mass_seed: int = 0, node_mass_amplitude: float = 0.0,
+                 node_s_amplitude: float = 0.0):
         """Initialize External-Node parameters (M_ext_kg in kg, S in meters).
 
         Args:
             M_ext_kg: External node mass in kg (mean mass per node).
             S: Node separation in meters.
             node_mass_seed: RNG seed for per-node mass distribution (default 0).
+                Also seeds the per-node POSITION perturbation (node_s_amplitude)
+                so a single seed selects a coherent orientation for both knobs.
             node_mass_amplitude: Log-normal width of per-node mass distribution.
                 0.0 (default) => all 26 nodes have identical mass M_ext_kg (backward compatible).
+            node_s_amplitude: Log-normal width of the per-node RADIAL position
+                perturbation. 0.0 (default) => all 26 nodes sit on the perfect
+                symmetric lattice (backward compatible, byte-identical). >0 scales
+                each node's distance from the origin by a mean-preserving factor
+                S_i = S * exp(node_s_amplitude * g_i) / <exp(...)>, keeping each
+                node on its original ray (direction unchanged) and preserving the
+                MEAN radial scale exactly, so it isolates symmetry-breaking from a
+                net S change.
         """
         # Default values - S is tuned to give Ω_Λ_eff ≈ 0.7 with M_ext_kg = 5e55
         self.M_ext_kg = M_ext_kg if M_ext_kg is not None else 5e55  # kg
         self.S = S if S is not None else 31.6 * CosmologicalConstants.Gpc_to_m  # meters
         self.node_mass_seed = node_mass_seed
         self.node_mass_amplitude = node_mass_amplitude
+        self.node_s_amplitude = node_s_amplitude
 
         # Calculate derived parameters
         self._calculate_derived()
@@ -149,6 +161,36 @@ class ExternalNodeParameters:
         w = np.exp(self.node_mass_amplitude * g)
         return self.M_ext_kg * w / w.mean()
 
+    def node_scale_factors(self, n_nodes: int = 26) -> np.ndarray:
+        """Return per-node RADIAL scale factors (length n_nodes), mean == 1.0.
+
+        Multiplies each lattice node's position by its factor, scaling the node's
+        DISTANCE from the origin while keeping it on its original ray (direction
+        unchanged). This breaks the lattice symmetry RADIALLY without changing the
+        net scale S or any node direction.
+
+        INVARIANTS (mirror node_masses):
+        - (a) Deterministic & reproducible: identical output for the same
+          (node_mass_seed, node_s_amplitude). Uses np.random.default_rng(seed),
+          independent of the particle/simulation RNG. A SEPARATE rng draw from
+          node_masses() (different call), so the two knobs do not entangle.
+        - (b) All factors strictly positive: guaranteed by exp() > 0, so no node
+          can cross the origin or flip sides.
+        - (c) MEAN-PRESERVING: mean(factor_i) == 1.0 EXACTLY (within float
+          precision). The / w.mean() step enforces this, keeping the MEAN radial
+          scale (and hence the symmetric-lattice average geometry) fixed; the
+          seed selects the shear/dipole ORIENTATION only.
+
+        When node_s_amplitude == 0.0 (default): returns np.ones(n_nodes), so node
+        positions are byte-identical to the symmetric lattice (backward compatible).
+        """
+        if self.node_s_amplitude == 0.0:
+            return np.ones(n_nodes)
+        rng = np.random.default_rng(self.node_mass_seed)
+        g = rng.standard_normal(n_nodes)
+        w = np.exp(self.node_s_amplitude * g)
+        return w / w.mean()
+
     def set_grid_spacing(self, S_Gpc: float) -> None:
         """Set grid spacing in Gigaparsecs."""
         self.S = S_Gpc * CosmologicalConstants.Gpc_to_m
@@ -183,6 +225,7 @@ class SimulationParameters:
                  damping_factor: float = None, center_node_mass: float = 1.0,
                  mass_randomize: float = 0.5,
                  node_mass_seed: int = 0, node_mass_amplitude: float = 0.0,
+                 node_s_amplitude: float = 0.0,
                  init_distribution: str = "uniform_sphere",
                  init_kwargs: dict = None,
                  eds_consistent: bool = True,
@@ -209,6 +252,14 @@ class SimulationParameters:
             node_mass_amplitude: Log-normal width of per-node mass distribution.
                                  0.0 (default) => all 26 nodes have identical mass
                                  M_ext_kg (backward compatible, byte-identical).
+            node_s_amplitude: Log-normal width of the per-node RADIAL position
+                              perturbation (analogous to node_mass_amplitude, but
+                              for node POSITIONS). 0.0 (default) => perfect
+                              symmetric lattice (backward compatible,
+                              byte-identical). >0 scales each node's distance from
+                              the origin by a mean-preserving factor (mean scale
+                              == S preserved), breaking lattice symmetry radially.
+                              Reuses node_mass_seed for determinism.
             init_distribution: Particle position sampler.
                                "uniform_sphere" (default) — current behaviour,
                                backward-compatible with all existing tests.
@@ -252,6 +303,7 @@ class SimulationParameters:
         self.mass_randomize = mass_randomize
         self.node_mass_seed = node_mass_seed
         self.node_mass_amplitude = node_mass_amplitude
+        self.node_s_amplitude = node_s_amplitude
         self.init_distribution = init_distribution
         self.init_kwargs = init_kwargs if init_kwargs is not None else {}
         self.eds_consistent = eds_consistent
@@ -280,6 +332,7 @@ class SimulationParameters:
             S=self.S,
             node_mass_seed=self.node_mass_seed,
             node_mass_amplitude=self.node_mass_amplitude,
+            node_s_amplitude=self.node_s_amplitude,
         )
 
     def __str__(self):

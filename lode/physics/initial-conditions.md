@@ -339,20 +339,25 @@ directly so eds_consistent defaults False)
 
 **File**: tests/test_early_start_validation.py — Stage-2 legacy auto-damping checks.
 
-## Future steps (raised by the user; NOT implemented)
+## Symmetry-breaking levers — TESTED, do NOT reach LCDM isotropically
 
-- **centerM > 1** (observable region heavier than 1×M_obs): would also change the IC
-  self-consistency. With eds_consistent the cloud mass is OVERRIDDEN to the EdS
-  critical mass and centerM only sets softening; a centerM>1 that adds REAL central
-  self-gravity would make the cloud over-dense vs EdS critical (extra deceleration),
-  and interacts with what the GRF/"outside" mass represents (the observable patch
-  would no longer be a fair comoving sample of the background). Needs a deliberate
-  decision on whether centerM injects mass ON TOP of critical or rescales it.
-- **node_s_amplitude** (vary node POSITIONS, analogous to node_mass_amplitude which
-  varies node MASSES): perturb the 26 node positions off the perfect lattice to break
-  the near-cancellation of the symmetric tidal field — could let a weaker M produce a
-  stronger net tide. Would need a mean-preserving / isotropy-preserving construction
-  like node_masses() has, plus a cache-key slug.
+The user's "break the lattice symmetry to reach LCDM" hypothesis was tested
+empirically (lever experiment). **Verdict: NO** — the discriminating signal is the
+ANISOTROPY, not the isotropic Hubble fit. Full table + physics in
+[force-calculations.md](./force-calculations.md#lever-experiment--can-breaking-lattice-symmetry-reach-lcdm-honest-verdict-no).
+
+- **node_s_amplitude** — IMPLEMENTED (per-node RADIAL position perturbation,
+  mean-scale-preserving, reuses node_mass_seed; see force-calculations.md). Like
+  node_mass_amplitude it raises SHEAR strongly but only nudges the isotropic growth
+  via a 2nd-order nonlinear near-node (S-R)^-2 term, and tips into RUNAWAY at modest
+  amplitude near the bound edge. Min physical chi2 ~0.48, never crosses LCDM 0.44.
+- **node_mass_amplitude** — same story (already documented): shear/dipole knob, not
+  an isotropic-chi2 knob.
+- **centerM > 1** — with eds_consistent the cloud mass is OVERRIDDEN to EdS critical,
+  so centerM only sets softening; the observed chi2 shift (1→10: 0.85→0.63) is a
+  softening/resolution effect, not added self-gravity. Injecting REAL central mass
+  on top of critical would make the cloud over-dense (extra deceleration, MORE
+  matter-like, AWAY from LCDM) — still an undecided IC question.
 
 ## References
 

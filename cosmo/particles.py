@@ -389,20 +389,31 @@ class HMEAGrid:
         When node_mass_amplitude > 0.0, masses are log-normally distributed
         with mean M_ext_kg exactly (mean-preserving normalization), preserving
         Omega_Lambda_eff / growth-anchor / isotropic background.
+
+        Per-node RADIAL position perturbation is drawn from
+        ExternalNodeParameters.node_scale_factors(). When node_s_amplitude == 0.0
+        (default), all factors are 1.0 => the perfect symmetric lattice
+        (byte-identical to the legacy positions). When node_s_amplitude > 0.0,
+        each node's DISTANCE from the origin is scaled by a mean-preserving
+        log-normal factor (mean scale == S preserved) while its DIRECTION (ray)
+        is held fixed, breaking the lattice symmetry radially.
         """
         S = self.params.S
 
-        # Build positions first (fixed traversal order), then assign masses
-        # by node_id so the mass vector aligns with node order.
-        positions = []
+        # Build base lattice positions (fixed traversal order), then apply the
+        # per-node radial scale factors and assign masses by node_id so all three
+        # vectors (position, scale, mass) align with node order.
+        base_positions = []
         for i in [-1, 0, 1]:
             for j in [-1, 0, 1]:
                 for k in [-1, 0, 1]:
                     if i == 0 and j == 0 and k == 0:
                         continue
-                    positions.append(np.array([i, j, k], dtype=float) * S)
+                    base_positions.append(np.array([i, j, k], dtype=float) * S)
 
-        n = len(positions)  # 26
+        n = len(base_positions)  # 26
+        scale_factors = self.params.node_scale_factors(n)  # mean == 1.0; ones() when amp=0
+        positions = [pos * s for pos, s in zip(base_positions, scale_factors)]
         masses = self.params.node_masses(n)
 
         for node_id, (pos, mass) in enumerate(zip(positions, masses)):

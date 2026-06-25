@@ -203,7 +203,7 @@ class TestSimPathNodeMassInvariants:
     not just the node_masses() unit.
     """
 
-    def _build_sim(self, amplitude, nm_seed):
+    def _build_sim(self, amplitude, nm_seed, pre_start_tidal_boost=True):
         from cosmo.constants import SimulationParameters
         from cosmo.simulation import CosmologicalSimulation
         from cosmo.factories import setup_simulation_context
@@ -216,6 +216,7 @@ class TestSimPathNodeMassInvariants:
                 center_node_mass=1, mass_randomize=0.0,
                 node_mass_seed=nm_seed, node_mass_amplitude=amplitude,
                 init_distribution="grf",
+                pre_start_tidal_boost=pre_start_tidal_boost,
             )
             sim = CosmologicalSimulation(params, box, a_start,
                                          use_external_nodes=True, use_dark_energy=False)
@@ -232,30 +233,47 @@ class TestSimPathNodeMassInvariants:
         assert s5.hmea_grid.get_masses().std() > 0
 
     def test_particle_realization_independent_of_amplitude(self):
-        """Particle positions+velocities are byte-identical across node_mass_amplitude.
+        """Particle POSITIONS are byte-identical across node_mass_amplitude, and
+        VELOCITIES too once the (node-mass-dependent) pre-start tidal boost is OFF.
 
         node_masses() draws from its OWN default_rng AFTER the particle system is
         built, so it must not consume/advance the global RNG that seeds the cloud.
+
+        NOTE: with pre_start_tidal_boost ON (the default) the boost uses the node
+        masses, so velocities LEGITIMATELY depend on node_mass_amplitude — that is
+        real physics, not a cloud confound. We therefore assert position equality
+        with the boost ON, and full position+velocity equality with the boost OFF
+        (which isolates the pure particle-realization independence).
         """
         s0 = self._build_sim(0.0, 42)
         s5 = self._build_sim(0.5, 42)
         np.testing.assert_array_equal(s0.particles.get_positions(),
                                       s5.particles.get_positions())
-        np.testing.assert_array_equal(s0.particles.get_velocities(),
-                                      s5.particles.get_velocities())
+        s0nb = self._build_sim(0.0, 42, pre_start_tidal_boost=False)
+        s5nb = self._build_sim(0.5, 42, pre_start_tidal_boost=False)
+        np.testing.assert_array_equal(s0nb.particles.get_positions(),
+                                      s5nb.particles.get_positions())
+        np.testing.assert_array_equal(s0nb.particles.get_velocities(),
+                                      s5nb.particles.get_velocities())
 
     def test_particle_realization_independent_of_node_mass_seed(self):
         """Particle cloud is byte-identical across node_mass_seed at fixed amplitude.
 
         This is what makes a 'seed=42 vs seed=7' comparison a node-mass effect and
-        NOT a lucky particle realization (confound guard).
+        NOT a lucky particle realization (confound guard). Positions are identical
+        with the boost ON; velocities are identical with the boost OFF (the boost
+        depends on the node masses, which the seed reorders — real physics).
         """
         s42 = self._build_sim(0.5, 42)
         s7 = self._build_sim(0.5, 7)
         np.testing.assert_array_equal(s42.particles.get_positions(),
                                       s7.particles.get_positions())
-        np.testing.assert_array_equal(s42.particles.get_velocities(),
-                                      s7.particles.get_velocities())
+        s42nb = self._build_sim(0.5, 42, pre_start_tidal_boost=False)
+        s7nb = self._build_sim(0.5, 7, pre_start_tidal_boost=False)
+        np.testing.assert_array_equal(s42nb.particles.get_positions(),
+                                      s7nb.particles.get_positions())
+        np.testing.assert_array_equal(s42nb.particles.get_velocities(),
+                                      s7nb.particles.get_velocities())
 
 
 # ---------------------------------------------------------------------------

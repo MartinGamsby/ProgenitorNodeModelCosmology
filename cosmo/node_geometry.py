@@ -69,20 +69,37 @@ def build_node_positions(geometry: str, S: float, **kwargs) -> np.ndarray:
         geometry: Geometry identifier (see module docstring).  Default "cube26".
         S:        Characteristic node scale in meters (the lattice unit / sphere radius).
         **kwargs: Geometry-specific keyword arguments (see each builder for details).
+                  Plus the cross-geometry option ``normalize_nearest`` (bool, default
+                  False): rescale the whole geometry so the NEAREST node sits at radius S.
 
     Returns:
         (N, 3) float64 array; all nodes at characteristic distance ~S from origin.
 
     Raises:
         ValueError: If ``geometry`` is not in the registry.
+
+    Note on ``normalize_nearest`` (fair cross-geometry comparison):
+        The tidal stretch falls off as ~1/d^3, so the NEAREST nodes dominate and far
+        nodes barely matter.  The correct way to compare geometries is therefore to
+        hold the per-node mass fixed AND put the nearest node of every geometry at the
+        same distance S (so the dominant near-field is equivalent).  Equal-TOTAL-mass
+        rescaling would be WRONG here: it would weaken the near nodes (which do the
+        work) just to compensate for far nodes (which don't).  cube26 already has its
+        nearest node at S, so normalize_nearest is a no-op for it.
     """
     if geometry not in _REGISTRY:
         valid = sorted(_REGISTRY.keys())
         raise ValueError(
             f"Unknown node geometry {geometry!r}. Valid choices: {valid}"
         )
-    positions = _REGISTRY[geometry](S, **kwargs)
-    return np.asarray(positions, dtype=np.float64)
+    normalize_nearest = kwargs.pop("normalize_nearest", False)
+    positions = np.asarray(_REGISTRY[geometry](S, **kwargs), dtype=np.float64)
+    if normalize_nearest:
+        radii = np.linalg.norm(positions, axis=1)
+        r_min = float(radii.min())
+        if r_min > 0:
+            positions = positions * (S / r_min)
+    return positions
 
 
 def list_geometries() -> list[str]:

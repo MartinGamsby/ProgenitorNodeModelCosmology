@@ -357,6 +357,36 @@ class TestVolumeFilling:
 
 
 # ---------------------------------------------------------------------------
+# 10b. normalize_nearest: put each geometry's nearest node at radius S
+# ---------------------------------------------------------------------------
+
+class TestNormalizeNearest:
+    """normalize_nearest rescales so the closest node sits at S (fair cross-geometry
+    comparison: equal per-node mass + equal nearest-node distance)."""
+
+    @pytest.mark.parametrize("geometry", ["cube26", "cube_dense", "fcc", "bcc"])
+    def test_nearest_node_at_S(self, geometry):
+        S = 30.0
+        pos = build_node_positions(geometry, S, normalize_nearest=True)
+        r_min = np.linalg.norm(pos, axis=1).min()
+        np.testing.assert_allclose(r_min, S, rtol=1e-9,
+            err_msg=f"{geometry}: nearest node must be at exactly S with normalize_nearest")
+
+    def test_cube26_normalize_is_noop(self):
+        """cube26's nearest node is already at S, so normalize_nearest changes nothing."""
+        S = 25.0
+        a = build_node_positions("cube26", S)
+        b = build_node_positions("cube26", S, normalize_nearest=True)
+        np.testing.assert_array_equal(a, b)
+
+    def test_normalize_preserves_node_count(self):
+        for geometry in ["cube_dense", "fcc", "bcc"]:
+            n_raw = len(build_node_positions(geometry, 10.0))
+            n_norm = len(build_node_positions(geometry, 10.0, normalize_nearest=True))
+            assert n_raw == n_norm
+
+
+# ---------------------------------------------------------------------------
 # 11. Invalid geometry raises ValueError
 # ---------------------------------------------------------------------------
 

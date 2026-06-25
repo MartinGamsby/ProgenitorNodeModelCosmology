@@ -83,11 +83,11 @@ graph TD
 - A symmetric geometry (e.g. cube26) must keep shear ≈ noise at amplitude=0
   (sanity check: the geometry alone, with uniform masses, should not create spurious
   anisotropy beyond discreteness).
-- Ω_Λ_eff bookkeeping: total external mass = n_nodes · M_ext_kg changes with node count;
-  decide whether to hold TOTAL external mass fixed (rescale per-node mass by 26/n) or
-  hold PER-NODE mass fixed, and document which, so geometry comparisons are apples-to-
-  apples on Ω_Λ_eff. (Recommend holding total external mass fixed so Ω_Λ_eff stays
-  comparable across geometries.)
+- Fair-comparison normalization (DECIDED — see Mass bookkeeping below): hold PER-NODE mass
+  fixed AND put each geometry's NEAREST node at the same S (`normalize_nearest`). Equal-
+  TOTAL-mass rescaling is REJECTED: tidal stretch ~1/d³ is near-field dominated, so far
+  nodes barely matter and dividing per-node mass by n/26 would wrongly weaken the near
+  nodes that do the work.
 
 ## Implementation status (COMPLETE as of WS3 coding pass)
 
@@ -120,14 +120,32 @@ graph TD
 opposite of a virialized meta-structure (and Birkhoff → no interior force). Geometries
 must fill the volume.
 
-### Mass bookkeeping (DECIDED: hold per-node mean fixed)
-`M_ext_kg` is the per-node mean mass. Total external mass = `n_nodes * M_ext_kg`.
-For cross-geometry Ω_Λ_eff comparisons, use `effective_M_ext_kg(M_ref, n, ref_nodes=26)`
-to rescale so total stays equal to 26 * M_ref. `node_masses(n)` and `node_scale_factors(n)`
-already adapt to any n; no other change needed.
+### Fair-comparison normalization (DECIDED: per-node mass fixed + nearest node at S)
+`M_ext_kg` is the per-node mass; it is held FIXED across geometries (NOT rescaled to equal
+total mass). To match the dominant near-field, `build_node_positions(..., normalize_nearest=
+True)` rescales each geometry so its NEAREST node sits at S (cube26 is already there → no-op;
+cube_dense ×2, fcc rescaled, bcc already at S). Pass it via `geometry_kwargs={"normalize_
+nearest": True}` (threads through HMEAGrid + the sweep). Rationale: tidal stretch ~1/d³ is
+near-field dominated, so the right control is "same per-node mass + same nearest distance",
+NOT same total mass. `effective_M_ext_kg()` still exists but is NOT the chosen normalization
+(kept only for an equal-total-mass view if ever wanted).
 
-### Remaining (deferred to WS2 / graphs agent)
-- F12 geometry-comparison figures (anisotropy diagnostic per geometry).
+### Cross-geometry result (HONEST — sweeps/geometry_compare.json, 400p, isotropic, normalize_nearest)
+**No geometry beats the cube.** F12 figure `results/figures/ws3/geometry_comparison_chi2.png`:
+- `cube26` ≈ `cube_dense` everywhere (the denser cube's extra nodes barely change the fit).
+- `fcc` is consistently the WORST (highest chi2); `bcc` between cube and fcc.
+- Geometry only matters in the STRONG-field regime (small S): at M=1500/S=30 cube reaches
+  chi2/dof≈0.52 (nearest LCDM 0.436) vs fcc 0.68, bcc 0.57; at S=40/50 all converge to
+  ~0.66–0.69 (geom range <0.03) — far nodes don't matter, confirming the near-field argument.
+- Growth factor is nearly geometry-independent (2.835–2.880); M/S set it, not geometry.
+Conclusion: the cube (simplest virialized approximation) is also the best-fitting; alternative
+volume-filling lattices give no isotropic improvement. The anisotropy (shear/dipole) per
+geometry is a separate, still-open question (F7/F8 per geometry).
+
+### Remaining
+- F12 isotropic geometry comparison: DONE (above). Open: shear/dipole PER geometry (the PF2
+  signal) — run anisotropy_report.py per geometry to see if any geometry changes the
+  anisotropic signature even though it doesn't change the isotropic fit.
 - Honest verdict on geometry vs cube26 on shear/dipole signal.
 
 ## Deliverables

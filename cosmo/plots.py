@@ -880,3 +880,92 @@ def plots_from_csv(
         ))
 
     return out_paths
+
+
+# ---------------------------------------------------------------------------
+# F12 — Cross-geometry comparison (grouped bar chart)
+# ---------------------------------------------------------------------------
+
+def plot_geometry_comparison(
+    df,
+    workstream: str,
+    name: str,
+    *,
+    metric: str = "chi2_dof",
+    lcdm_ref: Optional[float] = None,
+    eds_ref: Optional[float] = None,
+    title: Optional[str] = None,
+) -> str:
+    """Grouped bar chart of a metric per node geometry (a FAIR comparison).
+
+    Each (M, S) configuration is one group; the bars within a group are the
+    geometries (cube26 / cube_dense / fcc / bcc). Intended for runs done with
+    geometry_kwargs={"normalize_nearest": True} and equal per-node mass, so the
+    nearest-node distance AND the per-node mass are matched across geometries and
+    only the geometry itself (near-neighbour multiplicity + far-node tail) differs.
+    The tidal stretch ~1/d^3 is near-field dominated, so the bars are EXPECTED to be
+    close — that near-equivalence is the honest result, not a null finding.
+
+    Args:
+        df:         Sweep results with columns M_factor, S_gpc, node_geometry, <metric>.
+        workstream: Sub-directory.
+        name:       PNG filename stem.
+        metric:     Column to plot (default "chi2_dof").
+        lcdm_ref:   Optional horizontal ΛCDM reference line for the metric.
+        eds_ref:    Optional horizontal EdS-null reference line.
+        title:      Figure title.
+
+    Returns:
+        Path to the saved PNG.
+    """
+    import pandas as _pd
+
+    df = _pd.DataFrame(df)
+    required = {"M_factor", "S_gpc", "node_geometry", metric}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"plot_geometry_comparison: missing columns {sorted(missing)}.")
+
+    df = df.copy()
+    df[metric] = _pd.to_numeric(df[metric], errors="coerce")
+    df = df[np.isfinite(df[metric])]
+    df["_cfg"] = "M" + df["M_factor"].astype(str) + "/S" + df["S_gpc"].astype(str)
+    geometries = list(dict.fromkeys(df["node_geometry"]))  # preserve insertion order
+    configs = list(dict.fromkeys(df["_cfg"]))
+
+    n_g = max(len(geometries), 1)
+    x = np.arange(len(configs))
+    width = 0.8 / n_g
+
+    fig, ax = plt.subplots(figsize=(max(8.0, 1.7 * len(configs)), 5.5))
+    palette = plt.get_cmap("tab10")
+    for gi, geom in enumerate(geometries):
+        sub = df[df["node_geometry"] == geom].set_index("_cfg")
+        vals = [float(sub.loc[c, metric]) if c in sub.index else np.nan for c in configs]
+        ax.bar(x + gi * width - 0.4 + width / 2.0, vals, width,
+               label=geom, color=palette(gi % 10))
+
+    if lcdm_ref is not None:
+        ax.axhline(lcdm_ref, color=_MODEL_COLORS["lcdm"], ls="--", lw=1.5,
+                   label=f"ΛCDM ({lcdm_ref:.3f})")
+    if eds_ref is not None:
+        ax.axhline(eds_ref, color=_MODEL_COLORS["einstein_de_sitter"], ls="-.", lw=1.5,
+                   label=f"EdS null ({eds_ref:.3f})")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(configs, fontsize=9)
+    ax.set_xlabel("configuration (M / S)", fontsize=12)
+    ax.set_ylabel(metric, fontsize=12)
+    ax.set_title(
+        title or f"{metric} per node geometry (nearest-node + per-node mass matched)",
+        fontsize=12,
+    )
+    ax.legend(fontsize=8, ncol=2)
+    ax.grid(True, axis="y", alpha=0.3)
+
+    _footer(ax, f"metric={metric}")
+    fig.tight_layout()
+    out = figure_path(workstream, name)
+    fig.savefig(out, dpi=_DPI, bbox_inches=_BBOX)
+    plt.close(fig)
+    return out

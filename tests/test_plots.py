@@ -411,6 +411,46 @@ class TestRunawayBoundary(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# 8b. plot_geometry_comparison (F12)
+# ---------------------------------------------------------------------------
+
+class TestGeometryComparison(unittest.TestCase):
+    def setUp(self):
+        import cosmo.plots as _plots
+        self._tmp = tempfile.TemporaryDirectory()
+        self._orig = _plots._RESULTS_ROOT
+        _plots._RESULTS_ROOT = self._tmp.name
+
+    def tearDown(self):
+        import cosmo.plots as _plots
+        _plots._RESULTS_ROOT = self._orig
+        self._tmp.cleanup()
+
+    def _df(self):
+        import pandas as pd
+        rows = []
+        for geom in ["cube26", "cube_dense", "fcc", "bcc"]:
+            for M in [855, 1500]:
+                for S in [30, 40]:
+                    rows.append({"M_factor": M, "S_gpc": S, "node_geometry": geom,
+                                 "chi2_dof": 0.50 + 0.02 * len(geom) % 0.1})
+        return pd.DataFrame(rows)
+
+    def test_writes_nonempty_png(self):
+        from cosmo.plots import plot_geometry_comparison
+        path = plot_geometry_comparison(self._df(), "ws_test", "geom_cmp",
+                                        lcdm_ref=0.436, eds_ref=0.844)
+        _assert_png(path)
+
+    def test_missing_column_raises(self):
+        from cosmo.plots import plot_geometry_comparison
+        import pandas as pd
+        df = pd.DataFrame({"M_factor": [855], "S_gpc": [30]})  # no node_geometry/metric
+        with self.assertRaises(ValueError):
+            plot_geometry_comparison(df, "ws_test", "geom_bad")
+
+
+# ---------------------------------------------------------------------------
 # 9. plots_from_csv — read from the real sweep CSV if present
 # ---------------------------------------------------------------------------
 

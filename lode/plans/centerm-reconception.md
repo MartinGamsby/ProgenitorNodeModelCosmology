@@ -47,6 +47,28 @@ graph TD
 - This ties to what the GRF "outside" structure represents (WS5): the clustered field
   beyond the observable patch is exactly this outer matter.
 
+## Candidate working regime to TEST (user hypothesis, 2026-06)
+
+The user suspects the model may fit best NOT at the large node masses explored so far
+(M~855–3000) but in a **small-M + centerM>1 + small-S** corner:
+
+- **Small per-node mass M, close to 1–2** (M_ext ≈ 1–2 × M_obs), not hundreds/thousands.
+- **centerM > 1** in the RECONCEIVED sense above = more matter OUTSIDE the observable
+  sphere (the outer-region particles / "more mass at the outer edges"), NOT a denser
+  observable core.
+- **Smaller S** (nodes closer in), so the near-field tidal effect is stronger at small M.
+- This corner **MAY have already been partially hit** by earlier sweeps (e.g. the low-S
+  end of `sweeps/targeted_near_lcdm.json`, M=50/S=20 ≈ 0.52) — check whether extending to
+  M≈1–2 with the outer-region mass added pushes chi2 further toward LCDM (0.436). Honest
+  outcome either way.
+
+**HARD INVARIANT the user re-emphasized (do NOT get this wrong):** when centerM>1 / the
+simulated region is enlarged, a(t)/H(z)/μ(z) and the growth anchor MUST be computed on the
+**OBSERVABLE (inner) sub-region only**, NEVER on the enlarged simulated size. Measuring the
+full (bigger) cloud's RMS would "screw up everything" — the observable universe is fixed;
+the outer matter only acts gravitationally on the inner region. This is the central
+correctness gate of WS4 (see the observable-mask design below).
+
 ## Density constraint (the "couldn't go that high" note)
 
 The outer region is added at SIMILAR density to the inner observable region (≈ EdS

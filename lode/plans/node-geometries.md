@@ -1,0 +1,99 @@
+# WS3 — Alternative Node Geometries
+
+Back to [deeper-exploration-roadmap.md](./deeper-exploration-roadmap.md). Phase 1.
+Feeds the sweep ([overarching-sweep.md](./overarching-sweep.md)) and the anisotropy
+diagnostic; figures via [graphs-from-scripts.md](./graphs-from-scripts.md).
+
+## Motivation
+
+The current external structure is a 26-node 3×3×3−1 cubic lattice (`HMEAGrid._create_
+grid` in `cosmo/particles.py`): perfectly symmetric, so the tidal forces CANCEL at the
+origin (traceless). PF2 says this traceless cancellation is exactly why symmetry-
+breaking can't move the isotropic fit. The question: does a DIFFERENT geometry — more
+nodes, a spherical SHELL (more sphere-like), denser lattices — yield a larger NET effect
+while staying honest about the vacuum-traceless constraint?
+
+**Honesty constraint up front:** for masses in vacuum the tidal tensor is traceless for
+ANY arrangement, so no geometry will magically produce a large net isotropic
+acceleration at the origin. The realistic gains are (a) a DIFFERENT shear/dipole pattern
+(the PF2 signal), and (b) a different 2nd-order growth coupling at finite cloud size /
+strong field. Judge geometries on those, not on a hoped-for isotropic-chi2 breakthrough.
+
+## Plan: a node-geometry abstraction / factory
+
+Replace the hard-coded `_create_grid` cube loop with a geometry FACTORY that returns
+base node positions (before the existing per-node mass + radial-scale perturbations are
+applied). HMEAGrid keeps applying `node_masses()` and `node_scale_factors()` on top, so
+the symmetry-breaking knobs compose with ANY geometry.
+
+```
+def build_node_positions(geometry: str, S: float, **kwargs) -> np.ndarray:
+    # returns (n_nodes, 3) base positions, all at characteristic scale ~S
+```
+
+### Geometries to support
+
+| id | Description | Key kwargs |
+|----|-------------|-----------|
+| `cube26` | current 3×3×3−1 cubic lattice (DEFAULT, backward-compatible) | — |
+| `cube_dense` | denser cubic lattice, e.g. 5×5×5−1 (124 nodes) | `n_per_side` |
+| `shell` | nodes on a sphere of radius S (e.g. Fibonacci / icosahedral sphere points) | `n_nodes` |
+| `shell_multi` | several concentric shells at radii ~S | `n_nodes`, `n_shells` |
+| `fcc` / `bcc` | denser close-packed lattices | `n_shells` |
+
+### Parametrization that threads cleanly
+
+- `ExternalNodeParameters` / `SimulationParameters` gain a `node_geometry: str` (default
+  `"cube26"`) + `geometry_kwargs: dict`. n_nodes becomes geometry-derived, not the fixed
+  26, so `node_masses(n)` / `node_scale_factors(n)` already take `n` and still apply.
+- `HMEAGrid._create_grid` calls `build_node_positions(...)` for base positions, then
+  applies scale factors + masses exactly as now (order preserved so position/scale/mass
+  vectors stay aligned).
+- Numba tidal force path (`calculate_tidal_forces_numba`) already takes arbitrary
+  `node_positions` / `node_masses` arrays — geometry is transparent to it.
+- WS1 sweep adds geometry as an axis; cache key gains a geometry slug (see
+  [overarching-sweep.md](./overarching-sweep.md)).
+- Anisotropy diagnostic (`anisotropy_report.py`) runs per geometry so F7/F8/F12 show how
+  shear/dipole differ by geometry.
+
+```mermaid
+graph TD
+    GEO[node_geometry + geometry_kwargs] --> FAC[build_node_positions]
+    FAC --> BASE[base node positions n x 3]
+    BASE --> SCALE[apply node_scale_factors mean=1]
+    SCALE --> POS[node positions]
+    NM[node_masses mean-preserving] --> GRID[HMEAGrid.nodes]
+    POS --> GRID
+    GRID --> TID[tidal force numba path]
+```
+
+## Invariants to preserve (per PF1/PF2)
+
+- M=0 still == EdS for EVERY geometry (the geometry only sets node positions; at M=0 the
+  tidal sum is zero regardless).
+- Mean-preserving knobs stay mean-preserving for any n_nodes.
+- A symmetric geometry (cube26, full shell) must keep shear ≈ noise at amplitude=0
+  (sanity check: the geometry alone, with uniform masses, should not create spurious
+  anisotropy beyond discreteness).
+- Ω_Λ_eff bookkeeping: total external mass = n_nodes · M_ext_kg changes with node count;
+  decide whether to hold TOTAL external mass fixed (rescale per-node mass by 26/n) or
+  hold PER-NODE mass fixed, and document which, so geometry comparisons are apples-to-
+  apples on Ω_Λ_eff. (Recommend holding total external mass fixed so Ω_Λ_eff stays
+  comparable across geometries.)
+
+## Files this workstream touches
+
+- NEW: `cosmo/node_geometry.py` (`build_node_positions` + the geometry registry).
+- `cosmo/particles.py` — `HMEAGrid._create_grid` calls the factory; n_nodes derived.
+- `cosmo/constants.py` — `node_geometry` / `geometry_kwargs` on the param dataclasses;
+  Ω_Λ_eff bookkeeping decision (total vs per-node mass).
+- WS1 sweep + cache key; `anisotropy_report.py` per-geometry; figures F12.
+- Tests: geometry factory shapes, symmetric-geometry-has-no-spurious-shear, M=0==EdS for
+  a non-cube geometry, total-mass bookkeeping.
+
+## Deliverables
+
+- A geometry factory + registry, threaded through HMEAGrid + sweep + anisotropy.
+- F12 geometry-comparison figures (net effect + shear per geometry).
+- An honest verdict: does any geometry beat cube26 on the anisotropy signal / net
+  effect, given the vacuum-traceless constraint?

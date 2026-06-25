@@ -2,14 +2,18 @@
 
 > **STALE — numbers below predate the EdS initial-conditions fix.** The from-sim
 > curve used to look LCDM-like at M=855 ONLY because of the velocity-calibration
-> fudge. That fudge is now removed: with self-consistent EdS ICs (default), M=855
-> S=37.8 (Omega_Lambda_eff=0.70) sits ON the Einstein-de Sitter null, NOT LCDM —
-> the symmetric 26-node tidal field is too weak there (see
-> [./initial-conditions.md](./initial-conditions.md) "Mechanism direction"). The
-> tool `hubble_diagram_nbody.py` now inherits `eds_consistent=True`, so its chi2
-> vs Pantheon+ at the nominal config is substantially WORSE than the numbers in
-> this file. These need re-running before they can be cited again. Do NOT trust
-> the chi2/dof/R2 values below as current.
+> fudge. That fudge is now removed: with self-consistent EdS ICs (default), the
+> WEAK symmetric 26-node field at the paper-nominal M=855/S=37.8 sits near the
+> Einstein-de Sitter end (chi2/dof ~0.67-0.85 depending on kernel/anchor), NOT at
+> LCDM (see [./initial-conditions.md](./initial-conditions.md) "Mechanism
+> direction"). But STRONGER physical configs (e.g. M=1500/S=30, chi2/dof ~0.51) DO
+> land near LCDM and far from the EdS null — so the mechanism does produce genuine
+> effective dark energy; the nominal config is just under-powered. The tool
+> `hubble_diagram_nbody.py` now inherits `eds_consistent=True`, so its chi2 vs
+> Pantheon+ at the NOMINAL config is worse than the numbers in this file. All these
+> numbers need re-running on one consistent kernel/anchor (with graphs) before they
+> can be cited — see [../plans/pinned-findings.md](../plans/pinned-findings.md). Do
+> NOT trust the chi2/dof/R2 values below as current.
 
 The publication-style numbers the paper cites for the from-sim N-body mu(z) vs
 REAL Pantheon+SH0ES test. Produced by the comparison tool `hubble_diagram_nbody.py`
@@ -53,14 +57,21 @@ Deviation from LCDM: max 0.205 mag, RMS 0.152 mag vs typical sigma 0.206 mag
 
 ## Honest verdict
 
-The from-sim External-Node model produces **effective dark energy**: it sits
-right with LCDM (0.50 vs 0.43 chi2/dof) and is FAR from the Einstein-de Sitter
-no-dark-energy null (0.84, which the SN data decisively disfavor). But it does
-**NOT beat LCDM** — it fits Pantheon+ slightly WORSE (0.50 vs 0.43). And it is
-**degenerate in M/S^3**: SNe constrain the effective expansion (~effective
-Omega_Lambda), not M and S separately, so chi2/dof ~ 0.48-0.50 is essentially
+The from-sim External-Node model produces **effective dark energy**: its best
+physical configs land NEAR LCDM (~0.48-0.51 vs 0.43 chi2/dof) and DECISIVELY
+reject the Einstein-de Sitter no-dark-energy null (~0.85, which the SN data
+strongly disfavor). For a toy model, landing near LCDM and rejecting no-DE is a
+genuine success. It does **not EXACTLY match LCDM** (fits Pantheon+ slightly
+worse), and it is **degenerate in M/S^3**: SNe constrain the effective expansion
+(~effective Omega_Lambda), not M and S separately, so chi2/dof is essentially
 flat across M from 20 to 200000 once each M is paired with its growth-anchored S
 (see [../scripts/parameter-sweep.md](../scripts/parameter-sweep.md) Stage-3 table).
+NOTE: the exact chi2 numbers in this file are config/init-sensitive and predate the
+current kernel/anchor; they are being **re-pinned on one consistent kernel/anchor
+with graphs** by the deeper-exploration sweep — see
+[../plans/pinned-findings.md](../plans/pinned-findings.md) (PF4) and
+[../plans/overarching-sweep.md](../plans/overarching-sweep.md). Do not over-claim an
+LCDM match OR a failure until the re-pinned numbers + figures land.
 
 ## Section-1 Pantheon knob sweep (910 sims, June 2026)
 

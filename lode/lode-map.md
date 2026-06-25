@@ -41,6 +41,15 @@
 ## Plans
 - [plans/](./plans/) - Future enhancements and TODOs
 - [plans/hubble-diagram-followups.md](./plans/hubble-diagram-followups.md) - Reconcile (M,S) discrepancy, optional paper edit, full-covariance chi^2 (N-body-derived d_L now DONE)
+- [plans/deeper-exploration-roadmap.md](./plans/deeper-exploration-roadmap.md) - HUB for the next deeper-exploration phase: pinned findings, Mermaid phase diagram, sequencing (cheap exploration -> mid-phase concepts -> heavy convergence/GPU). Links the 7 workstream sub-files below
+- [plans/pinned-findings.md](./plans/pinned-findings.md) - PF1 M=0==EdS; PF2 anisotropy=discriminating signal; PF3 M/S^3 degeneracy; PF4 corrected near-LCDM/far-from-null framing (numbers being re-pinned); PF5 runaway boundary
+- [plans/overarching-sweep.md](./plans/overarching-sweep.md) - WS1: ONE config-driven multi-param sweep tool (M/S/amplitudes/seed/init/particles/geometry; per-M S co-fit on pantheon; resumable+cached; CSV+figures) superseding the ad-hoc scripts
+- [plans/graphs-from-scripts.md](./plans/graphs-from-scripts.md) - WS2: every claim gets a SAVED PNG (results/figures/); enumerated figure set F1-F12; shared cosmo/plots.py helper
+- [plans/node-geometries.md](./plans/node-geometries.md) - WS3: node-geometry factory (cube26/dense/shell/fcc) threaded through HMEAGrid+sweep+anisotropy; vacuum-traceless honesty
+- [plans/centerm-reconception.md](./plans/centerm-reconception.md) - WS4: extend the SIM sphere OUTSIDE the observable region (outer particles at similar density), inner observable sub-region drives the Pantheon a(t); density ceiling
+- [plans/grf-vs-uniform.md](./plans/grf-vs-uniform.md) - WS5: explain the GRF chi2 swing (0.51->1.56 at M=1500/S=30); H1 real / H2 near-runaway / H3 N-noise / H4 GRF-setup, with graphs
+- [plans/particle-convergence.md](./plans/particle-convergence.md) - WS6 (LAST/slowest): high-N Barnes-Hut convergence of chi2/dof+growth+shear/dipole for headline configs
+- [plans/scale-out-gpu-hf.md](./plans/scale-out-gpu-hf.md) - WS7 (FUTURE, not now): Numba-CUDA GPU sweep + HuggingFace dataset results store, triggered only when scripts+numbers are good
 
 ## Temporary
 - [tmp/](./tmp/) - Session scraps (git-ignored)

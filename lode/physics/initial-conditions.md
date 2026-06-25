@@ -27,6 +27,63 @@ noise, leapfrog dt). The mu(z) sits ON the EdS null and is ~10x FARTHER from LCD
 — the physically correct ordering. Invariant is t_start-INDEPENDENT (holds at
 t_start=2.0 Gyr too). Test: `tests/test_matter_only_consistency.py`.
 
+## Pre-t_start HMEA tidal velocity boost (the physical pre-history term)
+
+The EdS baseline sets `v_i = H_EdS*r_i` — pure matter-only Hubble flow, i.e. the
+cloud arrives at t_start as if NOTHING external had touched it. But for M_ext>0
+the HMEA nodes have been pulling on the cloud since the Big Bang, so it should
+ARRIVE at t_start moving slightly FASTER (a net outward boost). The
+`pre_start_tidal_boost` term (SimulationParameters, default **True**) restores
+that pre-history. This REPLACES the old LCDM-rescaling calibration cleanly — it is
+NOT a fit knob.
+
+**Where**: `CosmologicalSimulation._apply_pre_start_tidal_boost` (simulation.py),
+called in `__init__` right after the particles + HMEA grid exist. Active ONLY when
+`pre_start_tidal_boost AND use_external_nodes AND eds_consistent AND t_start>0`.
+
+**Derivation** (linear / early-time, S >> cloud size). Per particle at displacement
+`r`, the HMEA tidal accel is the SAME node sum the integrator uses,
+`g_tid = Σ_nodes G m_node (r-r_node)/|r-r_node|³`. At early times the cloud is small
+so g_tid is ~linear in r and node distances ~constant; positions track the EdS
+background `r(t)=r_start·a(t)/a_start`, hence `g_r(t) ≈ g_r(t_start)·a(t)/a_start`.
+The extra radial velocity from t_i to t_start (proper coords, same frame as
+v=H_EdS*r) is `dv_r = ∫ g_r dt = g_r(t_start)/a_start · ∫ a_EdS dt`. With EdS
+`a(t)=a_start (t/t_start)^(2/3)` and **t_i→0 (full Big-Bang pre-history)**:
+
+```
+dv_r(particle) = g_r(t_start) * (3/5) * t_start_seconds
+```
+
+applied along each particle's radial unit vector; COM velocity removed after.
+
+**Invariants** (test: tests/test_pre_start_tidal_boost.py):
+- VANISHES as M_ext→0 (g_tid linear in node mass) AND is only applied when external
+  nodes are on ⇒ **M_ext=0 == EdS preserved EXACTLY** (boost ON==OFF at M=0, byte-
+  identical velocities).
+- Monotone-increasing in M_ext, increasing as S shrinks. RMS boost (fraction of
+  Hubble flow) at t_start=2.9: M=855/S=37.8 → 0.06%; M=3000/S=30 → 0.69%;
+  M=6000/S=28 → 1.95%; M=9000/S=25 → 5.2%.
+
+**Honest magnitude**: the EFFECT ON GROWTH is small. Boost ON vs OFF (t_start=2.9):
+M=855 +0.01%, M=3000 +0.35% growth; chi2/dof vs Pantheon+ moves <0.003. The boost
+is real, correctly signed, and physically derived — but it does NOT materially
+change the capability story. Configs near the runaway edge (e.g. M=6000/S=28) can
+be tipped INTO runaway by the extra outward velocity (expected, it is real physics).
+NOTE the earlier "isolated boost g/g(M=0)=1.053" reading conflated the WHOLE-sim
+tidal effect with the pre-history; the correct pre-history-only number is ~0.35%.
+
+### Why Approach B (analytic boost), not Approach A (start earlier)
+
+Measured: starting the integration EARLIER does not help. The M_ext=0 control
+DRIFTS off EdS at early start — g/EdS = 1.001 (t=2.9), 1.005 (t=2.0), 1.028 (t=1.0),
+1.104 (t=0.5) — and this drift is **dt-INDEPENDENT** (identical at dt=0.04/0.02/0.01),
+so it is a continuum discreteness floor (finite N + softening + 100 km/s peculiar
+noise as a larger fractional perturbation on the smaller/faster early cloud), NOT a
+leapfrog artifact finer dt could fix. So t_start<~2.0 breaks the M=0==EdS invariant,
+and even the clean t=2.0 start adds only +0.4pp boost over the t=2.9 default. The
+analytic boost (B) captures the pre-history at fixed t_start=2.9 without touching the
+invariant, so it is the chosen implementation.
+
 ## Legacy velocity-calibration fudge (now superseded, still selectable)
 
 Earlier code set `v = H_matter_only(a)*r` (Omega_m=0.3) with a tiny cloud mass
@@ -160,31 +217,58 @@ Default modes (`eds_consistent=True` for dark-energy-off runs):
 | Initial H | H0*sqrt(Omega_m/a^3 + Omega_Lambda) | H_EdS = 2/(3 t_start) | H_EdS = 2/(3 t_start) |
 | Cloud mass | center_node_mass (as-is) | EdS critical mass | EdS critical mass |
 | Velocity calibration | No | No (skipped) | No (skipped) |
-| v_init | H_lcdm*r | H_EdS*r | H_EdS*r |
+| Pre-start tidal boost | No | **Yes** (+(3/5)t_start·g_r) | No (vanishes, M=0) |
+| v_init | H_lcdm*r | H_EdS*r + boost·r̂ | H_EdS*r |
 | External nodes | No | 26 HMEAs | No |
 | Dark energy | H0^2*Omega_Lambda*r | No | No |
 | Expansion target | LCDM Friedmann | EdS + tidal push | **EdS (by construction)** |
 
-## Mechanism direction (honest, post-fix)
+## Mechanism direction + capability (honest, boost ON)
 
-With self-consistent ICs and no calibration, increasing M_ext / shrinking S
-pushes a(t) AWAY from EdS toward LCDM and beyond. Measured (N=300, t_start=2.9,
-EdS growth 2.829, LCDM growth 3.304; mu RMS offset-removed):
+With self-consistent ICs + the pre-start tidal boost, increasing M_ext / shrinking
+S pushes a(t) AWAY from EdS toward LCDM. Coarse capability sweep (N=400, t_start=2.9,
+uniform nodes, growth anchor = 3.304, chi2/dof vs REAL Pantheon+ offset-marginalized,
+on the SAME in-range SNe so the analytic EdS/LCDM rows are directly comparable):
 
-| M_ext | S Gpc | OL_eff | growth | RMS vs EdS | RMS vs LCDM |
-|-------|-------|--------|--------|------------|-------------|
-| 0     | -     | 0      | 2.836  | 0.019      | 0.180       |
-| 855   | 37.8  | 0.70   | 2.839  | 0.022      | 0.177       |
-| 3000  | 30    | 4.9    | 2.967  | 0.184      | 0.066       |
-| 9000  | 25    | 25.4   | 742    | (runaway — growth-anchor rejects) |
+| M_ext | S Gpc | growth | g/anchor | chi2/dof sim | EdS null | LCDM |
+|-------|-------|--------|----------|--------------|----------|------|
+| 855   | 37.8  | 2.858  | 0.865    | 0.671        | 0.859    | 0.435 |
+| 1500  | 30.0  | 2.898  | 0.877    | **0.511**    | 0.848    | 0.431 |
+| 3000  | 30.0  | 3.008  | 0.910    | 0.900        | 0.812    | 0.433 |
+| 3000  | 28.0  | 3.165  | 0.958    | 2.018        | 0.779    | 0.424 |
+| 5000  | 30.0  | 3.300  | 0.999    | 3.051        | 0.750    | 0.422 |
+| 5000  | 28.0  | 27.48  | 8.318    | (runaway — anchor rejects) |
 
-KEY HONEST FINDING: at the paper's nominal config (M=855, S=37.8, OL_eff=0.70)
-the symmetric 26-node tidal field is TOO WEAK to mimic Lambda — it stays on EdS.
-Single-node linear tidal accel is ~27% of self-gravity there, but the 3x3x3
-lattice nearly cancels it at cloud scale. The old "LCDM-like fit at M=855" was an
-artifact of the velocity-calibration fudge, NOT the tidal mechanism. You must
-push to OL_eff ~ 5 (M=3000, S=30) before a(t) visibly bends toward LCDM. See
-[pantheon-comparison-results.md](./pantheon-comparison-results.md).
+KEY HONEST FINDINGS:
+- BEST physical config: **M=1500, S=30 → chi2/dof 0.511**, sitting BETWEEN the EdS
+  null (0.85, decisively disfavored by SNe) and LCDM (0.43). So the tidal mechanism
+  + boost produces genuine effective dark energy — far from no-dark-energy — but
+  still does NOT reach LCDM. The boost helps marginally; it cannot close the gap.
+- NON-MONOTONIC in strength: pushing M/S harder to hit the growth anchor (M=5000/S=30,
+  growth≈3.30≈anchor) makes chi2/dof WORSE (3.05), because matching total growth with
+  the WRONG a(t) SHAPE is penalized by the SNe. Best SHAPE is at intermediate strength
+  (undershooting the anchor at growth 2.90).
+- At the paper's nominal M=855/S=37.8 the symmetric 26-node field is too weak to bend
+  far off EdS (chi2/dof 0.67). The old "LCDM-like fit at M=855" was the velocity-
+  calibration fudge, NOT the mechanism. NOTE: 0.67 here ≠ the STALE 0.50 in
+  [pantheon-comparison-results.md](./pantheon-comparison-results.md) (that file predates
+  the current kernel/anchor; the boost itself changes M=855 chi2 by <0.003).
+
+## Runaway boundary (small-S regime)
+
+Runaway IS the small-S regime: nodes get close enough that the nearest-node
+(S-R)^-2 attraction overwhelms bound expansion. growth/anchor map (boost ON, t=2.9):
+
+| M\S    | 40 | 35 | 30 | 27 | 24 | 21 |
+|--------|----|----|----|----|----|----|
+| 855    |0.86|0.87|0.87|0.88|0.90|1.01|
+| 1500   |0.87|0.87|0.88|0.90|0.98| R  |
+| 3000   |0.87|0.88|0.91|1.01| R  | R  |
+| 5000   |0.87|0.89|1.00| R  | R  | R  |
+| 8000   |0.88|0.93| R  | R  | R  | R  |
+
+The bound/runaway boundary scales roughly **S_crit ∝ M^(1/3)** (constant
+Ω_Λ_eff = GM/(S³H₀²) contour): 855→S_crit~21, 3000→~24, 5000→~27, 8000→~30.
 
 ## Diagram
 
@@ -243,16 +327,39 @@ old auto-damping table above only applies in legacy (`eds_consistent=False`) mod
   to EdS than LCDM (guards the inverted-ordering bug)
 - test_eds_invariant_holds_at_lower_t_start: invariant holds at t_start=2.0 Gyr
 
+**File**: tests/test_pre_start_tidal_boost.py (the pre-history boost term)
+- test_boost_vanishes_at_M0: boost ON==OFF velocities at M=0 (byte-identical)
+- test_boost_increases_initial_radial_speed_and_grows_with_M: RMS radial speed
+  M=855<M=3000<M=6000, all > the M=0 EdS value
+- test_boost_off_matches_pure_eds_flow: flag actually gates the term
+
 **File**: tests/test_early_time_behavior.py (legacy-path, constructs ParticleSystem
 directly so eds_consistent defaults False)
 - test_matter_only_never_exceeds_lcdm / test_initial_size_exact_match / etc.
 
 **File**: tests/test_early_start_validation.py — Stage-2 legacy auto-damping checks.
 
+## Future steps (raised by the user; NOT implemented)
+
+- **centerM > 1** (observable region heavier than 1×M_obs): would also change the IC
+  self-consistency. With eds_consistent the cloud mass is OVERRIDDEN to the EdS
+  critical mass and centerM only sets softening; a centerM>1 that adds REAL central
+  self-gravity would make the cloud over-dense vs EdS critical (extra deceleration),
+  and interacts with what the GRF/"outside" mass represents (the observable patch
+  would no longer be a fair comoving sample of the background). Needs a deliberate
+  decision on whether centerM injects mass ON TOP of critical or rescales it.
+- **node_s_amplitude** (vary node POSITIONS, analogous to node_mass_amplitude which
+  varies node MASSES): perturb the 26 node positions off the perfect lattice to break
+  the near-cancellation of the symmetric tidal field — could let a weaker M produce a
+  stronger net tide. Would need a mean-preserving / isotropy-preserving construction
+  like node_masses() has, plus a cache-key slug.
+
 ## References
 
 - Implementation: particles.py (EdS ICs in __init__ + velocities),
-  simulation.py (eds_consistent wiring + calibration skip)
+  simulation.py (eds_consistent wiring + calibration skip +
+  _apply_pre_start_tidal_boost)
+- Boost flag: constants.py:SimulationParameters.pre_start_tidal_boost (default True)
 - EdS helpers: constants.py:LambdaCDMParameters.H_eds_at_time / eds_critical_density
 - Flag: constants.py:SimulationParameters.eds_consistent (default True)
 - Friedmann solver: analysis.py:solve_friedmann_at_times

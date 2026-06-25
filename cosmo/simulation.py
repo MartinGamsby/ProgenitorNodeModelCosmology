@@ -91,6 +91,23 @@ class CosmologicalSimulation:
         else:
             print("Running standard matter-only (no dark energy)")
 
+        # Physical pre-t_start HMEA boost: the cloud should ARRIVE at t_start with a
+        # radial velocity slightly ABOVE pure EdS Hubble flow because the HMEA tidal
+        # field has been pulling on it from the Big Bang to t_start. Applied here
+        # (after particles + grid exist, before any integration), only for the
+        # External-Node + EdS-consistent case. Scales with M_ext so it vanishes as
+        # M_ext -> 0 (M=0 == EdS preserved exactly).
+        self.pre_start_tidal_boost = (
+            bool(getattr(sim_params, 'pre_start_tidal_boost', True))
+            and use_external_nodes
+            and self.eds_consistent
+            and self.hmea_grid is not None
+            and self.t_start_Gyr is not None
+            and self.t_start_Gyr > 0
+        )
+        if self.pre_start_tidal_boost:
+            self._apply_pre_start_tidal_boost()
+
         # Calculate softening based on center_node_mass (scales with mass for stability)
         # 1Gpc softening per Mobs
         softening_m = sim_params.center_node_mass * 1.0 * self.const.Gpc_to_m
@@ -111,6 +128,85 @@ class CosmologicalSimulation:
         # Simulation results
         self.snapshots = []
         self.expansion_history = []
+
+    def _apply_pre_start_tidal_boost(self) -> None:
+        """Add the pre-t_start HMEA tidal velocity boost to the initial conditions.
+
+        Physical motivation
+        -------------------
+        The EdS-consistent ICs set v_i = H_EdS(t_start) * r_i, i.e. the cloud
+        arrives at t_start moving at PURE matter-only Hubble flow. But for M_ext>0
+        the HMEA nodes have been pulling on the cloud since the Big Bang, so the
+        cloud should actually arrive at t_start moving slightly FASTER (a net
+        outward boost). This term restores that pre-history.
+
+        Derivation (linear / early-time regime, S >> cloud size)
+        --------------------------------------------------------
+        Per particle at displacement r from the cloud centre, the HMEA tidal
+        acceleration is the SAME node sum the integrator uses:
+            g_tid(r, t) = sum_nodes G m_node (r - r_node)/|r - r_node|^3 .
+        At early times the cloud is small, so g_tid is ~linear in r and the node
+        distances are ~constant; the positions track the EdS background,
+        r(t) = r_start * a(t)/a_start. Hence the RADIAL tidal accel scales as
+            g_r(t) ~= g_r(t_start) * a(t)/a_start .
+        The extra radial velocity imparted from t_i to t_start (proper coords,
+        the same frame as v = H_EdS*r) is
+            dv_r = integral_{t_i}^{t_start} g_r(t) dt
+                 = g_r(t_start)/a_start * integral_{t_i}^{t_start} a_EdS(t) dt .
+        With EdS a(t) = a_start (t/t_start)^(2/3):
+            integral_{t_i}^{t_start} a(t) dt
+              = a_start (3/5) t_start (1 - (t_i/t_start)^(5/3)) .
+        Taking t_i -> 0 (full pre-history from the Big Bang) gives the clean,
+        parameter-free factor (3/5) t_start:
+            dv_r(particle) = g_r(t_start) * (3/5) * t_start_seconds .
+
+        Properties
+        ----------
+        * VANISHES as M_ext -> 0 (g_tid is linear in the node masses), so the
+          M_ext=0 == Einstein-de Sitter invariant is preserved EXACTLY.
+        * Monotone-ish increasing in M_ext and decreasing in S (stronger / closer
+          nodes pull harder), as required.
+        * Uses the real node sum (incl. per-node anisotropy), not an analytic
+          Omega_Lambda — it is NOT a fit-to-LCDM knob.
+
+        Only the radial (expansion) component is added; the boost is applied along
+        each particle's radial unit vector. The net COM velocity is removed
+        afterwards so no bulk drift is introduced.
+        """
+        positions = self.particles.get_positions()        # (N,3) m, centred
+        velocities = self.particles.get_velocities()       # (N,3) m/s
+
+        # Tidal acceleration at t_start positions (same path as the integrator).
+        g_tid = self.hmea_grid.calculate_tidal_acceleration_batch(positions)  # (N,3)
+
+        # Radial unit vectors (guard the origin particle).
+        r = np.linalg.norm(positions, axis=1, keepdims=True)
+        r_safe = np.where(r > 0.0, r, 1.0)
+        r_hat = positions / r_safe
+
+        # Radial component of the tidal accel (positive = outward / expansion).
+        g_r = np.sum(g_tid * r_hat, axis=1)                # (N,)
+
+        # Integrated pre-history factor (3/5) t_start, in seconds.
+        t_start_s = self.t_start_Gyr * self.const.Gyr_to_s
+        dv_r = g_r * (3.0 / 5.0) * t_start_s               # (N,) m/s along r_hat
+
+        boosted = velocities + dv_r[:, np.newaxis] * r_hat
+
+        # Remove any net COM velocity the boost introduced (keep the cloud at rest).
+        com_v = np.mean(boosted, axis=0)
+        boosted = boosted - com_v
+        self.particles.set_velocities(boosted)
+
+        rms_dv = float(np.sqrt(np.mean(dv_r ** 2)))
+        rms_v = float(np.sqrt(np.mean(np.sum(velocities ** 2, axis=1))))
+        mean_g_r = float(np.mean(g_r))
+        print(
+            f"[Pre-start tidal boost] Applied: RMS dv_r = {rms_dv/1e3:.1f} km/s "
+            f"({100.0*rms_dv/max(rms_v,1e-30):.3f}% of Hubble flow), "
+            f"mean radial accel = {mean_g_r:.3e} m/s^2 "
+            f"(t_i->0 Big-Bang pre-history, factor (3/5)*t_start)."
+        )
 
     def _calibrate_velocity_for_lcdm_match(self, t_duration_Gyr: float, n_steps: int, damping: float = None,
                                            percent_sim: float = 0.3) -> None:

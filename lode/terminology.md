@@ -55,6 +55,8 @@
 
 **Hubble dipole (ΔH/H)** - Directional expansion-rate asymmetry from a v·r̂-vs-r fit by hemisphere. Predicted dark-flow / Hubble-tension-scale signal of the External-Node Model; measured by cosmo/anisotropy.py. See lode/physics/anisotropy-diagnostic.md.
 
+**Pre-start tidal boost** - `pre_start_tidal_boost` on SimulationParameters (default True). For M_ext>0 the cloud arrives at t_start with a radial velocity slightly ABOVE pure EdS Hubble flow because the HMEA tidal field has pulled on it from the Big Bang to t_start. Added on top of v=H_EdS*r as dv_r = g_r(t_start)·(3/5)·t_start_seconds, where g_r is the radial component of the SAME node-sum tidal accel the integrator uses. Vanishes as M_ext→0 (linear in node mass) AND only applied with external nodes on, so M=0==EdS is preserved exactly. NOT a fit-to-LCDM knob. Effect on growth is small (~0.35% at M=3000/S=30). Implemented in CosmologicalSimulation._apply_pre_start_tidal_boost. See lode/physics/initial-conditions.md.
+
 **GRF / Zel'dovich** - Gaussian Random Field initial particle distribution (init_distribution="grf"): density field with approximate LCDM P(k), displaced by the Zel'dovich approximation (linear-order particle displacement from the density field). Deterministic per seed. Alternative to the default uniform_sphere. See lode/physics/realistic-initial-conditions.md.
 
 **BBKS** - Bardeen-Bond-Kaiser-Szalay transfer function: the approximate LCDM matter transfer function shaping P(k) for the GRF init. See lode/physics/realistic-initial-conditions.md.

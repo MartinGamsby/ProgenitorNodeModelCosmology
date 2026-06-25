@@ -185,7 +185,8 @@ class SimulationParameters:
                  node_mass_seed: int = 0, node_mass_amplitude: float = 0.0,
                  init_distribution: str = "uniform_sphere",
                  init_kwargs: dict = None,
-                 eds_consistent: bool = True):
+                 eds_consistent: bool = True,
+                 pre_start_tidal_boost: bool = True):
         """
         Initialize simulation parameters.
 
@@ -225,6 +226,19 @@ class SimulationParameters:
                             velocity-calibration fudge. Ignored for LCDM runs
                             (use_dark_energy=True). Set False to restore the legacy
                             calibrated-velocity behaviour.
+            pre_start_tidal_boost: When True (default) AND external nodes are
+                            active AND eds_consistent, the cloud's initial radial
+                            velocities are boosted at t_start by the velocity the
+                            HMEA tidal field would have imparted over the
+                            pre-t_start history (Big Bang -> t_start). The cloud
+                            should ARRIVE at t_start moving slightly FASTER than
+                            pure EdS Hubble flow because the nodes have been pulling
+                            on it for billions of years. Derived from the SAME node
+                            sum the sim uses (see CosmologicalSimulation
+                            ._apply_pre_start_tidal_boost); it scales with M_ext so
+                            it VANISHES as M_ext -> 0, preserving M=0 == EdS exactly.
+                            This is NOT a fit-to-LCDM knob. Set False to start from
+                            pure EdS Hubble flow with no pre-history boost.
         """
         self.M_value = M_value
         self.S_value = S_value
@@ -241,6 +255,7 @@ class SimulationParameters:
         self.init_distribution = init_distribution
         self.init_kwargs = init_kwargs if init_kwargs is not None else {}
         self.eds_consistent = eds_consistent
+        self.pre_start_tidal_boost = pre_start_tidal_boost
 
         # Calculate derived quantities
         self._calculate_derived()

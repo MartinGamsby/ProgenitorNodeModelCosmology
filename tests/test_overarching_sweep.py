@@ -125,11 +125,11 @@ class TestExpandGrid(unittest.TestCase):
         self.assertEqual(len(cells), 6)
 
     def test_multiple_geometries_multiply_cells(self):
-        cfg = self._simple_cfg(M_values=[100], amp_list=[0.0], geom_list=["cube26", "shell"])
+        cfg = self._simple_cfg(M_values=[100], amp_list=[0.0], geom_list=["cube26", "fcc"])
         cells = expand_grid(cfg)
         self.assertEqual(len(cells), 2)
         geoms = {c["geometry"] for c in cells}
-        self.assertEqual(geoms, {"cube26", "shell"})
+        self.assertEqual(geoms, {"cube26", "fcc"})
 
     def test_multiple_inits_multiply_cells(self):
         cfg = self._simple_cfg(M_values=[100], amp_list=[0.0],
@@ -233,7 +233,7 @@ class TestCacheKeyUniqueness(unittest.TestCase):
 
     def test_different_geometry_gives_different_key(self):
         k1 = build_cache_name(self._cfg(0.0, 42, geometry="cube26"), 100, 30, 1, [42])
-        k2 = build_cache_name(self._cfg(0.0, 42, geometry="shell"),   100, 30, 1, [42])
+        k2 = build_cache_name(self._cfg(0.0, 42, geometry="fcc"),   100, 30, 1, [42])
         self.assertNotEqual(k1, k2)
 
     def test_different_init_gives_different_key(self):
@@ -247,8 +247,8 @@ class TestCacheKeyUniqueness(unittest.TestCase):
         self.assertNotIn("cube26geo", k)
 
     def test_non_cube26_gets_geo_slug(self):
-        k = build_cache_name(self._cfg(0.0, 42, geometry="shell"), 100, 30, 1, [42])
-        self.assertIn("shellgeo", k)
+        k = build_cache_name(self._cfg(0.0, 42, geometry="fcc"), 100, 30, 1, [42])
+        self.assertIn("fccgeo", k)
 
     def test_uniform_sphere_keeps_original_key_no_init_slug(self):
         k = build_cache_name(self._cfg(0.0, 42, init="uniform_sphere"), 100, 30, 1, [42])

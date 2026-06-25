@@ -302,10 +302,10 @@ class SimulationParameters:
                             pure EdS Hubble flow with no pre-history boost.
             node_geometry:  Geometry identifier for the HMEA node layout (default
                             "cube26" = current 3×3×3-1 lattice, backward-compatible).
-                            Other choices: "cube_dense", "shell", "shell_multi",
-                            "fcc", "bcc".  See cosmo/node_geometry.py for details.
+                            Other choices: "cube_dense", "fcc", "bcc" (all
+                            volume-filling / virialized). See cosmo/node_geometry.py.
             geometry_kwargs: Optional dict of keyword arguments forwarded to the
-                            geometry factory (e.g. n_nodes=50 for "shell").
+                            geometry factory (e.g. n_per_side=7 for "cube_dense").
                             Default None (uses each geometry's own defaults).
         """
         self.M_value = M_value

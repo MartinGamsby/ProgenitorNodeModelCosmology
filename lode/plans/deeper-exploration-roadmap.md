@@ -9,7 +9,7 @@ Sub-files:
 - [pinned-findings.md](./pinned-findings.md) — the verified anchors every workstream builds on
 - [overarching-sweep.md](./overarching-sweep.md) — WS1: one config-driven multi-param sweep tool
 - [graphs-from-scripts.md](./graphs-from-scripts.md) — WS2: every claim gets a saved PNG
-- [node-geometries.md](./node-geometries.md) — WS3: geometry factory (shell, denser, more nodes)
+- [node-geometries.md](./node-geometries.md) — WS3: geometry factory (denser/more-node volume-filling lattices; hollow shells excluded)
 - [centerm-reconception.md](./centerm-reconception.md) — WS4: extend the sim sphere OUTSIDE the observable region
 - [grf-vs-uniform.md](./grf-vs-uniform.md) — WS5: why init_distribution moved the isotropic chi2
 - [particle-convergence.md](./particle-convergence.md) — WS6: high-N convergence (LAST/slowest)

@@ -10,8 +10,16 @@ The current external structure is a 26-node 3×3×3−1 cubic lattice (`HMEAGrid
 grid` in `cosmo/particles.py`): perfectly symmetric, so the tidal forces CANCEL at the
 origin (traceless). PF2 says this traceless cancellation is exactly why symmetry-
 breaking can't move the isotropic fit. The question: does a DIFFERENT geometry — more
-nodes, a spherical SHELL (more sphere-like), denser lattices — yield a larger NET effect
-while staying honest about the vacuum-traceless constraint?
+nodes or a denser lattice — yield a larger NET effect while staying honest about the
+vacuum-traceless constraint?
+
+**PHYSICS REQUIREMENT — geometries must be VOLUME-FILLING (virialized).** The HMEA nodes
+represent a *virialized meta-structure*: relaxed mass distributed throughout a 3D volume.
+The cube lattice is the simplest such approximation. **Hollow spherical SHELLS are
+explicitly excluded** — concentrating all mass on a sphere surface with an empty interior
+is the OPPOSITE of a virialized structure (and, by Birkhoff, a continuous shell exerts no
+interior force at all; see [../physics/theoretical-framework.md](../physics/theoretical-framework.md)).
+Valid geometries: `cube26` (default), `cube_dense`, `fcc`, `bcc` — all volume-filling.
 
 **Honesty constraint up front:** for masses in vacuum the tidal tensor is traceless for
 ANY arrangement, so no geometry will magically produce a large net isotropic
@@ -33,12 +41,12 @@ def build_node_positions(geometry: str, S: float, **kwargs) -> np.ndarray:
 
 ### Geometries to support
 
+All VOLUME-FILLING (virialized). Hollow shells are excluded (see Motivation).
+
 | id | Description | Key kwargs |
 |----|-------------|-----------|
 | `cube26` | current 3×3×3−1 cubic lattice (DEFAULT, backward-compatible) | — |
 | `cube_dense` | denser cubic lattice, e.g. 5×5×5−1 (124 nodes) | `n_per_side` |
-| `shell` | nodes on a sphere of radius S (e.g. Fibonacci / icosahedral sphere points) | `n_nodes` |
-| `shell_multi` | several concentric shells at radii ~S | `n_nodes`, `n_shells` |
 | `fcc` / `bcc` | denser close-packed lattices | `n_shells` |
 
 ### Parametrization that threads cleanly
@@ -72,7 +80,7 @@ graph TD
 - M=0 still == EdS for EVERY geometry (the geometry only sets node positions; at M=0 the
   tidal sum is zero regardless).
 - Mean-preserving knobs stay mean-preserving for any n_nodes.
-- A symmetric geometry (cube26, full shell) must keep shear ≈ noise at amplitude=0
+- A symmetric geometry (e.g. cube26) must keep shear ≈ noise at amplitude=0
   (sanity check: the geometry alone, with uniform masses, should not create spurious
   anisotropy beyond discreteness).
 - Ω_Λ_eff bookkeeping: total external mass = n_nodes · M_ext_kg changes with node count;
@@ -85,7 +93,8 @@ graph TD
 
 ### Files added / modified
 - **NEW `cosmo/node_geometry.py`** — `build_node_positions(geometry, S, **kwargs)` factory
-  + `list_geometries()` + `effective_M_ext_kg()` helper. Registry-based; six geometries.
+  + `list_geometries()` + `effective_M_ext_kg()` helper. Registry-based; four
+  volume-filling geometries (hollow `shell`/`shell_multi` were removed — not virialized).
 - **`cosmo/particles.py`** — `HMEAGrid._create_grid` replaced hard-coded cube loop with
   `build_node_positions` call; `n_nodes` set from actual geometry count.
 - **`cosmo/constants.py`** — `node_geometry: str = "cube26"` + `geometry_kwargs: dict = {}`
@@ -94,17 +103,22 @@ graph TD
 - **`cosmo/parameter_sweep.py`** — `SweepConfig` gains `node_geometry` / `geometry_kwargs`;
   `build_cache_name` appends `{geo}geo` slug only when geometry != `"cube26"`.
 - **`cosmo/cli.py`** — `--node-geometry` argument + threaded in `args_to_sim_params`.
-- **NEW `tests/test_node_geometry.py`** — 53 tests, all pass.
+- **NEW `tests/test_node_geometry.py`** — node-count, byte-identical-cube26, volume-filling,
+  mass-bookkeeping, cache-slug, threading, and shells-excluded tests; all pass.
+- **`visualize_geometries.py`** — 3D scatter of all geometries →
+  `results/figures/ws3/node_geometries.png`.
 
-### Geometries implemented
+### Geometries implemented (all volume-filling / virialized)
 | id | nodes | kwargs |
 |----|-------|--------|
 | `cube26` | 26 | — (DEFAULT, byte-identical to old loop) |
 | `cube_dense` | (n³-1), default n=5 → 124 | `n_per_side` (odd ≥3) |
-| `shell` | default 50 | `n_nodes` |
-| `shell_multi` | default 150 (50×3) | `n_nodes`, `n_shells` |
-| `fcc` | ~54 (n_shells=2) | `n_shells` |
-| `bcc` | ~26 (n_shells=2) | `n_shells` |
+| `fcc` | ~86 (n_shells=2) | `n_shells` |
+| `bcc` | ~386 (n_shells=2) | `n_shells` |
+
+`shell` / `shell_multi` were implemented then REMOVED: a hollow sphere of nodes is the
+opposite of a virialized meta-structure (and Birkhoff → no interior force). Geometries
+must fill the volume.
 
 ### Mass bookkeeping (DECIDED: hold per-node mean fixed)
 `M_ext_kg` is the per-node mean mass. Total external mass = `n_nodes * M_ext_kg`.

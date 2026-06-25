@@ -18,7 +18,8 @@ from cosmo.node_geometry import build_node_positions, list_geometries  # noqa: E
 from cosmo.plots import figure_path  # noqa: E402
 
 # Order the geometries with the default (cube26) first.
-GEOMS = ["cube26", "cube_dense", "shell", "shell_multi", "fcc", "bcc"]
+# All are volume-filling (virialized); hollow spherical shells are excluded.
+GEOMS = ["cube26", "cube_dense", "fcc", "bcc"]
 GEOMS += [g for g in list_geometries() if g not in GEOMS]
 
 S = 1.0  # normalized scale (positions ~ S); geometry shape is scale-invariant

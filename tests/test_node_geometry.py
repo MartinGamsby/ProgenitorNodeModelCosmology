@@ -94,23 +94,6 @@ class TestGeometryNodeCounts:
         pos = build_node_positions("cube_dense", 1.0, n_per_side=7)
         assert len(pos) == 342
 
-    def test_shell_default_count(self):
-        pos = build_node_positions("shell", 1.0)
-        assert len(pos) == 50
-
-    def test_shell_custom_count(self):
-        pos = build_node_positions("shell", 1.0, n_nodes=100)
-        assert len(pos) == 100
-
-    def test_shell_multi_default_count(self):
-        # 50 nodes * 3 shells = 150
-        pos = build_node_positions("shell_multi", 1.0)
-        assert len(pos) == 150
-
-    def test_shell_multi_custom(self):
-        pos = build_node_positions("shell_multi", 1.0, n_nodes=30, n_shells=2)
-        assert len(pos) == 60
-
     def test_fcc_default_count_positive(self):
         pos = build_node_positions("fcc", 1.0)
         assert len(pos) > 0
@@ -121,8 +104,13 @@ class TestGeometryNodeCounts:
 
     def test_list_geometries(self):
         geos = list_geometries()
-        for expected in ["cube26", "cube_dense", "shell", "shell_multi", "fcc", "bcc"]:
+        for expected in ["cube26", "cube_dense", "fcc", "bcc"]:
             assert expected in geos, f"{expected} missing from list_geometries()"
+
+    def test_shells_excluded(self):
+        """Hollow shells are the opposite of a virialized grid; must be unavailable."""
+        geos = list_geometries()
+        assert "shell" not in geos and "shell_multi" not in geos
 
 
 # ---------------------------------------------------------------------------
@@ -135,8 +123,6 @@ class TestNodesOutsideCloud:
     @pytest.mark.parametrize("geometry,kwargs", [
         ("cube26", {}),
         ("cube_dense", {}),
-        ("shell", {}),
-        ("shell_multi", {}),
         ("fcc", {}),
         ("bcc", {}),
     ])
@@ -160,8 +146,8 @@ class TestMassBookkeeping:
 
     @pytest.mark.parametrize("geometry,kwargs,expected_n", [
         ("cube26", {}, 26),
-        ("shell", {"n_nodes": 50}, 50),
-        ("shell_multi", {"n_nodes": 30, "n_shells": 2}, 60),
+        ("cube_dense", {"n_per_side": 5}, 124),
+        ("cube_dense", {"n_per_side": 7}, 342),
     ])
     def test_total_mass_is_n_times_M_ext(self, geometry, kwargs, expected_n):
         M_ext_kg = 5e55
@@ -209,25 +195,17 @@ class TestCacheSlug:
         key = self._cache_name("cube26")
         assert "geo" not in key, "cube26 must not add a geo slug"
 
-    def test_shell_appends_geo_slug(self):
-        key = self._cache_name("shell")
-        assert "shellgeo" in key, f"shell must append 'shellgeo' slug; got {key!r}"
-
     def test_cube_dense_appends_geo_slug(self):
         key = self._cache_name("cube_dense")
         assert "cube_densegeo" in key
 
     def test_different_geometries_different_keys(self):
         k26 = self._cache_name("cube26")
-        ksh = self._cache_name("shell")
+        kfcc = self._cache_name("fcc")
         kfd = self._cache_name("cube_dense")
-        assert k26 != ksh
+        assert k26 != kfcc
         assert k26 != kfd
-        assert ksh != kfd
-
-    def test_shell_multi_slug(self):
-        key = self._cache_name("shell_multi")
-        assert "shell_multigeo" in key
+        assert kfcc != kfd
 
     def test_fcc_slug(self):
         key = self._cache_name("fcc")
@@ -268,11 +246,6 @@ class TestHMEAGridThreading:
         np.testing.assert_array_equal(got, expected,
             err_msg="HMEAGrid cube26 positions must match factory output")
 
-    def test_shell_grid_has_50_nodes(self):
-        grid = self._make_grid("shell", n_nodes=50)
-        assert len(grid.nodes) == 50
-        assert grid.n_nodes == 50
-
     def test_cube_dense_grid_has_124_nodes(self):
         grid = self._make_grid("cube_dense")
         assert len(grid.nodes) == 124
@@ -282,11 +255,11 @@ class TestHMEAGridThreading:
         """SimulationParameters.node_geometry threads into HMEAGrid via external_params."""
         sim_params = SimulationParameters(
             M_value=500, S_value=25.0, n_particles=5, seed=1,
-            node_geometry="shell",
-            geometry_kwargs={"n_nodes": 50},
+            node_geometry="cube_dense",
+            geometry_kwargs={"n_per_side": 5},
         )
         grid = HMEAGrid(node_params=sim_params.external_params)
-        assert len(grid.nodes) == 50
+        assert len(grid.nodes) == 124
 
     def test_fcc_grid_nodes_positive(self):
         grid = self._make_grid("fcc")
@@ -340,9 +313,9 @@ class TestSweepConfigGeometry:
 
     def test_custom_node_geometry(self):
         from cosmo.parameter_sweep import SweepConfig
-        cfg = SweepConfig(node_geometry="shell", geometry_kwargs={"n_nodes": 80})
-        assert cfg.node_geometry == "shell"
-        assert cfg.geometry_kwargs == {"n_nodes": 80}
+        cfg = SweepConfig(node_geometry="cube_dense", geometry_kwargs={"n_per_side": 7})
+        assert cfg.node_geometry == "cube_dense"
+        assert cfg.geometry_kwargs == {"n_per_side": 7}
 
 
 # ---------------------------------------------------------------------------
@@ -367,31 +340,20 @@ class TestCubeDenseEquivalence:
 
 
 # ---------------------------------------------------------------------------
-# 10. shell geometry: all nodes at exactly radius S
+# 10. fcc/bcc are volume-filling (not hollow): they have nodes across radii
 # ---------------------------------------------------------------------------
 
-class TestShellGeometry:
-    def test_shell_all_at_radius_S(self):
-        S = 42.7
-        pos = build_node_positions("shell", S, n_nodes=100)
+class TestVolumeFilling:
+    @pytest.mark.parametrize("geometry", ["cube26", "cube_dense", "fcc", "bcc"])
+    def test_nodes_span_multiple_radii(self, geometry):
+        """A virialized/volume-filling lattice has nodes at more than one radius
+        (a hollow shell would have all nodes at a single radius)."""
+        pos = build_node_positions(geometry, 1.0)
         radii = np.linalg.norm(pos, axis=1)
-        np.testing.assert_allclose(radii, S, rtol=1e-12,
-            err_msg="All shell nodes must be at exactly radius S")
-
-    def test_shell_multi_shell_radii(self):
-        S = 1.0
-        n_shells = 3
-        pos = build_node_positions("shell_multi", S, n_nodes=30, n_shells=n_shells)
-        radii = np.sort(np.linalg.norm(pos, axis=1))
-        # Smallest radius should be ~S, largest ~n_shells*S
-        assert radii[0] >= 0.9 * S
-        assert radii[-1] <= n_shells * S * 1.1
-
-    def test_shell_deterministic(self):
-        """shell is purely deterministic (no RNG); same S and n give same output."""
-        p1 = build_node_positions("shell", 5.0, n_nodes=60)
-        p2 = build_node_positions("shell", 5.0, n_nodes=60)
-        np.testing.assert_array_equal(p1, p2)
+        n_distinct = len(np.unique(np.round(radii, 6)))
+        assert n_distinct >= 2, (
+            f"{geometry} must fill the volume (>=2 distinct radii), got {n_distinct}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -407,6 +369,7 @@ class TestInvalidGeometry:
         with pytest.raises(ValueError):
             build_node_positions("cube_dense", 1.0, n_per_side=4)
 
-    def test_shell_too_few_nodes_raises(self):
-        with pytest.raises(ValueError):
-            build_node_positions("shell", 1.0, n_nodes=1)
+    def test_excluded_shell_geometry_raises(self):
+        """shell/shell_multi were removed (hollow != virialized) -> ValueError."""
+        with pytest.raises(ValueError, match="Unknown node geometry"):
+            build_node_positions("shell", 1.0)

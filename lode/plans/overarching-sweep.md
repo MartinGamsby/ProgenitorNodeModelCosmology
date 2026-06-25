@@ -173,14 +173,15 @@ The previous note "400p gives 0.69 vs 2000p gives 0.48" was a CONFIGURATION
 artifact (that comparison used different M/S; the high-S region IS sensitive to N
 but the low-S near-LCDM band is NOT). No large particle-count shift here.
 
-**Shell geometry thread-through (at M=200/S=20, amp=0, N=400)**:
-cube26: chi2/dof=0.5195  shell(n=50): chi2/dof=0.6267
-NOTE: shell geometry gives higher chi2 at this config. The traceless argument
-predicts SIMILAR isotropic chi2 across geometries, but the shell geometry uses 50
-nodes at S=20 Gpc while cube26 uses 26 at S=20 Gpc — the effective M_ext_kg per
-node differs, so the total tidal strength differs unless rescaled via
-effective_M_ext_kg(). This is NOT a traceless-argument failure; it is an M
-normalization difference. A fair comparison needs effective_M_ext_kg() rescaling.
+**Geometry thread-through**: the earlier "shell vs cube26" comparison here was INVALID
+on two counts and has been removed: (1) a bug had `sweep.py` keying cells by geometry
+while always running `cube26`, so the "shell" row was actually cube26 physics (fixed —
+see [../scripts/parameter-sweep.md](../scripts/parameter-sweep.md)); and (2) hollow
+`shell`/`shell_multi` geometries were removed entirely (not virialized — see
+[node-geometries.md](./node-geometries.md)). A fair CROSS-GEOMETRY comparison (now over
+cube26 / cube_dense / fcc / bcc) still requires `effective_M_ext_kg()` normalization so
+total external mass (hence Ω_Λ_eff) is equal across geometries — DEFERRED until that is
+wired into the geometry sweep.
 
 **Figures** (results/figures/ws1/):
 - ms_chi2_dof_heatmap_targeted_near_lcdm.png

@@ -18,14 +18,19 @@ of the cube26 reference (26 * M_ext_kg_ref).
 
 Geometries
 ----------
+All geometries MUST be VOLUME-FILLING — a 3D lattice approximating a *virialized*
+meta-structure (relaxed mass distributed throughout the volume).  Hollow shells are
+NOT valid: concentrating all mass on a sphere surface with an empty interior is the
+opposite of a virialized structure, so spherical-shell geometries are deliberately
+excluded.
+
 cube26      3×3×3 − 1 cubic lattice (26 nodes). DEFAULT, byte-identical to the
-            legacy HMEAGrid loop.  All other geometries are alternatives.
+            legacy HMEAGrid loop; the simplest virialized-grid approximation.
 cube_dense  n×n×n − 1 cubic lattice (default n=5 → 124 nodes).
-shell       Fibonacci-sphere points on a single sphere of radius S (default 50).
-shell_multi Concentric shells at radii S, 2S, … n_shells*S (default 3 shells of 50).
-fcc         Face-centred cubic — inner cubic shell (8) + face centres (6) per unit
-            cell, iterated outward for n_shells (default 2) → exact FCC geometry.
-bcc         Body-centred cubic — corners + body centre per unit cell, n_shells shells.
+fcc         Face-centred cubic — corners + face centres per unit cell, iterated
+            outward for n_shells unit-cell layers (default 2).
+bcc         Body-centred cubic — corners + body centre per unit cell, n_shells
+            unit-cell layers (default 2).
 
 Invariants
 ----------
@@ -153,60 +158,6 @@ def _cube_dense(S: float, n_per_side: int = 5) -> np.ndarray:
                 if i == 0 and j == 0 and k == 0:
                     continue
                 positions.append(np.array([i, j, k], dtype=float) * step)
-    return np.array(positions, dtype=np.float64)
-
-
-@register("shell")
-def _shell(S: float, n_nodes: int = 50) -> np.ndarray:
-    """Fibonacci-spiral sphere (Vogel algorithm) of radius S.
-
-    All nodes lie on a sphere of radius S.  The Fibonacci spiral distributes
-    n_nodes quasi-uniformly over the sphere surface.
-
-    Args:
-        n_nodes: Number of nodes on the sphere (default 50).
-    """
-    if n_nodes < 3:
-        raise ValueError(f"shell requires n_nodes >= 3, got {n_nodes}")
-    golden = (1.0 + math.sqrt(5.0)) / 2.0
-    positions = []
-    for i in range(n_nodes):
-        theta = math.acos(1.0 - 2.0 * (i + 0.5) / n_nodes)  # polar
-        phi = 2.0 * math.pi * i / golden                       # azimuthal
-        x = S * math.sin(theta) * math.cos(phi)
-        y = S * math.sin(theta) * math.sin(phi)
-        z = S * math.cos(theta)
-        positions.append([x, y, z])
-    return np.array(positions, dtype=np.float64)
-
-
-@register("shell_multi")
-def _shell_multi(S: float, n_nodes: int = 50, n_shells: int = 3) -> np.ndarray:
-    """Concentric Fibonacci spheres at radii S, 2S, …, n_shells*S.
-
-    Each shell has the same n_nodes points, giving total n_shells * n_nodes nodes.
-    Outer shells use the same angular pattern (phi) but a different theta offset
-    to avoid accidental alignment between shells.
-
-    Args:
-        n_nodes:  Nodes per shell (default 50).
-        n_shells: Number of shells (default 3).
-    """
-    if n_shells < 1:
-        raise ValueError(f"shell_multi requires n_shells >= 1, got {n_shells}")
-    positions = []
-    golden = (1.0 + math.sqrt(5.0)) / 2.0
-    for s in range(1, n_shells + 1):
-        r = S * s
-        # Rotate the phi pattern by s * (2*pi / (2*n_shells)) to decorrelate shells
-        phi_offset = s * math.pi / n_shells
-        for i in range(n_nodes):
-            theta = math.acos(1.0 - 2.0 * (i + 0.5) / n_nodes)
-            phi = 2.0 * math.pi * i / golden + phi_offset
-            x = r * math.sin(theta) * math.cos(phi)
-            y = r * math.sin(theta) * math.sin(phi)
-            z = r * math.cos(theta)
-            positions.append([x, y, z])
     return np.array(positions, dtype=np.float64)
 
 

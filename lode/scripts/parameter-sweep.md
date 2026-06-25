@@ -229,8 +229,8 @@ into `SimulationParameters` by BOTH `sweep.py::_make_sim_callback` AND
 `parameter_sweep.py::sim`. `build_cache_name` appends a `<geom>geo` slug only for
 non-`cube26` geometries. INVARIANT: anything that distinguishes the cache key MUST
 also reach the actual sim — a prior bug had `sweep.py` keying cells by `node_geometry`
-while always running `cube26`, so a `shell`/`fcc` cell silently produced cube26 physics
-cached under a `shellgeo` key. (`pantheon_knob_sweep.py` never varies geometry, so it
+while always running `cube26`, so an `fcc`/`bcc` cell silently produced cube26 physics
+cached under an `fccgeo` key. (`pantheon_knob_sweep.py` never varies geometry, so it
 correctly leaves it at the cube26 default in both sim and key.)
 
 ## From-data sweep results (Stage 3, anchored, 2000p/300steps, t_start=2.9, seed=42)

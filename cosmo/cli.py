@@ -74,12 +74,12 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
 
     # Node geometry (WS3)
     parser.add_argument('--node-geometry', type=str, default='cube26',
-                        choices=['cube26', 'cube_dense', 'shell', 'shell_multi', 'fcc', 'bcc'],
-                        help='HMEA node geometry. "cube26" (default) = 3×3×3-1 cubic lattice '
-                             '(26 nodes, backward-compatible). Alternatives: "cube_dense" '
-                             '(5×5×5-1, 124 nodes), "shell" (Fibonacci sphere, 50 nodes), '
-                             '"shell_multi" (3 concentric shells, 150 nodes), '
-                             '"fcc" / "bcc" (close-packed lattices). '
+                        choices=['cube26', 'cube_dense', 'fcc', 'bcc'],
+                        help='HMEA node geometry (must be volume-filling / virialized). '
+                             '"cube26" (default) = 3×3×3-1 cubic lattice (26 nodes, '
+                             'backward-compatible). Alternatives: "cube_dense" '
+                             '(5×5×5-1, 124 nodes), "fcc" / "bcc" (close-packed lattices). '
+                             'Hollow spherical shells are excluded (opposite of virialized). '
                              'For a fair Omega_Lambda_eff comparison across geometries, '
                              'scale --M so M*26/n_nodes is constant.')
 

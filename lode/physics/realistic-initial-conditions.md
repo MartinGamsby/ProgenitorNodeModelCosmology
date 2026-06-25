@@ -24,6 +24,13 @@ with `--full`). At N=1 000 and N=10 000, t_start=5.8 Gyr, 80 steps (dt=0.025 Gyr
 
 Growth spread across N-ladder: **0.000 %** — isotropic background fully converged.
 
+**never-exceed-LCDM reference is ANALYTIC** (particle-count independent): the `≤LCDM`
+gate compares the GRF run's RMS at every step against the analytic LambdaCDM Friedmann
+a(t) (`solve_friedmann_at_times`, Omega_Lambda=0.7), scaled to the GRF run's OWN initial
+RMS — mirroring `tests/test_early_time_behavior.py` (test_lcdm_nbody_vs_analytic_lcdm,
+test_matter_only_decelerates_correctly). It is NOT an N-body LCDM proxy, so the gate
+reflects physics, not shot noise. The `max LCDM ratio` is a stable 1.000000 for all N.
+
 Run the full check:
 ```
 PYTHONIOENCODING=utf-8 python convergence_check.py --full --png

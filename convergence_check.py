@@ -9,12 +9,14 @@ For each N it records:
   - growth: final RMS / initial RMS  (proxy for a_final/a_initial)
   - growth_anchor: pass/fail vs. expected_growth_factor(t_start) ± 20 %
   - dt_ok: dt < 0.05 Gyr
-  - never_exceed_lcdm: max( size_grf / size_lcdm ) <= 1.001
+  - never_exceed_lcdm: max( size_grf / size_lcdm ) <= 1.001, where size_lcdm is
+    the ANALYTIC LambdaCDM Friedmann a(t) scaled to the run's own initial RMS
+    (particle-count independent — the gate reflects physics, not shot noise).
   - chi2_dof: Pantheon+ score (from compute_pantheon_metrics if available)
 
 Invariants checked per N:
-  1. never-exceed-LCDM
-  2. growth anchor (a[-1]/a[0] within 20 % of LCDM reference)
+  1. never-exceed-LCDM  (vs analytic Friedmann a(t), not an N-body proxy)
+  2. growth anchor (a[-1]/a[0] within 20 % of analytic LCDM reference)
   3. dt < 0.05 Gyr
 
 Usage:
@@ -61,24 +63,6 @@ def run_one(N: int, t_start_Gyr: float = 5.8,
     dt_Gyr = t_duration_Gyr / n_steps
     dt_s = dt_Gyr * 1e9 * 365.25 * 24 * 3600
 
-    # ---- LCDM reference (analytic, small N for speed) ----
-    np.random.seed(seed)
-    ps_lcdm = ParticleSystem(
-        n_particles=min(N, 500),  # analytic proxy — low-N OK
-        box_size_m=box_size_m,
-        total_mass_kg=const.M_observable_kg,
-        a_start=a_start,
-        use_dark_energy=True,
-        mass_randomize=0.0,
-    )
-    integ_lcdm = LeapfrogIntegrator(ps_lcdm, use_dark_energy=True, use_external_nodes=False)
-    rms0_lcdm = _rms(ps_lcdm)
-    lcdm_sizes = [rms0_lcdm]
-    for _ in range(n_steps):
-        integ_lcdm.step(dt_s)
-        lcdm_sizes.append(_rms(ps_lcdm))
-    lcdm_sizes = np.array(lcdm_sizes)
-
     # ---- GRF matter-only at N ----
     np.random.seed(seed)
     ps_grf = ParticleSystem(
@@ -103,17 +87,25 @@ def run_one(N: int, t_start_Gyr: float = 5.8,
 
     growth = float(grf_sizes[-1] / grf_sizes[0])
 
-    # Growth anchor
-    res_ref = solve_friedmann_at_times(
-        np.array([t_start_Gyr, t_start_Gyr + t_duration_Gyr])
-    )
-    analytic_growth = float(res_ref['a'][-1] / res_ref['a'][0])
+    # ---- Analytic LCDM reference a(t) at the snapshot time grid ----
+    # Canonical "never-exceed-LCDM" reference: the analytic LambdaCDM Friedmann
+    # a(t) (Omega_Lambda=0.7), NOT an N-body cloud. This makes the gate depend on
+    # physics, not on particle count / shot noise. Mirrors the established pattern
+    # in tests/test_early_time_behavior.py (test_lcdm_nbody_vs_analytic_lcdm,
+    # test_matter_only_decelerates_correctly): solve_friedmann_at_times with the
+    # LCDM Omega_Lambda, then scale by the run's OWN initial RMS so both series
+    # start at the same physical size.
+    t_grid_Gyr = t_start_Gyr + np.linspace(0.0, t_duration_Gyr, n_steps + 1)
+    a_lcdm = solve_friedmann_at_times(t_grid_Gyr)['a']   # Omega_Lambda defaults to LCDM (0.7)
+    lcdm_sizes = grf_sizes[0] * (a_lcdm / a_lcdm[0])
+
+    # Growth anchor (LCDM expansion over the window; particle-count independent)
+    analytic_growth = float(a_lcdm[-1] / a_lcdm[0])
     growth_frac_err = abs(growth / analytic_growth - 1.0)
     growth_anchor_ok = growth_frac_err <= 0.20
 
-    # Never-exceed-LCDM
-    # Normalise sizes to the same starting point
-    ratio = grf_sizes / (lcdm_sizes[:len(grf_sizes)])
+    # Never-exceed-LCDM: GRF size must not exceed the analytic LCDM size at any step.
+    ratio = grf_sizes / lcdm_sizes
     max_ratio = float(np.max(ratio))
     never_exceed_ok = max_ratio <= 1.001
 

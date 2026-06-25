@@ -224,6 +224,49 @@ class TestHubbleDipole:
         result = hubble_dipole(pos, vel)
         assert result["degenerate"]
 
+    def test_starved_hemisphere_marks_degenerate_not_zero(self):
+        """A lopsided cloud that starves one hemisphere along the probe axis must
+        report degenerate=True, NOT a confident dipole==0 (false isotropy).
+
+        Regression for the bug where a hemisphere with < 2 particles fell back to
+        H_global on BOTH sides, forcing dipole = (H+ - H-)/H_mean to exactly 0
+        with degenerate=False — masking real anisotropy as clean isotropy.
+        """
+        # N >= 4 (so the N<4 guard does not trip) but only ONE particle ends up in
+        # the -x hemisphere after COM-centering: the split along x is 4/1, so the
+        # -x hemisphere is starved (< 2 particles) and cannot be slope-fit.
+        H = 70e3 / 3.086e22
+        pos = np.array([
+            [10.0, 0.01, -0.02],
+            [10.0, -0.03, 0.04],
+            [10.0, 0.02, 0.01],
+            [10.0, -0.01, 0.03],
+            [-10.0, 0.0, 0.0],   # the lone -x particle starves that hemisphere
+        ])
+        vel = H * pos
+        axis_x = np.array([1.0, 0.0, 0.0])
+        result = hubble_dipole(pos, vel, axis=axis_x)
+
+        assert result["degenerate"], (
+            "Starved hemisphere must be reported as degenerate (could-not-measure), "
+            f"got degenerate=False with dipole={result['dipole']:.4f}"
+        )
+        # And it must NOT masquerade as a confident non-degenerate zero.
+        assert not (result["dipole"] != 0.0 and not result["degenerate"])
+
+    def test_well_populated_isotropic_is_not_degenerate(self):
+        """The intended (N>=2000) well-populated isotropic case stays
+        degenerate=False with ~0 dipole — behaviour unchanged by the starved-
+        hemisphere guard."""
+        pos = _isotropic_sphere(N=2000, rng_seed=8)
+        H = 70e3 / 3.086e22
+        vel = _isotropic_hubble_velocities(pos, H)
+        result = hubble_dipole(pos, vel)
+        assert not result["degenerate"]
+        assert abs(result["dipole"]) < 0.3, (
+            f"Well-populated isotropic flow should give ~0 dipole; got {result['dipole']:.4f}"
+        )
+
     def test_global_hubble_slope_positive(self):
         """H_global should be positive for an expanding cloud."""
         pos = _isotropic_sphere(N=200, rng_seed=5)

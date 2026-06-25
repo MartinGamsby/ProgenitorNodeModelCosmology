@@ -40,6 +40,11 @@ Edge cases
   All functions validate input shapes and handle degenerate inputs (N < 2,
   all-zero positions, collinear points) by returning zero results with a
   `degenerate` flag set to True. No randomness anywhere.
+
+  hubble_dipole additionally marks `degenerate=True` when the probe axis
+  STARVES a hemisphere (< 2 particles on one side of the split): the slope
+  there cannot be fit, so the dipole is reported as degenerate (could-not-
+  measure) rather than a confident 0 (false isotropy).
 """
 
 from __future__ import annotations
@@ -256,27 +261,54 @@ def hubble_dipole(
         st = shape_tensor(pos_c)
         ax = st["principal_axis"]
 
-    def _hemisphere_H(ax_hat: np.ndarray) -> tuple[float, float]:
-        """Return (H_plus, H_minus) along ax_hat."""
+    def _hemisphere_H(ax_hat: np.ndarray) -> tuple[float, float, bool]:
+        """Return (H_plus, H_minus, ok) for the hemisphere split along ax_hat.
+
+        ``ok`` is False when EITHER hemisphere has < 2 particles, i.e. a Hubble
+        slope cannot be honestly fit there. In that case the returned H values
+        are NOT meaningful and the caller must treat the dipole as degenerate
+        rather than reporting a confident 0. (Substituting H_global for a starved
+        hemisphere would force H_plus == H_minus and collapse the dipole to an
+        exactly-zero "false isotropy", masking a real anisotropy.)
+        """
         proj = pos_c @ ax_hat          # (N,) scalar projection
         mask_plus = proj >= 0
         mask_minus = ~mask_plus
         results = []
+        ok = True
         for mask in (mask_plus, mask_minus):
             if mask.sum() < 2:
-                results.append(H_global)  # fallback
+                ok = False
+                results.append(0.0)     # placeholder; flagged via ok=False
                 continue
             vr_h = v_r[mask]
             r_h = r[mask]
             d = np.dot(r_h, r_h)
             results.append(float(np.dot(vr_h, r_h) / d) if d > 0 else 0.0)
-        return results[0], results[1]
+        return results[0], results[1], ok
 
-    H_plus, H_minus = _hemisphere_H(ax)
+    H_plus, H_minus, probe_ok = _hemisphere_H(ax)
+
+    # If the probe axis starves a hemisphere, the dipole cannot be measured.
+    # Report degenerate=True (honest "couldn't measure") instead of a fake 0.
+    if not probe_ok:
+        return {
+            "H_global": H_global,
+            "H_plus": H_plus,
+            "H_minus": H_minus,
+            "H_mean": (H_plus + H_minus) / 2.0,
+            "dipole": 0.0,
+            "axis": ax,
+            "best_axis": ax,
+            "best_dipole": 0.0,
+            "degenerate": True,
+        }
+
     H_mean = (H_plus + H_minus) / 2.0
     dipole = float((H_plus - H_minus) / H_mean) if H_mean != 0.0 else 0.0
 
-    # Find best cardinal / principal axis
+    # Find best cardinal / principal axis. A candidate that starves a hemisphere
+    # cannot yield an honest dipole, so it is skipped (never allowed to win).
     candidates = [
         np.array([1.0, 0.0, 0.0]),
         np.array([0.0, 1.0, 0.0]),
@@ -286,7 +318,9 @@ def hubble_dipole(
     best_axis = ax
     best_dipole = abs(dipole)
     for cand in candidates:
-        hp, hm = _hemisphere_H(cand)
+        hp, hm, cand_ok = _hemisphere_H(cand)
+        if not cand_ok:
+            continue
         hm_c = (hp + hm) / 2.0
         d_cand = abs((hp - hm) / hm_c) if hm_c != 0.0 else 0.0
         if d_cand > best_dipole:

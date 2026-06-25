@@ -45,6 +45,18 @@ All four functions return a `degenerate=True` dict with zero values when
 N < 2 (or N < 4 for hubble_dipole), all-zero positions, or collinear inputs.
 No randomness anywhere — fully deterministic.
 
+**Starved-hemisphere honesty (hubble_dipole)**: when the PROBE axis splits the
+cloud so one hemisphere has < 2 particles, the Hubble slope there cannot be fit.
+`hubble_dipole` then returns `degenerate=True` (honest "could-not-measure")
+instead of a confident `dipole=0`. It does NOT substitute `H_global` for the
+starved side — that would force `H_plus == H_minus` and collapse the dipole to
+an exactly-zero FALSE ISOTROPY, masking real anisotropy (e.g. a lopsided
+projection that starves one hemisphere). In the best-axis search, a candidate
+axis that starves a hemisphere is skipped (never allowed to win). Well-populated
+hemispheres (the intended N ≥ 2000 runs) are UNCHANGED: `degenerate=False` with
+a confident dipole. Regression test:
+`tests/test_anisotropy.py::TestHubbleDipole::test_starved_hemisphere_marks_degenerate_not_zero`.
+
 ### COM correction
 
 `hubble_dipole` re-subtracts COM position AND COM velocity from the evolved

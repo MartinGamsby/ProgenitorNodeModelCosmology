@@ -107,7 +107,22 @@ a_{tidal} \approx \frac{2 G M_{ext}}{S^3} R
 
 While this single-axis derivation isolates the nearest node, it captures the correct linear-in-$R$ scaling and provides a sound order-of-magnitude estimate of the tidal field. At the central equilibrium point ($R = 0$), all forces cancel. As the universe expands, tidal forces scale as $\sim G M / d^3$, so the nearest face node at distance $S$ dominates over edge nodes at $S\sqrt{2}$ ($\sim 35\%$ contribution) and corner nodes at $S\sqrt{3}$ ($\sim 19\%$). The full 26-node system is accounted for in our numerical simulation (Section~\ref{sec:numerical}).
 
-The critical result here is the linear $R$ dependence. In the standard Friedmann equations, the cosmological constant drives an acceleration of $H_0^2 \Omega_\Lambda R$. Consequently, in the non-relativistic limit, this uniform external tidal field is mathematically indistinguishable from $\Lambda$.
+The critical result here is the linear $R$ dependence. In the standard Friedmann equations, the cosmological constant drives an acceleration of $H_0^2 \Omega_\Lambda R$. Consequently, in the non-relativistic limit, this single-axis external tidal field is mathematically indistinguishable from $\Lambda$ \emph{along the axis to a node}. The following subsection sharpens this statement: the \emph{full} three-dimensional symmetric field is traceless, so the indistinguishability holds for the axial magnitude but not for the isotropic volume term.
+
+\subsection{Traceless Tides: a Correction to the Isotropy Claim}
+\label{sec:traceless}
+The single-axis derivation above (Equation~\ref{eq:tidal-linear}) is correct as the radial acceleration \emph{toward the nearest node}, but it must not be read as an isotropic, $\Lambda$-like volume term. In the vacuum between the nodes the external potential satisfies Laplace's equation, $\nabla^2 \Phi_{ext} = \sum_{\text{nodes}} \nabla^2(-GM_{ext}/r) = 0$ away from the sources. Therefore the external tidal tensor $T_{ij} = -\partial_i \partial_j \Phi_{ext}$ is \textbf{traceless}: $\mathrm{Tr}\,T = -\nabla^2 \Phi_{ext} = 0$. A traceless tensor cannot drive net isotropic expansion to linear order in $R/S$; it can only produce \textbf{shear}.
+
+Concretely, for the symmetric equal-mass lattice the tidal tensor at the exact centre \emph{vanishes} by symmetry. Making one face heavier (or one axis tighter) yields a tensor of the form
+\begin{equation}
+T \;\sim\; \frac{G M_{ext}}{S^3}\,\mathrm{diag}(+4,\,-2,\,-2),
+\label{eq:traceless-shear}
+\end{equation}
+which is manifestly traceless: a pure stretch along one axis with compensating compression along the other two, plus a net dipole. There is no $\mathrm{diag}(+1,+1,+1)$ isotropic piece available at this order.
+
+The model's match to the \emph{isotropic} root-mean-square expansion history is therefore \textbf{not} the linear tidal term. It arises from two genuinely present but distinct effects: (i) the \textbf{nonlinear} $(S-R)^{-2}$ growth of the force as particles move off-centre toward the nodes (Equation~\ref{eq:tidal-exact}, beyond the linear Taylor term), and (ii) the calibrated initial Hubble-flow velocities (Section~\ref{sec:framework}). A direct consequence, confirmed numerically (Section~\ref{sec:from-data}), is that the isotropic supernova Hubble diagram \emph{cannot} discriminate the lattice configuration: the reduced $\chi^2$ is essentially flat in $M$ once each $M$ is paired with its growth-anchored $S$, because the data constrain only the effective expansion ($\sim$\,effective $\Omega_\Lambda$), i.e. the ratio $M/S^3$. This is the quantitative footprint of the $M/S^3$ degeneracy noted in Section~\ref{sec:results}.
+
+This correction \emph{sharpens} the model rather than retracting it. The isotropic background is reproduced, but the model's real, distinguishing signal lives in the \textbf{anisotropy} it predicts---a shear and an associated Hubble dipole---which the per-node HMEA masses directly control (Sections~\ref{sec:dipole}--\ref{sec:dark-flow}). This is exactly the regime the standard $\Lambda$ term cannot mimic, and it is where the model is genuinely falsifiable.
 
 \subsection{Estimation of Required Node Mass and Distance}
 \label{sec:estimation}
@@ -265,6 +280,56 @@ Matter-only & 96.06\% & 0.9890 & 0.8350 \\
 
 As shown in Table~\ref{tab:comparison}, the expansion rate $R^2$ serves as the definitive discriminator: our external-node model achieves a high $R^2$ of 0.96, whereas the matter-only model drops to 0.84. This discrepancy highlights that the matter-only approach produces a coincidental endpoint agreement by attempting to ``force'' a fit at a specific time, whereas the external-node model reproduces the genuine acceleration dynamics required to match the full expansion history.
 
+\subsection{Comparison to Real Supernova Data}
+\label{sec:from-data}
+
+The $R^2$ results above compare the simulated expansion to the \emph{analytic} $\Lambda$CDM curve---a model-versus-theory test. As a stronger, non-circular check we now compare the simulation directly to \textbf{real data}: the Pantheon$+$SH0ES Type~Ia supernova compilation \cite{Brout2022}.
+
+\paragraph{Method.}
+We run a single External-Node simulation from $t = 2.9$ Gyr to today (extending the start time back from $5.8$ Gyr so the simulation covers the full observed redshift range, $z \lesssim 2.1$), using uniform node masses ($M = 855 \times M_{obs}$, $S = 37.8$ Gpc, giving $\Omega_{\Lambda,eff} \approx 0.70$). From the simulated scale-factor history $a(t)$ we build the distance modulus directly,
+\begin{equation}
+\mu(z) = 5\log_{10}\!\left[\frac{(1+z)\,c\!\int_{t}^{t_0}\! dt'/a(t')}{10\,\mathrm{pc}}\right],
+\label{eq:mu-from-sim}
+\end{equation}
+integrating the \emph{actual} $a(t)$ produced by the dynamics (internal gravity, the 26 tidal nodes, and Hubble drag). Crucially, this is \textbf{not} the analytic $\Omega_{\Lambda,eff}$ shortcut: substituting a constant effective $\Omega_{\Lambda,eff}$ into the $\Lambda$CDM expansion law reproduces $\Lambda$CDM by construction and \emph{cannot} fail, whereas Equation~\ref{eq:mu-from-sim} reflects whatever the particles actually did. We clip the data to the simulation-covered range ($z \in [0.024, 2.095]$, $1333$ supernovae, dof~$=1332$), marginalize each model's additive magnitude offset, and report the reduced $\chi^2$ against the full Pantheon$+$ covariance.
+
+\paragraph{Cosmic-time consistency anchor.}
+The distance modulus of Equation~\ref{eq:mu-from-sim} is invariant under a rescaling of $a$, so the comparison fixes only the \emph{shape} of $a(t)$ over the observed window. Left unconstrained, a runaway configuration could fit the supernova window while expanding by an absurd factor. We therefore impose a physical \textbf{growth anchor}: the total expansion over the simulated interval must match the $\Lambda$CDM background, $a(t_0)/a(t_{\text{start}}) = 1 + z(t_{\text{start}})$ ($\approx 3.30$ at $t_{\text{start}} = 2.9$ Gyr), within a tolerance of $20\%$. The reported configuration grows by $3.10$ ($6.3\%$ below target), comfortably inside the tolerance. This anchor is what makes the supernova comparison meaningful: it ties the simulated growth factor to cosmic time, so the separation from the no-dark-energy null below is physical rather than an artefact of free time-rescaling.
+
+\paragraph{Results.}
+Table~\ref{tab:pantheon} and Figure~\ref{fig:pantheon} report the offset-marginalized fits. As a no-dark-energy null we use the Einstein--de~Sitter model ($\Omega_m = 1$, flat), which the supernova data decisively reject.
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{lcc}
+\toprule
+\textbf{Model} & \textbf{$\chi^2$} & \textbf{$\chi^2/\mathrm{dof}$} \\
+\midrule
+External-Node (from simulation)        & 666.90  & 0.501 \\
+$\Lambda$CDM (analytic)                & 582.31  & 0.437 \\
+Einstein--de~Sitter null ($\Omega_m=1$) & 1124.77 & 0.844 \\
+\bottomrule
+\end{tabular}
+\caption{Offset-marginalized fit of the from-simulation External-Node $\mu(z)$ to real Pantheon$+$SH0ES data ($1333$ SNe, $z \in [0.024, 2.095]$, dof~$=1332$), versus analytic $\Lambda$CDM and the Einstein--de~Sitter no-dark-energy null. The reduced $\chi^2 < 1$ values reflect the conservative Pantheon$+$ covariance; the informative quantities are the \emph{separations}, not the absolute fit quality.}
+\label{tab:pantheon}
+\end{table}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1.0\linewidth]{fig4_pantheon.png}
+    \caption{From-simulation External-Node $\mu(z)$ (orange) compared to binned Pantheon$+$SH0ES data (black), analytic $\Lambda$CDM (blue), and the Einstein--de~Sitter no-dark-energy null (green). Lower panel: residuals relative to $\Lambda$CDM. The simulated model tracks $\Lambda$CDM and the data ($\chi^2/\mathrm{dof} = 0.501$), and is far from the Einstein--de~Sitter null ($0.844$), which the data rule out.}
+\label{fig:pantheon}
+\end{figure}
+
+\paragraph{Interpretation (stated plainly).}
+Three honest conclusions follow.
+\begin{itemize}
+\item \textbf{The model produces effective dark energy.} The from-simulation curve sits \emph{with} $\Lambda$CDM ($\chi^2/\mathrm{dof} = 0.501$ versus $0.437$) and \emph{far} from the Einstein--de~Sitter null ($0.844$). The supernova data require something that mimics $\Lambda$, and the tidal mechanism supplies it.
+\item \textbf{It does not beat $\Lambda$CDM.} The from-simulation fit is slightly \emph{worse} than analytic $\Lambda$CDM ($0.501$ versus $0.437$). The residual from $\Lambda$CDM is at most $0.205$ mag (RMS $0.152$ mag), about $1.0\sigma$ given the typical per-supernova uncertainty---a marginal, not conclusive, deviation. At observable redshifts the model is essentially indistinguishable from $\Lambda$CDM.
+\item \textbf{It is degenerate in $M/S^3$.} Consistent with Section~\ref{sec:traceless}, the isotropic Hubble diagram constrains only the effective expansion rate, i.e. the combination $M/S^3$. The reduced $\chi^2$ is therefore essentially flat across the viable mass range once each $M$ is paired with its growth-anchored $S$; the supernovae do not pin $M$ and $S$ separately.
+\end{itemize}
+We deliberately do \emph{not} read $\chi^2/\mathrm{dof} < 1$ as an exceptional fit; it reflects the conservative Pantheon$+$ covariance. What the test establishes is the separation of the model from the no-dark-energy null and its proximity to $\Lambda$CDM. The discriminating signal that could distinguish this model from $\Lambda$ does not live in the isotropic Hubble diagram at all, but in the predicted anisotropy (Sections~\ref{sec:dipole}--\ref{sec:dark-flow}).
+
 \section{Scope and Limitations}
 \label{sec:scope}
 \label{sec:limitations}
@@ -399,10 +464,12 @@ Our universe is a transient structure: a pulse of matter facilitating mass trans
 The External-Node Model replaces dark energy with tidal gravity from trans-observable structure.
 N-body simulations show that configurations spanning M=92-9000$\times$M$_{obs}$, S=15-38 Gpc reproduce $\Lambda$CDM expansion with $R^2 > 0.95$ (expansion rate) and $R^2 > 0.99$ (size) over 8 Gyr, using only classical physics.
 
-The same geometry produces patterns consistent with three anomalies usually treated as unrelated: the Hubble Tension ($\Delta H_0/H_0 \approx 5$-$11\%$), the CMB Axis of Evil, and dark flow.
-In this model, all three are consequences of a single geometric structure.
+Compared directly against the real Pantheon$+$SH0ES supernova data (Section~\ref{sec:from-data}), the from-simulation expansion history fits with $\chi^2/\mathrm{dof} = 0.501$---sitting with $\Lambda$CDM ($0.437$) and far from the Einstein--de~Sitter no-dark-energy null ($0.844$, which the data reject). The model thus produces genuine \emph{effective} dark energy, though it does not outperform $\Lambda$CDM and remains degenerate in $M/S^3$. As the traceless nature of the external tidal tensor implies (Section~\ref{sec:traceless}), the isotropic Hubble diagram cannot discriminate the lattice; the model's distinguishing signal is the anisotropy it predicts.
 
-Future work: full GR formulation, systematic parameter constraints analogous to $\Omega_\Lambda$ fitting from SNe~Ia data, quantitative CMB multipole predictions from the lattice, and directional coherence tests using Euclid and LSST data.
+The same geometry produces patterns consistent with three anomalies usually treated as unrelated: the Hubble Tension ($\Delta H_0/H_0 \approx 5$-$11\%$), the CMB Axis of Evil, and dark flow.
+In this model, all three are consequences of a single geometric structure---and, being shear/dipole signatures rather than isotropic ones, they are precisely where the model parts ways with a pure cosmological constant.
+
+Future work: full GR formulation, quantitative CMB multipole predictions from the lattice, and directional coherence tests using Euclid and LSST data---the anisotropy channel that the isotropic supernova fit cannot probe.
 If the predicted alignment between the $H_0$ dipole, CMB multipoles, and bulk flow is confirmed, dark energy may not be an intrinsic property of spacetime, but a consequence of our position within a larger gravitational structure.
 
 \section*{Data Availability}
@@ -429,5 +496,6 @@ The simulation code used to generate the results in this paper is permanently ar
 \bibitem{Copi2006} Copi, C. J., et al. "On the large-angle anomalies of the microwave sky." \textit{Monthly Notices of the Royal Astronomical Society} 367.1: 79-102 (2006).
 \bibitem{Copi2010} Copi, C. J., et al. "Large-angle anomalies in the CMB." \textit{Advances in Astronomy} 2010: 847541 (2010).
 \bibitem{Watkins2025} Watkins, R. and Feldman, H. A. "The bulk flow of galaxy surveys." arXiv preprint arXiv:2512.03168 (2025).
+\bibitem{Brout2022} Brout, D., et al. "The Pantheon+ Analysis: Cosmological Constraints." \textit{The Astrophysical Journal} 938.2: 110 (2022).
 \end{thebibliography}
 \end{document}

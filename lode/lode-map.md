@@ -34,6 +34,7 @@
 - [scripts/visualization.md](./scripts/visualization.md) - 3D visualization pipeline, comparison mode, animation
 - hubble_diagram.py - Standalone SEMI-ANALYTIC Hubble-diagram-vs-Pantheon+ script (documented in [physics/hubble-diagram.md](./physics/hubble-diagram.md))
 - hubble_diagram_nbody.py + cosmo/sim_distance.py - FROM-SIM N-body Hubble-diagram Stage-1 gating script + a(t)->mu(z) kernel (documented in [physics/hubble-diagram-nbody.md](./physics/hubble-diagram-nbody.md))
+- pantheon_knob_sweep.py - Full factorial Pantheon sweep over M/S × amplitude × nm_seed × init_distribution (documented in [scripts/parameter-sweep.md](./scripts/parameter-sweep.md#pantheon-knob-sweep-harness))
 - anisotropy_report.py + cosmo/anisotropy.py - Directional shear / Hubble-dipole anisotropy diagnostic (documented in [physics/anisotropy-diagnostic.md](./physics/anisotropy-diagnostic.md))
 - convergence_check.py - GRF particle-count N-ladder convergence harness (N ∈ {1 000, 10 000, [100 000]}; barnes_hut auto; three-invariant gate; documented in [physics/realistic-initial-conditions.md](./physics/realistic-initial-conditions.md))
 

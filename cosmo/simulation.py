@@ -70,7 +70,8 @@ class CosmologicalSimulation:
         # Initialize particle system
         print(f"Initializing {sim_params.n_particles} particles in {box_size_Gpc} Gpc box...")
         if sim_params.center_node_mass != 1.0:
-            print(f"Total mass: {sim_params.center_node_mass} × M_observable")
+            print(f"centerM={sim_params.center_node_mass} (outer-mass multiplier): "
+                  f"outer particles will be added outside R_obs; R_sim = R_obs × {sim_params.center_node_mass**(1/3):.4f}")
 
         self.particles = ParticleSystem(n_particles=sim_params.n_particles,
                                        box_size_m=box_size_m,
@@ -81,7 +82,9 @@ class CosmologicalSimulation:
                                        init_distribution=sim_params.init_distribution,
                                        init_kwargs=sim_params.init_kwargs,
                                        eds_consistent=self.eds_consistent,
-                                       t_start_Gyr=self.t_start_Gyr)
+                                       t_start_Gyr=self.t_start_Gyr,
+                                       center_node_mass=sim_params.center_node_mass,
+                                       outer_density_ceiling=sim_params.outer_density_ceiling)
 
         # Initialize HMEA grid if using External-Node Model
         self.hmea_grid = None
@@ -108,9 +111,13 @@ class CosmologicalSimulation:
         if self.pre_start_tidal_boost:
             self._apply_pre_start_tidal_boost()
 
-        # Calculate softening based on center_node_mass (scales with mass for stability)
-        # 1Gpc softening per Mobs
-        softening_m = sim_params.center_node_mass * 1.0 * self.const.Gpc_to_m
+        # Softening frozen at the centerM=1 baseline (1 Gpc per M_obs). It must NOT
+        # scale with center_node_mass: centerM now means an OUTER-MASS multiplier, and
+        # the old centerM->softening coupling made the centerM->chi2 shift a resolution
+        # ARTIFACT rather than real added gravity. Freezing keeps centerM=1 byte-
+        # identical (the old value WAS 1.0*1.0*Gpc) and makes centerM>1 change a(t)
+        # ONLY via added outer-mass gravity. (WS4 correctness gate.)
+        softening_m = 1.0 * self.const.Gpc_to_m
         # Hubble drag disabled - using velocity calibration instead
         use_hubble_drag = False
 

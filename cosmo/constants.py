@@ -228,9 +228,13 @@ class ExternalNodeParameters:
 class SimulationParameters:
     """Parameters for running cosmological simulations"""
 
+    # Maximum allowed outer_density_ceiling (>2 risks over-dense tidal environment).
+    MAX_OUTER_DENSITY_CEILING: float = 2.0
+
     def __init__(self, M_value: float = 800, S_value: float = 24.0, n_particles: int = 300, seed: int = 42,
                  t_start_Gyr: float = 10.8, t_duration_Gyr: float = 6.0, n_steps: int = 150,
                  damping_factor: float = None, center_node_mass: float = 1.0,
+                 outer_density_ceiling: float = 1.0,
                  mass_randomize: float = 0.5,
                  node_mass_seed: int = 0, node_mass_amplitude: float = 0.0,
                  node_s_amplitude: float = 0.0,
@@ -252,9 +256,20 @@ class SimulationParameters:
             t_duration_Gyr: Duration in Gyr
             n_steps: Number of timesteps
             damping_factor: Initial velocity damping (None=auto)
-            center_node_mass: Central node mass as multiple of M_observable.
-                              Default 1.0 = 1 x M_observable_kg.
-                              Affects total_mass_kg and softening scaling.
+            center_node_mass: Outer-mass multiplier: total simulated mass /
+                              inner observable mass (>= 1.0). Default 1.0 =
+                              observable sphere only (backward-compatible,
+                              byte-identical). >1.0 adds extra Big-Bang matter
+                              OUTSIDE the observable sphere at the same
+                              EdS-critical density and same per-particle mass;
+                              N grows LINEARLY (centerM=2 -> 2x particles),
+                              R_sim = R_obs*centerM**(1/3). The inner R_obs
+                              stays the OBSERVABLE region used for a(t)/mu(z).
+                              Under eds_consistent the inner mass is the EdS
+                              critical mass regardless of centerM; centerM ONLY
+                              adds OUTER particles. NOTE: softening no longer
+                              scales with centerM (frozen at the centerM=1
+                              baseline, 1.0 Gpc).
             mass_randomize: Particle mass randomization (0.0=equal masses,
                            1.0=masses from 0 to 2x mean). Default 0.5.
             node_mass_seed: RNG seed for per-node mass distribution (default 0).
@@ -300,6 +315,14 @@ class SimulationParameters:
                             it VANISHES as M_ext -> 0, preserving M=0 == EdS exactly.
                             This is NOT a fit-to-LCDM knob. Set False to start from
                             pure EdS Hubble flow with no pre-history boost.
+            outer_density_ceiling: Multiplier on the inner EdS-critical density
+                              for outer particles (default 1.0 = exactly critical,
+                              same density as inner). Values > 1.0 raise the outer
+                              number density above critical. Capped at
+                              MAX_OUTER_DENSITY_CEILING = 2.0 (enforce/clip);
+                              higher values re-introduce over-dense tidal
+                              environments and are not physically motivated.
+                              Has no effect when centerM == 1.0.
             node_geometry:  Geometry identifier for the HMEA node layout (default
                             "cube26" = current 3×3×3-1 lattice, backward-compatible).
                             Other choices: "cube_dense", "fcc", "bcc" (all
@@ -316,7 +339,20 @@ class SimulationParameters:
         self.t_duration_Gyr = t_duration_Gyr
         self.n_steps = n_steps
         self.damping_factor = damping_factor
-        self.center_node_mass = center_node_mass
+        # centerM >= 1.0: values below 1.0 are a misconfiguration; clip to 1.0.
+        self.center_node_mass = max(1.0, float(center_node_mass))
+        # outer_density_ceiling: clip to [0, MAX_OUTER_DENSITY_CEILING].
+        _max_ceil = SimulationParameters.MAX_OUTER_DENSITY_CEILING
+        if outer_density_ceiling > _max_ceil:
+            import warnings
+            warnings.warn(
+                f"outer_density_ceiling={outer_density_ceiling} exceeds maximum "
+                f"{_max_ceil}; clipping to {_max_ceil}. Higher values risk an "
+                "over-dense outer tidal environment and are not physically motivated.",
+                UserWarning,
+                stacklevel=2,
+            )
+        self.outer_density_ceiling = float(np.clip(outer_density_ceiling, 0.0, _max_ceil))
         self.mass_randomize = mass_randomize
         self.node_mass_seed = node_mass_seed
         self.node_mass_amplitude = node_mass_amplitude
@@ -342,7 +378,10 @@ class SimulationParameters:
         # Calculate end time
         self.t_end_Gyr = self.t_start_Gyr + self.t_duration_Gyr
 
-        # Calculate center node mass in kg
+        # center_node_mass_kg: legacy property kept for backward compat.
+        # Under eds_consistent this value is NOT used to drive inner cloud mass
+        # (ParticleSystem overrides to EdS critical). It is still read on the
+        # legacy non-EdS path (CosmologicalSimulation.__init__ total_mass_kg).
         self.center_node_mass_kg = self.center_node_mass * const.M_observable_kg
 
         # Create external node parameters for this configuration
@@ -360,7 +399,8 @@ class SimulationParameters:
         return (f"Simulation Parameters:\n"
                 f"  M = {self.M_value} × M_obs\n"
                 f"  S = {self.S_value} Gpc\n"
-                f"  Center Node Mass = {self.center_node_mass} × M_obs\n"
+                f"  centerM = {self.center_node_mass} (outer-mass multiplier; 1.0=obs only)\n"
+                f"  outer_density_ceiling = {self.outer_density_ceiling}\n"
                 f"  Particles = {self.n_particles}\n"
                 f"  Seed = {self.seed}\n"
                 f"  Time = {self.t_start_Gyr} → {self.t_end_Gyr} Gyr ({self.t_duration_Gyr} Gyr)\n"

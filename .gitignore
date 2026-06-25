@@ -213,6 +213,9 @@ __marimo__/
 results/
 output/
 
+# Generated simulation data (sweep metrics, velocity dumps) - churn, never committed
+data/*.csv
+
 # 1. Ignore all .png files everywhere in the repository
 *.png
 

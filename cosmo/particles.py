@@ -33,7 +33,9 @@ class ParticleSystem:
                  init_distribution: str = "uniform_sphere",
                  init_kwargs: Optional[dict] = None,
                  eds_consistent: bool = False,
-                 t_start_Gyr: Optional[float] = None):
+                 t_start_Gyr: Optional[float] = None,
+                 center_node_mass: float = 1.0,
+                 outer_density_ceiling: float = 1.0):
         """
         Initialize particle system with damped Hubble flow initial conditions.
 
@@ -60,8 +62,19 @@ class ParticleSystem:
                             Default False keeps the legacy behaviour.
             t_start_Gyr: Absolute start time in Gyr, REQUIRED when eds_consistent
                          is True (sets H_EdS and ρ_crit). Ignored otherwise.
+            center_node_mass: Outer-mass multiplier (>= 1.0, default 1.0). When
+                         > 1.0 outer particles are added OUTSIDE the inner
+                         observable sphere at the same density and per-particle
+                         mass. N grows LINEARLY; R_sim = R_obs*centerM**(1/3).
+                         centerM=1.0 -> no outer particles, byte-identical.
+                         Only supported for init_distribution="uniform_sphere";
+                         centerM>1 with "grf" raises NotImplementedError.
+            outer_density_ceiling: Multiplier on inner density for outer particles
+                         (default 1.0 = same density). Clipped to
+                         MAX_OUTER_DENSITY_CEILING (2.0) upstream.
         """
         const = CosmologicalConstants()
+        self.const = const
 
         self.n_particles = n_particles
         self.box_size_m = box_size_m if box_size_m is not None else const.R_hubble
@@ -72,6 +85,10 @@ class ParticleSystem:
         self.init_kwargs = init_kwargs if init_kwargs is not None else {}
         self.eds_consistent = eds_consistent
         self.t_start_Gyr = t_start_Gyr
+        # centerM: outer-mass multiplier (>= 1.0). 1.0 = no outer particles.
+        self.center_node_mass = max(1.0, float(center_node_mass))
+        # outer_density_ceiling: density multiplier for outer shell (default 1.0).
+        self.outer_density_ceiling = float(outer_density_ceiling)
 
         # EdS-consistent mode: the cloud must carry the EdS critical (background)
         # density so internal self-gravity matches the Friedmann deceleration.
@@ -129,6 +146,29 @@ class ParticleSystem:
             positions.append(pos)
         return np.array(positions)
 
+    def _init_outer_shell(self, r_inner_m: float, r_outer_m: float, n_outer: int) -> np.ndarray:
+        """Uniform rejection sampler for the outer shell r_inner < |r| <= r_outer.
+
+        Draws continue from the CURRENT np.random state (immediately after inner
+        draws), so the inner draws are never disturbed. The shell is rejection-sampled
+        in the enclosing cube of half-side r_outer.
+
+        Args:
+            r_inner_m: Inner (observable) sphere radius in metres.
+            r_outer_m: Outer (sim) sphere radius in metres.
+            n_outer:   Number of outer particles to generate.
+
+        Returns:
+            positions: (n_outer, 3) float64, raw (NOT centred or normalised).
+        """
+        positions = []
+        while len(positions) < n_outer:
+            pos = np.random.uniform(-r_outer_m, r_outer_m, 3)
+            d = np.linalg.norm(pos)
+            if r_inner_m < d <= r_outer_m:
+                positions.append(pos)
+        return np.array(positions)
+
     def _init_grf(self) -> np.ndarray:
         """Gaussian random field + Zel'dovich displacement sampler.
 
@@ -156,7 +196,19 @@ class ParticleSystem:
     # ------------------------------------------------------------------
 
     def _initialize_particles(self) -> None:
-        """Create initial particle distribution with Hubble flow."""
+        """Create initial particle distribution with Hubble flow.
+
+        When center_node_mass > 1.0 (centerM > 1), outer particles are added
+        OUTSIDE the inner observable sphere at the same per-particle mass and
+        outer_density_ceiling * inner_density number density. The inner
+        observable region is UNCHANGED (same positions, masses) — only outer
+        particles are appended.
+
+        self.observable_mask (bool, N_total) is set here:
+          True  = inner observable particle (indices 0 .. N_inner-1)
+          False = outer shell particle      (indices N_inner .. N_total-1)
+        centerM=1 -> all-True mask of length n_particles (byte-identical).
+        """
         lcdm = LambdaCDMParameters()
 
         # Use model-appropriate Hubble parameter for initial velocity
@@ -176,101 +228,178 @@ class ParticleSystem:
             H_start = lcdm.H_matter_only(self.a_start)
             print(f"[ParticleSystem] Using matter-only H(a={self.a_start:.3f}) = {H_start:.3e} /s")
 
-        # Generate particle masses (shared by all init modes)
-        mean_mass_kg = self.total_mass_kg / self.n_particles
-        if self.mass_randomize > 0 and self.n_particles > 1:
-            # Generate random masses with specified randomization level
-            # mass_randomize=1.0: uniform in [0, 2*mean], so range is 2*mean
-            # mass_randomize=0.5: uniform in [0.5*mean, 1.5*mean], range is mean
-            # mass_randomize=0.0: all masses equal to mean
+        # N_inner is the requested observable particle count (always = n_particles).
+        n_inner = self.n_particles
+        center_m = self.center_node_mass  # >= 1.0
+
+        # Non-EdS + centerM>1 is not supported; EdS path is the one used for WS4.
+        if center_m > 1.0 and not self.eds_consistent:
+            raise NotImplementedError(
+                "centerM > 1.0 (outer-particle generation) is only supported "
+                "with eds_consistent=True. For non-EdS / LCDM runs, centerM must "
+                "remain 1.0. (WS4 outer-shell design targets the EdS path.)"
+            )
+
+        # centerM > 1.0 requires uniform_sphere sampler (GRF outer shell: TODO).
+        if center_m > 1.0 and self.init_distribution != "uniform_sphere":
+            raise NotImplementedError(
+                f"Outer-particle generation (centerM={center_m} > 1.0) is not yet "
+                "implemented for init_distribution='grf'. Use init_distribution="
+                "'uniform_sphere' for WS4, or set centerM=1.0 for GRF runs. "
+                "(Follow-up: add shell sampling to the GRF path.)"
+            )
+
+        # ------------------------------------------------------------------
+        # INNER-PARTICLE MASS (EdS path: total_mass_kg is the EdS critical mass
+        # for the INNER sphere; per-particle mass = total_mass_kg / n_inner).
+        # The SAME per-particle mass is reused for outer particles so that outer
+        # number density == outer_density_ceiling * inner density (at ceiling=1
+        # this is exactly the same density, giving total mass = centerM * inner).
+        # ------------------------------------------------------------------
+        mean_mass_kg = self.total_mass_kg / n_inner
+
+        if self.mass_randomize > 0 and n_inner > 1:
+            # Generate random masses with specified randomization level.
+            # mass_randomize=1.0: uniform in [0, 2*mean], range is 2*mean.
+            # mass_randomize=0.5: uniform in [0.5*mean, 1.5*mean], range is mean.
+            # mass_randomize=0.0: all masses equal to mean.
             half_range = self.mass_randomize * mean_mass_kg
             raw_masses = np.random.uniform(
                 mean_mass_kg - half_range,
                 mean_mass_kg + half_range,
-                self.n_particles
+                n_inner,
             )
-            # Ensure no negative masses (shouldn't happen unless randomize > 1, but be safe)
+            # Ensure no negative masses (shouldn't happen unless randomize > 1, be safe).
             raw_masses = np.maximum(raw_masses, 1e-10 * mean_mass_kg)
-            # Normalize to preserve total mass exactly
-            particle_masses_kg = raw_masses * (self.total_mass_kg / np.sum(raw_masses))
+            # Normalize to preserve total mass exactly.
+            inner_masses_kg = raw_masses * (self.total_mass_kg / np.sum(raw_masses))
             print(f"[ParticleSystem] Mass randomize={self.mass_randomize:.2f}: "
-                  f"min={np.min(particle_masses_kg):.2e}, max={np.max(particle_masses_kg):.2e}, "
-                  f"mean={np.mean(particle_masses_kg):.2e} kg")
+                  f"min={np.min(inner_masses_kg):.2e}, max={np.max(inner_masses_kg):.2e}, "
+                  f"mean={np.mean(inner_masses_kg):.2e} kg")
         else:
-            particle_masses_kg = np.full(self.n_particles, mean_mass_kg)
+            inner_masses_kg = np.full(n_inner, mean_mass_kg)
 
-        # -------------------------------------------------------------------
-        # POSITION SAMPLING: branch on init_distribution
-        # The sampler must return raw (N, 3) positions; post-processing below
-        # (centre + RMS-norm) is SHARED and UNCHANGED for both modes.
-        # -------------------------------------------------------------------
-        print(f"[ParticleSystem] init_distribution={self.init_distribution!r}")
+        # ------------------------------------------------------------------
+        # POSITION SAMPLING: inner particles FIRST (unchanged), then outer shell.
+        # The sampler must return raw (N, 3) positions; post-processing
+        # (centre + RMS-norm) follows below, referenced to the INNER subset.
+        # ------------------------------------------------------------------
+        print(f"[ParticleSystem] init_distribution={self.init_distribution!r}, centerM={center_m:.4f}")
         if self.init_distribution == "uniform_sphere":
-            positions_arr = self._init_uniform_sphere()
+            inner_positions_raw = self._init_uniform_sphere()
         elif self.init_distribution == "grf":
-            positions_arr = self._init_grf()
+            inner_positions_raw = self._init_grf()
         else:
             raise ValueError(
                 f"Unknown init_distribution {self.init_distribution!r}. "
                 "Valid choices: 'uniform_sphere', 'grf'."
             )
 
-        # CRITICAL: Center positions FIRST before calculating velocities
-        # Random particle distribution creates non-zero COM position
-        # We must center BEFORE velocity calculation so v_hubble = H*r uses centered positions
-        com_position = np.mean(positions_arr, axis=0)
+        # CRITICAL: Center positions FIRST before calculating velocities.
+        # Random particle distribution creates non-zero COM position.
+        # We must center BEFORE velocity calculation so v_hubble = H*r uses centred positions.
+        com_position = np.mean(inner_positions_raw, axis=0)
+        print(f"[ParticleSystem] Centering COM position: "
+              f"[{com_position[0]:.3e}, {com_position[1]:.3e}, {com_position[2]:.3e}] m")
+        inner_centered = inner_positions_raw - com_position
 
-        print(f"[ParticleSystem] Centering COM position: [{com_position[0]:.3e}, {com_position[1]:.3e}, {com_position[2]:.3e}] m")
-
-        # Center the positions array
-        centered_positions = positions_arr - com_position
-
-        # CRITICAL: Normalize to exact target RMS radius
-        # Random particle rejection sampling creates slight RMS variation even with same seed
-        # This causes initialization artifacts in model comparisons (matter-only appearing
-        # to "exceed LCDM" initially when it's just starting 0.5% larger by chance)
-        # Normalization ensures exact comparison: any deviation is real physics, not randomness
-        current_rms = np.sqrt(np.mean(np.sum(centered_positions**2, axis=1)))
+        # CRITICAL: Normalize to exact target RMS radius using the INNER subset.
+        # We must compute the scale factor from the inner subset RMS so that:
+        #   (a) centerM=1 is byte-identical to the old code (inner==all -> same calc).
+        #   (b) centerM>1: inner region keeps RMS = box/2 (its density is what's fixed);
+        #       outer particles get the SAME scale applied, preserving relative geometry.
+        current_inner_rms = np.sqrt(np.mean(np.sum(inner_centered**2, axis=1)))
         target_rms = self.box_size_m / 2  # RMS should be half box size
 
-        # Handle edge case: if RMS is already very small (e.g., n=1 particle at origin),
-        # skip normalization to avoid division by zero
-        if current_rms > 1e-10 * target_rms:  # Only normalize if RMS is non-negligible
-            scale_factor = target_rms / current_rms
-            centered_positions *= scale_factor
-
-            print(f"[ParticleSystem] Normalized RMS radius: {current_rms:.6e} -> {target_rms:.6e} m (scale={scale_factor:.6f})")
-
-            # Verify normalization succeeded
-            final_rms = np.sqrt(np.mean(np.sum(centered_positions**2, axis=1)))
-            assert abs(final_rms - target_rms) / target_rms < 1e-10, \
-                f"RMS normalization failed: {final_rms:.6e} vs {target_rms:.6e}"
+        # Handle edge case: if inner RMS is negligible (e.g. n=1 particle at origin).
+        if current_inner_rms > 1e-10 * target_rms:
+            scale_factor = target_rms / current_inner_rms
+            inner_centered *= scale_factor
+            print(f"[ParticleSystem] Normalized inner RMS: {current_inner_rms:.6e} -> {target_rms:.6e} m "
+                  f"(scale={scale_factor:.6f})")
+            final_inner_rms = np.sqrt(np.mean(np.sum(inner_centered**2, axis=1)))
+            assert abs(final_inner_rms - target_rms) / target_rms < 1e-10, \
+                f"Inner RMS normalization failed: {final_inner_rms:.6e} vs {target_rms:.6e}"
         else:
-            print(f"[ParticleSystem] Skipping RMS normalization (current RMS={current_rms:.3e} is negligible)")
+            scale_factor = 1.0
+            print(f"[ParticleSystem] Skipping RMS normalization "
+                  f"(inner RMS={current_inner_rms:.3e} is negligible)")
 
-        # Now generate velocities using CENTERED and NORMALIZED positions
-        # This ensures velocity initialization is independent of rejection sampling randomness
-        for i in range(self.n_particles):
-            pos = centered_positions[i]  # Use centered and normalized position!
+        # ------------------------------------------------------------------
+        # OUTER PARTICLE GENERATION (centerM > 1 only).
+        # R_obs = r_sphere used during inner sampling (before scale; but the
+        # scaled inner sphere radius = r_sphere * scale_factor, which is what
+        # we need for the shell boundary). We use the scaled inner sphere radius.
+        # ------------------------------------------------------------------
+        if center_m > 1.0:
+            # Inner sphere radius (scaled, physical).
+            # _init_uniform_sphere() uses sphere_radius = (box_size/2)/sqrt(3/5).
+            # After scale_factor: R_obs_scaled = sphere_radius * scale_factor.
+            # However, since we normalised the RMS to box/2, and for a uniform sphere
+            # RMS = R * sqrt(3/5), we have R_obs_physical = (box/2) / sqrt(3/5).
+            r_obs_m = (self.box_size_m / 2.0) / np.sqrt(3.0 / 5.0)
+            r_sim_m = r_obs_m * (center_m ** (1.0 / 3.0))
 
-            # Initial velocity: Damped Hubble flow + small peculiar velocity
-            # Damping compensates for lack of ongoing Hubble drag during integration
+            # N_outer = round((centerM - 1) * N_inner * ceiling). At ceiling=1
+            # this gives N_total = round(centerM * N_inner) (LINEAR, not cubic).
+            n_outer = int(np.round((center_m - 1.0) * n_inner * self.outer_density_ceiling))
+            print(f"[ParticleSystem] centerM={center_m:.4f}: N_inner={n_inner}, "
+                  f"N_outer={n_outer}, N_total={n_inner + n_outer}; "
+                  f"R_obs={r_obs_m/self.const.Gpc_to_m:.3f} Gpc, "
+                  f"R_sim={r_sim_m/self.const.Gpc_to_m:.3f} Gpc "
+                  f"(x{center_m**(1/3):.4f})")
+
+            if n_outer > 0:
+                # Draw outer positions using the SAME np.random stream (after inner draws).
+                outer_positions_raw = self._init_outer_shell(r_obs_m, r_sim_m, n_outer)
+                # Apply the SAME scale factor so inner and outer are in the same frame.
+                outer_scaled = outer_positions_raw * scale_factor
+
+                # All outer particles carry the SAME per-particle mean mass as inner.
+                outer_masses_kg = np.full(n_outer, mean_mass_kg)
+
+                # Concatenate [inner; outer]. Observable mask: True for inner indices.
+                all_positions = np.concatenate([inner_centered, outer_scaled], axis=0)
+                all_masses = np.concatenate([inner_masses_kg, outer_masses_kg])
+                observable_mask = np.concatenate([
+                    np.ones(n_inner, dtype=bool),
+                    np.zeros(n_outer, dtype=bool),
+                ])
+            else:
+                # n_outer rounded to 0 (centerM very close to 1.0 with small N_inner).
+                all_positions = inner_centered
+                all_masses = inner_masses_kg
+                observable_mask = np.ones(n_inner, dtype=bool)
+        else:
+            # centerM == 1.0: no outer particles; all-True mask; byte-identical.
+            all_positions = inner_centered
+            all_masses = inner_masses_kg
+            observable_mask = np.ones(n_inner, dtype=bool)
+
+        # Store the observable mask on the instance (Section 2 consumes this).
+        self.observable_mask = observable_mask
+        n_total = len(all_positions)
+
+        # Now generate velocities using CENTRED and NORMALISED positions.
+        # This ensures velocity initialization is independent of sampling randomness.
+        for i in range(n_total):
+            pos = all_positions[i]
+
+            # Initial velocity: Hubble flow + small peculiar velocity.
             v_hubble = H_start * pos
             v_peculiar = np.random.normal(0, 1e5, 3)  # ~100 km/s peculiar velocity
             vel = v_hubble + v_peculiar
 
-            particle = Particle(pos, vel, particle_masses_kg[i], particle_id=i)
+            particle = Particle(pos, vel, all_masses[i], particle_id=i)
             self.particles.append(particle)
 
-        # CRITICAL: Remove center-of-mass velocity to prevent bulk motion
-        # With Hubble flow v = H*r, random particle positions create non-zero COM velocity
-        # This causes the entire system to drift, appearing as unphysical expansion
+        # CRITICAL: Remove centre-of-mass velocity to prevent bulk motion.
+        # With Hubble flow v = H*r, random particle positions create non-zero COM velocity.
         velocities = np.array([p.vel for p in self.particles])
         com_velocity = np.mean(velocities, axis=0)
+        print(f"[ParticleSystem] Removing COM velocity: "
+              f"[{com_velocity[0]:.3e}, {com_velocity[1]:.3e}, {com_velocity[2]:.3e}] m/s")
 
-        print(f"[ParticleSystem] Removing COM velocity: [{com_velocity[0]:.3e}, {com_velocity[1]:.3e}, {com_velocity[2]:.3e}] m/s")
-
-        # Apply COM velocity correction to each particle
         for particle in self.particles:
             particle.vel -= com_velocity
     
@@ -289,6 +418,18 @@ class ParticleSystem:
     def get_accelerations(self) -> np.ndarray:
         """Get all particle accelerations as (N, 3) array."""
         return np.array([p.acc for p in self.particles])
+
+    def get_observable_mask(self) -> np.ndarray:
+        """Return the observable mask (bool, N_total).
+
+        True  = inner observable particle (indices 0 .. N_inner-1).
+        False = outer shell particle (only present when centerM > 1.0).
+        centerM=1.0 -> all-True mask of length n_particles.
+
+        Section 2 (a(t) computation) uses this mask to restrict the RMS
+        radius calculation to the inner observable sub-region only.
+        """
+        return self.observable_mask
 
     def set_accelerations(self, accelerations: np.ndarray) -> None:
         """Set accelerations for all particles."""
@@ -358,10 +499,16 @@ class ParticleSystem:
     
     
     def __len__(self):
-        return self.n_particles
-    
+        # Total particle count (inner + outer). n_particles is the inner (observable) count.
+        return len(self.particles)
+
     def __repr__(self):
-        return f"ParticleSystem(n={self.n_particles}, t={self.time:.2e}s)"
+        n_total = len(self.particles)
+        n_inner = self.n_particles
+        if n_total == n_inner:
+            return f"ParticleSystem(n={n_inner}, t={self.time:.2e}s)"
+        return (f"ParticleSystem(n_total={n_total}, n_inner={n_inner}, "
+                f"centerM={self.center_node_mass:.2f}, t={self.time:.2e}s)")
 
 
 class HMEAGrid:

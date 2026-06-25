@@ -145,10 +145,11 @@ class TestSimulationParameters(unittest.TestCase):
         self.assertAlmostEqual(params.center_node_mass_kg, expected, places=5)
 
     def test_center_node_mass_in_str(self):
-        """center_node_mass should appear in string representation"""
+        """center_node_mass (centerM) should appear in string representation."""
         params = SimulationParameters(center_node_mass=2.0)
         str_repr = str(params)
-        self.assertIn("Center Node Mass", str_repr)
+        # centerM is now the repurposed outer-mass multiplier; __str__ uses 'centerM'.
+        self.assertIn("centerM", str_repr)
         self.assertIn("2.0", str_repr)
 
 

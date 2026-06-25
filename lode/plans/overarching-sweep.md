@@ -4,116 +4,153 @@ Back to [deeper-exploration-roadmap.md](./deeper-exploration-roadmap.md).
 Phase 1. Depends on the geometry factory ([node-geometries.md](./node-geometries.md))
 for the geometry axis; emits figures via [graphs-from-scripts.md](./graphs-from-scripts.md).
 
-## Problem with today's tooling
+## Status: IMPLEMENTED
 
-Sweeps are ad-hoc and split across two code paths:
-- `pantheon_knob_sweep.py` — hard-codes the M/S × amplitude × seed × init grid,
-  collapses amplitude=0, writes two CSVs. Good for the 2-knob era.
-- `cosmo/parameter_sweep.py` + `parameter_sweep.py` — the older LINEAR_SEARCH /
-  TERNARY / BRUTE_FORCE machinery, with the per-M S co-fit that "was good" for the
-  lcdm objective but is only partly wired for objective="pantheon".
+`sweep.py` is the single config-driven entrypoint. `pantheon_knob_sweep.py` is
+retained as a legacy script for the 2-knob era; the new tool supersedes it.
 
-This was manageable with 2 params (M, S). The deeper phase needs to search MANY params
-TOGETHER: M, S, node_mass_amplitude, node_s_amplitude, node_mass_seed,
-init_distribution, particle count, AND grid geometry (WS3). Hand-editing grids and
-two divergent harnesses will not scale.
-
-## Goal: ONE config-driven sweep tool
-
-A single overarching sweep entry point that supersedes/absorbs the ad-hoc scripts. It
-takes a CONFIG (file or CLI) describing the parameter grid and emits a tidy results CSV
-(load_best_config-compatible) AND figures.
-
-### Parameters it must search (the full axis set)
-
-| Axis | Source today | Notes |
-|------|--------------|-------|
-| M_value | SweepConfig / knob sweep | mass factor |
-| S_value (Gpc) | LINEAR_SEARCH / knob grid | the co-fit target — see below |
-| node_mass_amplitude | SweepConfig.node_mass_amplitude | shear knob (PF2) |
-| node_s_amplitude | SimulationParameters.node_s_amplitude | shear knob (PF2) |
-| node_mass_seed | SweepConfig.node_mass_seed | orientation only (noisy) |
-| init_distribution | SweepConfig.init_distribution | uniform_sphere / grf (WS5) |
-| particle count | _SweepConfigFixed override | modest in P1; high in WS6 |
-| **grid geometry** | NEW (WS3) | geometry id + geometry kwargs |
-
-### Localized / finer grids (the per-M S co-fit)
-
-The lcdm-objective `linear_search_S` co-fits S per M with adaptive stepping (~10-50x
-fewer evals) and "was good". The pantheon-objective Stage-3 sweep already used
-LINEAR_SEARCH on S per M (all configs passed the anchor because the S-search co-adjusts
-S to keep growth physical). **Plan: bring that per-M S co-fit cleanly onto the
-objective="pantheon" path as the DEFAULT inner loop**, so the tool, for each (M,
-geometry, knobs), finds the growth-anchored S automatically instead of brute-forcing a
-fixed S list. Then expose a "localized refine" mode: after a coarse pass, re-sweep a
-FINE grid around the best region (finer M and S steps) to pin numbers — this is what
-PF4 needs.
-
-### Requirements
-
-- **Config-driven**: a small config object/file lists each axis's values (or a
-  range + step, or "co-fit" for S). No hand-editing of module constants per run.
-- **Resumable / cached**: reuse the existing per-sim cache (`build_cache_name`,
-  `worst_callback`, cache keys that already include objective + amplitude + init +
-  geometry slugs). Skipping completed cells lets a long sweep resume after interruption.
-  Cache keys MUST gain a geometry slug (WS3) so geometries never collide.
-- **Tidy results CSV**: superset of today's `_KNOB_SUMMARY_COLS` plus geometry columns;
-  the best-isotropic subset stays `load_best_config`-compatible (so
-  `hubble_diagram_nbody.py --from-best-config` keeps working).
-- **Figures**: the tool (or a sibling plotting entry point reading its CSV) emits every
-  figure in [graphs-from-scripts.md](./graphs-from-scripts.md). "Produce the graph" is
-  part of WS1's definition of done, not an afterthought.
-
-### Proposed CLI / config shape (to be finalized in design)
-
-```
-python sweep.py --config sweeps/coarse.yaml          # full grid from config
-python sweep.py --config sweeps/coarse.yaml --refine results/sweep.csv  # fine grid around best
-python sweep.py --probe-only --config sweeps/coarse.yaml   # time N sims, estimate runtime
-python sweep.py --plots-only results/sweep.csv       # regenerate figures from a CSV
-```
-
-Config (sketch — YAML or a Python dataclass): each axis is a list, a range spec, or
-the literal `co-fit` (S only). `objective: pantheon`, `t_start`, `particles`,
-`n_steps`, `geometry`, `figures_dir` live in the same config.
+## Architecture
 
 ```mermaid
 graph TD
-    CFG[sweep config: axes + objective + figures_dir] --> EXP[expand grid<br/>collapse amp=0]
-    GEO[geometry factory WS3] --> EXP
+    CFG[JSON config or defaults] --> EXP[expand_grid<br/>collapse amp=0 to 1 seed]
     EXP --> LOOP[for each cell]
     LOOP --> COFIT{S = co-fit?}
-    COFIT -->|yes| LIN[linear_search_S on pantheon objective]
-    COFIT -->|no| FIXED[use listed S]
-    LIN --> SIM[run_external_node_simulation + cache]
-    FIXED --> SIM
-    SIM --> ANCHOR[growth anchor reject runaway]
-    ANCHOR --> CSV[(results CSV + best-iso subset)]
-    CSV --> FIG[figures WS2]
+    COFIT -->|yes| LIN[linear_search_S on pantheon objective<br/>warm-start per group]
+    COFIT -->|no| FIXED[for each listed S]
+    LIN --> WORST[worst_callback + cache]
+    FIXED --> WORST
+    WORST --> ANCHOR[growth anchor check]
+    ANCHOR --> CSV[ws1_sweep_<tag>.csv + sweep_results_pantheon_<tag>.csv]
+    CSV --> FIG[cosmo/plots.py: F1+F2+F3+F4+F6+F9]
 ```
 
-## How it supersedes the ad-hoc scripts
+## Parameters searched (all axes)
 
-- `pantheon_knob_sweep.py` becomes a thin preset (a config file) over the new tool, or
-  is retired once the new tool reproduces its two CSVs. Keep its CSV column contracts.
-- The older `parameter_sweep.py` lcdm path stays for the LCDM-R² objective; the new
-  tool focuses on objective="pantheon" but reuses `cosmo/parameter_sweep.py` internals
-  (SearchMethod, worst_callback, compute_pantheon_metrics, the cache).
+| Axis | Config key | Notes |
+|------|-----------|-------|
+| M_value | `M_values` | list of mass factors |
+| S_value (Gpc) | `S_values` | `"co-fit"` => per-M linear search; or list of ints |
+| node_mass_amplitude | `node_mass_amplitudes` | amp=0 collapse: single run per M |
+| node_s_amplitude | `node_s_amplitudes` | per-node position anisotropy |
+| node_mass_seed | `node_mass_seeds` | orientation seed |
+| init_distribution | `init_distributions` | `"uniform_sphere"` or `"grf"` |
+| particle count | `particle_count` | pinned via `_FixedSweepConfig` |
+| node_geometry | `node_geometries` | `"cube26"` default; others add slug to cache key |
 
-## Files this workstream touches
+## CLI
 
-- NEW: an overarching sweep entry point (e.g. `sweep.py`) + a config schema.
-- `cosmo/parameter_sweep.py` — wire per-M S co-fit fully onto objective="pantheon";
-  add geometry + node_s_amplitude to SweepConfig and the cache key.
-- `cosmo/factories.py` — thread the geometry choice into `run_external_node_simulation`.
-- `pantheon_knob_sweep.py` — demote to a preset or retire (keep CSV contracts).
-- Tests: extend `tests/test_parameter_sweep_pantheon.py` /
-  `tests/test_pantheon_knob_sweep.py` for the new axes, co-fit-on-pantheon, geometry
-  cache isolation, and CSV superset compatibility.
+```bash
+python sweep.py                                     # built-in defaults
+python sweep.py --config sweeps/coarse.json         # JSON config override
+python sweep.py --probe-only                        # time 5 sims then exit
+python sweep.py --plots-only results/ws1_sweep.csv  # regenerate figures, no sims
+python sweep.py --tag my_run                        # custom CSV/figure prefix
+```
 
-## Deliverables
+## Config shape (JSON, all keys optional)
 
-- One config-driven sweep tool with resume + caching + co-fit-on-pantheon.
-- A tidy results CSV (best-iso subset `load_best_config`-compatible).
-- The full figure set (WS2) regenerable via `--plots-only`.
-- The re-pinned canonical chi2 numbers (PF4) on ONE consistent kernel/anchor.
+```json
+{
+  "M_values":            [100, 500, 1000, 5000],
+  "S_values":            "co-fit",
+  "s_min_gpc":           20,
+  "s_max_gpc":           80,
+  "node_mass_amplitudes":[0.0, 0.5],
+  "node_s_amplitudes":   [0.0],
+  "node_mass_seeds":     [42],
+  "init_distributions":  ["uniform_sphere"],
+  "node_geometries":     ["cube26"],
+  "geometry_kwargs":     {},
+  "s_cofit_method":      "linear",
+  "particle_count":      400,
+  "n_steps":             273,
+  "t_start_Gyr":         2.9,
+  "centerM":             1,
+  "results_dir":         "results",
+  "tag":                 "ws1"
+}
+```
+
+## CSV columns
+
+`results/ws1_sweep_<tag>.csv` — full factorial including all knob rows:
+```
+M_factor, S_gpc, centerM,
+node_mass_amplitude, node_s_amplitude, node_mass_seed, init_distribution, node_geometry,
+chi2_dof, chi2, chi2_lcdm, chi2_eds,
+R2, n_sne_used, growth_factor, growth_target, anchor_ok, runaway,
+match_avg_pct, diff_pct
+```
+
+`results/sweep_results_pantheon_<tag>.csv` — best-isotropic (amp=0) subset,
+`load_best_config`-compatible (`hubble_diagram_nbody.py --from-best-config` works).
+
+`chi2_lcdm` and `chi2_eds` are analytic reference values stamped on every row
+(same value per run; used by the heatmap comparisons F2/F3).
+
+## Figures emitted (ws1)
+
+`results/figures/ws1/`:
+- `ms_chi2_dof_heatmap_<tag>.png` — F1: chi2/dof vs Pantheon+ heatmap
+- `ms_chi2_lcdm_<tag>.png` — F2: LCDM reference chi2/dof
+- `ms_chi2_eds_<tag>.png` — F3: EdS null chi2/dof
+- `growth_map_<tag>.png` — F4: growth factor over (M, S)
+- `runaway_boundary_<tag>.png` — F9: bound/runaway frontier
+- `mu_z_panel_M<M>_S<S>_<tag>.png` — F6: best-config mu(z) panel
+
+## Key implementation notes
+
+- `_FixedSweepConfig` subclass pins `particle_count` and `n_steps` so the
+  `build_cache_name` slug always matches the actual sim.
+- Grid groups cells by `(geometry, init, s_amplitude, amplitude, nm_seed)` and
+  iterates M descending within each group, so the linear S co-fit warm-starts
+  from the previous M's best S (fewer evaluations for closely-spaced M values).
+- `chi2_lcdm` / `chi2_eds` are computed once analytically (no sim) from
+  `cosmo.distances.model_distance_modulus` + `cosmo.hubble_diagram.evaluate_precomputed`.
+- Cache is fully reused: existing `data/metrics_400_s42.csv` entries from
+  `pantheon_knob_sweep.py` runs are read by `worst_callback` unchanged.
+
+## First-exploration results (first_exploration tag, 2026-06-25)
+
+Config: M=[100..50000], S=co-fit [20..90], amp=[0, 0.5], 400p/273steps/t_start=2.9.
+
+- **LCDM reference**: chi2/dof = 0.4360  (1580 SNe)
+- **EdS null**: chi2/dof = 0.8430
+- **Best isotropic (amp=0)**: M=50000, S=89, chi2/dof=0.6775 — FLAT across M
+  (M/S^3 degeneracy confirmed: chi2/dof range 0.6775..0.6923 across 9 M values)
+- **Growth**: realized growth 2.84 vs target 3.30 (below anchor by ~14%)
+- **amp=0.5**: runaways at M≥1000/S=20; M=200/S=20 gives 1.16, M=100/S=20 gives 0.83
+- **Runaway cells**: 7/18 (all amp=0.5 at M≥1000 fell to s_min and failed anchor)
+
+HONEST OBSERVATION: chi2/dof at 400p/273steps (~0.69) is higher than Stage-3
+(2000p/300steps, chi2/dof~0.48). This is particle-count noise sensitivity — 400p
+at S≥80 underestimates the effective dark energy. High-N convergence is WS6.
+The M/S^3 degeneracy and near-EdS range at these S values (>80 Gpc) confirm the
+degeneracy band exists but is displaced from near-LCDM region.
+
+To find the near-LCDM region at 400p, need smaller S range (S=20..50) and/or
+more M values in the mid-range (100..5000).
+
+## Tests
+
+`tests/test_overarching_sweep.py` — 33 fast unit tests (no sims):
+- Config loading + JSON override
+- Grid expansion: amp=0 collapse, total count, required keys
+- CSV column contract: SWEEP_CSV_COLS ⊇ BEST_ISO_COLS
+- Extra WS1 columns: chi2_lcdm, chi2_eds, growth_target, runaway
+- `_FixedSweepConfig`: particle_count and n_steps pinned
+- Cache-key uniqueness across geometry/init/amplitude/seed
+- S co-fit vs explicit list selection
+- --plots-only wiring
+- load_best_config compatibility
+
+## Next steps / known limitations
+
+- The linear_search_S early-stop threshold (~0.025% match change) is tuned for
+  the LCDM objective; on the pantheon flat landscape it can stop too early at
+  large S. For a finer sweep use `--config sweeps/fine_grid.json` with explicit
+  `"S_values": [30,35,40,...,70]` instead of "co-fit".
+- Re-pin chi2/dof at 2000p to reconcile with Stage-3 numbers (WS6 is the
+  high-N convergence workstream).
+- Add `--refine` mode: coarse pass → auto-narrow S range → fine pass.

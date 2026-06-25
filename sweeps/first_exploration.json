@@ -1,0 +1,20 @@
+{
+  "_comment": "WS1 first bounded exploration — localized around the known near-LCDM band (M=100-10000, co-fit S).",
+  "M_values": [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000],
+  "S_values": "co-fit",
+  "s_min_gpc": 20,
+  "s_max_gpc": 90,
+  "s_cofit_method": "linear",
+  "node_mass_amplitudes": [0.0, 0.5],
+  "node_s_amplitudes": [0.0],
+  "node_mass_seeds": [42],
+  "init_distributions": ["uniform_sphere"],
+  "node_geometries": ["cube26"],
+  "geometry_kwargs": {},
+  "particle_count": 400,
+  "n_steps": 273,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "results_dir": "results",
+  "tag": "first_exploration"
+}

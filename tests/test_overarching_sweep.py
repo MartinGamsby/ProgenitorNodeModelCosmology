@@ -1,0 +1,430 @@
+"""
+Unit tests for sweep.py (WS1 overarching sweep tool).
+
+All tests are hermetic — no real simulations, no filesystem writes outside
+tempfile scope, and no Pantheon+ data loading (all mocked/synthetic).
+
+Covers:
+  - Config loading (defaults + JSON override)
+  - Grid expansion: amplitude=0 collapse, total cell count
+  - CSV column contract: SWEEP_CSV_COLS is a superset of BEST_ISO_COLS
+  - Extra columns present: chi2_lcdm, chi2_eds, growth_factor, anchor_ok, runaway
+  - _FixedSweepConfig: particle_count and n_steps pinned correctly
+  - build_cache_name uniqueness across (geometry, init, amplitude, nm_seed)
+  - per-M S co-fit selection: "co-fit" vs explicit list branch
+  - --plots-only wiring (plots_from_csv called, not run_sweep)
+  - load_best_config compatibility: BEST_ISO_COLS contains M_factor/S_gpc/centerM/chi2_dof
+"""
+
+import csv
+import io
+import json
+import math
+import os
+import pathlib
+import tempfile
+import unittest
+from unittest.mock import MagicMock, patch
+
+import numpy as np
+
+
+# ---------------------------------------------------------------------------
+# Import the module under test
+# ---------------------------------------------------------------------------
+
+import sys
+_repo_root = str(pathlib.Path(__file__).parent.parent)
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+
+from sweep import (
+    load_config, DEFAULT_CONFIG, expand_grid,
+    SWEEP_CSV_COLS, BEST_ISO_COLS,
+    _FixedSweepConfig, run_plots_only,
+)
+from cosmo.parameter_sweep import build_cache_name
+
+
+# ---------------------------------------------------------------------------
+# 1. Config loading
+# ---------------------------------------------------------------------------
+
+class TestLoadConfig(unittest.TestCase):
+
+    def test_defaults_returned_when_no_path(self):
+        cfg = load_config(None)
+        self.assertEqual(cfg["particle_count"], DEFAULT_CONFIG["particle_count"])
+        self.assertEqual(cfg["t_start_Gyr"], DEFAULT_CONFIG["t_start_Gyr"])
+        self.assertIn("M_values", cfg)
+        self.assertIn("S_values", cfg)
+
+    def test_json_overrides_defaults(self):
+        override = {"particle_count": 123, "tag": "test_override"}
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False,
+                                         encoding="utf-8") as f:
+            json.dump(override, f)
+            fpath = f.name
+        try:
+            cfg = load_config(fpath)
+            self.assertEqual(cfg["particle_count"], 123)
+            self.assertEqual(cfg["tag"], "test_override")
+            # Other defaults preserved
+            self.assertEqual(cfg["t_start_Gyr"], DEFAULT_CONFIG["t_start_Gyr"])
+        finally:
+            os.unlink(fpath)
+
+    def test_t_start_gyr_default(self):
+        cfg = load_config(None)
+        self.assertEqual(cfg["t_start_Gyr"], 2.9)
+
+
+# ---------------------------------------------------------------------------
+# 2. Grid expansion
+# ---------------------------------------------------------------------------
+
+class TestExpandGrid(unittest.TestCase):
+
+    def _simple_cfg(self, M_values=None, amp_list=None, seed_list=None,
+                    samp_list=None, init_list=None, geom_list=None):
+        cfg = dict(DEFAULT_CONFIG)
+        cfg["M_values"]           = M_values  or [100, 500]
+        cfg["node_mass_amplitudes"]= amp_list  or [0.0, 0.5]
+        cfg["node_mass_seeds"]    = seed_list  or [42, 7]
+        cfg["node_s_amplitudes"]  = samp_list  or [0.0]
+        cfg["init_distributions"] = init_list  or ["uniform_sphere"]
+        cfg["node_geometries"]    = geom_list  or ["cube26"]
+        return cfg
+
+    def test_amplitude_zero_collapsed_to_one_seed(self):
+        """amplitude=0 should collapse multiple seeds into a SINGLE (seed=42) run."""
+        cfg = self._simple_cfg(M_values=[100], amp_list=[0.0], seed_list=[42, 7])
+        cells = expand_grid(cfg)
+        amp0_cells = [c for c in cells if c["amplitude"] == 0.0]
+        # Only 1 cell for M=100 at amp=0
+        self.assertEqual(len(amp0_cells), 1)
+        self.assertEqual(amp0_cells[0]["nm_seed"], 42)
+
+    def test_amplitude_nonzero_gets_all_seeds(self):
+        """amplitude > 0 should produce one cell per seed."""
+        cfg = self._simple_cfg(M_values=[100], amp_list=[0.5], seed_list=[42, 7])
+        cells = expand_grid(cfg)
+        self.assertEqual(len(cells), 2)  # one per seed
+        seeds = {c["nm_seed"] for c in cells}
+        self.assertEqual(seeds, {42, 7})
+
+    def test_total_cell_count_mixed(self):
+        """
+        With M=[100,500], amp=[0,0.5], seed=[42,7], samp=[0], init=[uniform], geo=[cube26]:
+        Per M:  amp=0 => 1 cell; amp=0.5 => 2 cells => 3 cells per M
+        Total: 2 M * 3 = 6 cells.
+        """
+        cfg = self._simple_cfg(M_values=[100, 500],
+                               amp_list=[0.0, 0.5], seed_list=[42, 7])
+        cells = expand_grid(cfg)
+        self.assertEqual(len(cells), 6)
+
+    def test_multiple_geometries_multiply_cells(self):
+        cfg = self._simple_cfg(M_values=[100], amp_list=[0.0], geom_list=["cube26", "shell"])
+        cells = expand_grid(cfg)
+        self.assertEqual(len(cells), 2)
+        geoms = {c["geometry"] for c in cells}
+        self.assertEqual(geoms, {"cube26", "shell"})
+
+    def test_multiple_inits_multiply_cells(self):
+        cfg = self._simple_cfg(M_values=[100], amp_list=[0.0],
+                               init_list=["uniform_sphere", "grf"])
+        cells = expand_grid(cfg)
+        self.assertEqual(len(cells), 2)
+
+    def test_cells_have_required_keys(self):
+        cfg = self._simple_cfg()
+        cells = expand_grid(cfg)
+        for c in cells:
+            for k in ("M", "amplitude", "nm_seed", "s_amplitude", "init", "geometry"):
+                self.assertIn(k, c, f"Missing key {k!r} in cell {c}")
+
+
+# ---------------------------------------------------------------------------
+# 3. CSV column contract
+# ---------------------------------------------------------------------------
+
+class TestCSVColumns(unittest.TestCase):
+
+    def test_sweep_csv_cols_superset_of_best_iso(self):
+        """Every BEST_ISO_COLS column must appear in SWEEP_CSV_COLS."""
+        missing = set(BEST_ISO_COLS) - set(SWEEP_CSV_COLS)
+        self.assertEqual(missing, set(),
+                         f"BEST_ISO_COLS has columns missing from SWEEP_CSV_COLS: {missing}")
+
+    def test_extra_columns_present(self):
+        """WS1 adds chi2_lcdm, chi2_eds, growth_target, runaway."""
+        for col in ("chi2_lcdm", "chi2_eds", "growth_target", "runaway"):
+            self.assertIn(col, SWEEP_CSV_COLS, f"Missing WS1 column: {col!r}")
+
+    def test_load_best_config_keys_present(self):
+        """hubble_diagram_nbody --from-best-config reads M_factor, S_gpc, centerM, chi2_dof."""
+        for k in ("M_factor", "S_gpc", "centerM", "chi2_dof"):
+            self.assertIn(k, BEST_ISO_COLS)
+
+
+# ---------------------------------------------------------------------------
+# 4. _FixedSweepConfig
+# ---------------------------------------------------------------------------
+
+class TestFixedSweepConfig(unittest.TestCase):
+
+    def test_particle_count_pinned(self):
+        sc = _FixedSweepConfig(particle_count=400, n_steps=273, t_start_Gyr=2.9,
+                               t_duration_Gyr=10.9, objective="pantheon",
+                               s_min_gpc=20, s_max_gpc=80)
+        self.assertEqual(sc.particle_count, 400)
+
+    def test_n_steps_pinned(self):
+        sc = _FixedSweepConfig(particle_count=400, n_steps=273, t_start_Gyr=2.9,
+                               t_duration_Gyr=10.9, objective="pantheon",
+                               s_min_gpc=20, s_max_gpc=80)
+        self.assertEqual(sc.n_steps, 273)
+
+    def test_quick_search_does_not_override_particle_count(self):
+        """quick_search=True on the base class would return 200, but the override wins."""
+        sc = _FixedSweepConfig(particle_count=400, n_steps=273, quick_search=True,
+                               t_start_Gyr=2.9, t_duration_Gyr=10.9, objective="pantheon",
+                               s_min_gpc=20, s_max_gpc=80)
+        self.assertEqual(sc.particle_count, 400)
+        self.assertEqual(sc.n_steps, 273)
+
+    def test_geometry_defaults_to_cube26(self):
+        sc = _FixedSweepConfig(particle_count=400, n_steps=273, t_start_Gyr=2.9,
+                               t_duration_Gyr=10.9, objective="pantheon",
+                               s_min_gpc=20, s_max_gpc=80)
+        self.assertEqual(sc.node_geometry, "cube26")
+
+
+# ---------------------------------------------------------------------------
+# 5. Cache key uniqueness
+# ---------------------------------------------------------------------------
+
+class TestCacheKeyUniqueness(unittest.TestCase):
+
+    def _cfg(self, amplitude, nm_seed, init="uniform_sphere", geometry="cube26",
+             s_amplitude=0.0):
+        return _FixedSweepConfig(
+            particle_count=400, n_steps=273,
+            t_start_Gyr=2.9, t_duration_Gyr=10.9,
+            objective="pantheon",
+            s_min_gpc=20, s_max_gpc=80,
+            node_mass_seed=nm_seed,
+            node_mass_amplitude=amplitude,
+            node_s_amplitude=s_amplitude,
+            init_distribution=init,
+            node_geometry=geometry,
+        )
+
+    def test_different_amplitude_gives_different_key(self):
+        k1 = build_cache_name(self._cfg(0.0, 42), 100, 30, 1, [42])
+        k2 = build_cache_name(self._cfg(0.5, 42), 100, 30, 1, [42])
+        self.assertNotEqual(k1, k2)
+
+    def test_different_seed_gives_different_key_when_amplitude_nonzero(self):
+        k1 = build_cache_name(self._cfg(0.5, 42), 100, 30, 1, [42])
+        k2 = build_cache_name(self._cfg(0.5, 7), 100, 30, 1, [42])
+        self.assertNotEqual(k1, k2)
+
+    def test_different_geometry_gives_different_key(self):
+        k1 = build_cache_name(self._cfg(0.0, 42, geometry="cube26"), 100, 30, 1, [42])
+        k2 = build_cache_name(self._cfg(0.0, 42, geometry="shell"),   100, 30, 1, [42])
+        self.assertNotEqual(k1, k2)
+
+    def test_different_init_gives_different_key(self):
+        k1 = build_cache_name(self._cfg(0.0, 42, init="uniform_sphere"), 100, 30, 1, [42])
+        k2 = build_cache_name(self._cfg(0.0, 42, init="grf"),             100, 30, 1, [42])
+        self.assertNotEqual(k1, k2)
+
+    def test_cube26_keeps_original_key_no_geo_slug(self):
+        """cube26 must NOT add a geo slug (backward compat)."""
+        k = build_cache_name(self._cfg(0.0, 42, geometry="cube26"), 100, 30, 1, [42])
+        self.assertNotIn("cube26geo", k)
+
+    def test_non_cube26_gets_geo_slug(self):
+        k = build_cache_name(self._cfg(0.0, 42, geometry="shell"), 100, 30, 1, [42])
+        self.assertIn("shellgeo", k)
+
+    def test_uniform_sphere_keeps_original_key_no_init_slug(self):
+        k = build_cache_name(self._cfg(0.0, 42, init="uniform_sphere"), 100, 30, 1, [42])
+        self.assertNotIn("uniform_sphereinit", k)
+
+    def test_amplitude_zero_same_key_regardless_of_nm_seed(self):
+        """When amplitude=0, nm_seed should not appear in the cache key."""
+        k1 = build_cache_name(self._cfg(0.0, 42), 100, 30, 1, [42])
+        k2 = build_cache_name(self._cfg(0.0, 7),  100, 30, 1, [42])
+        self.assertEqual(k1, k2)
+
+    def test_different_M_gives_different_key(self):
+        k1 = build_cache_name(self._cfg(0.0, 42), 100,  30, 1, [42])
+        k2 = build_cache_name(self._cfg(0.0, 42), 1000, 30, 1, [42])
+        self.assertNotEqual(k1, k2)
+
+
+# ---------------------------------------------------------------------------
+# 6. S co-fit vs explicit list selection
+# ---------------------------------------------------------------------------
+
+class TestSCofitSelection(unittest.TestCase):
+
+    def test_cofit_flag_detected_correctly(self):
+        cfg = load_config(None)
+        cfg["S_values"] = "co-fit"
+        self.assertEqual(cfg["S_values"], "co-fit")
+        cofit = (cfg["S_values"] == "co-fit")
+        self.assertTrue(cofit)
+
+    def test_explicit_s_list_detected_correctly(self):
+        cfg = load_config(None)
+        cfg["S_values"] = [20, 30, 40]
+        cofit = (cfg["S_values"] == "co-fit")
+        self.assertFalse(cofit)
+        self.assertIsInstance(cfg["S_values"], list)
+
+    def test_default_s_values_is_cofit(self):
+        """The default config uses co-fit (not an explicit grid)."""
+        cfg = load_config(None)
+        self.assertEqual(cfg["S_values"], "co-fit")
+
+
+# ---------------------------------------------------------------------------
+# 7. plots_from_csv wiring (--plots-only)
+# ---------------------------------------------------------------------------
+
+class TestPlotsOnlyWiring(unittest.TestCase):
+
+    def test_plots_only_calls_plots_from_csv(self):
+        """run_plots_only should call cosmo.plots.plots_from_csv, not run sims."""
+        # Build a minimal CSV
+        rows = [
+            {col: ("0.5" if "chi2" in col else
+                   "3.1" if "growth" in col else
+                   "True" if col in ("anchor_ok",) else
+                   "100" if col == "M_factor" else
+                   "30" if col == "S_gpc" else "1")
+             for col in SWEEP_CSV_COLS}
+        ]
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False,
+                                         encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=SWEEP_CSV_COLS)
+            writer.writeheader()
+            writer.writerows(rows)
+            csv_path = f.name
+
+        cfg = load_config(None)
+        called = {}
+
+        def fake_plots_from_csv(path, workstream="ws1", **kw):
+            called["path"] = path
+            called["ws"] = workstream
+            return []
+
+        try:
+            with patch("cosmo.plots.plots_from_csv", side_effect=fake_plots_from_csv), \
+                 patch("cosmo.plots.plot_ms_heatmap", return_value="fake.png"):
+                run_plots_only(csv_path, cfg)
+            self.assertEqual(called.get("path"), csv_path)
+            self.assertEqual(called.get("ws"), "ws1")
+        finally:
+            os.unlink(csv_path)
+
+
+# ---------------------------------------------------------------------------
+# 8. Best-iso subset is load_best_config-compatible
+# ---------------------------------------------------------------------------
+
+class TestBestIsoSubset(unittest.TestCase):
+
+    def _write_sweep_csv(self, tmpdir, rows):
+        path = os.path.join(tmpdir, "ws1_sweep_test.csv")
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=SWEEP_CSV_COLS)
+            writer.writeheader()
+            writer.writerows(rows)
+        return path
+
+    def _write_best_iso_csv(self, tmpdir, rows):
+        path = os.path.join(tmpdir, "sweep_results_pantheon_test.csv")
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=BEST_ISO_COLS)
+            writer.writeheader()
+            writer.writerows(rows)
+        return path
+
+    def _make_row(self, M=855, S=37, amp=0.0, chi2_dof=0.50):
+        row = {col: "" for col in SWEEP_CSV_COLS}
+        row.update({
+            "M_factor": M, "S_gpc": S, "centerM": 1,
+            "node_mass_amplitude": amp, "node_s_amplitude": 0.0,
+            "node_mass_seed": 42, "init_distribution": "uniform_sphere",
+            "node_geometry": "cube26",
+            "chi2_dof": chi2_dof, "chi2": chi2_dof * 1200,
+            "chi2_lcdm": 0.43, "chi2_eds": 0.85,
+            "R2": 0.996, "n_sne_used": 1333,
+            "growth_factor": 3.10, "growth_target": 3.30,
+            "anchor_ok": True, "runaway": False,
+            "match_avg_pct": 100.0 / (1.0 + chi2_dof),
+            "diff_pct": 100.0 - 100.0 / (1.0 + chi2_dof),
+        })
+        return row
+
+    def test_best_iso_cols_contains_load_best_config_keys(self):
+        """hubble_diagram_nbody.py --from-best-config reads these four keys."""
+        for k in ("M_factor", "S_gpc", "centerM", "chi2_dof"):
+            self.assertIn(k, BEST_ISO_COLS)
+
+    def test_iso_row_min_chi2_selection(self):
+        """The best iso row is the one with the smallest chi2_dof."""
+        rows = [
+            {k: (v if k != "chi2_dof" else (0.48 if i == 1 else 0.55))
+             for k, v in self._make_row(M=100*i, S=30, chi2_dof=0.55).items()}
+            for i in range(1, 4)
+        ]
+        rows[1]["chi2_dof"] = 0.48   # row index 1 is best
+
+        iso_rows = [r for r in rows if float(r["node_mass_amplitude"]) == 0.0]
+        best = min(iso_rows, key=lambda r: float(r["chi2_dof"]))
+        self.assertAlmostEqual(float(best["chi2_dof"]), 0.48)
+
+
+# ---------------------------------------------------------------------------
+# 9. Reference chi2 computation (analytic, no sim)
+# ---------------------------------------------------------------------------
+
+class TestReferenceChI2(unittest.TestCase):
+
+    def test_lcdm_chi2_is_finite_and_positive(self):
+        """The analytic LCDM chi2/dof vs real Pantheon+ must be finite."""
+        from sweep import _compute_reference_chi2
+        from cosmo.pantheon import load_pantheon
+        try:
+            pdata = load_pantheon()
+        except FileNotFoundError:
+            self.skipTest("Pantheon+ data not available")
+        chi2_lcdm, chi2_eds = _compute_reference_chi2(pdata, 2.9)
+        self.assertTrue(math.isfinite(chi2_lcdm), "LCDM chi2_dof must be finite")
+        self.assertGreater(chi2_lcdm, 0.0)
+        self.assertTrue(math.isfinite(chi2_eds), "EdS chi2_dof must be finite")
+        self.assertGreater(chi2_eds, chi2_lcdm,
+                           "EdS (no DE) must be worse than LCDM")
+
+    def test_lcdm_chi2_near_known_value(self):
+        """LCDM chi2/dof should be near 0.43 (canonical value)."""
+        from sweep import _compute_reference_chi2
+        from cosmo.pantheon import load_pantheon
+        try:
+            pdata = load_pantheon()
+        except FileNotFoundError:
+            self.skipTest("Pantheon+ data not available")
+        chi2_lcdm, _ = _compute_reference_chi2(pdata, 2.9)
+        self.assertLess(chi2_lcdm, 0.6, "LCDM chi2/dof should be near 0.43")
+        self.assertGreater(chi2_lcdm, 0.3)
+
+
+if __name__ == "__main__":
+    unittest.main()

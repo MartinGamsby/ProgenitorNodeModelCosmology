@@ -312,7 +312,7 @@ Hubble drag (a_drag = -2Hv) is only appropriate for **comoving coordinates** whe
 
 **Only active when**: `use_dark_energy=True` (ΛCDM mode)
 
-**Why not in External-Node/Matter-only?**: Hubble drag is property of cosmic expansion driven by dark energy. In matter-dominated regime, expansion decelerates naturally from gravity. External-Node model uses *damped initial conditions* instead of ongoing drag (see [initial-conditions.md](./initial-conditions.md)).
+**Why not in External-Node/Matter-only?**: Hubble drag is property of cosmic expansion driven by dark energy. In matter-dominated regime, expansion decelerates naturally from gravity. With the corrected self-consistent EdS initial conditions (default), the matter-only cloud carries the EdS critical density and Hubble flow so its self-gravity supplies the EdS deceleration with NO drag and NO velocity calibration (see [initial-conditions.md](./initial-conditions.md)).
 
 ## Force Composition by Mode
 

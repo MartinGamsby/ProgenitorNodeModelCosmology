@@ -16,7 +16,7 @@
 - [physics/theoretical-framework.md](./physics/theoretical-framework.md) - External-Node Model, Progenitor Hypothesis, predictions, scope/limitations
 - [physics/force-calculations.md](./physics/force-calculations.md) - Internal gravity, tidal forces, dark energy, Hubble drag
 - [physics/barnes-hut-optimization.md](./physics/barnes-hut-optimization.md) - Force methods: direct, numba_direct (O(N²) JIT), barnes_hut (real octree O(N log N))
-- [physics/initial-conditions.md](./physics/initial-conditions.md) - Damped Hubble flow setup, velocity calibration, validated t_start range (safe floor 2.9 Gyr, z_max~2.23); selectable init_distribution (uniform_sphere default + grf)
+- [physics/initial-conditions.md](./physics/initial-conditions.md) - SELF-CONSISTENT EdS ICs (default eds_consistent=True): v=H_EdS*r with H_EdS=2/(3 t_start) + cloud mass = EdS critical mass => M_ext=0 reproduces Einstein-de Sitter by construction (THE invariant, ~0.2% growth / 0.02 mag). Legacy velocity-calibration fudge now skipped; t_start floor lifted. Honest mechanism table (M=855 still on EdS — symmetric lattice too weak; need OL_eff~5). Selectable init_distribution (uniform_sphere default + grf)
 - [physics/realistic-initial-conditions.md](./physics/realistic-initial-conditions.md) - GRF+Zel'dovich C1 (IMPLEMENTED) and C2 galaxy-catalog future direction; convergence numbers; C2 caveats (mask contamination, security)
 - [physics/integration.md](./physics/integration.md) - Leapfrog algorithm implementation
 - [physics/hubble-diagram.md](./physics/hubble-diagram.md) - SEMI-ANALYTIC mu(z) Hubble-diagram test vs real Pantheon+ SNe (H(z) from Omega_Lambda_eff; CIRCULAR == LCDM at 0.70); open M,S discrepancy

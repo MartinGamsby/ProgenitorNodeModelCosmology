@@ -1,10 +1,44 @@
 # Initial Conditions
 
-## Problem
+## THE invariant: M_ext=0 == Einstein-de Sitter (self-consistent ICs)
 
-N-body gravity provides ~65-80% of Friedmann deceleration. Without correction, matter-only overexpands relative to analytic Friedmann and can exceed LCDM (physically impossible).
+The particle cloud is a Newtonian comoving patch of a homogeneous universe. With
+NO external tidal forces (M_ext=0) it MUST reproduce the analytic matter-only
+Einstein-de Sitter (EdS, Omega_m=1) expansion. This is the prerequisite for
+trusting every downstream number: if M_ext=0 != EdS the expansion is coming from
+tuned ICs, not physics.
 
-**Solution**: Velocity calibration at `sim.run()` scales initial velocities so matter-only/external-node NEVER exceeds LCDM.
+This holds BY CONSTRUCTION (standard Newtonian cosmology) iff velocity and density
+are mutually consistent:
+- (i) Hubble flow `v_i = H_EdS(t_start) * r_i`, with `H_EdS = 2/(3 t_start)`
+  (EdS a(t) ∝ t^(2/3) ⇒ H = 2/3t). NOTE this uses absolute age t, NOT the
+  Omega_m=0.3 `H_matter_only(a)`.
+- (ii) cloud total mass = EdS critical mass `rho_crit * V_sphere`, with
+  `rho_crit = 3 H_EdS^2 / (8 pi G)` (Omega_m=1). Internal self-gravity then
+  supplies the exact EdS deceleration.
+
+Enabled by `SimulationParameters.eds_consistent` (default **True**) whenever dark
+energy is OFF (matter-only AND external-node). `CosmologicalSimulation` forwards
+`eds_consistent and not use_dark_energy` plus `t_start_Gyr` to `ParticleSystem`.
+
+**Validated**: M_ext=0 reproduces EdS to ~0.2-0.3% in total growth and ~0.02 mag
+RMS in mu(z) (residual = N-body discreteness: finite N, softening, peculiar-vel
+noise, leapfrog dt). The mu(z) sits ON the EdS null and is ~10x FARTHER from LCDM
+— the physically correct ordering. Invariant is t_start-INDEPENDENT (holds at
+t_start=2.0 Gyr too). Test: `tests/test_matter_only_consistency.py`.
+
+## Legacy velocity-calibration fudge (now superseded, still selectable)
+
+Earlier code set `v = H_matter_only(a)*r` (Omega_m=0.3) with a tiny cloud mass
+(1 x M_obs ≈ 8.6x BELOW EdS critical), so self-gravity barely decelerated and the
+cloud nearly free-expanded at ~LCDM rate. To hide this, `_calibrate_velocity_for_
+lcdm_match` SCALED the initial velocities at `sim.run()` so matter-only/external
+"never exceeds LCDM". That made M_ext=0 track LCDM, NOT EdS — the core bug.
+
+With `eds_consistent=True` (default) the calibration is SKIPPED (printed: "EdS-
+consistent ICs ... no calibration"). `_calibrate_velocity_for_lcdm_match` still
+exists and runs only if `eds_consistent=False` OR an explicit `damping` override
+is passed to `run()`. The auto-damping formula `(t_start/13.8)^0.135` lives there.
 
 ## Selectable init_distribution
 
@@ -55,59 +89,28 @@ centered_positions *= scale_factor
 
 ## Velocity Initialization
 
-**File**: particles.py:60-75
+**File**: particles.py (`_initialize_particles`)
 
-Each model uses its **own** Hubble parameter for initial velocity:
+Three branches; the EdS branch is the default for no-dark-energy runs:
 
 ```python
-if self.use_dark_energy:
-    H_start = lcdm.H_at_time(self.a_start)      # LCDM: H with Omega_Lambda
-else:
-    H_start = lcdm.H_matter_only(self.a_start)  # Matter-only: H without Omega_Lambda
+if self.eds_consistent:                       # default for use_dark_energy=False
+    H_start = lcdm.H_eds_at_time(self.t_start_Gyr)   # 2/(3 t_start), Omega_m=1
+elif self.use_dark_energy:
+    H_start = lcdm.H_at_time(self.a_start)            # LCDM: H with Omega_Lambda
+else:                                                  # legacy non-EdS matter-only
+    H_start = lcdm.H_matter_only(self.a_start)        # H0*sqrt(0.3/a^3)
 ```
 
-`v = H(a_start) * pos + v_peculiar`
+`v = H_start * pos + v_peculiar`, then COM-velocity removed.
 
-**Key parameters:**
-- **H(a_start)**: Model-appropriate Hubble parameter
-  - LCDM: `H_lcdm(a) = H0*sqrt(Omega_m/a^3 + Omega_Lambda)` (includes dark energy)
-  - Matter-only: `H_matter(a) = H0*sqrt(Omega_m/a^3)` (no dark energy)
-  - At a=0.839: H_lcdm ~ 2.57e-18 /s, H_matter ~ 2.02e-18 /s (21% lower)
-- **v_peculiar**: Gaussian noise, sigma=100 km/s (realistic galaxy peculiar velocities)
-- **COM removal**: CRITICAL for preventing bulk motion
-
-## Velocity Calibration (Non-LCDM Models)
-
-**File**: simulation.py:91-175
-
-**Damping parameter moved to sim.run(damping=None)**
-
-The damping parameter controls initial velocity scaling and is now passed to `sim.run()` instead of being set during ParticleSystem initialization. This allows:
-1. Same particle positions for all runs (deterministic from seed)
-2. Velocity scaling applied once at simulation start
-3. Auto-calculation based on t_start if damping=None
-
-**Auto-calculation formula** (when damping=None):
-```python
-nbody_decel_factor = (t_start_Gyr / 13.8) ** 0.135
-nbody_decel_factor = clip(nbody_decel_factor, 0.0, 1.0)
-```
-
-Later starts (higher t_start) use larger damping factor (closer to 1.0).
-Earlier starts need more aggressive scaling to prevent overshoot.
-
-**Velocity scaling calculation**:
-```python
-# Get expansion ratios from Friedmann equations
-lcdm_expansion = a_lcdm_end / a_lcdm_start
-matter_expansion = a_matter_end / a_matter_start
-
-overshoot_factor = 1.0 / nbody_decel_factor
-velocity_scale = (lcdm_expansion * 1.0) / (matter_expansion * overshoot_factor)
-velocities *= velocity_scale
-```
-
-**Result**: Matter-only and external-node models NEVER exceed LCDM at any timestep.
+**Key points:**
+- **EdS H** (`constants.py:LambdaCDMParameters.H_eds_at_time`): `2/(3 t_start)` in
+  s^-1. The only rate mutually consistent with the EdS critical density below.
+- **v_peculiar**: Gaussian sigma=100 km/s (~negligible vs H*r ~ 5e5 km/s at edge).
+- **COM removal**: CRITICAL for preventing bulk motion.
+- `t_start_Gyr <= 0` (e.g. Big-Bang t=0 size-semantics tests) has no finite H_EdS,
+  so `eds_consistent` silently falls back to the legacy path there.
 
 ## Scale Factor at t_start
 
@@ -128,38 +131,75 @@ Example: t_start=3.8 Gyr -> a~0.373 -> box_size~5.28 Gpc
 
 ## Mass Initialization
 
-**File**: particles.py:76-97
+**File**: particles.py (`ParticleSystem.__init__` + `_initialize_particles`)
 
+**EdS-consistent mode (default, dark energy OFF)**: `total_mass_kg` passed in
+(from `center_node_mass_kg`) is OVERRIDDEN with the EdS critical mass:
 ```
-total_mass = Omega_m * rho_crit * box_volume
-particle_mass = total_mass / n_particles
+H_eds    = 2/(3 t_start)
+rho_crit = 3 H_eds^2 / (8 pi G)          # Omega_m=1
+r_sphere = (box_size/2) / sqrt(3/5)      # RMS = R*sqrt(3/5) for a uniform ball
+total_mass_kg = rho_crit * (4/3) pi r_sphere^3
 ```
+For t_start=2.9 Gyr (box ≈ 4.39 Gpc, RMS ≈ 2.19 Gpc) this is ≈ 8.65e53 kg
+(≈ 8.6 x M_obs) — vs the legacy 1e53 kg, the ~8.6x deficit that broke M=0==EdS.
 
-With mass_randomize > 0: masses randomized in [mean-half_range, mean+half_range], then normalized to preserve total mass.
+**Legacy mode** (`eds_consistent=False` or LCDM): `total_mass_kg` used as-is.
+
+`particle_mass = total_mass_kg / n_particles`. With mass_randomize > 0: masses
+randomized in [mean-half_range, mean+half_range], normalized to preserve total.
+Softening scales as mean_particle_mass^(1/3) (integrator.py), so it adapts to the
+larger EdS mass automatically.
 
 ## Summary
 
-| Parameter | LCDM | External-Node | Matter-only |
-|-----------|------|---------------|-------------|
-| Initial H | H0*sqrt(Omega_m/a^3 + Omega_Lambda) | H0*sqrt(Omega_m/a^3) | H0*sqrt(Omega_m/a^3) |
-| Velocity calibration | No | Yes (at run()) | Yes (at run()) |
-| v_init | H_lcdm*r | calibrated | calibrated |
+Default modes (`eds_consistent=True` for dark-energy-off runs):
+
+| Parameter | LCDM | External-Node (M>0) | Matter-only (M=0) |
+|-----------|------|---------------------|-------------------|
+| Initial H | H0*sqrt(Omega_m/a^3 + Omega_Lambda) | H_EdS = 2/(3 t_start) | H_EdS = 2/(3 t_start) |
+| Cloud mass | center_node_mass (as-is) | EdS critical mass | EdS critical mass |
+| Velocity calibration | No | No (skipped) | No (skipped) |
+| v_init | H_lcdm*r | H_EdS*r | H_EdS*r |
 | External nodes | No | 26 HMEAs | No |
 | Dark energy | H0^2*Omega_Lambda*r | No | No |
+| Expansion target | LCDM Friedmann | EdS + tidal push | **EdS (by construction)** |
+
+## Mechanism direction (honest, post-fix)
+
+With self-consistent ICs and no calibration, increasing M_ext / shrinking S
+pushes a(t) AWAY from EdS toward LCDM and beyond. Measured (N=300, t_start=2.9,
+EdS growth 2.829, LCDM growth 3.304; mu RMS offset-removed):
+
+| M_ext | S Gpc | OL_eff | growth | RMS vs EdS | RMS vs LCDM |
+|-------|-------|--------|--------|------------|-------------|
+| 0     | -     | 0      | 2.836  | 0.019      | 0.180       |
+| 855   | 37.8  | 0.70   | 2.839  | 0.022      | 0.177       |
+| 3000  | 30    | 4.9    | 2.967  | 0.184      | 0.066       |
+| 9000  | 25    | 25.4   | 742    | (runaway — growth-anchor rejects) |
+
+KEY HONEST FINDING: at the paper's nominal config (M=855, S=37.8, OL_eff=0.70)
+the symmetric 26-node tidal field is TOO WEAK to mimic Lambda — it stays on EdS.
+Single-node linear tidal accel is ~27% of self-gravity there, but the 3x3x3
+lattice nearly cancels it at cloud scale. The old "LCDM-like fit at M=855" was an
+artifact of the velocity-calibration fudge, NOT the tidal mechanism. You must
+push to OL_eff ~ 5 (M=3000, S=30) before a(t) visibly bends toward LCDM. See
+[pantheon-comparison-results.md](./pantheon-comparison-results.md).
 
 ## Diagram
 
 ```mermaid
 graph TD
-    A[Solve Friedmann] --> B[a at t_start]
-    B --> C[H at t_start]
-    C --> D[v = H*r + v_pec]
+    A[t_start_Gyr] --> C[H_EdS = 2/3 t_start]
+    C --> RHO[rho_crit = 3 H_EdS^2 / 8 pi G]
+    RHO --> M[cloud mass = rho_crit * V_sphere]
+    C --> D[v = H_EdS*r + v_pec]
     D --> E[ParticleSystem]
-    E --> F[sim.run damping]
-    F --> G{Mode?}
-    G -->|LCDM| H[+dark energy]
-    G -->|External| I[velocity calibration + HMEA tidal]
-    G -->|Matter| J[velocity calibration + gravity only]
+    M --> E
+    E --> F{Mode?}
+    F -->|LCDM| H[legacy ICs + dark energy]
+    F -->|External M>0| I[self-gravity + HMEA tidal, no calib]
+    F -->|Matter M=0| J[self-gravity only => EdS by construction]
 ```
 
 ## N-body vs Friedmann Deceleration Deficit
@@ -169,11 +209,11 @@ graph TD
 | Metric | N-body | Friedmann | Ratio |
 |--------|--------|-----------|-------|
 | Deceleration | GM/R^2 | 0.5*H^2*R | ~65-80% |
-| Cumulative effect | Overshoot | Match | ~1.5x over 13 Gyr |
 
-**Consequence**: Non-LCDM N-body without velocity calibration overshoots LCDM by 10-25%.
-
-**Current approach**: One-time velocity scaling at sim.run() based on predicted final expansion. Damping factor auto-calculated from t_start or passed explicitly.
+NOTE: with self-consistent EdS ICs the residual matter-only deviation from EdS is
+~0.2-0.3% (not 10-25%) — the deficit the legacy calibration was compensating for
+was dominated by the 8.6x mass shortfall, not an intrinsic N-body/Friedmann gap.
+Carrying the true critical mass removes nearly all of it.
 
 ## Validated t_start Range (Stage 2)
 
@@ -188,23 +228,32 @@ across t_start ∈ {5.8, 4.8, 3.8, 3.3, 2.9} Gyr with n_steps=ceil(duration/0.04
 | 3.3 Gyr | 0.339   | 0.824   | 0.000       | yes       |
 | 2.9 Gyr | 0.310   | 0.810   | 0.000       | yes       |
 
-**Safe floor: t_start >= 2.9 Gyr** (a~0.310, z_max~2.23 — full Pantheon+ range covered).
-The damping formula was NOT modified; t_start=5.8 behavior is unchanged.
+The 2.9 Gyr floor was a CONSTRAINT OF THE LEGACY CALIBRATION (earlier starts
+overshot before the velocity scaling could rein them in). With self-consistent
+EdS ICs that constraint is GONE: M=0==EdS holds at t_start=2.0 Gyr to <3% (no
+damping, no calibration), so t_start can be lowered freely subject only to the
+leapfrog dt<0.05 Gyr stability limit (`n_steps = ceil((13.8-t_start)/0.04)`). The
+old auto-damping table above only applies in legacy (`eds_consistent=False`) mode.
 
 ## Tests
 
-**File**: tests/test_early_time_behavior.py
-- test_matter_only_never_exceeds_lcdm: Verifies relative <= 1.0 at all timesteps
-- test_initial_size_exact_match: Verifies identical starting size
-- test_models_use_appropriate_hubble: Verifies H_lcdm vs H_matter
+**File**: tests/test_matter_only_consistency.py (THE invariant)
+- test_matter_only_growth_matches_eds: M=0 growth == EdS (t_today/t_start)^(2/3) <2%
+- test_matter_only_mu_matches_eds_not_lcdm: mu(z) RMS <0.05 vs EdS, and >2x closer
+  to EdS than LCDM (guards the inverted-ordering bug)
+- test_eds_invariant_holds_at_lower_t_start: invariant holds at t_start=2.0 Gyr
 
-**File**: tests/test_early_start_validation.py (Stage 2 harness)
-- test_matter_only_never_exceeds_lcdm_t_start_4p8/3p8: invariant at early starts
-- test_timestep_scaling_t_start_4p8/3p8/2p9: dt<0.05 and no runaway at early starts
-- test_safe_floor_documented: SAFE_T_START_FLOOR_GYR==2.9, z_max>2, damping/n_steps range
+**File**: tests/test_early_time_behavior.py (legacy-path, constructs ParticleSystem
+directly so eds_consistent defaults False)
+- test_matter_only_never_exceeds_lcdm / test_initial_size_exact_match / etc.
+
+**File**: tests/test_early_start_validation.py — Stage-2 legacy auto-damping checks.
 
 ## References
 
-- Implementation: particles.py (velocities), simulation.py (calibration at run())
+- Implementation: particles.py (EdS ICs in __init__ + velocities),
+  simulation.py (eds_consistent wiring + calibration skip)
+- EdS helpers: constants.py:LambdaCDMParameters.H_eds_at_time / eds_critical_density
+- Flag: constants.py:SimulationParameters.eds_consistent (default True)
 - Friedmann solver: analysis.py:solve_friedmann_at_times
-- Hubble param: constants.py:LambdaCDMParameters.H_at_time, H_matter_only
+- EdS null curve: distances.py:model_distance_modulus(z, "einstein_de_sitter")

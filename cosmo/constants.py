@@ -53,6 +53,31 @@ class LambdaCDMParameters:
         import numpy as np
         return self.H0_si * np.sqrt(self.Omega_m / a**3)
 
+    @staticmethod
+    def H_eds_at_time(t_start_Gyr: float) -> float:
+        """Einstein-de Sitter Hubble parameter at age t, in s^-1.
+
+        For a flat matter-dominated (Ω_m = 1) universe a(t) ∝ t^(2/3), so
+        H(t) = (da/dt)/a = 2 / (3 t). This is the ONLY initial Hubble rate that
+        is mutually consistent with the EdS critical density below; together they
+        make a finite uniform sphere reproduce the EdS scale factor EXACTLY
+        (standard Newtonian cosmology). Using the absolute age t (not the
+        Ω_m=0.3 H_matter_only) is what ties the sim's a(t) to the analytic
+        einstein_de_sitter null used in the Pantheon comparison.
+        """
+        return (2.0 / 3.0) / (t_start_Gyr * CosmologicalConstants.Gyr_to_s)
+
+    @staticmethod
+    def eds_critical_density(H_si: float) -> float:
+        """EdS critical (background) density ρ_crit = 3 H² / (8 π G), Ω_m = 1.
+
+        At Ω_m = 1 the matter density equals the critical density, so a comoving
+        patch carrying this density supplies exactly the self-gravity needed to
+        decelerate the Hubble flow onto the EdS solution.
+        """
+        import numpy as np
+        return 3.0 * H_si ** 2 / (8.0 * np.pi * CosmologicalConstants.G)
+
     def __str__(self):
         return (f"ΛCDM Parameters:\n"
                 f"  H0 = {self.H0_km_s_Mpc} km/s/Mpc\n"
@@ -159,7 +184,8 @@ class SimulationParameters:
                  mass_randomize: float = 0.5,
                  node_mass_seed: int = 0, node_mass_amplitude: float = 0.0,
                  init_distribution: str = "uniform_sphere",
-                 init_kwargs: dict = None):
+                 init_kwargs: dict = None,
+                 eds_consistent: bool = True):
         """
         Initialize simulation parameters.
 
@@ -190,6 +216,15 @@ class SimulationParameters:
             init_kwargs: Optional dict of keyword arguments forwarded to the sampler.
                          Supported for "grf": Ng (int, default 64), n_s, Omega_m, h.
                          Ignored for "uniform_sphere".
+            eds_consistent: When True (default) and dark energy is OFF, the cloud
+                            uses self-consistent Einstein-de Sitter initial
+                            conditions (Hubble flow v=H_EdS*r with H_EdS=2/(3 t_start)
+                            AND cloud mass = EdS critical mass). This makes the
+                            matter-only (M_ext=0) sim reproduce the analytic EdS
+                            expansion by construction, replacing the old
+                            velocity-calibration fudge. Ignored for LCDM runs
+                            (use_dark_energy=True). Set False to restore the legacy
+                            calibrated-velocity behaviour.
         """
         self.M_value = M_value
         self.S_value = S_value
@@ -205,6 +240,7 @@ class SimulationParameters:
         self.node_mass_amplitude = node_mass_amplitude
         self.init_distribution = init_distribution
         self.init_kwargs = init_kwargs if init_kwargs is not None else {}
+        self.eds_consistent = eds_consistent
 
         # Calculate derived quantities
         self._calculate_derived()

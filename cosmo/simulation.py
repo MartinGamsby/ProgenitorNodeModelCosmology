@@ -61,6 +61,12 @@ class CosmologicalSimulation:
         # Calculate total mass from center_node_mass
         total_mass_kg = sim_params.center_node_mass_kg
 
+        # EdS-consistent initial conditions: only meaningful when dark energy is
+        # OFF (matter-only / external-node). When enabled, ParticleSystem ignores
+        # total_mass_kg above and instead carries the EdS critical mass, with a
+        # matching H_EdS Hubble flow, so M_ext=0 reproduces analytic EdS a(t).
+        self.eds_consistent = bool(getattr(sim_params, 'eds_consistent', True)) and (not self.use_dark_energy)
+
         # Initialize particle system
         print(f"Initializing {sim_params.n_particles} particles in {box_size_Gpc} Gpc box...")
         if sim_params.center_node_mass != 1.0:
@@ -73,7 +79,9 @@ class CosmologicalSimulation:
                                        use_dark_energy=self.use_dark_energy,
                                        mass_randomize=sim_params.mass_randomize,
                                        init_distribution=sim_params.init_distribution,
-                                       init_kwargs=sim_params.init_kwargs)
+                                       init_kwargs=sim_params.init_kwargs,
+                                       eds_consistent=self.eds_consistent,
+                                       t_start_Gyr=self.t_start_Gyr)
 
         # Initialize HMEA grid if using External-Node Model
         self.hmea_grid = None
@@ -326,8 +334,18 @@ class CosmologicalSimulation:
         # Velocity calibration: calibrate initial velocity to match LCDM expansion
         # For matter-only: uses N-body test to measure deceleration deficit
         # For External-Node: uses N-body test including HMEA tidal forces
+        #
+        # SKIP calibration when EdS-consistent ICs are active: the Hubble flow and
+        # cloud density are already mutually consistent, so the expansion is set by
+        # real physics (M_ext=0 -> EdS, M_ext>0 -> tidal acceleration). Calibrating
+        # to LCDM here would re-introduce the very fudge this mode removes. An
+        # explicit user-provided damping override is still honoured.
         if not self.use_dark_energy:
-            self._calibrate_velocity_for_lcdm_match(t_end_Gyr, n_steps, damping)
+            if self.eds_consistent and damping is None:
+                print("[Velocity Calibration] Skipped (EdS-consistent ICs: "
+                      "physical Hubble flow + critical density, no calibration).")
+            else:
+                self._calibrate_velocity_for_lcdm_match(t_end_Gyr, n_steps, damping)
 
         # Run integration
         self.snapshots = self.integrator.evolve(t_end, n_steps, save_interval)

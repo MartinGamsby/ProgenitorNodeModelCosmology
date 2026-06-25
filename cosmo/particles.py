@@ -31,7 +31,9 @@ class ParticleSystem:
                  use_dark_energy: bool = True,
                  mass_randomize: float = 0.5,
                  init_distribution: str = "uniform_sphere",
-                 init_kwargs: Optional[dict] = None):
+                 init_kwargs: Optional[dict] = None,
+                 eds_consistent: bool = False,
+                 t_start_Gyr: Optional[float] = None):
         """
         Initialize particle system with damped Hubble flow initial conditions.
 
@@ -47,17 +49,56 @@ class ParticleSystem:
                                backward-compatible) or "grf" (Gaussian random field
                                + Zel'dovich displacement shaped by BBKS LCDM P(k)).
             init_kwargs: Optional dict forwarded to the sampler (e.g. Ng for grf).
+            eds_consistent: If True, use SELF-CONSISTENT Einstein-de Sitter initial
+                            conditions (Ω_m=1): the Hubble flow v_i = H_EdS(t_start)*r_i
+                            with H_EdS = 2/(3 t_start), AND the cloud total mass is
+                            OVERRIDDEN to the EdS critical mass ρ_crit(t_start)*V so
+                            self-gravity supplies the exact EdS deceleration. With
+                            no external tidal forces this makes the from-sim a(t)
+                            reproduce the analytic EdS solution by construction
+                            (the M=0 == EdS invariant). Requires t_start_Gyr.
+                            Default False keeps the legacy behaviour.
+            t_start_Gyr: Absolute start time in Gyr, REQUIRED when eds_consistent
+                         is True (sets H_EdS and ρ_crit). Ignored otherwise.
         """
         const = CosmologicalConstants()
 
         self.n_particles = n_particles
         self.box_size_m = box_size_m if box_size_m is not None else const.R_hubble
-        self.total_mass_kg = total_mass_kg if total_mass_kg is not None else const.M_observable_kg
         self.a_start = a_start
         self.use_dark_energy = use_dark_energy
         self.mass_randomize = np.clip(mass_randomize, 0.0, 1.0)
         self.init_distribution = init_distribution
         self.init_kwargs = init_kwargs if init_kwargs is not None else {}
+        self.eds_consistent = eds_consistent
+        self.t_start_Gyr = t_start_Gyr
+
+        # EdS-consistent mode: the cloud must carry the EdS critical (background)
+        # density so internal self-gravity matches the Friedmann deceleration.
+        # We OVERRIDE total_mass_kg with ρ_crit(t_start) * V_sphere; the velocity
+        # field below uses the matching H_EdS = 2/(3 t_start). Velocity & density
+        # are mutually consistent => M_ext=0 reproduces EdS a(t) exactly.
+        # H_EdS = 2/(3 t_start) is only defined for a positive start time; t_start<=0
+        # (e.g. Big-Bang t=0 used by some size-semantics tests) has no finite Hubble
+        # rate, so fall back to the legacy (non-EdS) initialisation there.
+        if eds_consistent and t_start_Gyr is not None and t_start_Gyr <= 0:
+            eds_consistent = False
+            self.eds_consistent = False
+
+        if eds_consistent:
+            if t_start_Gyr is None:
+                raise ValueError("eds_consistent=True requires t_start_Gyr.")
+            H_eds = LambdaCDMParameters.H_eds_at_time(t_start_Gyr)
+            rho_crit = LambdaCDMParameters.eds_critical_density(H_eds)
+            # Uniform sphere: target RMS radius = box_size/2, so physical sphere
+            # radius R_sphere = RMS / sqrt(3/5) (RMS = R*sqrt(3/5) for a uniform
+            # ball). The carried mass is the critical density times that volume.
+            rms_radius_m = self.box_size_m / 2.0
+            r_sphere_m = rms_radius_m / np.sqrt(3.0 / 5.0)
+            volume_m3 = (4.0 / 3.0) * np.pi * r_sphere_m ** 3
+            self.total_mass_kg = rho_crit * volume_m3
+        else:
+            self.total_mass_kg = total_mass_kg if total_mass_kg is not None else const.M_observable_kg
 
         self.particles = []
         self.time = 0.0
@@ -122,7 +163,13 @@ class ParticleSystem:
         # ΛCDM: H includes dark energy (Ω_Λ) → higher expansion rate
         # Matter-only: H without dark energy → lower expansion rate
         # This ensures each model's N-body matches its own Friedmann solution
-        if self.use_dark_energy:
+        if self.eds_consistent:
+            # Pure EdS Hubble flow, consistent with the critical density carried by
+            # the cloud (set in __init__). H_EdS = 2/(3 t_start) makes a(t) follow
+            # the analytic (t/t_start)^(2/3) EdS solution with no calibration.
+            H_start = lcdm.H_eds_at_time(self.t_start_Gyr)
+            print(f"[ParticleSystem] EdS-consistent H(t_start={self.t_start_Gyr:.3f} Gyr) = {H_start:.3e} /s")
+        elif self.use_dark_energy:
             H_start = lcdm.H_at_time(self.a_start)
             print(f"[ParticleSystem] Using LCDM H(a={self.a_start:.3f}) = {H_start:.3e} /s")
         else:

@@ -1,5 +1,16 @@
 # Canonical From-Sim vs Pantheon+ Comparison Results
 
+> **STALE — numbers below predate the EdS initial-conditions fix.** The from-sim
+> curve used to look LCDM-like at M=855 ONLY because of the velocity-calibration
+> fudge. That fudge is now removed: with self-consistent EdS ICs (default), M=855
+> S=37.8 (Omega_Lambda_eff=0.70) sits ON the Einstein-de Sitter null, NOT LCDM —
+> the symmetric 26-node tidal field is too weak there (see
+> [./initial-conditions.md](./initial-conditions.md) "Mechanism direction"). The
+> tool `hubble_diagram_nbody.py` now inherits `eds_consistent=True`, so its chi2
+> vs Pantheon+ at the nominal config is substantially WORSE than the numbers in
+> this file. These need re-running before they can be cited again. Do NOT trust
+> the chi2/dof/R2 values below as current.
+
 The publication-style numbers the paper cites for the from-sim N-body mu(z) vs
 REAL Pantheon+SH0ES test. Produced by the comparison tool `hubble_diagram_nbody.py`
 (see [./hubble-diagram-nbody.md](./hubble-diagram-nbody.md) for the kernel/method).

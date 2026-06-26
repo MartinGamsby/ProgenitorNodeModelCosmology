@@ -683,9 +683,73 @@ def run_plots_only(csv_path: str, cfg: Dict) -> List[str]:
 # Main sweep runner
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Resume / per-cell checkpoint
+# ---------------------------------------------------------------------------
+# A long sweep must survive interruption (Claude restarts, force-kills, power
+# loss). The metrics Cache is NOT a reliable checkpoint here: it flushes only
+# every ~100 s and silently falls back to read-only on a stale .lock (a
+# force-killed run leaves its lock behind because atexit never runs). So the
+# sweep checkpoints at its OWN level: every finished cell is APPENDED to the
+# results CSV immediately (flushed), and on startup any cell already present in
+# that CSV is SKIPPED. This is verifiable (the CSV is the list of done cells)
+# and independent of the metrics cache.
+
+_RESUME_NUM_COLS = ("M_factor", "S_gpc", "centerM", "outer_density_ceiling",
+                    "node_mass_amplitude", "node_s_amplitude", "node_mass_seed")
+_RESUME_TXT_COLS = ("init_distribution", "node_geometry")
+_ROW_FLOAT_COLS = ("centerM", "outer_density_ceiling", "node_mass_amplitude",
+                   "node_s_amplitude", "chi2_dof", "chi2", "chi2_lcdm", "chi2_eds",
+                   "R2", "growth_factor", "growth_target", "match_avg_pct", "diff_pct")
+_ROW_INT_COLS = ("M_factor", "S_gpc", "node_mass_seed", "n_sne_used")
+_ROW_BOOL_COLS = ("anchor_ok", "runaway")
+
+
+def _resume_key(identity: Dict, include_S: bool) -> tuple:
+    """Stable identity tuple for a sweep cell, matching disk (str) and live (num).
+
+    In fixed-S mode S is part of the identity; in co-fit mode S is an OUTPUT
+    (searched per cell), so it is excluded from the key.
+    """
+    def num(x):
+        try:
+            return round(float(x), 6)
+        except (TypeError, ValueError):
+            return None
+    num_cols = [c for c in _RESUME_NUM_COLS if include_S or c != "S_gpc"]
+    return (tuple(num(identity.get(c)) for c in num_cols)
+            + tuple(str(identity.get(c)) for c in _RESUME_TXT_COLS))
+
+
+def _parse_csv_row(raw: Dict) -> Dict:
+    """Parse a CSV-loaded row (all strings) back to typed values for resume/summary."""
+    row = dict(raw)
+    for c in _ROW_FLOAT_COLS:
+        v = row.get(c, "")
+        if v not in ("", None):
+            try:
+                row[c] = float(v)
+            except ValueError:
+                row[c] = float("inf") if c == "chi2_dof" else float("nan")
+    for c in _ROW_INT_COLS:
+        v = row.get(c, "")
+        if v not in ("", None):
+            try:
+                row[c] = int(float(v))
+            except ValueError:
+                pass
+    for c in _ROW_BOOL_COLS:
+        if c in row:
+            row[c] = str(row[c]).strip().lower() in ("true", "1")
+    return row
+
+
 def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]:
     """
     Run the full overarching sweep.
+
+    Resumable: finished cells are appended to the results CSV as they complete,
+    and a re-run skips cells already present (unless cfg['resume'] is False).
 
     Returns (csv_path, best_iso_csv_path, figure_paths).
     """
@@ -778,6 +842,34 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
     csv_path = os.path.join(cfg["results_dir"], f"ws1_sweep_{tag}.csv")
 
     all_rows: List[Dict] = []
+
+    # --- Resume: load cells already completed by a prior (interrupted) run ---
+    resume = bool(cfg.get("resume", True))
+    csv_existed = os.path.exists(csv_path) and os.path.getsize(csv_path) > 0
+    done_keys = set()
+    if resume and csv_existed:
+        with open(csv_path, newline="", encoding="utf-8") as _rf:
+            for _raw in csv.DictReader(_rf):
+                _pr = _parse_csv_row(_raw)
+                all_rows.append(_pr)
+                done_keys.add(_resume_key(_pr, include_S=not cofit))
+        print(f"[resume] {len(done_keys)} cell(s) already in {csv_path} -> skipping them")
+    elif csv_existed and not resume:
+        print(f"[resume] --no-resume: overwriting {csv_path}")
+        csv_existed = False  # force a fresh header below
+
+    # Per-cell checkpoint writer: append each finished cell immediately (flushed)
+    # so an interruption loses at most the single in-flight cell.
+    _ckpt_f = open(csv_path, "a" if csv_existed else "w", newline="", encoding="utf-8")
+    _ckpt_w = csv.DictWriter(_ckpt_f, fieldnames=SWEEP_CSV_COLS, extrasaction="ignore")
+    if not csv_existed:
+        _ckpt_w.writeheader()
+        _ckpt_f.flush()
+
+    def _checkpoint(row: Dict) -> None:
+        _ckpt_w.writerow(row)
+        _ckpt_f.flush()
+
     t_sweep_start = time.perf_counter()
 
     # Outer loops over centerM and outer_density_ceiling axes (WS4).
@@ -812,6 +904,17 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
 
                     for cell in group:
                         cell_num += 1
+                        _ident = dict(M_factor=cell["M"], centerM=centerM_val,
+                                      outer_density_ceiling=ceiling_val,
+                                      node_mass_amplitude=cell["amplitude"],
+                                      node_s_amplitude=cell["s_amplitude"],
+                                      node_mass_seed=cell["nm_seed"],
+                                      init_distribution=cell["init"],
+                                      node_geometry=cell["geometry"])
+                        if _resume_key(_ident, include_S=False) in done_keys:
+                            print(f"  [{cell_num}/{total_cells}] M={cell['M']:6d}  "
+                                  f"centerM={centerM_val}  [skip: already done]")
+                            continue
                         t0 = time.perf_counter()
                         row, best_S = _cofit_S_for_cell(
                             cell, cell_cfg, box_size_Gpc, a_start,
@@ -822,6 +925,8 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
                         elapsed = time.perf_counter() - t0
                         prev_best_S = best_S
                         all_rows.append(row)
+                        _checkpoint(row)
+                        done_keys.add(_resume_key(_ident, include_S=False))
 
                         chi_str = (f"{row['chi2_dof']:.4f}"
                                    if math.isfinite(row["chi2_dof"]) else "FAIL")
@@ -839,6 +944,17 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
                 for cell in cells:
                     for S in S_list:
                         i += 1
+                        _ident = dict(M_factor=cell["M"], S_gpc=S, centerM=centerM_val,
+                                      outer_density_ceiling=ceiling_val,
+                                      node_mass_amplitude=cell["amplitude"],
+                                      node_s_amplitude=cell["s_amplitude"],
+                                      node_mass_seed=cell["nm_seed"],
+                                      init_distribution=cell["init"],
+                                      node_geometry=cell["geometry"])
+                        if _resume_key(_ident, include_S=True) in done_keys:
+                            print(f"  [{i}/{total}] M={cell['M']:6d} S={S:3d}  "
+                                  f"centerM={centerM_val}  [skip: already done]")
+                            continue
                         t0 = time.perf_counter()
                         row = _run_cell_fixed_S(
                             cell, S, cell_cfg, box_size_Gpc, a_start,
@@ -846,6 +962,8 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
                         )
                         elapsed = time.perf_counter() - t0
                         all_rows.append(row)
+                        _checkpoint(row)
+                        done_keys.add(_resume_key(_ident, include_S=True))
                         chi_str = (f"{row['chi2_dof']:.4f}"
                                    if math.isfinite(row["chi2_dof"]) else "FAIL")
                         print(
@@ -860,11 +978,10 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
     print(f"\n[sweep] Done: {n} rows in {total_elapsed:.1f}s "
           f"({total_elapsed/max(n,1):.1f} s/sim)")
 
-    # Write full CSV
-    with open(csv_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=SWEEP_CSV_COLS, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(all_rows)
+    # The results CSV was written incrementally per-cell (the resume checkpoint),
+    # so there is no full rewrite here — just close the handle. csv_path now holds
+    # every resumed + newly-computed row.
+    _ckpt_f.close()
     print(f"[out] Full results: {csv_path}  ({n} rows)")
 
     # Write best-isotropic subset (load_best_config-compatible)
@@ -962,6 +1079,9 @@ def _build_parser():
                    help="Override the 'tag' key in config (sets CSV/figure prefix).")
     p.add_argument("--results-dir", default=None,
                    help="Override results directory.")
+    p.add_argument("--no-resume", action="store_true",
+                   help="Ignore any existing results CSV and recompute every cell "
+                        "(default: resume by skipping cells already in the CSV).")
     return p
 
 
@@ -974,6 +1094,7 @@ if __name__ == "__main__":
         cfg["tag"] = args.tag
     if args.results_dir:
         cfg["results_dir"] = args.results_dir
+    cfg["resume"] = not args.no_resume
 
     if args.plots_only:
         run_plots_only(args.plots_only, cfg)

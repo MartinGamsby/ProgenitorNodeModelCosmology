@@ -482,10 +482,21 @@ def probe_timing(
              init="uniform_sphere", geometry="cube26"),
     ][:n_probe]
 
+    # centerM / outer_density_ceiling may be sweep AXES (lists) in cfg; the per-cell
+    # runner expects SCALARS (it reads cfg["centerM"] straight into build_cache_name).
+    # Probe with a single representative scalar so timing never sees a list.
+    raw_cm = cfg["centerM"]
+    probe_centerM = float(raw_cm[0]) if isinstance(raw_cm, list) else float(raw_cm)
+    raw_ceil = cfg.get("outer_density_ceilings", cfg.get("outer_density_ceiling", 1.0))
+    probe_ceil = float(raw_ceil[0]) if isinstance(raw_ceil, list) else float(raw_ceil)
+    probe_cfg = dict(cfg)
+    probe_cfg["centerM"] = probe_centerM
+    probe_cfg["outer_density_ceiling"] = probe_ceil
+
     S_probe = cfg.get("s_min_gpc", 30)
     t0 = time.perf_counter()
     for cell in probe_cells:
-        _run_cell_fixed_S(cell, S_probe, cfg, box_size_Gpc, a_start,
+        _run_cell_fixed_S(cell, S_probe, probe_cfg, box_size_Gpc, a_start,
                           pantheon_data, baseline, weights, float("nan"), float("nan"))
     elapsed = time.perf_counter() - t0
     _ps.SKIP_CACHE = saved_skip

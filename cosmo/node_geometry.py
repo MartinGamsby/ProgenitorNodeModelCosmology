@@ -236,8 +236,10 @@ def _bcc(S: float, n_shells: int = 2) -> np.ndarray:
     Primitive vectors: a1=a(-1,1,1), a2=a(1,-1,1), a3=a(1,1,-1) with a=S/sqrt(3)*2.
     We enumerate all integer multiples within a radius bound.
 
-    For n_shells=1: 8 nodes (nearest-neighbour shell).
-    For n_shells=2: ~26 nodes.
+    For n_shells=1: 8 nodes (nearest-neighbour shell, the cube body-diagonals).
+    For n_shells=2: 386 nodes — a volume-FILLING lattice ball out to r~4*S, NOT
+        ~26. (cube26 by contrast is a single 3x3x3-1 shell of 26 nodes.) Node
+        count grows ~n_shells**3; pass n_shells via geometry_kwargs to control it.
 
     Args:
         n_shells: Number of shells (default 2).

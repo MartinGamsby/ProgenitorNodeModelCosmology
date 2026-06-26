@@ -205,8 +205,16 @@ For t_start=2.9 Gyr (box ≈ 4.39 Gpc, RMS ≈ 2.19 Gpc) this is ≈ 8.65e53 kg
 
 `particle_mass = total_mass_kg / n_particles`. With mass_randomize > 0: masses
 randomized in [mean-half_range, mean+half_range], normalized to preserve total.
-Softening scales as mean_particle_mass^(1/3) (integrator.py), so it adapts to the
-larger EdS mass automatically.
+
+**centerM > 1 (outer-mass multiplier, WS4)**: under eds_consistent, the inner
+EdS-critical mass / per-particle mass is unchanged; `N_outer = round((centerM-1)·
+N_inner·outer_density_ceiling)` extra particles are appended OUTSIDE R_obs at the SAME
+per-particle mass (total cloud mass = centerM × inner). a(t) is measured on the inner
+observable subset only (see
+[observable-mask-and-outer-mass.md](./observable-mask-and-outer-mass.md)). Softening
+is now FROZEN at `1.0*Gpc` (independent of centerM) — it does NOT scale with the EdS
+mass or centerM anymore (the old `mean_mass^(1/3)` integrator scaling still applies
+relative to that frozen per-M_obs base).
 
 ## Summary
 
@@ -353,11 +361,13 @@ ANISOTROPY, not the isotropic Hubble fit. Full table + physics in
   amplitude near the bound edge. Min physical chi2 ~0.48, never crosses LCDM 0.44.
 - **node_mass_amplitude** — same story (already documented): shear/dipole knob, not
   an isotropic-chi2 knob.
-- **centerM > 1** — with eds_consistent the cloud mass is OVERRIDDEN to EdS critical,
-  so centerM only sets softening; the observed chi2 shift (1→10: 0.85→0.63) is a
-  softening/resolution effect, not added self-gravity. Injecting REAL central mass
-  on top of critical would make the cloud over-dense (extra deceleration, MORE
-  matter-like, AWAY from LCDM) — still an undecided IC question.
+- **centerM > 1** — REPURPOSED (WS4). No longer a softening knob. centerM is now the
+  OUTER-MASS multiplier: extra Big-Bang matter OUTSIDE the inner observable sphere at
+  the same density; a(t) is measured on the inner region ONLY; softening is FROZEN at
+  the centerM=1 baseline. It is NOT a symmetry-breaking lever (outer matter is added
+  isotropically). Honest result: outer matter alone barely moves the isotropic chi2
+  (~0.012). Full mechanism + result:
+  [observable-mask-and-outer-mass.md](./observable-mask-and-outer-mass.md).
 
 ## References
 

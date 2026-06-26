@@ -37,7 +37,7 @@
 
 **Leapfrog** - Symplectic integrator using Kick-Drift-Kick algorithm. Energy-conserving.
 
-**Softening** - Minimum gravitational interaction distance preventing singularities. Default: 1 Mpc.
+**Softening** - Minimum gravitational interaction distance preventing singularities. Base value frozen at 1.0 Gpc per M_obs (WS4: independent of centerM; the integrator still scales it by mean_particle_mass^(1/3)). The legacy centerM->softening coupling was removed so centerM>1 changes a(t) only via real added outer-mass gravity, not a resolution artifact.
 
 **Matter-only** - Cosmology with Ω_Λ=0 (no dark energy, no external nodes). Pure matter deceleration.
 
@@ -47,7 +47,11 @@
 
 **RMS radius** - Root-mean-square distance of particles from center of mass. Proxy for universe size.
 
-**center_node_mass** - Central progenitor node mass as multiple of M_observable_kg. Default 1.0. Controls total_mass_kg for particle system and softening_m scaling in CosmologicalSimulation. Larger values model more massive central structures.
+**center_node_mass / centerM** - REPURPOSED (WS4). Outer-MASS multiplier = total simulated mass / inner observable mass (>= 1.0, default 1.0). >1.0 adds extra Big-Bang matter OUTSIDE the inner observable sphere at the same density + per-particle mass; N grows LINEARLY (centerM=2 -> 2x particles), R_sim = R_obs·centerM^(1/3). The inner observable region (its density, mass, a(t)) is UNCHANGED; only outer particles are appended. a(t)/H(z)/mu(z)/growth-anchor are measured on the inner observable subset ONLY (observable mask). centerM=1.0 -> byte-identical to pre-WS4. NO LONGER a softening knob (softening is now frozen, independent of centerM). centerM>1 requires eds_consistent + uniform_sphere. See lode/physics/observable-mask-and-outer-mass.md.
+
+**Observable mask** - Boolean per-particle mask (True=inner observable, False=outer shell) set in ParticleSystem._initialize_particles; applied in CosmologicalSimulation._calculate_expansion_history so a(t)/mu(z)/growth-anchor use only the inner observable sub-region. All-True (byte-identical) at centerM=1. The integrator is untouched: outer particles still exert gravity. See lode/physics/observable-mask-and-outer-mass.md.
+
+**outer_density_ceiling** - Multiplier on the inner EdS-critical density for centerM>1 outer particles (default 1.0 = same density). Clipped to SimulationParameters.MAX_OUTER_DENSITY_CEILING = 2.0 with a UserWarning. No effect at centerM=1.
 
 **Node-mass amplitude / seed** - `node_mass_amplitude` and `node_mass_seed` on SimulationParameters/ExternalNodeParameters. Make the 26 HMEA node masses log-normal: m_i = M_ext_kg·w_i/mean(w), w_i = exp(amplitude·g_i), g_i = default_rng(seed) standard normals. amplitude=0 (default) => all nodes uniform = M_ext_kg (backward compatible). MEAN-PRESERVING (mean == M_ext_kg exactly), so total external mass + Omega_Lambda_eff stay fixed (both linear in masses). CAVEAT: growth is NOT fully fixed — at strong tidal field (small S / large M) amplitude>0 nudges the realized growth factor up a few % (second-order, nonlinear a(t)); the seed selects shear/dipole ORIENTATION. For the Pantheon chi2 this makes amplitude degenerate with M/S, NOT an independent fit knob. Sweepable. See lode/physics/pantheon-comparison-results.md + force-calculations.md.
 

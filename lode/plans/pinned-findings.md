@@ -92,6 +92,34 @@ Source: [../physics/initial-conditions.md](../physics/initial-conditions.md) run
 **WS1 must map this boundary as a figure (runaway-boundary map) so every claimed config
 is visibly on the bound side.**
 
+## PF6 — WS4 centerM (outer mass) barely moves the isotropic fit (honest result)
+
+centerM is now the OUTER-MASS multiplier (extra Big-Bang matter OUTSIDE the inner
+observable sphere; a(t) measured on the inner region only; softening frozen). Source:
+[../physics/observable-mask-and-outer-mass.md](../physics/observable-mask-and-outer-mass.md).
+
+Reduced sweep (M∈{1,2,5,20}, centerM∈{1.0,1.5,2.0,3.0}, S co-fit 18–40 Gpc, 400p,
+273 steps, t_start=2.9). Best chi2/dof vs Pantheon+ per centerM (all at M=20, S=39):
+
+| centerM | best chi2/dof |
+|---------|---------------|
+| 1.0     | 0.6921        |
+| 1.5     | 0.7030        |
+| 2.0     | **0.6801** (best) |
+| 3.0     | 0.6844        |
+| LCDM ref| 0.436         |
+| EdS ref | 0.843         |
+
+- Outer matter helped only MARGINALLY (~0.012 chi2/dof, centerM=1→2). Outer mass
+  alone did NOT move the isotropic fit toward LCDM.
+- The small-M (M=1–2) hypothesis corner produced NO anchor_ok rows (too weak to reach
+  the growth anchor) — the small-M + outer-mass hypothesis is NOT supported by this grid.
+- **CAVEAT — not the global best.** This reduced grid OMITTED the prior known corner
+  ~M=50/S=20 (~0.52, see PF4). So "best=0.68" is the best of the SMALL-M hypothesis
+  grid, not the model's global best; a fuller sweep including M~50/S~20 is still OPEN.
+  Do NOT overstate — and do not use 0.68 as the model's isotropic baseline (PF4's
+  ~0.52 low-S band remains the near-LCDM headline).
+
 ## What is NOT yet pinned (the job of this phase)
 
 - The single consistent chi2/dof for the nominal + best configs on one kernel/anchor.
@@ -99,5 +127,6 @@ is visibly on the bound side.**
 - Whether the GRF chi2 swing is real physics, near-runaway sensitivity, particle-count
   noise, or a GRF setup issue (WS5).
 - Whether all conclusions survive high N (WS6).
-- The correct centerM semantics (extend the sim sphere OUTSIDE the observable region) —
-  currently centerM only sets softening under eds_consistent (WS4).
+- A fuller WS4 centerM sweep INCLUDING the M~50/S~20 corner (the reduced grid that
+  produced PF6 omitted it). centerM-as-outer-mass semantics are now IMPLEMENTED (PF6);
+  whether outer mass helps at the model's actual best-fit corner is still open.

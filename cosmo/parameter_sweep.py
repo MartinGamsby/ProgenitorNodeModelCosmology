@@ -799,7 +799,7 @@ def ternary_search_S(
 
     Args:
         M_factor: External node mass factor
-        centerM: Center node mass factor
+        centerM: Outer-mass multiplier (total sim mass / inner observable mass, >=1.0)
         sim_callback: Callback to run simulation
         baseline: LCDM baseline for comparison
         weights: Match metric weights
@@ -881,7 +881,7 @@ def linear_search_S(
 
     Args:
         M_factor: External node mass factor
-        centerM: Center node mass factor
+        centerM: Outer-mass multiplier (total sim mass / inner observable mass, >=1.0)
         sim_callback: Callback to run simulation
         baseline: LCDM baseline for comparison
         weights: Match metric weights

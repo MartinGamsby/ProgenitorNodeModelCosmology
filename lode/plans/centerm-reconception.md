@@ -1,35 +1,37 @@
-# WS4 — centerM Reconception (extend the sim sphere OUTSIDE the observable region)
+# WS4 — centerM Reconception (design rationale)
+
+STATUS: **IMPLEMENTED**. The mechanism as it exists in code is described in
+[../physics/observable-mask-and-outer-mass.md](../physics/observable-mask-and-outer-mass.md).
+This file keeps the DESIGN RATIONALE (why centerM was repurposed and what the
+constraint was). The honest result is in
+[pinned-findings.md](./pinned-findings.md) (PF6).
 
 Back to [deeper-exploration-roadmap.md](./deeper-exploration-roadmap.md). Phase 2.
-Depends on WS1 (sweep) + WS3 (geometry) being in place; figures via
-[graphs-from-scripts.md](./graphs-from-scripts.md).
 
-## Why the current centerM is conceptually WRONG (user was emphatic)
+## Why the OLD centerM was conceptually wrong
 
-Today, under `eds_consistent=True`, the cloud mass is OVERRIDDEN to the EdS critical
-mass, so `center_node_mass` (centerM) only sets the softening scale — the observed chi2
-shift with centerM (1→10: 0.85→0.63) is a softening/resolution artifact, not added
-self-gravity (see [../physics/initial-conditions.md](../physics/initial-conditions.md)
-"centerM > 1"). Worse, the naive intent (inject more central mass) would CRAM more mass
-into the observable sphere → raise its density → make M_obs bigger / decelerate MORE →
-push AWAY from LCDM. That is the wrong direction.
+Pre-WS4, under `eds_consistent=True`, the cloud mass was OVERRIDDEN to the EdS
+critical mass, so `center_node_mass` (centerM) only set the softening scale — the
+observed chi2 shift with centerM (1→10: 0.85→0.63) was a softening/resolution
+ARTIFACT, not added self-gravity. Worse, the naive intent (inject more central
+mass) would CRAM more mass into the observable sphere → raise its density →
+decelerate MORE → push AWAY from LCDM. Wrong direction.
 
-**Fixed constraint:** the observable universe — the inner sphere we compare to Pantheon
-— is FIXED by the current equations. Its mass/density must NOT change. Increasing the
-simulated mass must not raise the observable sphere's density.
+**Fixed constraint:** the observable universe — the inner sphere compared to
+Pantheon — is FIXED. Its mass/density must NOT change. Increasing the simulated mass
+must not raise the observable sphere's density.
 
-## Correct reconception: a larger sim sphere with an inner observable sub-region
+## The reconception that was implemented
 
-"More simulated mass" should mean EXTENDING THE SIMULATED REGION BEYOND the observable
-sphere — adding MORE PARTICLES OUTSIDE the initial observable sphere at SIMILAR density
-(the mass from the Big Bang that exists outside our observable universe), while keeping
-the inner observable region UNCHANGED, and using ONLY that inner region's a(t) for the
-Pantheon comparison.
+"More simulated mass" means EXTENDING the simulated region BEYOND the observable
+sphere: adding particles OUTSIDE the inner observable sphere at the SAME density (the
+Big-Bang matter that exists outside our observable universe), keeping the inner region
+UNCHANGED, and using ONLY the inner region's a(t) for the Pantheon comparison.
 
 ```mermaid
 graph TD
-    subgraph SIM["Simulated sphere radius R_sim (large)"]
-        OUT["outer shell particles<br/>same density as inner<br/>(mass outside observable universe)"]
+    subgraph SIM["Simulated sphere radius R_sim = R_obs * centerM^(1/3)"]
+        OUT["outer shell particles<br/>same density + per-particle mass<br/>(mass outside observable universe)"]
         subgraph OBS["Inner observable sub-region radius R_obs (FIXED)"]
             INNER["observable particles<br/>density unchanged<br/>a(t) here -> Pantheon mu(z)"]
         end
@@ -38,82 +40,42 @@ graph TD
     INNER --> CMP[comparison reads INNER a(t) only]
 ```
 
-- The outer particles are extra Big-Bang matter at the SAME critical-ish density (not a
-  denser core). They add self-gravity / boundary structure felt by the inner region
-  WITHOUT changing the inner region's own density.
-- The comparison metric (`sim_to_distance_modulus`) reads the INNER observable sub-
-  region's a(t) only — NOT the whole sim's RMS radius. This is the key change: today a(t)
-  is the global RMS; here it must be computed on the inner sub-region.
-- This ties to what the GRF "outside" structure represents (WS5): the clustered field
-  beyond the observable patch is exactly this outer matter.
+The user's FINAL naming decision was to REUSE `centerM` literally (repurpose
+`center_node_mass`), NOT introduce a new param. The CLI flag, CSV column, and cache
+slug keep their names; the MEANING changed to the outer-mass multiplier. See the
+physics file for the exact semantics (linear N, R_sim cube-root, frozen softening,
+v3 cache, slug fix, density ceiling).
 
-## Candidate working regime to TEST (user hypothesis, 2026-06)
-
-The user suspects the model may fit best NOT at the large node masses explored so far
-(M~855–3000) but in a **small-M + centerM>1 + small-S** corner:
-
-- **Small per-node mass M, close to 1–2** (M_ext ≈ 1–2 × M_obs), not hundreds/thousands.
-- **centerM > 1** in the RECONCEIVED sense above = more matter OUTSIDE the observable
-  sphere (the outer-region particles / "more mass at the outer edges"), NOT a denser
-  observable core.
-- **Smaller S** (nodes closer in), so the near-field tidal effect is stronger at small M.
-- This corner **MAY have already been partially hit** by earlier sweeps (e.g. the low-S
-  end of `sweeps/targeted_near_lcdm.json`, M=50/S=20 ≈ 0.52) — check whether extending to
-  M≈1–2 with the outer-region mass added pushes chi2 further toward LCDM (0.436). Honest
-  outcome either way.
-
-**HARD INVARIANT the user re-emphasized (do NOT get this wrong):** when centerM>1 / the
-simulated region is enlarged, a(t)/H(z)/μ(z) and the growth anchor MUST be computed on the
-**OBSERVABLE (inner) sub-region only**, NEVER on the enlarged simulated size. Measuring the
-full (bigger) cloud's RMS would "screw up everything" — the observable universe is fixed;
-the outer matter only acts gravitationally on the inner region. This is the central
-correctness gate of WS4 (see the observable-mask design below).
+**HARD INVARIANT (the central correctness gate):** a(t)/H(z)/μ(z) and the growth
+anchor are computed on the OBSERVABLE (inner) sub-region ONLY, never on the enlarged
+simulated size. Implemented as a single observable-index mask applied at the a(t)
+measurement seam (`_calculate_expansion_history`); the integrator is untouched so
+outer particles still exert gravity.
 
 ## Density constraint (the "couldn't go that high" note)
 
-The outer region is added at SIMILAR density to the inner observable region (≈ EdS
-critical). You cannot push the outer density arbitrarily high — that would re-introduce
-the over-dense / extra-deceleration problem this reconception is meant to avoid, and the
-inner region's behavior must remain physical. Document and enforce a density ceiling;
-record empirically how large R_sim / how many outer particles can be added before the
-inner a(t) is disturbed beyond tolerance.
+The outer region is added at SIMILAR density to the inner (≈ EdS critical). The outer
+density cannot be pushed arbitrarily high — that re-introduces over-dense / extra-
+deceleration. Implemented as `outer_density_ceiling` (default 1.0, capped at
+`MAX_OUTER_DENSITY_CEILING = 2.0` with a warning).
 
-## Implementation concept (to design, not implement here)
+## The hypothesis that was tested (small-M + centerM>1 + small-S)
 
-- A new param: `sim_sphere_factor` (R_sim / R_obs) or `n_outer_particles` — the sim is
-  initialized on a sphere of radius R_sim, with the inner R_obs flagged as observable.
-- Initialization seeds outer particles at the same density profile as inner (EdS
-  critical), so the inner region is byte-identical to today when sim_sphere_factor=1.
-  This is the backward-compat invariant: factor=1 ⇒ current behavior ⇒ M=0==EdS (PF1).
-- a(t) / growth / mu(z) and the anisotropy diagnostic all operate on the INNER subset
-  (an "observable mask" of particle indices). The comparison kernel takes that subset.
-- Likely retire or repurpose `center_node_mass` for the eds_consistent path (it no
-  longer means "more observable mass"); keep it only as the softening knob it currently
-  is, clearly documented, OR fold it into the new scheme.
-- Edge / boundary care: outer particles need enough shell thickness that the inner
-  region's tidal environment is well-sampled but the outer EDGE artifacts (a hard
-  particle boundary) do not leak into the inner a(t). Use the inner sub-region radius
-  comfortably inside R_sim.
+The user suspected the model might fit best NOT at large node masses (M~855–3000) but
+in a small-M (M≈1–2) + centerM>1 + small-S corner. RESULT (PF6): the small-M corner
+produced NO anchor_ok rows, and outer matter helped only marginally (best centerM=2.0
+chi2/dof 0.6801 vs centerM=1.0 0.6921, both at M=20/S=39). Outer matter alone did not
+move the isotropic fit toward LCDM. NOTE the reduced grid omitted the prior M~50/S~20
+corner (~0.52), so this is the best of the small-M grid, not the global best — a
+fuller sweep is still open. Honest outcome recorded either way.
 
-## Files this workstream touches
+## Files this workstream touched (implemented)
 
-- `cosmo/particles.py` / `ParticleSystem._initialize_particles` — seed outer particles
-  at inner density; tag an observable index mask.
-- `cosmo/simulation.py` — carry the observable mask; ensure pre-start boost + COM
-  removal handle the larger cloud correctly.
-- `cosmo/sim_distance.py` / `hubble_diagram_nbody.py` — compute a(t) on the INNER subset.
-- `cosmo/anisotropy.py` callers — measure shear/dipole on the inner subset.
-- `cosmo/constants.py` — `sim_sphere_factor` / observable-mask params; centerM
-  semantics clarified or folded in.
-- WS1 sweep — add sim_sphere_factor as an axis (modest values; density-capped).
-- Tests: factor=1 reproduces current inner a(t) exactly; M=0==EdS preserved; inner
-  density unchanged as outer particles are added; density-ceiling enforcement.
-
-## Deliverables
-
-- A sim with a larger outer region + an inner observable sub-region whose a(t) drives
-  the Pantheon comparison.
-- A figure: inner-region a(t) / chi2 vs sim_sphere_factor, showing the inner region is
-  undisturbed (factor=1 baseline) and where the density ceiling bites.
-- An honest answer: does adding realistic outside matter change the inner observable
-  expansion, and in which direction?
+- `cosmo/particles.py` — outer-shell sampler + observable mask.
+- `cosmo/simulation.py` — mask applied in `_calculate_expansion_history`; frozen softening.
+- `cosmo/constants.py` — repurposed `center_node_mass` + `outer_density_ceiling` + clip/warn.
+- `cosmo/parameter_sweep.py` — v3 cache version, centerM float slug, ceiling slug.
+- `sweep.py`, `cosmo/cli.py`, `hubble_diagram_nbody.py` — centerM/ceiling wiring.
+- `_generate_ws4_figs.py` + `sweeps/ws4_centerm.json` — sweep + figures.
+- Tests: `tests/test_observable_mask.py`, `tests/test_ws4_cache_slug.py`,
+  `tests/test_matter_only_consistency.py`.

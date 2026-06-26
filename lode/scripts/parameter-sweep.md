@@ -91,8 +91,11 @@ SimCallback = Callable[[int, int, int, List[int]], List[SimResult]]  # (M, S, ce
 **S (spacing)**: 15 -> 60 Gpc (100 if many_search)
 - Integer increments
 
-**centerM (center node mass)**: 1 -> 100 x M_obs
-- Searched when search_center_mass=True
+**centerM (outer-mass multiplier, WS4)**: >= 1.0 (e.g. {1.0, 1.5, 2.0, 3.0})
+- = total simulated mass / inner observable mass. >1.0 adds extra matter OUTSIDE
+  the observable sphere; a(t) is measured on the inner region only. NOT a center
+  density. Searched when search_center_mass=True (or via the `centerM` list in a
+  sweep JSON). See [../physics/observable-mask-and-outer-mass.md](../physics/observable-mask-and-outer-mass.md).
 
 ## Search Methods
 
@@ -179,14 +182,21 @@ pre-start boost vs the legacy calibrated ICs) would silently reuse the old entry
 return STALE chi2/results. `build_cache_name` therefore ALWAYS appends a physics token
 `physics_cache_token(config)` as the LAST key part:
 - `PHYSICS_CACHE_VERSION` (module constant in `cosmo/parameter_sweep.py`, currently
-  `"v2"`) is a MANUALLY-BUMPED token. **Bump it whenever a change alters a(t) for a
+  `"v3"`) is a MANUALLY-BUMPED token. **Bump it whenever a change alters a(t) for a
   fixed parameter tuple** (ICs, force law, boost, integrator, softening). v1=legacy
-  calibrated ICs; v2=EdS-consistent ICs + pre-start tidal boost (current default).
+  calibrated ICs; v2=EdS-consistent ICs + pre-start tidal boost; v3=WS4 centerM
+  repurposed as outer-mass multiplier + softening frozen at the centerM=1 baseline
+  (centerM>1 a(t) differs from v2's softening-only centerM; centerM=1 a(t) is
+  byte-identical but the bump retires all v2 entries uniformly).
+- The centerM slug is `{float(centerM)}centerM` (fixed from the old `int(centerM)`
+  truncation that collided 1.5→1); `outer_density_ceiling != 1.0` appends a
+  `{ceiling}ceil` slug (default 1.0 adds nothing). See
+  [../physics/observable-mask-and-outer-mass.md](../physics/observable-mask-and-outer-mass.md).
 - It also folds in the physics-affecting IC flags `eds_consistent` /
   `pre_start_tidal_boost` (now `SweepConfig` fields, default True): a legacy
-  `eds_consistent=False` run gets a DISTINCT key (`...physv2noeds`) so it can never
+  `eds_consistent=False` run gets a DISTINCT key (`...physv3noeds`) so it can never
   collide with a current run at the same params.
-- Token shape `phys<ver>[<flags>]` (e.g. `physv2`) round-trips cleanly through
+- Token shape `phys<ver>[<flags>]` (e.g. `physv3`) round-trips cleanly through
   `Cache._split_key`/`_join_key`. SKIP_CACHE still bypasses caching entirely.
 - Tests: `tests/test_parameter_sweep_pantheon.py::TestPhysicsCacheVersionToken`
   (token in key, different version → disjoint key, legacy flags → distinct key,

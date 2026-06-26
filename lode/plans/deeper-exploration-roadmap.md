@@ -10,7 +10,7 @@ Sub-files:
 - [overarching-sweep.md](./overarching-sweep.md) — WS1: one config-driven multi-param sweep tool
 - [graphs-from-scripts.md](./graphs-from-scripts.md) — WS2: every claim gets a saved PNG
 - [node-geometries.md](./node-geometries.md) — WS3: geometry factory (denser/more-node volume-filling lattices; hollow shells excluded)
-- [centerm-reconception.md](./centerm-reconception.md) — WS4: extend the sim sphere OUTSIDE the observable region
+- [centerm-reconception.md](./centerm-reconception.md) — WS4 (IMPLEMENTED): centerM repurposed as outer-mass multiplier (matter OUTSIDE the observable region) + inner-region a(t) mask. Mechanism: [../physics/observable-mask-and-outer-mass.md](../physics/observable-mask-and-outer-mass.md); honest result: pinned-findings PF6
 - [grf-vs-uniform.md](./grf-vs-uniform.md) — WS5: why init_distribution moved the isotropic chi2
 - [particle-convergence.md](./particle-convergence.md) — WS6: high-N convergence (LAST/slowest)
 - [scale-out-gpu-hf.md](./scale-out-gpu-hf.md) — WS7: future HuggingFace + GPU scale-out (NOT now)

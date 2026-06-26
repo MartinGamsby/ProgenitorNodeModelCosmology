@@ -512,5 +512,200 @@ class TestPlotsFromCsv(unittest.TestCase):
             _assert_png(p)
 
 
+# ---------------------------------------------------------------------------
+# 10. WS4 figure-script pure helpers (_generate_ws4_figs.py)
+# ---------------------------------------------------------------------------
+
+class TestWs4FigHelpers(unittest.TestCase):
+    """Unit tests for the pure (no-sim) helpers in _generate_ws4_figs.py.
+
+    These tests import the module directly and exercise data-loading,
+    best-row selection, and annotation formatting — no simulation required.
+    """
+
+    def _make_rows(self):
+        """Synthetic sweep rows covering centerM {1, 2, 3} and M {1, 5}."""
+        rows = []
+        for M in [1, 5]:
+            for cm in [1.0, 2.0, 3.0]:
+                rows.append({
+                    "M_factor": str(M),
+                    "S_gpc": "25.0",
+                    "centerM": str(cm),
+                    "chi2_dof": str(0.55 - 0.02 * cm + 0.01 * M),
+                    "anchor_ok": "True",
+                    "growth_factor": "3.1",
+                    "outer_density_ceiling": "1.0",
+                    "node_mass_amplitude": "0.0",
+                    "init_distribution": "uniform_sphere",
+                    "node_geometry": "cube26",
+                })
+        # Add an anchor_ok=False row with better chi2 (should be deprioritised)
+        rows.append({
+            "M_factor": "1",
+            "S_gpc": "20.0",
+            "centerM": "1.0",
+            "chi2_dof": "0.10",   # very good but unphysical
+            "anchor_ok": "False",
+            "growth_factor": "99.0",
+            "outer_density_ceiling": "1.0",
+            "node_mass_amplitude": "0.0",
+            "init_distribution": "uniform_sphere",
+            "node_geometry": "cube26",
+        })
+        return rows
+
+    def test_select_best_row_prefers_anchor_ok(self):
+        """select_best_row should pick the best anchor_ok row, not the runaway."""
+        from _generate_ws4_figs import select_best_row
+        rows = self._make_rows()
+        best = select_best_row(rows)
+        assert best is not None
+        # The runaway (anchor_ok=False) row has chi2=0.10 which is lower, but
+        # select_best_row must prefer anchor_ok=True rows.
+        assert str(best.get("anchor_ok", "")).lower() in ("true", "1"), (
+            f"Expected anchor_ok=True, got {best}"
+        )
+
+    def test_select_best_row_returns_min_chi2_among_ok(self):
+        """Among anchor_ok rows the one with the lowest chi2/dof is selected."""
+        from _generate_ws4_figs import select_best_row
+        rows = self._make_rows()
+        best = select_best_row(rows)
+        assert best is not None
+        ok_rows = [r for r in rows if str(r.get("anchor_ok", "")).lower() in ("true", "1")]
+        min_chi2 = min(float(r["chi2_dof"]) for r in ok_rows)
+        assert abs(float(best["chi2_dof"]) - min_chi2) < 1e-9
+
+    def test_select_best_row_empty(self):
+        """Empty list returns None."""
+        from _generate_ws4_figs import select_best_row
+        assert select_best_row([]) is None
+
+    def test_select_best_row_all_nan(self):
+        """All-NaN chi2 rows returns None."""
+        from _generate_ws4_figs import select_best_row
+        rows = [{"chi2_dof": "nan", "anchor_ok": "True"}]
+        assert select_best_row(rows) is None
+
+    def test_select_best_row_fallback_to_all_rows(self):
+        """When no anchor_ok rows exist, falls back to all rows."""
+        from _generate_ws4_figs import select_best_row
+        rows = [
+            {"chi2_dof": "0.7", "anchor_ok": "False"},
+            {"chi2_dof": "0.6", "anchor_ok": "False"},
+        ]
+        best = select_best_row(rows)
+        assert best is not None
+        assert abs(float(best["chi2_dof"]) - 0.6) < 1e-9
+
+    def test_format_chi2_annotation_finite(self):
+        """Finite chi2 is formatted with 3 decimal places."""
+        from _generate_ws4_figs import format_chi2_annotation
+        s = format_chi2_annotation(0.4360, "LCDM")
+        assert "LCDM" in s
+        assert "0.436" in s
+
+    def test_format_chi2_annotation_nan(self):
+        """Non-finite chi2 shows n/a."""
+        from _generate_ws4_figs import format_chi2_annotation
+        s = format_chi2_annotation(float("nan"), "Sim")
+        assert "n/a" in s
+
+    def test_load_sweep_csv_roundtrip(self):
+        """load_sweep_csv reads back rows written by csv.DictWriter."""
+        import csv as _csv_mod
+        import tempfile
+        from _generate_ws4_figs import load_sweep_csv
+
+        rows_in = [{"M_factor": "1", "S_gpc": "25.0", "chi2_dof": "0.55",
+                    "centerM": "2.0"}]
+        with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".csv", delete=False, encoding="utf-8", newline=""
+        ) as fh:
+            path = fh.name
+            writer = _csv_mod.DictWriter(fh, fieldnames=list(rows_in[0].keys()))
+            writer.writeheader()
+            writer.writerows(rows_in)
+
+        try:
+            rows_out = load_sweep_csv(path)
+        finally:
+            os.unlink(path)
+
+        assert len(rows_out) == 1
+        assert rows_out[0]["M_factor"] == "1"
+        assert rows_out[0]["chi2_dof"] == "0.55"
+
+    def test_fig_b_pure_plot_no_sim(self):
+        """generate_fig_b can plot from synthetic rows without running a sim
+        when at_curves are provided as a pre-filled dict (mocked path).
+
+        This is a lighter smoke test that only exercises the matplotlib path
+        by patching run_external_node_simulation with a tiny fake.
+        """
+        import tempfile
+        import types
+        import unittest.mock as mock
+
+        import cosmo.plots as _plots
+        from _generate_ws4_figs import select_best_row
+
+        rows = [
+            {"M_factor": "1", "S_gpc": "25.0", "centerM": "1.0",
+             "chi2_dof": "0.55", "anchor_ok": "True",
+             "growth_factor": "3.1", "outer_density_ceiling": "1.0",
+             "node_mass_amplitude": "0.0", "init_distribution": "uniform_sphere",
+             "node_geometry": "cube26"},
+            {"M_factor": "1", "S_gpc": "25.0", "centerM": "2.0",
+             "chi2_dof": "0.53", "anchor_ok": "True",
+             "growth_factor": "3.1", "outer_density_ceiling": "1.0",
+             "node_mass_amplitude": "0.0", "init_distribution": "uniform_sphere",
+             "node_geometry": "cube26"},
+        ]
+
+        cfg = {
+            "t_start_Gyr": 5.8,
+            "n_steps": 30,
+            "particle_count": 50,
+            "centerM": [1.0, 2.0],
+            "outer_density_ceiling": 1.0,
+            "outer_density_ceilings": [1.0],
+        }
+
+        # Tiny fake a(t) so the sim is never actually run
+        n_snaps = 4
+        t_fake = np.linspace(0.0, 13.8 - 5.8, n_snaps)
+        t_abs_fake = 5.8 + t_fake
+        a_fake = (t_abs_fake / 5.8) ** (2.0 / 3.0)
+        a_fake /= a_fake[0]
+        fake_ext = {"a": a_fake, "t_Gyr": t_fake,
+                    "diameter_Gpc": np.ones(n_snaps),
+                    "max_radius_Gpc": np.ones(n_snaps),
+                    "H_hubble": np.ones(n_snaps)}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            orig = _plots._RESULTS_ROOT
+            _plots._RESULTS_ROOT = tmp
+            path = None
+            try:
+                with mock.patch(
+                    "_generate_ws4_figs.run_external_node_simulation",
+                    return_value=fake_ext,
+                ), mock.patch(
+                    "_generate_ws4_figs.setup_simulation_context",
+                    return_value=(10.0, 0.35, {
+                        "t": t_fake, "diameter_Gpc": np.ones(n_snaps),
+                        "H_hubble": np.ones(n_snaps), "a": a_fake,
+                    }),
+                ):
+                    from _generate_ws4_figs import generate_fig_b
+                    path = generate_fig_b(rows, cfg, out_tag="test_ws4")
+                # Assert while tmp dir still exists
+                _assert_png(path)
+            finally:
+                _plots._RESULTS_ROOT = orig
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -160,18 +160,32 @@ def main() -> None:
     snap0_a = sim_a.snapshots[0]
     snapN_a = sim_a.snapshots[-1]
 
+    # WS4 / Section 2: restrict anisotropy diagnostics to the inner observable
+    # sub-region only.  When centerM=1 the mask is all-True so behaviour is
+    # byte-identical to the pre-WS4 code.  Guard with getattr for robustness.
+    mask_u = getattr(sim_u.particles, 'observable_mask', None)
+    if mask_u is None:
+        mask_u = np.ones(len(snap0_u["positions"]), dtype=bool)
+    mask_u = np.asarray(mask_u, dtype=bool)
+
+    mask_a = getattr(sim_a.particles, 'observable_mask', None)
+    if mask_a is None:
+        mask_a = np.ones(len(snap0_a["positions"]), dtype=bool)
+    mask_a = np.asarray(mask_a, dtype=bool)
+
     # Compute diagnostics on final snapshot (and expansion anisotropy)
+    # — inner observable sub-region only (WS4 Section 2).
     diag_u = anisotropy_summary(
-        snapN_u["positions"],
-        snapN_u["velocities"],
-        positions_initial=snap0_u["positions"],
-        positions_final=snapN_u["positions"],
+        snapN_u["positions"][mask_u],
+        snapN_u["velocities"][mask_u],
+        positions_initial=snap0_u["positions"][mask_u],
+        positions_final=snapN_u["positions"][mask_u],
     )
     diag_a = anisotropy_summary(
-        snapN_a["positions"],
-        snapN_a["velocities"],
-        positions_initial=snap0_a["positions"],
-        positions_final=snapN_a["positions"],
+        snapN_a["positions"][mask_a],
+        snapN_a["velocities"][mask_a],
+        positions_initial=snap0_a["positions"][mask_a],
+        positions_final=snapN_a["positions"][mask_a],
     )
 
     # ---- Table ----

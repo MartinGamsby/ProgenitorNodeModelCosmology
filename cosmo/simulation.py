@@ -460,30 +460,64 @@ class CosmologicalSimulation:
         return self.snapshots
     
     def _calculate_expansion_history(self) -> None:
-        """Calculate the scale factor a(t) from snapshots."""
+        """Calculate the scale factor a(t) from snapshots.
+
+        WS4 / Section 2 — OBSERVABLE INNER REGION ONLY
+        -----------------------------------------------
+        When centerM > 1 the simulation contains both inner (observable) and
+        outer (shell) particles.  a(t) — and hence H(z), mu(z), and the growth
+        anchor — MUST be computed from the inner observable sub-region only.
+        The outer particles still exert gravity (integrator is UNCHANGED) but
+        must never enter the size/expansion MEASUREMENT.
+
+        Implementation: the observable mask (True for inner particles, always
+        all-True when centerM=1) is applied to every snapshot's position array
+        before passing it to calculate_system_size.  When centerM=1 the mask is
+        all-True so the result is numerically byte-identical to the pre-WS4 code.
+
+        Guard: if the ParticleSystem was constructed without an observable_mask
+        attribute (very old test constructions), we default to all-True.
+        """
         self.expansion_history = []
 
-        rms_initial, max_initial, _ = self.calculate_system_size(self.snapshots[0])
+        # --- Observable mask (Section 2 gate) ---
+        # getattr guard: older ParticleSystem constructions (pre-WS4) may not
+        # have observable_mask; default to all-True for backward compat.
+        raw_mask = getattr(self.particles, 'observable_mask', None)
+        if raw_mask is None:
+            n_total = len(self.particles.particles)
+            mask = np.ones(n_total, dtype=bool)
+        else:
+            mask = np.asarray(raw_mask, dtype=bool)
+
+        # Initial baseline on the INNER observable subset only.
+        inner_pos_initial = self.snapshots[0]['positions'][mask]
+        rms_initial, _, _ = ParticleSystem.calculate_system_size(inner_pos_initial)
 
         for snapshot in self.snapshots:
             t = snapshot['time_s']
-            rms_current, max_current, com = self.calculate_system_size(snapshot)
 
-            # Scale factor a(t) = R(t) / R(t=0)
-            # Use RMS for scale factor (typical expansion)
+            # Inner-subset positions for this snapshot.
+            inner_pos = snapshot['positions'][mask]
+            rms_current, max_current, com = ParticleSystem.calculate_system_size(inner_pos)
+
+            # Scale factor a(t) = R_inner(t) / R_inner(t=0)
+            # Use RMS over the OBSERVABLE sub-region only.
             a = rms_current / rms_initial
 
             # Physical size: consistent with ΛCDM (a * box_size_initial)
             # This ensures all models start from the same physical size
             size_Gpc = a * self.box_size_Gpc
 
-            # diameter_m = 2 × rms_radius_m
+            # max_particle_distance: also restricted to observable subset so
+            # downstream callers see the inner cloud's furthest particle.
+            # diameter_m = 2 × rms_radius_m (inner only)
             self.expansion_history.append({
                 'time': t,
                 'time_Gyr': t / (1e9 * 365.25 * 24 * 3600),
                 'scale_factor': a,
-                'diameter_m': rms_current*2,
-                'size_a': size_Gpc* self.const.Gpc_to_m,
+                'diameter_m': rms_current * 2,
+                'size_a': size_Gpc * self.const.Gpc_to_m,
                 'max_particle_distance': max_current,
                 'com': com,
             })

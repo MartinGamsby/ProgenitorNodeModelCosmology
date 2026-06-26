@@ -160,7 +160,12 @@ SKIP_CACHE = False
 #   v2  EdS-consistent ICs (M=0 == EdS critical mass + H_EdS Hubble flow) and the
 #       pre-t_start HMEA tidal velocity boost. Both change a(t) for fixed params,
 #       so every v1 entry is stale under the current defaults.
-PHYSICS_CACHE_VERSION = "v2"
+#   v3  centerM repurposed as an outer-MASS multiplier (extra Big-Bang matter outside
+#       the observable sphere) + softening frozen at the centerM=1 baseline; a(t) for
+#       any centerM>1 differs from v2's softening-only centerM, so all v2 entries are
+#       stale. centerM=1 a(t) is byte-identical but the version token bump retires all
+#       old entries uniformly (safe).
+PHYSICS_CACHE_VERSION = "v3"
 
 
 def physics_cache_token(config) -> str:
@@ -227,6 +232,9 @@ class SweepConfig:
     # does NOT add a slug to the cache key. Any other geometry appends a slug.
     node_geometry: str = "cube26"
     geometry_kwargs: dict = field(default_factory=dict)
+    # Outer-region density ceiling (WS4). Default 1.0 = outer density == inner density
+    # (EdS critical). Clipped in SimulationParameters to MAX_OUTER_DENSITY_CEILING.
+    outer_density_ceiling: float = 1.0
     # Physics-affecting IC flags (mirror SimulationParameters defaults). These are
     # NOT otherwise encoded in the cache key, so they are folded into the physics
     # token (physics_cache_token) — a legacy run with these turned off gets a
@@ -617,7 +625,7 @@ def compute_pantheon_metrics(
 def _build_result_dict(
     M_factor: int,
     S_gpc: int,
-    centerM: int,
+    centerM: float,
     sim_result: SimResult,
     metrics: Dict[str, float]
 ) -> Dict[str, Any]:
@@ -658,7 +666,7 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     parts.append(f"{config.particle_count}p")
     parts.append(f"{config.t_start_Gyr}-{config.t_duration_Gyr+config.t_start_Gyr}Gyr")
     parts.append(f"{M_factor}M")
-    parts.append(f"{int(centerM)}centerM")
+    parts.append(f"{float(centerM)}centerM")
     parts.append(f"{S_val}S")
     parts.append(f"{config.n_steps}steps")
     parts.append(f"{seeds_slug}seeds")
@@ -688,6 +696,11 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     # existing cache keys and alternative geometries get distinct keys.
     if node_geometry != "cube26":
         parts.append(f"{node_geometry}geo")
+    # outer_density_ceiling slug: append only when != 1.0 so the default (no outer
+    # over-density) keeps its existing cache key and non-default ceilings get distinct keys.
+    outer_density_ceiling = getattr(config, 'outer_density_ceiling', 1.0)
+    if outer_density_ceiling != 1.0:
+        parts.append(f"{outer_density_ceiling}ceil")
     # Physics-version token (ALWAYS appended): invalidates entries computed under a
     # different simulation-physics version (e.g. pre-EdS-ICs / pre-boost), so a
     # physics change can never silently reuse a stale parameter-only cache entry.

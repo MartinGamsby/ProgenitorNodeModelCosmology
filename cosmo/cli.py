@@ -48,8 +48,14 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--damping', type=float, default=None,
                         help='Initial velocity damping factor (0-1). Auto-calculated if not specified.')
     parser.add_argument('--center-node-mass', type=float, default=1.0,
-                        help='Central (progenitor) node mass as multiple of M_observable. '
-                             'Affects total_mass_kg and softening_m scaling.')
+                        help='Outer-mass multiplier: total simulated mass / inner observable mass, '
+                             '>= 1.0; particles scale linearly (centerM=2 doubles particle count '
+                             'by adding outer-shell matter at the same density); '
+                             'default 1.0 = observable sphere only (no outer matter).')
+    parser.add_argument('--outer-density-ceiling', type=float, default=1.0,
+                        help='Multiplier on the inner EdS-critical density for outer-shell '
+                             'particles (>= 0, clipped to MAX_OUTER_DENSITY_CEILING). '
+                             'default 1.0 = outer density == inner density (EdS critical).')
     parser.add_argument('--mass-randomize', type=float, default=0.0,
                         help='Particle mass randomization (0.0=equal, 1.0=0 to 2x mean). '
                              'Total mass is preserved. Default 0.0 for deterministic results.')
@@ -134,6 +140,7 @@ def args_to_sim_params(args: argparse.Namespace) -> SimulationParameters:
         n_steps=args.n_steps,
         damping_factor=args.damping,
         center_node_mass=args.center_node_mass,
+        outer_density_ceiling=getattr(args, 'outer_density_ceiling', 1.0),
         mass_randomize=args.mass_randomize,
         node_mass_seed=args.node_mass_seed,
         node_mass_amplitude=args.node_mass_amplitude,

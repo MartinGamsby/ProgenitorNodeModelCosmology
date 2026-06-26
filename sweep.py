@@ -94,7 +94,7 @@ const = CosmologicalConstants()
 # The best-isotropic subset (amplitude=0) is load_best_config-compatible:
 # hubble_diagram_nbody.py --from-best-config reads M_factor, S_gpc, centerM, chi2_dof.
 SWEEP_CSV_COLS = [
-    "M_factor", "S_gpc", "centerM",
+    "M_factor", "S_gpc", "centerM", "outer_density_ceiling",
     "node_mass_amplitude", "node_s_amplitude",
     "node_mass_seed", "init_distribution", "node_geometry",
     "chi2_dof", "chi2", "chi2_lcdm", "chi2_eds",
@@ -132,7 +132,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "particle_count": 400,
     "n_steps": 273,
     "t_start_Gyr": 2.9,
-    "centerM": 1,
+    "centerM": 1,             # float or list of floats — outer-mass multiplier (WS4)
+    "outer_density_ceilings": [1.0],   # list of outer density ceilings to sweep (WS4)
     # S co-fit method (when S_values=="co-fit")
     "s_cofit_method": "linear",   # "linear" or "ternary"
     # Output
@@ -241,6 +242,7 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
         init_distribution=cell["init"],
         node_geometry=cell["geometry"],
         geometry_kwargs=cfg.get("geometry_kwargs", {}),
+        outer_density_ceiling=cfg.get("outer_density_ceiling", 1.0),
     )
 
 
@@ -258,6 +260,7 @@ def _make_sim_callback(sweep_cfg: _FixedSweepConfig, box_size_Gpc: float, a_star
             n_steps=sweep_cfg.n_steps,
             damping_factor=sweep_cfg.damping_factor,
             center_node_mass=centerM,
+            outer_density_ceiling=getattr(sweep_cfg, "outer_density_ceiling", 1.0),
             mass_randomize=0.0,
             node_mass_seed=sweep_cfg.node_mass_seed,
             node_mass_amplitude=sweep_cfg.node_mass_amplitude,
@@ -337,26 +340,27 @@ def _run_cell_fixed_S(
     runaway = not anchor_ok
 
     return {
-        "M_factor":            cell["M"],
-        "S_gpc":               S,
-        "centerM":             centerM,
-        "node_mass_amplitude": cell["amplitude"],
-        "node_s_amplitude":    cell["s_amplitude"],
-        "node_mass_seed":      cell["nm_seed"],
-        "init_distribution":   cell["init"],
-        "node_geometry":       cell["geometry"],
-        "chi2_dof":            metrics.get("chi2_dof", float("inf")),
-        "chi2":                metrics.get("chi2", float("inf")),
-        "chi2_lcdm":           chi2_lcdm,
-        "chi2_eds":            chi2_eds,
-        "R2":                  metrics.get("R2", float("nan")),
-        "n_sne_used":          metrics.get("n_sne_used", 0),
-        "growth_factor":       growth_factor,
-        "growth_target":       growth_target,
-        "anchor_ok":           anchor_ok,
-        "runaway":             runaway,
-        "match_avg_pct":       metrics.get("match_avg_pct", 0.0),
-        "diff_pct":            metrics.get("diff_pct", 100.0),
+        "M_factor":              cell["M"],
+        "S_gpc":                 S,
+        "centerM":               centerM,
+        "outer_density_ceiling": cfg.get("outer_density_ceiling", 1.0),
+        "node_mass_amplitude":   cell["amplitude"],
+        "node_s_amplitude":      cell["s_amplitude"],
+        "node_mass_seed":        cell["nm_seed"],
+        "init_distribution":     cell["init"],
+        "node_geometry":         cell["geometry"],
+        "chi2_dof":              metrics.get("chi2_dof", float("inf")),
+        "chi2":                  metrics.get("chi2", float("inf")),
+        "chi2_lcdm":             chi2_lcdm,
+        "chi2_eds":              chi2_eds,
+        "R2":                    metrics.get("R2", float("nan")),
+        "n_sne_used":            metrics.get("n_sne_used", 0),
+        "growth_factor":         growth_factor,
+        "growth_target":         growth_target,
+        "anchor_ok":             anchor_ok,
+        "runaway":               runaway,
+        "match_avg_pct":         metrics.get("match_avg_pct", 0.0),
+        "diff_pct":              metrics.get("diff_pct", 100.0),
     }
 
 
@@ -426,26 +430,27 @@ def _cofit_S_for_cell(
     runaway = not anchor_ok
 
     row = {
-        "M_factor":            cell["M"],
-        "S_gpc":               S,
-        "centerM":             centerM,
-        "node_mass_amplitude": cell["amplitude"],
-        "node_s_amplitude":    cell["s_amplitude"],
-        "node_mass_seed":      cell["nm_seed"],
-        "init_distribution":   cell["init"],
-        "node_geometry":       cell["geometry"],
-        "chi2_dof":            raw_metrics.get("chi2_dof", float("inf")),
-        "chi2":                raw_metrics.get("chi2", float("inf")),
-        "chi2_lcdm":           chi2_lcdm,
-        "chi2_eds":            chi2_eds,
-        "R2":                  raw_metrics.get("R2", float("nan")),
-        "n_sne_used":          raw_metrics.get("n_sne_used", 0),
-        "growth_factor":       growth_factor,
-        "growth_target":       growth_target,
-        "anchor_ok":           anchor_ok,
-        "runaway":             runaway,
-        "match_avg_pct":       raw_metrics.get("match_avg_pct", 0.0),
-        "diff_pct":            raw_metrics.get("diff_pct", 100.0),
+        "M_factor":              cell["M"],
+        "S_gpc":                 S,
+        "centerM":               centerM,
+        "outer_density_ceiling": cfg.get("outer_density_ceiling", 1.0),
+        "node_mass_amplitude":   cell["amplitude"],
+        "node_s_amplitude":      cell["s_amplitude"],
+        "node_mass_seed":        cell["nm_seed"],
+        "init_distribution":     cell["init"],
+        "node_geometry":         cell["geometry"],
+        "chi2_dof":              raw_metrics.get("chi2_dof", float("inf")),
+        "chi2":                  raw_metrics.get("chi2", float("inf")),
+        "chi2_lcdm":             chi2_lcdm,
+        "chi2_eds":              chi2_eds,
+        "R2":                    raw_metrics.get("R2", float("nan")),
+        "n_sne_used":            raw_metrics.get("n_sne_used", 0),
+        "growth_factor":         growth_factor,
+        "growth_target":         growth_target,
+        "anchor_ok":             anchor_ok,
+        "runaway":               runaway,
+        "match_avg_pct":         raw_metrics.get("match_avg_pct", 0.0),
+        "diff_pct":              raw_metrics.get("diff_pct", 100.0),
     }
     return row, S
 
@@ -573,7 +578,7 @@ def _generate_mu_z_panel(
 
     M = int(best_row["M_factor"])
     S = int(best_row["S_gpc"])
-    centerM = int(best_row.get("centerM", cfg["centerM"]))
+    centerM = float(best_row.get("centerM", cfg["centerM"]))
     t_start = cfg["t_start_Gyr"]
     t_dur = 13.8 - t_start
 
@@ -693,8 +698,19 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
     print(f"  seeds: {cfg['node_mass_seeds']}")
     print(f"  inits: {cfg['init_distributions']}")
     print(f"  geometries: {cfg['node_geometries']}")
+    # centerM may be a scalar or a list (WS4 sweep axis)
+    raw_centerM = cfg["centerM"]
+    center_masses: List[float] = (
+        [float(x) for x in raw_centerM] if isinstance(raw_centerM, list)
+        else [float(raw_centerM)]
+    )
+    # outer_density_ceilings may be a list (WS4 sweep axis); default [1.0]
+    outer_density_ceilings: List[float] = [
+        float(x) for x in cfg.get("outer_density_ceilings", [1.0])
+    ]
     print(f"  particles={cfg['particle_count']}, n_steps={cfg['n_steps']}, "
-          f"t_start={t_start}, centerM={cfg['centerM']}")
+          f"t_start={t_start}, centerM={center_masses}, "
+          f"outer_density_ceilings={outer_density_ceilings}")
 
     # Setup
     print("\n[setup] Computing initial conditions and loading Pantheon+ data ...")
@@ -726,19 +742,23 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
         print("[probe] --probe-only: exiting after timing.")
         return "", "", []
 
-    # Expand grid
+    # Expand grid (M / amplitude / geometry / init / s_amplitude combos; NOT centerM/ceiling)
     cells = expand_grid(cfg)
+    n_cm = len(center_masses)
+    n_ceil = len(outer_density_ceilings)
     if cofit:
         # Each cell => one co-fit run per M
-        n_outer = len(cells)
+        n_outer = len(cells) * n_cm * n_ceil
         est_inner = max(1, (cfg["s_max_gpc"] - cfg["s_min_gpc"]) // 5)  # rough estimate
         total_est = n_outer * est_inner
-        print(f"\n[grid] {n_outer} cells (co-fit S per M; ~{est_inner} S evals each "
+        print(f"\n[grid] {len(cells)} cells x {n_cm} centerM x {n_ceil} ceilings "
+              f"= {n_outer} outer combos (co-fit S per M; ~{est_inner} S evals each "
               f"=> ~{total_est} total sims; estimated {total_est * sps / 60:.1f} min)")
     else:
         S_list = list(S_mode)
-        n_combos = len(cells) * len(S_list)
-        print(f"\n[grid] {len(cells)} cells x {len(S_list)} S values = {n_combos} sims; "
+        n_combos = len(cells) * len(S_list) * n_cm * n_ceil
+        print(f"\n[grid] {len(cells)} cells x {len(S_list)} S x {n_cm} centerM "
+              f"x {n_ceil} ceilings = {n_combos} sims; "
               f"estimated {n_combos * sps / 60:.1f} min")
 
     # Run
@@ -749,69 +769,80 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
     all_rows: List[Dict] = []
     t_sweep_start = time.perf_counter()
 
-    if cofit:
-        # Group cells by (geometry, init, s_amplitude, amplitude, nm_seed) so we can
-        # warm-start the S search across M values (as in the original linear_search).
-        # Within each group iterate M in DESCENDING order (matching original approach).
-        from itertools import groupby
+    # Outer loops over centerM and outer_density_ceiling axes (WS4).
+    # For each combination, clone cfg with the specific scalar values so that
+    # _run_cell_fixed_S / _cofit_S_for_cell read them from cfg as before.
+    for centerM_val in center_masses:
+        for ceiling_val in outer_density_ceilings:
+            cell_cfg = dict(cfg)
+            cell_cfg["centerM"] = centerM_val
+            cell_cfg["outer_density_ceiling"] = ceiling_val
 
-        def _group_key(c):
-            return (c["geometry"], c["init"], c["s_amplitude"],
-                    c["amplitude"], c["nm_seed"])
+            if cofit:
+                # Group cells by (geometry, init, s_amplitude, amplitude, nm_seed) so we can
+                # warm-start the S search across M values (as in the original linear_search).
+                # Within each group iterate M in DESCENDING order (matching original approach).
+                from itertools import groupby
 
-        # Sort so groupby works
-        sorted_cells = sorted(cells, key=_group_key)
-        cell_num = 0
-        total_cells = len(cells)
+                def _group_key(c):
+                    return (c["geometry"], c["init"], c["s_amplitude"],
+                            c["amplitude"], c["nm_seed"])
 
-        for group_key, group_iter in groupby(sorted_cells, key=_group_key):
-            group = list(group_iter)
-            # Sort descending by M for warm-start
-            group.sort(key=lambda c: c["M"], reverse=True)
-            prev_best_S: Optional[int] = None
+                # Sort so groupby works
+                sorted_cells = sorted(cells, key=_group_key)
+                cell_num = 0
+                total_cells = len(cells)
 
-            for cell in group:
-                cell_num += 1
-                t0 = time.perf_counter()
-                row, best_S = _cofit_S_for_cell(
-                    cell, cfg, box_size_Gpc, a_start,
-                    pantheon_data, baseline, weights,
-                    chi2_lcdm, chi2_eds,
-                    prev_best_S=prev_best_S,
-                )
-                elapsed = time.perf_counter() - t0
-                prev_best_S = best_S
-                all_rows.append(row)
+                for group_key, group_iter in groupby(sorted_cells, key=_group_key):
+                    group = list(group_iter)
+                    # Sort descending by M for warm-start
+                    group.sort(key=lambda c: c["M"], reverse=True)
+                    prev_best_S: Optional[int] = None
 
-                chi_str = (f"{row['chi2_dof']:.4f}"
-                           if math.isfinite(row["chi2_dof"]) else "FAIL")
-                print(
-                    f"  [{cell_num}/{total_cells}] M={cell['M']:6d}  "
-                    f"geo={cell['geometry']:<10s} init={cell['init']:<14s} "
-                    f"amp={cell['amplitude']:.2f}  "
-                    f"=> best_S={best_S}  chi2/dof={chi_str}  ({elapsed:.1f}s)"
-                )
-    else:
-        S_list = list(S_mode)
-        total = len(cells) * len(S_list)
-        i = 0
-        for cell in cells:
-            for S in S_list:
-                i += 1
-                t0 = time.perf_counter()
-                row = _run_cell_fixed_S(
-                    cell, S, cfg, box_size_Gpc, a_start,
-                    pantheon_data, baseline, weights, chi2_lcdm, chi2_eds,
-                )
-                elapsed = time.perf_counter() - t0
-                all_rows.append(row)
-                chi_str = (f"{row['chi2_dof']:.4f}"
-                           if math.isfinite(row["chi2_dof"]) else "FAIL")
-                print(
-                    f"  [{i}/{total}] M={cell['M']:6d} S={S:3d}  "
-                    f"amp={cell['amplitude']:.2f}  "
-                    f"=> chi2/dof={chi_str}  ({elapsed:.1f}s)"
-                )
+                    for cell in group:
+                        cell_num += 1
+                        t0 = time.perf_counter()
+                        row, best_S = _cofit_S_for_cell(
+                            cell, cell_cfg, box_size_Gpc, a_start,
+                            pantheon_data, baseline, weights,
+                            chi2_lcdm, chi2_eds,
+                            prev_best_S=prev_best_S,
+                        )
+                        elapsed = time.perf_counter() - t0
+                        prev_best_S = best_S
+                        all_rows.append(row)
+
+                        chi_str = (f"{row['chi2_dof']:.4f}"
+                                   if math.isfinite(row["chi2_dof"]) else "FAIL")
+                        print(
+                            f"  [{cell_num}/{total_cells}] M={cell['M']:6d}  "
+                            f"centerM={centerM_val}  ceil={ceiling_val}  "
+                            f"geo={cell['geometry']:<10s} init={cell['init']:<14s} "
+                            f"amp={cell['amplitude']:.2f}  "
+                            f"=> best_S={best_S}  chi2/dof={chi_str}  ({elapsed:.1f}s)"
+                        )
+            else:
+                S_list = list(S_mode)
+                total = len(cells) * len(S_list)
+                i = 0
+                for cell in cells:
+                    for S in S_list:
+                        i += 1
+                        t0 = time.perf_counter()
+                        row = _run_cell_fixed_S(
+                            cell, S, cell_cfg, box_size_Gpc, a_start,
+                            pantheon_data, baseline, weights, chi2_lcdm, chi2_eds,
+                        )
+                        elapsed = time.perf_counter() - t0
+                        all_rows.append(row)
+                        chi_str = (f"{row['chi2_dof']:.4f}"
+                                   if math.isfinite(row["chi2_dof"]) else "FAIL")
+                        print(
+                            f"  [{i}/{total}] M={cell['M']:6d} S={S:3d}  "
+                            f"centerM={centerM_val}  ceil={ceiling_val}  "
+                            f"amp={cell['amplitude']:.2f}  "
+                            f"=> chi2/dof={chi_str}  ({elapsed:.1f}s)"
+                        )
 
     total_elapsed = time.perf_counter() - t_sweep_start
     n = len(all_rows)
@@ -834,7 +865,8 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
         writer.writerows(iso_rows)
     print(f"[out] Best-iso CSV: {best_iso_csv}  ({len(iso_rows)} rows)")
 
-    # Best config (minimum chi2_dof among finite, anchor-ok rows)
+    # Best config: objective = minimize chi2/dof vs the real Pantheon+ points.
+    # chi2_lcdm / chi2_eds are reference benchmarks only, NOT the selection target.
     finite_rows = [r for r in all_rows if math.isfinite(r["chi2_dof"])]
     bound_rows  = [r for r in finite_rows if r.get("anchor_ok", False)]
     best_row    = min(bound_rows, key=lambda r: r["chi2_dof"]) if bound_rows else (

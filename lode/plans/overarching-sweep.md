@@ -257,6 +257,13 @@ banner prints the worker shell PID and the python child PID; the run log prints 
 line per arm showing how many cells it skipped. **Resume granularity = one COMPLETED cell**
 (a co-fit cell = ~6-7 sims, minutes each); killing MID-cell re-runs that cell (not a resume bug).
 
+**Parallelism (`-Parallel N`, default 1):** a pool that keeps N `python sweep.py` children busy,
+pulling the next arm when one finishes. It sets `HMEA_CACHE_CONCURRENT=1` so the shared
+`metrics_2000_s42.csv` uses the concurrency-safe merge cache (read-merge-write under a short lock +
+atomic rename — no lost entries, no `input()` hang). `-Stop` kills all N children + the shell.
+Single worker (default) keeps the faster exclusive cache. Keep N modest (2-3): each sim is
+CPU-heavy. See [module-structure.md](../architecture/module-structure.md) Cache "two modes".
+
 **Results are a FLAGGED FOLLOW-ON (multi-day).** Until this completes, the cube26-vs-
 virialized attribution, the low/fine M/S landscape, start-size/convergence/extent results,
 and the final virialized chi2 band are PENDING — do NOT pin "virialized fits worse/better"

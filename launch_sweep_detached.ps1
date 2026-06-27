@@ -77,6 +77,15 @@
     Pass -Force to stop any already-running worker and relaunch fresh in one step
     (equivalent to -Stop followed by a normal launch).
 
+.PARAMETER Parallel
+    How many arms to run AT ONCE (default 1 = sequential). With -Parallel 2 or 3 the
+    detached worker keeps that many `python sweep.py` children busy, pulling the next
+    arm from the list whenever one finishes. Parallel runs set HMEA_CACHE_CONCURRENT=1
+    so the shared metrics cache uses its concurrency-safe merge mode (read-merge-write
+    under a short lock + atomic rename) instead of the single-writer lifetime lock.
+    A single worker (default) keeps the faster exclusive cache. Keep this modest
+    (2-3): each sim is already CPU-heavy, so oversubscribing cores wastes time.
+
 .SECURITY
     The argument vector handed to python is STATIC: a fixed @("sweep.py","--config",
     <literal path>) array per arm, built only from the hardcoded arm lists in this
@@ -109,7 +118,9 @@ param(
     [switch]$NoResume,
     [switch]$IncludeSatellites,
     [switch]$Stop,
-    [switch]$Force
+    [switch]$Force,
+    [ValidateRange(1, 8)]
+    [int]$Parallel = 1
 )
 
 Set-StrictMode -Version Latest
@@ -242,15 +253,62 @@ if ($NoResume) { $ExtraArgs = @("--no-resume") }
 $ArmsLiteral = ($Arms | ForEach-Object { "'" + $_.Replace("'", "''") + "'" }) -join ", "
 $ExtraLiteral = ($ExtraArgs | ForEach-Object { "'" + $_.Replace("'", "''") + "'" }) -join ", "
 
-$WorkerScript = @"
+# Common header for both worker bodies. In parallel mode (Parallel > 1) the shared
+# metrics cache must use concurrency-safe merge mode -> set HMEA_CACHE_CONCURRENT=1.
+# A single worker keeps the faster exclusive cache (env unset).
+$ConcurrentLine = if ($Parallel -gt 1) { "`$env:HMEA_CACHE_CONCURRENT = '1'" } else { "" }
+$WorkerHeader = @"
 Set-StrictMode -Version Latest
 `$ErrorActionPreference = 'Continue'
 `$env:PYTHONIOENCODING = 'utf-8'
+$ConcurrentLine
 Set-Location -LiteralPath '$($RepoRoot.Replace("'", "''"))'
 `$arms = @($ArmsLiteral)
 `$extra = @($ExtraLiteral)
 `$stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
 `$summary = Join-Path 'results/logs' "core_v3_run_`$stamp.log"
+"@
+
+if ($Parallel -gt 1) {
+    # POOL worker: keep $Parallel `python sweep.py` children busy, pull the next arm
+    # from the list whenever one finishes. Each child gets a STATIC argument vector.
+    $WorkerScript = $WorkerHeader + @"
+
+"core_v3 detached PARALLEL run started `$(Get-Date -Format o) (PID `$PID, parallel=$Parallel)" | Out-File -FilePath `$summary -Encoding utf8
+`$maxParallel = $Parallel
+`$idx = 0
+`$running = @{}   # process Id -> @{ cfg=...; out=...; proc=... }
+while (`$idx -lt `$arms.Count -or `$running.Count -gt 0) {
+    while (`$running.Count -lt `$maxParallel -and `$idx -lt `$arms.Count) {
+        `$cfg = `$arms[`$idx]; `$idx++
+        `$name = [System.IO.Path]::GetFileNameWithoutExtension(`$cfg)
+        `$out = Join-Path 'results/logs' "`$name.out"
+        `$err = Join-Path 'results/logs' "`$name.err"
+        "[`$(Get-Date -Format o)] START `$cfg" | Tee-Object -FilePath `$summary -Append
+        # STATIC argument vector: sweep.py + --config + the (literal) config path + flags.
+        `$pyArgs = @('sweep.py', '--config', `$cfg) + `$extra
+        `$p = Start-Process -FilePath 'python' -ArgumentList `$pyArgs -NoNewWindow -PassThru ``
+            -RedirectStandardOutput `$out -RedirectStandardError `$err
+        `$running[`$p.Id] = @{ cfg = `$cfg; out = `$out; proc = `$p }
+    }
+    Start-Sleep -Seconds 3
+    foreach (`$id in @(`$running.Keys)) {
+        `$info = `$running[`$id]
+        if (`$info.proc.HasExited) {
+            `$code = `$info.proc.ExitCode
+            `$r = Select-String -Path `$info.out -Pattern '[resume]' -SimpleMatch -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (`$r) { "[`$(Get-Date -Format o)] [resume-info] `$(`$r.Line.Trim())" | Tee-Object -FilePath `$summary -Append }
+            "[`$(Get-Date -Format o)] DONE  `$(`$info.cfg) (exit `$code)" | Tee-Object -FilePath `$summary -Append
+            `$running.Remove(`$id)
+        }
+    }
+}
+"core_v3 detached run finished `$(Get-Date -Format o)" | Tee-Object -FilePath `$summary -Append
+"@
+} else {
+    # SEQUENTIAL worker (single process; exclusive cache).
+    $WorkerScript = $WorkerHeader + @"
+
 "core_v3 detached run started `$(Get-Date -Format o) (PID `$PID)" | Out-File -FilePath `$summary -Encoding utf8
 foreach (`$cfg in `$arms) {
     `$name = [System.IO.Path]::GetFileNameWithoutExtension(`$cfg)
@@ -269,6 +327,7 @@ foreach (`$cfg in `$arms) {
 }
 "core_v3 detached run finished `$(Get-Date -Format o)" | Tee-Object -FilePath `$summary -Append
 "@
+}
 
 # Persist the worker to a file so Start-Process launches it cleanly (and it is
 # auditable). Written under results/logs (gitignored).
@@ -290,26 +349,26 @@ $proc = Start-Process -FilePath "powershell.exe" `
     -WindowStyle Hidden `
     -PassThru
 
-# Try to discover the python child PID (spawned by the worker shortly after start)
-# so the user can see the actual compute process, not just the shell.
-$pyPid = $null
-for ($i = 0; $i -lt 10 -and -not $pyPid; $i++) {
+# Try to discover the python child PID(s) (spawned by the worker shortly after start)
+# so the user can see the actual compute process(es), not just the shell.
+$pyPids = @()
+for ($i = 0; $i -lt 12 -and $pyPids.Count -lt $Parallel; $i++) {
     Start-Sleep -Milliseconds 500
-    $py = Get-CimInstance Win32_Process | Where-Object {
+    $pyPids = @(Get-CimInstance Win32_Process | Where-Object {
         $_.Name -eq 'python.exe' -and $_.CommandLine -and $_.CommandLine -match 'sweep\.py\s+--config\s+sweeps/'
-    } | Select-Object -First 1
-    if ($py) { $pyPid = $py.ProcessId }
+    } | Select-Object -ExpandProperty ProcessId)
 }
 
 if ($IncludeSatellites) { $Mode = "CORE + SEED + SATELLITES" } else { $Mode = "CORE + SEED (core-only)" }
+if ($Parallel -gt 1) { $Mode = "$Mode  [parallel=$Parallel, shared cache concurrency-safe]" }
 
 Write-Host ""
 Write-Host "=================================================================="
 Write-Host " core_v3 sweep launched DETACHED."
 Write-Host "   mode        : $Mode"
 Write-Host "   worker shell : PID $($proc.Id)  ($WorkerPath)"
-if ($pyPid) {
-    Write-Host "   python child : PID $pyPid  (the actual compute process)"
+if ($pyPids.Count -gt 0) {
+    Write-Host "   python child : $($pyPids.Count) running -- PID(s) $($pyPids -join ', ')"
 } else {
     Write-Host "   python child : (starting...) -- see results/logs/core_v3_run_*.log"
 }

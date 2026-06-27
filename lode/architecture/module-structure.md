@@ -188,13 +188,28 @@ particles -> integrator -> simulation N-body chain.
 - `CacheLock`: File-based lock with PID staleness detection
 - `Cache`: Two-level `{key: {data_type: value}}` store persisted to `data/<name>.<ext>`
 
-**Constructor**: `Cache(name, format=CacheFormat.CSV, _data_dir="data")`
+**Constructor**: `Cache(name, format=CacheFormat.CSV, _data_dir="data", concurrent=None)`
 
-**Concurrency**: `CacheLock` creates `<filepath>.lock` containing the owning PID. Uses atomic `os.open(O_CREAT|O_EXCL)`. Lock held for entire Cache lifetime (acquired in `__init__`, released in `close()`/`__del__`). `close()` registered via `atexit` for Ctrl+C cleanup; idempotent (`_closed` flag). Three conflict scenarios:
-- **Own PID**: prints BUG warning (duplicate Cache or crash leftover), prompts `[D/Y/n]` — D=delete lock and retry, Y=read-only, n=abort
+**Two modes**: `concurrent` defaults from env `HMEA_CACHE_CONCURRENT=1` (else False).
+The parallel sweep launcher (`launch_sweep_detached.ps1 -Parallel N`) sets that env so several
+`sweep.py` processes can SHARE one cache file (all core_v3 arms are 2000p/seed42 → one
+`metrics_2000_s42.csv`). Single-worker runs and the whole test suite leave it unset → exclusive mode
+(byte-identical to before).
+
+**Exclusive mode (default)**: `CacheLock` creates `<filepath>.lock` (atomic `os.open(O_CREAT|O_EXCL)`)
+held for the entire Cache lifetime (acquired in `__init__`, released in `close()`/`__del__`); whole-file
+rewrite on save. `close()` registered via `atexit`; idempotent (`_closed`). Conflict scenarios:
+- **Own PID**: prints BUG warning, prompts `[D/Y/n]` — D=delete lock and retry, Y=read-only, n=abort
 - **Other live PID**: prompts `[Y/n/kill]` — Y=read-only, n=abort, kill=terminate owner
 - **Dead PID**: auto-broken silently
-PID liveness: `ctypes`+`OpenProcess`/`GetExitCodeProcess` on Windows, `os.kill(pid, 0)` on Unix. Kill: `taskkill /F` on Windows, `SIGTERM` on Unix.
+PID liveness: `ctypes`+`OpenProcess`/`GetExitCodeProcess` on Windows, `os.kill(pid, 0)` on Unix.
+
+**Concurrent mode**: NO lifetime lock (so no read-only/`input()` prompt — which in a detached
+no-stdin worker would hang). Each save is a read-MERGE-write under a SHORT-lived lock
+(`CacheLock.acquire_blocking`, with dead-PID/own-stale break + jitter) followed by an atomic
+temp-file `os.replace` — so N processes never lose each other's entries and a kill mid-write leaves
+the prior complete file. Flush interval is 15s (vs 5s) since each save re-reads the file. Disjoint
+keys across arms mean almost nothing is shared except the LCDM/EdS reference rows.
 
 **Key methods**:
 - `_load_from_disk()`: Loads primary format; falls back to other formats. Locked.
@@ -203,7 +218,7 @@ PID liveness: `ctypes`+`OpenProcess`/`GetExitCodeProcess` on Windows, `os.kill(p
 - `add_cached_value(key, data_type, value, save_interval_s=5)`: Set + time-based save
 - `__del__()`: Saves on garbage collection
 
-**CSV format**: One row per cache key. Cache keys are split on `_` into `key.{i}_{suffix}` columns (e.g. `key.0_p`, `key.1_Gyr`, `key.2_M`). Scalar values get a column named after data_type (e.g. `velocity`). Dict values are flattened: each field becomes `data_type.field` (e.g. `metrics.match_avg_pct`, `results.size_final_Gpc`). Nested dicts within fields are JSON-encoded per cell.
+**CSV format**: One row per cache key. Cache keys are split on `_` into `key.{i}_{suffix}` columns (e.g. `key.0_p`, `key.1_Gyr`, `key.2_M`). Scalar values get a column named after data_type (e.g. `velocity`). Dict values are flattened: each field becomes `data_type.field` (e.g. `metrics.match_avg_pct`, `results.size_final_Gpc`). Nested dicts within fields are JSON-encoded per cell. **Empty key cells are skipped on reconstruction** (`_join_key`): a file mixing rows of DIFFERENT key structures (e.g. cube26 vs virialized keys sharing one `metrics_2000_s42.csv`) leaves unused key columns blank; reconstructing a value from a blank cell's suffix would corrupt the key into a silent cache miss, so blanks are ignored.
 
 **Used by**: `simulation.py` (velocity cache), `sweep.py` / `cosmo/parameter_sweep.py` (metrics/results cache)
 

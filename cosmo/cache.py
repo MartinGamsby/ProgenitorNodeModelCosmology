@@ -3,6 +3,7 @@ import csv
 import json
 import os
 import pickle
+import random
 import re
 import time
 from enum import Enum
@@ -111,6 +112,30 @@ class CacheLock:
             pass
         self._owned = False
 
+    def acquire_blocking(self, timeout=60.0, poll=0.1):
+        """Block until the lock is acquired, a live holder is waited out, or timeout.
+
+        Used by concurrent-mode Caches that take this lock only briefly around a
+        read-merge-write (NOT for the Cache lifetime). `acquire()` already breaks
+        dead-PID and corrupt locks, so we only spin while a *different live* process
+        holds it. A stale lock left by our OWN pid (a release that didn't complete)
+        is reclaimed. Returns True on acquire, False on timeout.
+        """
+        deadline = time.monotonic() + timeout
+        while True:
+            if self.acquire():
+                return True
+            if self.owner_pid == os.getpid():
+                # Stale own-pid lock (prior release didn't finish) — reclaim it.
+                try:
+                    os.remove(self.lockpath)
+                except FileNotFoundError:
+                    pass
+                continue
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(poll * (1.0 + random.random()))  # jitter to avoid thundering herd
+
     @property
     def owner_pid(self):
         """Return the PID holding the lock, or None."""
@@ -133,7 +158,8 @@ class Cache:
         CacheFormat.PICKLE: '_save_pickle',
     }
 
-    def __init__(self, name="cache", format: CacheFormat = CacheFormat.CSV, _data_dir="data"):
+    def __init__(self, name="cache", format: CacheFormat = CacheFormat.CSV, _data_dir="data",
+                 concurrent=None):
         self.format = format
         self.name = name
         self._data_dir = _data_dir
@@ -141,13 +167,29 @@ class Cache:
         self.last_change = dt.datetime.now()
         self._lock = CacheLock(self.filepath)
         self.read_only = False
+
+        # Concurrency mode. DEFAULT (concurrent=None) resolves from the env var
+        # HMEA_CACHE_CONCURRENT=1, which the parallel sweep launcher sets so that
+        # several `sweep.py` processes can SHARE one cache file. In concurrent mode
+        # there is NO lifetime lock (so no read-only/input() prompt when another
+        # process is using the file); instead each save does a read-MERGE-write
+        # under a SHORT-lived lock with an atomic rename, so no entries are lost.
+        # Unset env / concurrent=False  => the original exclusive-lifetime-lock
+        # behaviour, byte-identical (single-worker runs and tests are unaffected).
+        if concurrent is None:
+            concurrent = os.environ.get("HMEA_CACHE_CONCURRENT") == "1"
+        self.concurrent = concurrent
+        # Concurrent saves re-read+rewrite the whole file, so flush less often.
+        self._save_interval_s = 15.0 if concurrent else 5.0
+
         folder_path = os.path.dirname(self.filepath)
 
         if folder_path:
             os.makedirs(folder_path, exist_ok=True)
 
-        # Acquire lock for the lifetime of this Cache
-        if not self._lock.acquire():
+        # Acquire lock for the lifetime of this Cache (exclusive mode only).
+        # Short-circuit in concurrent mode: never take a lifetime lock.
+        if not self.concurrent and not self._lock.acquire():
             owner = self._lock.owner_pid
             is_self = owner == os.getpid()
             if is_self:
@@ -293,7 +335,55 @@ class Cache:
     def _save_to_disk(self):
         if self.read_only:
             return
+        if self.concurrent:
+            self._merge_save()
+            return
         getattr(self, self._SAVERS[self.format])()
+
+    def _merge_save(self):
+        """Concurrent-safe save: read-MERGE-write under a short lock + atomic rename.
+
+        Several processes share one cache file. Each save briefly takes the file
+        lock, re-reads the current on-disk cache, unions it with this process's
+        in-memory cache (in-memory wins per data-type on the rare key overlap),
+        writes the merged result to a temp file, and atomically renames it into
+        place. No entries from other processes are lost, and a kill mid-write
+        leaves the previous complete file (atomic rename), never a truncated one.
+        If the lock can't be taken within the timeout, the save is skipped (data
+        stays in memory and is retried on the next interval / at close()).
+        """
+        if not self._lock.acquire_blocking(timeout=60.0):
+            return
+        try:
+            disk = {}
+            if os.path.exists(self.filepath):
+                try:
+                    disk = self._load_with(self.format, self.filepath)
+                except Exception:
+                    disk = {}
+            # Union disk into our in-memory view (ours wins per data-type).
+            for k, v in disk.items():
+                if k not in self.cache:
+                    self.cache[k] = v
+                elif isinstance(v, dict) and isinstance(self.cache[k], dict):
+                    merged = dict(v)
+                    merged.update(self.cache[k])
+                    self.cache[k] = merged
+            self._write_atomic()
+        finally:
+            self._lock.release()
+
+    def _write_atomic(self):
+        """Write the cache to a per-PID temp file, then os.replace into place."""
+        tmp = "{}.tmp{}".format(self.filepath, os.getpid())
+        if self.format == CacheFormat.CSV:
+            self._write_csv(tmp)
+        elif self.format == CacheFormat.JSON:
+            with open(tmp, 'w') as f:
+                json.dump(self.cache, f, indent=4, cls=EnhancedJSONEncoder)
+        else:
+            self._write_pickle_to(tmp)
+        os.replace(tmp, self.filepath)
 
     def _save_json(self):
         with open(self.filepath, 'w') as f:
@@ -322,10 +412,17 @@ class Cache:
 
     @staticmethod
     def _join_key(row):
-        """Reconstruct the original cache key from key.* CSV columns."""
+        """Reconstruct the original cache key from key.* CSV columns.
+
+        EMPTY key cells are skipped: a CSV that mixes rows of DIFFERENT key
+        structures (e.g. cube26 vs virialized keys sharing one metrics file) has a
+        union of key columns, so each row leaves the columns it doesn't use blank.
+        Reconstructing a value from a blank cell's suffix would corrupt the key
+        (turning it into a cache miss). Skipping blanks keeps every key intact.
+        """
         indexed = []
         for col, val in row.items():
-            if not col.startswith('key.'):
+            if not col.startswith('key.') or val == '':
                 continue
             rest = col[4:]  # strip "key."
             idx_str, _, suffix = rest.partition('_')
@@ -351,6 +448,9 @@ class Cache:
         return {data_type: json.dumps(value, cls=EnhancedJSONEncoder)}
 
     def _save_csv(self):
+        self._write_csv(self.filepath)
+
+    def _write_csv(self, path):
         all_columns = set()
         flat_rows = []
         for key, data_types in self.cache.items():
@@ -364,12 +464,15 @@ class Cache:
         data_cols = sorted(c for c in all_columns if not c.startswith('key.'))
         fieldnames = key_cols + data_cols
 
-        with open(self.filepath, 'w', newline='') as f:
+        with open(path, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames, restval='')
             writer.writeheader()
             writer.writerows(flat_rows)
 
     def _save_pickle(self):
+        self._write_pickle_to(self.filepath)
+
+    def _write_pickle_to(self, path):
         data = {}
         for key, data_types in self.cache.items():
             data[key] = {}
@@ -378,7 +481,7 @@ class Cache:
                     data[key][data_type] = dataclasses.asdict(value)
                 else:
                     data[key][data_type] = value
-        with open(self.filepath, 'wb') as f:
+        with open(path, 'wb') as f:
             pickle.dump(data, f)
 
     def get_cached_value(self, key, data_type: CacheType):
@@ -398,6 +501,9 @@ class Cache:
         if self.read_only:
             return
 
-        if (dt.datetime.now() - self.last_change).total_seconds() >= save_interval_s:
+        # Concurrent caches flush on a longer interval (each save re-reads+rewrites
+        # the whole file under a lock); exclusive caches keep the caller's interval.
+        interval = self._save_interval_s if self.concurrent else save_interval_s
+        if (dt.datetime.now() - self.last_change).total_seconds() >= interval:
             self._save_to_disk()
             self.last_change = dt.datetime.now()

@@ -390,7 +390,7 @@ init/particles are config-WIDE scalars in the driver (only M/geometry/init are f
   (1 Gpc cap, threshold=2.0, substeps=8 — the Section-4 validated combo) / Plummer 1 Gpc}
   (arms 01–09), PLUS cube26 uniform_sphere × the same 3 treatments (10–12, the attribution
   control pricing the GRF clustering cost on the cleanest geometry). 7 M each
-  {1,5,10,35,100,300,1000} → **84 core cells**.
+  {1,5,10,50,100,500} (regular x5/x2 log grid) → **72 core cells**.
 - **Arm 13** = the B3a geometry-seed sweep: virA GRF bounded+substep, M{35,100,300} ×
   seeds {42,7,123,2024,99}; the cache-collision fix makes the 5 realizations REAL (one cell
   per seed, distinct `<seed>virseed` keys) → **15 seed cells**.
@@ -418,7 +418,7 @@ stop-then-relaunch. Resume granularity = one COMPLETED cell (kill mid-cell ⇒ t
 The
 multi-day RESULTS are a FLAGGED FOLLOW-ON — the cube26-vs-virialized attribution and the
 final virialized chi2 band stay PENDING until it completes (see PF-PENDING). Family
-contracts tested in `tests/test_overarching_sweep.py::TestCoreV3Family` (12 arms, 84-cell +
+contracts tested in `tests/test_overarching_sweep.py::TestCoreV3Family` (12 arms, 72-cell +
 15-seed-cell counts, quality knobs, triad, distinct keys) and `::TestSatelliteFamilies`
 (6/3/3 arms, 18/3/6 cells, matched knobs, start_size + extent keyed==run).
 

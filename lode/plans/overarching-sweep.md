@@ -212,7 +212,8 @@ interior).
 gradient} × 3 MATCHED close-range treatments {none (plummer, no substep) / bounded+substep
 (1 Gpc cap, threshold=2.0, substeps=8, Section-4 validated) / Plummer 1 Gpc} (01–09), PLUS
 cube26 uniform_sphere × the same 3 treatments (10–12, the attribution control pricing the
-GRF clustering cost on the cleanest geometry). M{1,5,10,35,100,300,1000} → **84 core cells**.
+GRF clustering cost on the cleanest geometry). M{1,5,10,50,100,500} (regular x5/x2 log grid;
+M=1 is expected to be anchor-rejected — too weak — but kept to SHOW the floor) → **72 core cells**.
 **Arm 13** = the B3a geometry-seed sweep (virA GRF bounded+substep, M{35,100,300} × seeds
 {42,7,123,2024,99}, one cell per seed with distinct `<seed>virseed` keys) → **15 seed cells**.
 
@@ -369,7 +370,7 @@ wired into the geometry sweep.
   than Option A" (these four were keyed-but-not-run before Section 7)
 - `TestMuZPanelParamsMatchSim`: the mu(z) panel params == the sim-callback params field by
   field for a virialized cell (every dropped knob non-default) — the PF11 figure↔CSV fix
-- `TestCoreV3Family`: 12 core arms → 84 cells (+ seed arm → 15), quality knobs (2000p/546,
+- `TestCoreV3Family`: 12 core arms → 72 cells (+ seed arm → 15), quality knobs (2000p/546,
   M floor 1, S floor 3, ternary), geometry×treatment triad, distinct per-arm cache keys
 - `TestSatelliteFamilies`: start_size (6 arms/18 cells) + convergence (3/3) + extent (3/6),
   matched knobs, start_size + vir_extent keyed==run, unique tags

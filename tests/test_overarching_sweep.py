@@ -1213,13 +1213,14 @@ class TestCoreV3Family(unittest.TestCase):
     12 core arms = 3 GRF geometries {cube26, virialized Option A lattice, Option B
     gradient} x 3 close-range treatments {none, bounded+substep, Plummer 1 Gpc}
     (9 arms) PLUS cube26 uniform_sphere x the 3 treatments (3 arms). Each arm has a
-    single geometry/init/softening (config-wide scalars), 7 M values => 84 core cells.
+    single geometry/init/softening (config-wide scalars), 6 M values => 72 core cells.
     Arm 13 is the B3a seed sweep (3 M x 5 seeds = 15 cells).
     """
 
     _N_CORE_ARMS = 12
-    _M_PER_ARM = 7  # M_values = [1,5,10,35,100,300,1000]
-    _CORE_CELLS = _N_CORE_ARMS * _M_PER_ARM  # 84
+    _EXPECTED_M = [1, 5, 10, 50, 100, 500]  # regular x5/x2 log grid, M=1..500
+    _M_PER_ARM = len(_EXPECTED_M)  # 6
+    _CORE_CELLS = _N_CORE_ARMS * _M_PER_ARM  # 72
 
     def _core_arm_paths(self):
         import glob
@@ -1235,7 +1236,7 @@ class TestCoreV3Family(unittest.TestCase):
     def _core_cfgs(self):
         return [load_config(p) for p in self._core_arm_paths()]
 
-    def test_twelve_core_arms_load_and_expand_to_84_cells(self):
+    def test_twelve_core_arms_load_and_expand_to_72_cells(self):
         paths = self._core_arm_paths()
         self.assertEqual(len(paths), self._N_CORE_ARMS,
                          f"expected {self._N_CORE_ARMS} core_v3 arms, found {len(paths)}")
@@ -1264,10 +1265,9 @@ class TestCoreV3Family(unittest.TestCase):
                              "core_v3 must run 2000 particles (not the old 400)")
             self.assertEqual(c["n_steps"], 546,
                              "core_v3 must run 546 steps (dt~20 Myr, not the old 273)")
-            self.assertEqual(min(c["M_values"]), 1,
-                             "core_v3 M grid must reach the low floor M=1")
-            self.assertLessEqual(max(c["M_values"]), 1000,
-                                 "core_v3 M grid caps at 1000")
+            self.assertEqual(c["M_values"], self._EXPECTED_M,
+                             f"core_v3 M grid must be {self._EXPECTED_M} (regular x5/x2 "
+                             "log grid, M=1..500); exact check guards against config drift")
             self.assertEqual(c["s_min_gpc"], 3, "core_v3 S floor must be 3 Gpc")
             self.assertEqual(c["s_max_gpc"], 35, "core_v3 S ceiling must be 35 Gpc")
             self.assertEqual(c["s_cofit_method"], "ternary",

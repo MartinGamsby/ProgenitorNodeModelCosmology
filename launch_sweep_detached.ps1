@@ -54,9 +54,10 @@
     2000p/546 (cache bypassed): cube26 none/plummer ~23 s, bounded+substep ~88 s;
     virialized-A (150 nodes) none/plummer ~30 s, bounded+substep ~243 s (the substep
     dominates); virialized-B (gradient) bounded ~65 s (fewer substep refinements).
-    A ternary co-fit cell runs ~6-7 sims. Projected on this machine: CORE ~9.5 h +
-    SEED ~7 h = ~16.5 h (~0.7 day); +satellites ~+11 h => GRAND TOTAL ~27 h (~1.1 day).
-    (See results/runtime_projection.csv -- re-run the calibrator for current numbers.)
+    A ternary co-fit cell runs ~6-7 sims. Projected SEQUENTIALLY (72-cell core after the M grid
+    was trimmed to {1,5,10,50,100,500}): CORE ~8 h + SEED ~7 h = ~15 h; +satellites ~+11 h => ~26 h.
+    With -Parallel N this divides by ~N (minus merge/oversubscription overhead). ALWAYS re-run
+    `python _calibrate_runtime.py` for current numbers (-> results/runtime_projection.csv).
 
 .PARAMETER NoResume
     Pass -NoResume to force every cell to recompute (adds sweep.py's --no-resume).

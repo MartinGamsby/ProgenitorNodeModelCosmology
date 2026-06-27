@@ -1,0 +1,53 @@
+{
+  "M_values": [
+    1,
+    5,
+    10,
+    35,
+    100,
+    300,
+    1000
+  ],
+  "S_values": "co-fit",
+  "s_min_gpc": 3,
+  "s_max_gpc": 35,
+  "s_cofit_method": "ternary",
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_seeds": [
+    42
+  ],
+  "particle_count": 2000,
+  "n_steps": 546,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "figures_dir": "results/figures/core_v3",
+  "init_distributions": [
+    "grf"
+  ],
+  "grf_support": "sphere",
+  "node_geometries": [
+    "virialized"
+  ],
+  "vir_n_nodes": 150,
+  "vir_mass_rule": "massfunc",
+  "vir_mass_spread": 0.8,
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 40,
+  "vir_relax_mode": "gradient",
+  "vir_relax_rate": 0.1,
+  "vir_hold_outer_frac": 0.3,
+  "node_softening_gpc": 1.0,
+  "node_force_law": "bounded",
+  "node_substep_threshold": 2.0,
+  "node_substeps": 8,
+  "tag": "core3_08_virB_grf_bounded",
+  "_comment": "core_v3 arm 08: virialized Option B (gradient/relaxation), init=grf, close-range=bounded close-range law + 1 Gpc cap + adaptive substep (threshold=2.0, substeps=8; Section-4 validated). 2000p/546 steps, M down to 1, S co-fit [3..35] ternary. Compared at MATCHED treatment to isolate cube-vs-virialized-vs-softening cleanly."
+}

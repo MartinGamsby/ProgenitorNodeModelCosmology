@@ -1200,111 +1200,212 @@ class TestAllSweepConfigsLoadAndExpand(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 13. comparison_v2 family: the headline isolation sweep (items 2/8/9/10 + E)
+# 13. core_v3 family: the redesigned headline comparison (FEWER, HIGHER-quality)
 # ---------------------------------------------------------------------------
 
-class TestComparisonV2Family(unittest.TestCase):
-    """The sweeps/comparison_v2/ family ISOLATES one variable per arm against the
-    cube26/no-softening control. This test pins the family's structure so a future
-    edit cannot silently drop an axis: every arm loads+expands, the documented cell
-    count holds, and across the arms ALL the required comparison axes are present —
-    cube26 control AND virialized, Option A (lattice) AND Option B (gradient),
-    softening 0 AND >0, plummer AND bounded force law, linear AND ternary co-fit,
-    a start_size_scale spread, the extent-coupling arm, and the particle/step ladder.
+class TestCoreV3Family(unittest.TestCase):
+    """The sweeps/core_v3/ family SUPERSEDES comparison_v2: FEWER but HIGHER-quality
+    sims (2000p/546, M down to 1, S floor 3, ternary co-fit, GRF + a uniform_sphere
+    control on cube26 only), isolating cube-vs-virialized-vs-softening cleanly at a
+    MATCHED close-range treatment. This pins the family structure so a future edit
+    cannot silently drop an axis or regress the quality knobs.
+
+    12 core arms = 3 GRF geometries {cube26, virialized Option A lattice, Option B
+    gradient} x 3 close-range treatments {none, bounded+substep, Plummer 1 Gpc}
+    (9 arms) PLUS cube26 uniform_sphere x the 3 treatments (3 arms). Each arm has a
+    single geometry/init/softening (config-wide scalars), 7 M values => 84 core cells.
+    Arm 13 is the B3a seed sweep (3 M x 5 seeds = 15 cells).
     """
 
-    def _arm_paths(self):
+    _N_CORE_ARMS = 12
+    _M_PER_ARM = 7  # M_values = [1,5,10,35,100,300,1000]
+    _CORE_CELLS = _N_CORE_ARMS * _M_PER_ARM  # 84
+
+    def _core_arm_paths(self):
         import glob
-        # Only the NN_*.json arms — exclude the _manifest.json (not a sweep config).
-        d = os.path.join(_repo_root, "sweeps", "comparison_v2")
-        return sorted(glob.glob(os.path.join(d, "[0-9]*.json")))
+        # The 12 numbered core arms (01..12); exclude the seed arm and _manifest.json.
+        d = os.path.join(_repo_root, "sweeps", "core_v3")
+        paths = sorted(glob.glob(os.path.join(d, "[0-1][0-9]_*.json")))
+        return [p for p in paths if "seedsweep" not in os.path.basename(p)]
 
-    def _arm_cfgs(self):
-        return [load_config(p) for p in self._arm_paths()]
+    def _seed_arm_path(self):
+        return os.path.join(_repo_root, "sweeps", "core_v3",
+                            "13_virA_grf_bounded_seedsweep.json")
 
-    def test_nineteen_arms_load_and_expand(self):
-        paths = self._arm_paths()
-        self.assertEqual(len(paths), 19,
-                         f"expected 19 comparison_v2 arms, found {len(paths)}")
+    def _core_cfgs(self):
+        return [load_config(p) for p in self._core_arm_paths()]
+
+    def test_twelve_core_arms_load_and_expand_to_84_cells(self):
+        paths = self._core_arm_paths()
+        self.assertEqual(len(paths), self._N_CORE_ARMS,
+                         f"expected {self._N_CORE_ARMS} core_v3 arms, found {len(paths)}")
         total_cells = 0
         for p in paths:
             with self.subTest(arm=os.path.basename(p)):
-                cells = expand_grid(load_config(p))
-                self.assertGreater(len(cells), 0)
+                cfg = load_config(p)
+                cells = expand_grid(cfg)
+                self.assertEqual(len(cells), self._M_PER_ARM,
+                                 f"{os.path.basename(p)}: expected {self._M_PER_ARM} "
+                                 f"cells (one per M), got {len(cells)}")
                 total_cells += len(cells)
-        # 18 arms x 12 cells (2 geoms? no — single geom per arm => 12 M each)
-        # 18 arms at 12 M + 1 ladder arm at 6 M = 18*12 + 6 = 222 documented cells.
-        self.assertEqual(total_cells, 222,
-                         f"documented comparison_v2 cell total is 222, got {total_cells}")
+        self.assertEqual(total_cells, self._CORE_CELLS,
+                         f"core_v3 cell total should be {self._CORE_CELLS}, got {total_cells}")
 
     def test_unique_tags_per_arm(self):
-        tags = [c["tag"] for c in self._arm_cfgs()]
+        tags = [c["tag"] for c in self._core_cfgs()] + [load_config(self._seed_arm_path())["tag"]]
         self.assertEqual(len(tags), len(set(tags)),
-                         "every comparison_v2 arm must have a UNIQUE tag (its own CSV)")
+                         "every core_v3 arm must have a UNIQUE tag (its own CSV)")
 
-    def test_all_required_axes_present_across_arms(self):
-        cfgs = self._arm_cfgs()
+    def test_quality_knobs_on_every_core_arm(self):
+        """Items 2/3: 2000p/546, M down to 1, S floor=3, ternary co-fit, pantheon
+        objective — on EVERY core arm (the whole point of the redesign)."""
+        for c in self._core_cfgs():
+            self.assertEqual(c["particle_count"], 2000,
+                             "core_v3 must run 2000 particles (not the old 400)")
+            self.assertEqual(c["n_steps"], 546,
+                             "core_v3 must run 546 steps (dt~20 Myr, not the old 273)")
+            self.assertEqual(min(c["M_values"]), 1,
+                             "core_v3 M grid must reach the low floor M=1")
+            self.assertLessEqual(max(c["M_values"]), 1000,
+                                 "core_v3 M grid caps at 1000")
+            self.assertEqual(c["s_min_gpc"], 3, "core_v3 S floor must be 3 Gpc")
+            self.assertEqual(c["s_max_gpc"], 35, "core_v3 S ceiling must be 35 Gpc")
+            self.assertEqual(c["s_cofit_method"], "ternary",
+                             "core_v3 must use ternary co-fit (linear is broken on "
+                             "pantheon; ternary matches brute)")
+            self.assertEqual(c["objective"], "pantheon")
+
+    def test_geometry_x_treatment_triad_present(self):
+        """Item 9: cube26 control AND virialized Option A (lattice) AND Option B
+        (gradient), each crossed with all three matched close-range treatments."""
+        cfgs = self._core_cfgs()
         geoms = set()
         relax_modes = set()
         softenings = set()
         force_laws = set()
-        cofit_methods = set()
-        start_sizes = set()
-        has_extent_couple = False
-        ladders = set()
         for c in cfgs:
             geoms.update(c["node_geometries"])
-            relax_modes.add(c.get("vir_relax_mode", "lattice"))
+            if "virialized" in c["node_geometries"]:
+                relax_modes.add(c.get("vir_relax_mode", "lattice"))
             softenings.add(c.get("node_softening_gpc", 0.0))
             force_laws.add(c.get("node_force_law", "plummer"))
-            cofit_methods.add(c.get("s_cofit_method", "linear"))
-            start_sizes.add(c.get("start_size_scale", 1.0))
-            if c.get("vir_extent_couples_nodes", False):
-                has_extent_couple = True
-            ladders.add((c["particle_count"], c["n_steps"]))
-
-        # cube26 control (item 9) AND virialized.
         self.assertIn("cube26", geoms)
         self.assertIn("virialized", geoms)
-        # Option A (lattice) AND Option B (gradient) (item 6).
+        # Option A (lattice) AND Option B (gradient).
         self.assertIn("lattice", relax_modes)
         self.assertIn("gradient", relax_modes)
-        # softening incl 0 so effects are attributable (item 9).
+        # The three matched treatments: none (soft=0) AND a softened one (1.0).
         self.assertIn(0.0, softenings)
-        self.assertTrue(any(s > 0.0 for s in softenings))
-        # bounded close-range law tested too (item 3).
+        self.assertIn(1.0, softenings)
+        # plummer (none + Plummer 1 Gpc) AND bounded (bounded+substep).
         self.assertIn("plummer", force_laws)
         self.assertIn("bounded", force_laws)
-        # linear AND ternary co-fit (item 2: linear may pin at the S boundary).
-        self.assertIn("linear", cofit_methods)
-        self.assertIn("ternary", cofit_methods)
-        # start_size_scale spread incl below and above 1.0 (item 8).
-        self.assertTrue(any(s < 1.0 for s in start_sizes))
-        self.assertTrue(any(s > 1.0 for s in start_sizes))
-        # extent coupled to node count (item 10).
-        self.assertTrue(has_extent_couple)
-        # particle_count + n_steps convergence ladder (item 2): >= 3 distinct rungs.
-        self.assertGreaterEqual(len(ladders), 3,
-                                f"expected >=3 ladder rungs, got {sorted(ladders)}")
 
-    def test_low_finer_M_and_S(self):
-        """Item 2: M MUCH lower than 200 and S MUCH lower than 20."""
-        for c in self._arm_cfgs():
-            self.assertLessEqual(min(c["M_values"]), 50,
-                                 "comparison_v2 must reach M <= 50 (item 2)")
-            self.assertLess(c["s_min_gpc"], 15,
-                            "comparison_v2 S co-fit must reach below 15 Gpc (item 2)")
+    def test_bounded_arms_carry_validated_substep_values(self):
+        """The bounded+substep arms must use the Section-4 VALIDATED values
+        (node_force_law='bounded', 1 Gpc cap, threshold=2.0, substeps=8) — read from
+        _generate_ws8_close_encounter.py, not invented."""
+        bounded = [c for c in self._core_cfgs()
+                   if c.get("node_force_law") == "bounded"]
+        # 4 bounded arms: cube26-grf, virA-grf, virB-grf, and cube26-uniform.
+        self.assertEqual(len(bounded), 4,
+                         "expected 4 bounded+substep arms (cube26-grf, virA-grf, "
+                         f"virB-grf, cube26-uniform); got {len(bounded)}")
+        for c in bounded:
+            self.assertEqual(c["node_softening_gpc"], 1.0)
+            self.assertEqual(c["node_substep_threshold"], 2.0)
+            self.assertEqual(c["node_substeps"], 8)
 
-    def test_smoke_config_exercises_new_knobs(self):
-        """The smoke config must parse AND set the new knobs (so the smoke RUN proves
-        keyed==run end-to-end), and stay tiny (fast pipeline check, not physics)."""
-        p = os.path.join(_repo_root, "sweeps", "comparison_v2_smoke.json")
+    def test_grf_headline_and_cube26_uniform_control(self):
+        """init: GRF (sphere support) is the headline on every geometry; uniform_sphere
+        appears ONLY on cube26 (the attribution control for the GRF clustering cost)."""
+        grf_geoms = set()
+        uniform_geoms = set()
+        for c in self._core_cfgs():
+            inits = c["init_distributions"]
+            geom = c["node_geometries"][0]
+            if "grf" in inits:
+                grf_geoms.add(geom)
+                self.assertEqual(c.get("grf_support"), "sphere",
+                                 "GRF arms must confine the cloud to the sphere support")
+            if "uniform_sphere" in inits:
+                uniform_geoms.add(geom)
+        # GRF runs on all three geometries.
+        self.assertEqual(grf_geoms, {"cube26", "virialized"})
+        # uniform_sphere ONLY on cube26 (not on virialized).
+        self.assertEqual(uniform_geoms, {"cube26"})
+
+    def test_virialized_arms_use_finer_deeper_node_count(self):
+        """vir_n_nodes bumped above 80 (=150) for a finer mass function + deeper
+        interior (decisions-v2)."""
+        for c in self._core_cfgs():
+            if "virialized" in c["node_geometries"]:
+                self.assertGreater(c["vir_n_nodes"], 80,
+                                   "virialized core arms must use vir_n_nodes>80")
+                self.assertEqual(c["vir_n_nodes"], 150)
+
+    def test_core_arms_have_distinct_cache_keys(self):
+        """keyed==run across arms: every core arm yields a DISTINCT cache key at a
+        common (M,S) — geometry/softening/init/force-law all reach the key."""
+        keys = {}
+        for p in self._core_arm_paths():
+            cfg = load_config(p)
+            cell = next(c for c in expand_grid(cfg) if c["M"] == 100)
+            keys[os.path.basename(p)] = build_cache_name(
+                _make_sweep_config_for_cell(cell, cfg), 100, 30, 1, [42])
+        self.assertEqual(len(set(keys.values())), len(keys),
+                         f"two core arms share a cache key: {keys}")
+
+    # ---- the B3a seed arm ----
+
+    def test_seed_arm_expands_to_15_cells_distinct_keys(self):
+        """The seed arm expands to 3 M x 5 seeds = 15 cells (the R1 cache-collision
+        fix makes the realizations REAL), and each (M, seed) gets a DISTINCT cache
+        key carrying its <seed>virseed token (keyed==run on the geometry seed)."""
+        cfg = load_config(self._seed_arm_path())
+        self.assertEqual(cfg["node_mass_seeds"], [42, 7, 123, 2024, 99])
+        self.assertEqual(cfg["M_values"], [35, 100, 300])
+        cells = expand_grid(cfg)
+        self.assertEqual(len(cells), 15,
+                         "seed arm must emit 3 M x 5 seeds = 15 cells (no amp=0 collapse "
+                         "for virialized+massfunc+spread>0)")
+        from collections import defaultdict
+        by_M = defaultdict(list)
+        for c in cells:
+            key = build_cache_name(_make_sweep_config_for_cell(c, cfg),
+                                   c["M"], 30, 1, [42])
+            by_M[c["M"]].append((c["nm_seed"], key))
+        for M, lst in by_M.items():
+            keys = [k for _, k in lst]
+            self.assertEqual(len(set(keys)), len(keys),
+                             f"seed cache keys collide at M={M} (the R1 bug would do this)")
+            for seed, key in lst:
+                self.assertIn(f"{seed}virseed", key,
+                              f"key for M={M} seed={seed} missing virseed token: {key}")
+
+    def test_seed_arm_is_virA_grf_bounded(self):
+        """The seed arm is virialized Option A (lattice) GRF with the bounded+substep
+        treatment (decisions-v2: pick the bounded+substep treatment)."""
+        cfg = load_config(self._seed_arm_path())
+        self.assertEqual(cfg["node_geometries"], ["virialized"])
+        self.assertEqual(cfg["vir_relax_mode"], "lattice")
+        self.assertEqual(cfg["init_distributions"], ["grf"])
+        self.assertEqual(cfg["node_force_law"], "bounded")
+        self.assertEqual(cfg["node_substeps"], 8)
+
+    def test_smoke_config_exercises_core_knobs(self):
+        """The core_v3 smoke config must parse AND set the new core knobs (so the
+        smoke RUN proves keyed==run end-to-end), and stay tiny (pipeline check)."""
+        p = os.path.join(_repo_root, "sweeps", "core_v3_smoke.json")
         cfg = load_config(p)
         cells = expand_grid(cfg)
         self.assertGreater(len(cells), 0)
+        self.assertEqual(cfg["s_cofit_method"], "ternary")
         self.assertEqual(cfg["node_softening_gpc"], 1.0)
         self.assertEqual(cfg["node_force_law"], "bounded")
-        self.assertNotEqual(cfg["start_size_scale"], 1.0)
+        self.assertEqual(cfg["node_substeps"], 8)
+        self.assertEqual(cfg["init_distributions"], ["grf"])
+        self.assertEqual(cfg.get("grf_support"), "sphere")
         self.assertIn("virialized", cfg["node_geometries"])
         self.assertIn("cube26", cfg["node_geometries"])
         self.assertLessEqual(cfg["particle_count"], 200)

@@ -374,20 +374,62 @@ non-default-geometry cell it re-ran cube26-no-softening and annotated a DIFFEREN
 chi2_dof + |diff| and requires <0.01 (verified |diff|=0.000000). ALWAYS quote the CSV
 value. Guarded by `tests/test_overarching_sweep.py::TestMuZPanelParamsMatchSim`.
 
-### The comparison_v2 sweep family (Section 7 — config built, results PENDING)
-`sweeps/comparison_v2/` is a 19-arm family (`NN_*.json` + `_manifest.json`) that ISOLATES
-one variable per arm against a cube26/no-softening control, because
-geometry/softening/force-law/relax-mode/start-size/particles/co-fit are config-WIDE
-scalars in the driver (only M/geometry/init are factorial). Arms: cube26 control vs
-virialized Option A vs Option B; node_softening_gpc in {0,1.0} + bounded law; M much
-lower+finer {20..3000}; S co-fit s_min=8; linear AND ternary co-fit; start_size_scale in
-{0.5,0.8,1.2,1.5,2.0}; vir_extent=1.5 coupled to node count (80→270); particle/step
-convergence ladder {1000p/273, 2000p/546, 4000p/1092}; 222 cells. Launched DETACHED +
-RESUMABLE via `launch_sweep_detached.ps1` (Start-Process, static argument vector). The
+### The core_v3 sweep family + satellites (config built, results PENDING)
+`sweeps/core_v3/` is the redesigned headline comparison — FEWER but HIGHER-quality sims —
+that SUPERSEDES the deleted `comparison_v2/`. 13 arms (`NN_*.json` + `_manifest.json`),
+each a separate single-driver sweep, because geometry/softening/force-law/relax-mode/
+init/particles are config-WIDE scalars in the driver (only M/geometry/init are factorial):
+- **Quality knobs on every arm:** `particle_count=2000`, `n_steps=546` (dt~20 Myr), S
+  co-fit `[3..35]` with `s_cofit_method="ternary"` (the B4 validation found LINEAR was
+  broken on the pantheon objective — it pinned near s_max because `compute_pantheon_metrics`
+  zero-fills `USED_MATCH_METRIC_KEYS`; ternary == brute, and the linear early-stop is now
+  fixed too — see the co-fit section above), `objective="pantheon"`, `vir_n_nodes=150`
+  (above the 80 floor for a finer mass function + deeper interior).
+- **12 core arms** = 3 GRF geometries {cube26 control, virialized Option A lattice, Option B
+  gradient} × 3 MATCHED close-range treatments {none (plummer, no substep) / bounded+substep
+  (1 Gpc cap, threshold=2.0, substeps=8 — the Section-4 validated combo) / Plummer 1 Gpc}
+  (arms 01–09), PLUS cube26 uniform_sphere × the same 3 treatments (10–12, the attribution
+  control pricing the GRF clustering cost on the cleanest geometry). 7 M each
+  {1,5,10,35,100,300,1000} → **84 core cells**.
+- **Arm 13** = the B3a geometry-seed sweep: virA GRF bounded+substep, M{35,100,300} ×
+  seeds {42,7,123,2024,99}; the cache-collision fix makes the 5 realizations REAL (one cell
+  per seed, distinct `<seed>virseed` keys) → **15 seed cells**.
+
+**Satellites** (secondary SHAPE studies split out of the core, `sweeps/satellite_*/`, each
+one config-wide scalar = one arm; MATCHED to the core cell otherwise):
+- `satellite_startsize/` — 6 arms, `start_size_scale` ∈ {0.5,0.8,1.0,1.2,1.5,2.0} on virA
+  GRF bounded+substep, M{35,100,300}; **18 cells**. 1000p (a shape study isolating a(t) vs
+  start_size per PF10, NOT a converged band); scale=1.0 is byte-identical.
+- `satellite_convergence/` — 3 arms, `particle_count` ∈ {1000,2000,4000} on ONE cube26 GRF
+  bounded+substep cell M=100; **3 cells**. N IS the swept variable (the convergence CHECK),
+  so 2000+4000 run at full production resolution.
+- `satellite_extent/` — 3 arms, `vir_extent` ∈ {1.0,1.5,2.0} with
+  `vir_extent_couples_nodes=true` driving node count ~extent³ (PF14: 150→{150,506,1200}),
+  virA GRF bounded+substep, M{35,100}; **6 cells**. 1000p (the node-particle force is
+  O(N_part×N_nodes), so extent=2.0 at 1200 nodes is the expensive end).
+
+Launched DETACHED + RESUMABLE via `launch_sweep_detached.ps1` (Start-Process, STATIC
+argument vector). **CORE-ONLY by default**; `-IncludeSatellites` appends the satellite arms
+(two hardcoded static arrays, not a runtime glob — the flag cannot widen the set). The
 multi-day RESULTS are a FLAGGED FOLLOW-ON — the cube26-vs-virialized attribution and the
 final virialized chi2 band stay PENDING until it completes (see PF-PENDING). Family
-contract tested in `tests/test_overarching_sweep.py::TestComparisonV2Family` (19 arms,
-222-cell count, required axes).
+contracts tested in `tests/test_overarching_sweep.py::TestCoreV3Family` (12 arms, 84-cell +
+15-seed-cell counts, quality knobs, triad, distinct keys) and `::TestSatelliteFamilies`
+(6/3/3 arms, 18/3/6 cells, matched knobs, start_size + extent keyed==run).
+
+### Runtime calibration (NO BLIND LAUNCH) — `_calibrate_runtime.py`
+The user must NOT be surprised by a multi-day run. `_calibrate_runtime.py` measures the REAL
+per-sim wall-time at 2000p/546 (cache bypassed, `--evals` real sims per probe) for each
+geometry {cube26, virialized-A 150 nodes, virialized-B 150 nodes} × treatment {none,
+plummer1, bounded+substep} — none/plummer have NO substep so are cheaper than bounded — then
+PROJECTS the total wall-time for each core arm, the seed arm, and each satellite as
+`#cells × EVALS_PER_CELL × per-sim-seconds` (`EVALS_PER_CELL=7`, a conservative upper bound;
+a ternary co-fit cell averages ~6.4 distinct-S sims over `[3..30]`, scaling particle_count
+linearly and virialized node count linearly for the extent satellite). It writes
+`results/runtime_projection.csv` (gitignored) + a printed table (per-sim seconds per
+geometry×treatment, projected hours per arm, and CORE / SEED / satellite / GRAND-TOTAL
+subtotals). `--project-only` skips the timing run and uses R4 fallback s/sim. Run it BEFORE
+`launch_sweep_detached.ps1` so the projected hours are known.
 
 ## From-data sweep results (Stage 3, anchored, 2000p/300steps, t_start=2.9, seed=42)
 LINEAR_SEARCH on S per M, full z to ~2.1. All 98 configs passed the growth anchor

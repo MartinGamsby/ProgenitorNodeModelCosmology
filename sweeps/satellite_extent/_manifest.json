@@ -1,0 +1,20 @@
+{
+  "_comment": "SATELLITE: vir_extent->node-count->chi2 study (plan-v2 B6 / item 10). virialized Option A (lattice) GRF bounded+substep (MATCHED to core_v3 arm 05) with vir_extent_couples_nodes=true so vir_extent DRIVES the node count ~extent^3 (PF14): extent {1.0,1.5,2.0} -> {150,506,1200} nodes. vir_extent (and the coupling flag) are CONFIG-WIDE scalars in sweep.py, so each extent is its own arm. Small M grid {35,100}, S co-fit [3..35] ternary, 1000p/546 -- a SECONDARY shape study (the node-particle force is O(N_part x N_nodes), so extent=2.0 at 1200 nodes is the expensive end; 1000p keeps it tractable). Run via launch_sweep_detached.ps1 -IncludeSatellites.",
+  "arms": [
+    {
+      "file": "sweeps/satellite_extent/01_extent_1p0.json",
+      "tag": "sat_extent_1p0",
+      "isolates": "virA GRF bounded+substep | vir_extent=1.0 coupled -> 150 nodes (reference)"
+    },
+    {
+      "file": "sweeps/satellite_extent/02_extent_1p5.json",
+      "tag": "sat_extent_1p5",
+      "isolates": "virA GRF bounded+substep | vir_extent=1.5 coupled -> 506 nodes"
+    },
+    {
+      "file": "sweeps/satellite_extent/03_extent_2p0.json",
+      "tag": "sat_extent_2p0",
+      "isolates": "virA GRF bounded+substep | vir_extent=2.0 coupled -> 1200 nodes (expensive end)"
+    }
+  ]
+}

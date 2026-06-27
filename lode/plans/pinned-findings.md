@@ -337,31 +337,34 @@ no-op; keyed==run through the sweep path. Source:
 `tests/test_virialized_grid.py::TestExtentNodeCoupling`,
 `tests/test_overarching_sweep.py`.
 
-## PF-PENDING — "virialized fits worse/better than cube26": NOT YET PINNED (awaiting the comparison_v2 sweep)
+## PF-PENDING — "virialized fits worse/better than cube26": NOT YET PINNED (awaiting the core_v3 sweep)
 
 The claim that the virialized grid "fits worse" than cube26 is UNVERIFIED and must stay so
-until the detached `sweeps/comparison_v2/` sweep runs cube26 as a control AT THE SAME
-softening / force-law / start-size in the SAME sweep (item 9 attribution). The config + the
-detached, resumable launcher (`launch_sweep_detached.ps1`, Start-Process, 19 arms isolating
-one variable each, 222 cells) are BUILT and the keyed==run wiring is verified (Section 7
-threaded four previously keyed-but-not-run axes: `node_force_law`, `node_substep_threshold`,
-`node_substeps`, and especially `vir_relax_mode` — Option B was ENTIRELY UNREACHABLE from any
-sweep config before this). But the multi-day RESULTS are a flagged follow-on. Until that
-sweep COMPLETES, do NOT pin: cube26-vs-virialized attribution, the low/fine M/S landscape,
-start-size/co-fit/convergence results, or any final headline chi2 band for virialized. Smoke
-(4 cells) confirmed the pipeline (best cube26 M=100/S=19 chi2/dof 0.4993, anchor_ok; chi2
-reconciliation passed) but is NOT a result. Source:
+until the detached `sweeps/core_v3/` sweep runs cube26 as a control AT THE SAME softening /
+force-law in the SAME family (item 9 attribution). The 13-arm family (FEWER but HIGHER quality
+than the deleted comparison_v2: 2000p/546, M{1..1000}, S co-fit [3..35] ternary, vir_n_nodes=
+150; 12 core arms = 3 GRF geometries × 3 MATCHED treatments + cube26-uniform control × 3 = 84
+cells; arm 13 = the B3a seed sweep, 15 cells) + the secondary satellites (start_size 6/conv
+3/extent 3) + the detached, resumable launcher (`launch_sweep_detached.ps1`, Start-Process,
+core-only default / `-IncludeSatellites`) are BUILT and the keyed==run wiring is verified.
+The runtime is CALIBRATED (`_calibrate_runtime.py`, NO blind launch): measured at 2000p/546,
+cube26 bounded+substep ~88 s/sim, virA (150 nodes) bounded ~243 s, virB (gradient) bounded
+~65 s; none/plummer arms ~22-36 s (no substep). PROJECTION: CORE ~9.5 h + SEED ~7 h = ~16.5 h
+(~0.7 day); + satellites ~+11 h ⇒ ~27 h (~1.1 day) total (results/runtime_projection.csv).
+But the multi-day RESULTS are a flagged follow-on. Until that sweep COMPLETES, do NOT pin:
+cube26-vs-virialized attribution, the low/fine M/S landscape, start-size/convergence/extent
+results, or any final headline chi2 band for virialized. Source:
 [overarching-sweep.md](./overarching-sweep.md),
 [../scripts/parameter-sweep.md](../scripts/parameter-sweep.md).
 
 ## What is NOT yet pinned (the job of this phase)
 
 - The cube26-vs-virialized attribution and the final headline chi2 band for virialized
-  (PENDING the detached `comparison_v2` sweep — see PF-PENDING above). The chi2 DEFINITION
+  (PENDING the detached `core_v3` sweep — see PF-PENDING above). The chi2 DEFINITION
   is now authoritative (PF11), but the multi-day comparison numbers are not in yet.
 - Whether ANY node geometry yields a larger net isotropic effect (WS3).
-- Whether all conclusions survive high N (WS6) — the comparison_v2 convergence ladder
-  (1000p/2000p/4000p) addresses this once it runs.
+- Whether all conclusions survive high N (WS6) — the `satellite_convergence`
+  (1000p/2000p/4000p on one cell, N IS the variable) check addresses this once it runs.
 - A fuller WS4 centerM sweep INCLUDING the M~50/S~20 corner (the reduced grid that
   produced PF6 omitted it). centerM-as-outer-mass semantics are now IMPLEMENTED (PF6);
   whether outer mass helps at the model's actual best-fit corner is still open.

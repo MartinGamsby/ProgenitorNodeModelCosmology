@@ -1412,6 +1412,163 @@ class TestCoreV3Family(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# 13b. Satellite families: the secondary SHAPE studies (plan-v2 B5/B6)
+# ---------------------------------------------------------------------------
+
+class TestSatelliteFamilies(unittest.TestCase):
+    """The sweeps/satellite_* families are the secondary shape studies split out of
+    the core (decisions-v2 / plan-v2 B5+B6). They are MATCHED to the core_v3 cell
+    (virialized-A or cube26, GRF sphere support, bounded+substep treatment, S co-fit
+    [3..35] ternary, pantheon objective) but vary ONE secondary axis each:
+      - start_size: start_size_scale in {0.5,0.8,1.0,1.2,1.5,2.0} (6 arms x M{35,100,300})
+      - convergence: particle_count in {1000,2000,4000} (3 arms x ONE cell M=100)
+      - extent: vir_extent {1.0,1.5,2.0} coupled to node count (3 arms x M{35,100})
+    Each config-wide scalar (start_size_scale, particle_count, vir_extent) is its own
+    small arm. This pins the family structure + cell counts so a future edit cannot
+    silently drop an arm or break the keyed==run wiring of the swept axis.
+    """
+
+    def _arm_paths(self, family):
+        import glob
+        d = os.path.join(_repo_root, "sweeps", family)
+        paths = sorted(glob.glob(os.path.join(d, "[0-9]*.json")))
+        return [p for p in paths if os.path.basename(p) != "_manifest.json"]
+
+    def _cfgs(self, family):
+        return [(p, load_config(p)) for p in self._arm_paths(family)]
+
+    # ---- start_size satellite (B5) ----
+
+    def test_startsize_six_arms_eighteen_cells(self):
+        cfgs = self._cfgs("satellite_startsize")
+        self.assertEqual(len(cfgs), 6,
+                         "start_size satellite must be 6 arms (one per start_size_scale)")
+        total = 0
+        for p, cfg in cfgs:
+            cells = expand_grid(cfg)
+            self.assertEqual(len(cells), 3,
+                             f"{os.path.basename(p)}: M{{35,100,300}} -> 3 cells")
+            total += len(cells)
+        self.assertEqual(total, 18, "start_size satellite total = 6 arms x 3 M = 18 cells")
+
+    def test_startsize_scales_cover_the_six_values(self):
+        scales = sorted(cfg["start_size_scale"] for _, cfg in self._cfgs("satellite_startsize"))
+        self.assertEqual(scales, [0.5, 0.8, 1.0, 1.2, 1.5, 2.0])
+
+    def test_startsize_geometry_and_treatment_matched_to_core(self):
+        """ONE geometry: virialized Option A (lattice) GRF + bounded+substep, M{35,100,300}."""
+        for p, cfg in self._cfgs("satellite_startsize"):
+            self.assertEqual(cfg["node_geometries"], ["virialized"])
+            self.assertEqual(cfg["vir_relax_mode"], "lattice")
+            self.assertEqual(cfg["init_distributions"], ["grf"])
+            self.assertEqual(cfg.get("grf_support"), "sphere")
+            self.assertEqual(cfg["node_force_law"], "bounded")
+            self.assertEqual(cfg["node_substeps"], 8)
+            self.assertEqual(cfg["s_cofit_method"], "ternary")
+            self.assertEqual(cfg["s_min_gpc"], 3)
+            self.assertEqual(cfg["s_max_gpc"], 35)
+            self.assertEqual(cfg["M_values"], [35, 100, 300])
+            self.assertEqual(cfg["vir_n_nodes"], 150)
+
+    def test_startsize_is_keyed_eq_run_in_cache(self):
+        """The swept axis (start_size_scale) must reach the cache key when != 1.0 and
+        be byte-identical (no ssz slug) at 1.0 -- keyed==run for the lever."""
+        keys = {}
+        for p, cfg in self._cfgs("satellite_startsize"):
+            cell = next(c for c in expand_grid(cfg) if c["M"] == 100)
+            keys[cfg["start_size_scale"]] = build_cache_name(
+                _make_sweep_config_for_cell(cell, cfg), 100, 20, 1, [42])
+        # All six start_size_scale values must yield DISTINCT keys at a common (M,S).
+        self.assertEqual(len(set(keys.values())), 6,
+                         f"start_size_scale not keyed==run (some keys collide): {keys}")
+        # The scale=1.0 arm is the byte-identical reference: NO ssz slug.
+        self.assertNotIn("ssz", keys[1.0],
+                         "start_size_scale=1.0 must be byte-identical (no ssz slug)")
+        self.assertIn("ssz", keys[0.5],
+                       "start_size_scale=0.5 must add an ssz slug (keyed==run)")
+
+    # ---- convergence satellite (B6) ----
+
+    def test_convergence_three_arms_one_cell_each(self):
+        cfgs = self._cfgs("satellite_convergence")
+        self.assertEqual(len(cfgs), 3,
+                         "convergence satellite must be 3 arms (one per particle_count)")
+        for p, cfg in cfgs:
+            cells = expand_grid(cfg)
+            self.assertEqual(len(cells), 1,
+                             f"{os.path.basename(p)}: ONE cell (M=100)")
+            self.assertEqual(cfg["M_values"], [100])
+
+    def test_convergence_particle_counts_are_the_variable(self):
+        """N IS the swept variable -> {1000,2000,4000}, with 2000+4000 at full quality."""
+        Ns = sorted(cfg["particle_count"] for _, cfg in self._cfgs("satellite_convergence"))
+        self.assertEqual(Ns, [1000, 2000, 4000])
+
+    def test_convergence_cell_matched_to_core(self):
+        """ONE headline cell: cube26 GRF bounded+substep, M=100, S co-fit [3..35]."""
+        for p, cfg in self._cfgs("satellite_convergence"):
+            self.assertEqual(cfg["node_geometries"], ["cube26"])
+            self.assertEqual(cfg["init_distributions"], ["grf"])
+            self.assertEqual(cfg.get("grf_support"), "sphere")
+            self.assertEqual(cfg["node_force_law"], "bounded")
+            self.assertEqual(cfg["node_substeps"], 8)
+            self.assertEqual(cfg["s_cofit_method"], "ternary")
+            self.assertEqual(cfg["n_steps"], 546)
+
+    # ---- extent satellite (B6 / item 10) ----
+
+    def test_extent_three_arms_six_cells(self):
+        cfgs = self._cfgs("satellite_extent")
+        self.assertEqual(len(cfgs), 3,
+                         "extent satellite must be 3 arms (one per vir_extent)")
+        total = 0
+        for p, cfg in cfgs:
+            cells = expand_grid(cfg)
+            self.assertEqual(len(cells), 2,
+                             f"{os.path.basename(p)}: M{{35,100}} -> 2 cells")
+            total += len(cells)
+        self.assertEqual(total, 6, "extent satellite total = 3 arms x 2 M = 6 cells")
+
+    def test_extent_couples_nodes_and_covers_the_values(self):
+        """vir_extent {1.0,1.5,2.0} with vir_extent_couples_nodes=True so extent drives
+        the node count ~extent^3 (PF14): 150 -> {150,506,1200}."""
+        from cosmo.node_geometry import extent_coupled_n_nodes
+        seen = {}
+        for p, cfg in self._cfgs("satellite_extent"):
+            self.assertTrue(cfg.get("vir_extent_couples_nodes", False),
+                            "extent arms must set vir_extent_couples_nodes=True")
+            self.assertEqual(cfg["node_geometries"], ["virialized"])
+            self.assertEqual(cfg["vir_relax_mode"], "lattice")
+            self.assertEqual(cfg["vir_n_nodes"], 150)
+            seen[cfg["vir_extent"]] = extent_coupled_n_nodes(150, cfg["vir_extent"])
+        self.assertEqual(sorted(seen.keys()), [1.0, 1.5, 2.0])
+        self.assertEqual(seen[1.0], 150)
+        self.assertEqual(seen[1.5], 506)
+        self.assertEqual(seen[2.0], 1200)
+
+    def test_extent_is_keyed_eq_run_in_cache(self):
+        """The swept axis (vir_extent + coupling) must reach the cache key -> distinct
+        keys per extent at a common (M,S) (keyed==run)."""
+        keys = {}
+        for p, cfg in self._cfgs("satellite_extent"):
+            cell = next(c for c in expand_grid(cfg) if c["M"] == 100)
+            keys[cfg["vir_extent"]] = build_cache_name(
+                _make_sweep_config_for_cell(cell, cfg), 100, 20, 1, [42])
+        self.assertEqual(len(set(keys.values())), 3,
+                         f"vir_extent not keyed==run (some keys collide): {keys}")
+
+    # ---- cross-family ----
+
+    def test_all_satellite_tags_unique(self):
+        tags = []
+        for fam in ("satellite_startsize", "satellite_convergence", "satellite_extent"):
+            tags += [cfg["tag"] for _, cfg in self._cfgs(fam)]
+        self.assertEqual(len(tags), len(set(tags)),
+                         "every satellite arm must have a UNIQUE tag (its own CSV)")
+        self.assertEqual(len(tags), 12, "12 satellite arms total (6 + 3 + 3)")
+
+
+# ---------------------------------------------------------------------------
 # 14. GRF support cache key + keyed==run (WS5 §8 box->sphere default fix)
 # ---------------------------------------------------------------------------
 

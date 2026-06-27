@@ -26,6 +26,8 @@ from _generate_ws8_figs import (
     displacement_magnitudes,
     slingshot_metrics,
     slingshot_sweep_row,
+    tamed_comparison_row,
+    tail_reduction_factor,
     softened_node_acceleration,
     mass_radius_stats,
     virialization_residual_curve,
@@ -146,6 +148,56 @@ class TestSlingshotSweepRow:
         row = slingshot_sweep_row("n_steps", 320, np.full(10, 2.0))
         assert isinstance(row["value"], float)
         assert row["value"] == 320.0
+
+
+# ---------------------------------------------------------------------------
+# 3b'. tamed_comparison_row + tail_reduction_factor (Fig 6 pure helpers)
+# ---------------------------------------------------------------------------
+
+class TestTamedComparisonRow:
+    def test_row_keys_and_label(self):
+        disp = np.concatenate([np.full(99, 1.0), np.array([100.0])])
+        row = tamed_comparison_row("untamed", disp, tail_factor=5.0)
+        for key in ("label", "max_over_median", "p99_over_median",
+                    "tail_fraction", "max_disp", "median_disp", "n"):
+            assert key in row
+        assert row["label"] == "untamed"
+        assert row["n"] == 100
+        assert row["max_disp"] == 100.0
+        # Metrics agree with slingshot_metrics directly.
+        m = slingshot_metrics(disp, tail_factor=5.0)
+        assert row["max_over_median"] == m["max_over_median"]
+
+    def test_label_stringified(self):
+        row = tamed_comparison_row(42, np.full(10, 2.0))
+        assert row["label"] == "42"
+
+
+class TestTailReductionFactor:
+    def test_reduction_when_tail_shrinks(self):
+        before = {"max_over_median": 500.0}
+        after = {"max_over_median": 5.0}
+        assert tail_reduction_factor(before, after) == 100.0
+
+    def test_no_change_is_one(self):
+        before = {"max_over_median": 10.0}
+        after = {"max_over_median": 10.0}
+        assert abs(tail_reduction_factor(before, after) - 1.0) < 1e-12
+
+    def test_nan_when_after_zero_or_nonfinite(self):
+        assert math.isnan(tail_reduction_factor(
+            {"max_over_median": 10.0}, {"max_over_median": 0.0}))
+        assert math.isnan(tail_reduction_factor(
+            {"max_over_median": float("nan")}, {"max_over_median": 5.0}))
+        assert math.isnan(tail_reduction_factor(
+            {"max_over_median": 10.0}, {"max_over_median": float("inf")}))
+
+    def test_consumes_tamed_comparison_rows(self):
+        before = tamed_comparison_row(
+            "untamed", np.concatenate([np.full(99, 1.0), np.array([500.0])]))
+        after = tamed_comparison_row("tamed", np.full(100, 1.0))
+        # untamed has a huge tail; tamed (uniform) has max/median==1 -> big reduction.
+        assert tail_reduction_factor(before, after) > 100.0
 
 
 # ---------------------------------------------------------------------------

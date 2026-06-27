@@ -28,10 +28,19 @@ Produces THREE figures under results/figures/ws8/:
       correlation, segregation slope, median-vs-mean NN spacing, mean-
       preservation check) side by side.
 
+  Fig 4 (virialization_residual.png), Fig 5 (slingshot_knob_sweep.png),
+  Fig 6 (doubly_tamed_before_after.png)
+      Fig 4: inner-node FORCE-BALANCE (virialization) residual, radial vs massfunc,
+      vs grid size (no sim). Fig 5: slingshot root-cause + taming-knob sweep at the
+      runaway config (several short sims, DIAGNOSTIC softening monkeypatch). Fig 6:
+      "doubly tamed" before/after on the REAL product node-softening path (untamed
+      cube26 -> node-softened cube26 -> doubly-tamed virialized+softening), the
+      taming the headline sweeps/virialized_final.json actually applies (3 sims).
+
 Usage
 -----
-    python _generate_ws8_figs.py                 # all 3 figures (runs 2 short sims)
-    python _generate_ws8_figs.py --no-sim        # Fig 1 + Fig 3 only (no sim)
+    python _generate_ws8_figs.py                 # all 6 figures (runs short sims)
+    python _generate_ws8_figs.py --no-sim        # no-sim figs (Fig 1, 3, 4)
     python _generate_ws8_figs.py --n-particles 400 --n-steps 120
 
 INVARIANTS
@@ -240,6 +249,57 @@ def slingshot_sweep_row(
         "median_disp": m["median"],
         "n": m["n"],
     }
+
+
+def tamed_comparison_row(
+    label: str, disp: np.ndarray, tail_factor: float = 5.0
+) -> Dict[str, Any]:
+    """Build ONE tidy "doubly-tamed" before/after row from a displacement array.
+
+    Pure (no sim, no I/O): packs the headline slingshot-tail metrics for a single
+    labelled stage ("untamed cube26", "node-softened cube26", "doubly tamed") into a
+    flat dict so the Fig-6 before/after comparison is a simple list of these rows and
+    the row-builder is unit-testable. Mirrors slingshot_sweep_row but keyed by a
+    human STAGE label rather than a knob value.
+
+    Args:
+        label:       Stage label for this run (e.g. "untamed", "doubly_tamed").
+        disp:        (N,) per-particle displacement magnitudes for this run.
+        tail_factor: Slingshot tail cutoff forwarded to slingshot_metrics.
+
+    Returns:
+        dict with keys: label, max_over_median, p99_over_median, tail_fraction,
+        max_disp, median_disp, n.
+    """
+    m = slingshot_metrics(disp, tail_factor=tail_factor)
+    return {
+        "label": str(label),
+        "max_over_median": m["max_over_median"],
+        "p99_over_median": m["p99_over_median"],
+        "tail_fraction": m["tail_fraction"],
+        "max_disp": m["max"],
+        "median_disp": m["median"],
+        "n": m["n"],
+    }
+
+
+def tail_reduction_factor(before: Dict[str, Any], after: Dict[str, Any]) -> float:
+    """How many× the max/median slingshot tail shrank from `before` to `after`.
+
+    Pure helper for the Fig-6 headline. Returns before/after on the max_over_median
+    metric (>1 == the tail shrank). NaN if either ratio is non-finite or after≈0.
+
+    Args:
+        before / after: tamed_comparison_row (or slingshot_sweep_row) dicts.
+
+    Returns:
+        before["max_over_median"] / after["max_over_median"], or NaN if undefined.
+    """
+    b = float(before.get("max_over_median", float("nan")))
+    a = float(after.get("max_over_median", float("nan")))
+    if not (math.isfinite(b) and math.isfinite(a)) or a <= 0.0:
+        return float("nan")
+    return b / a
 
 
 def softened_node_acceleration(
@@ -514,11 +574,18 @@ def generate_fig1(S_gpc: float, vir_n_nodes: int, seed: int,
 def _run_motion_sim(
     geometry: str, M: float, S_gpc: float, n_particles: int, n_steps: int,
     t_start_Gyr: float, seed: int, vir_kwargs: Optional[Dict[str, Any]] = None,
+    node_softening_gpc: float = 0.0,
 ) -> Dict[str, np.ndarray]:
     """Run ONE short sim and return inner-particle initial/final positions (Gpc).
 
     Returns dict: {'pos_initial', 'pos_final', 'disp', 'a_growth', 'geometry'}.
     Positions are in Gpc, restricted to the inner observable sub-region.
+
+    node_softening_gpc: the REAL product node-softening knob (Section 4), threaded
+    through SimulationParameters into the product tidal path. 0.0 (default) keeps
+    the legacy hard 1e10 m floor (untamed). >0 (e.g. 1.0) tames the slingshot — this
+    is what the final headline config sets, so Fig 6 can show the true tamed path
+    (NOT the diagnostic monkeypatch used by the Fig 5 knob sweep).
     """
     t_dur = _TODAY_GYR - t_start_Gyr
     box_size_Gpc, a_start, _ = setup_simulation_context(
@@ -537,6 +604,7 @@ def _run_motion_sim(
         vir_mass_spread=vir_kwargs.get("vir_mass_spread", _DEFAULT_VIR_SPREAD),
         vir_segregation=vir_kwargs.get("vir_segregation", _DEFAULT_VIR_SEGREGATION),
         vir_s_metric=vir_kwargs.get("vir_s_metric", "median"),
+        node_softening_gpc=float(node_softening_gpc),
     )
     print(f"[Fig 2] Running short sim: geometry={geometry}, M={M}, "
           f"S={S_gpc}, N={n_particles}, n_steps={n_steps} ...")
@@ -1195,6 +1263,122 @@ def generate_fig5_slingshot_knobs(
 
 
 # ===========================================================================
+# Fig 6 — "doubly tamed" before/after (the headline-config taming, REAL path)
+# ===========================================================================
+#
+# The final headline config is "doubly tamed" = virialized structure (spreads node
+# mass, no single near-point-mass) + node_softening_gpc=1.0 (Plummer node softening).
+# Fig 5 sweeps the DIAGNOSTIC softening monkeypatch; this figure instead runs the
+# REAL product knob (node_softening_gpc threaded through SimulationParameters) at the
+# runaway config so the before/after is the actual production tidal path:
+#   (1) untamed cube26          (node_softening_gpc=0  -> legacy hard 1e10 m floor)
+#   (2) node-softened cube26     (node_softening_gpc=1  -> softening only)
+#   (3) doubly tamed virialized  (virialized geometry + node_softening_gpc=1)
+
+
+def _doubly_tamed_runs(
+    n_particles: int, n_steps: int, t_start_Gyr: float, seed: int,
+    *, M: float = _SLING_M, S_gpc: float = _SLING_S_GPC,
+) -> List[Tuple[str, Dict[str, np.ndarray]]]:
+    """Run the three before/after sims for Fig 6 (REAL product softening path)."""
+    runs: List[Tuple[str, Dict[str, np.ndarray]]] = []
+    print("[Fig 6] Running doubly-tamed before/after (real product softening) ...")
+    runs.append((
+        "untamed\ncube26 (soft=0)",
+        _run_motion_sim("cube26", M, S_gpc, n_particles, n_steps, t_start_Gyr,
+                        seed, node_softening_gpc=0.0),
+    ))
+    runs.append((
+        f"node-softened\ncube26 (soft={_SLING_SOFT_BASE_GPC:.0f} Gpc)",
+        _run_motion_sim("cube26", M, S_gpc, n_particles, n_steps, t_start_Gyr,
+                        seed, node_softening_gpc=_SLING_SOFT_BASE_GPC),
+    ))
+    runs.append((
+        f"DOUBLY TAMED\nvirialized + soft={_SLING_SOFT_BASE_GPC:.0f} Gpc",
+        _run_motion_sim("virialized", M, S_gpc, n_particles, n_steps, t_start_Gyr,
+                        seed, vir_kwargs={"vir_extent": _DEFAULT_VIR_EXTENT,
+                                          "vir_mass_rule": "massfunc",
+                                          "vir_mass_spread": 0.8},
+                        node_softening_gpc=_SLING_SOFT_BASE_GPC),
+    ))
+    return runs
+
+
+def generate_fig6_doubly_tamed(
+    n_particles: int, n_steps: int, t_start_Gyr: float, seed: int,
+    *, M: float = _SLING_M, S_gpc: float = _SLING_S_GPC,
+) -> Tuple[str, List[Dict[str, Any]]]:
+    """Fig 6: "doubly tamed" before/after on the REAL product tidal path.
+
+    Bar chart of the slingshot tail (max/median, log) across the three stages plus a
+    verdict panel reporting the tail-reduction factor untamed -> doubly tamed. Returns
+    (path, rows) where rows are tamed_comparison_row dicts in stage order.
+    """
+    runs = _doubly_tamed_runs(n_particles, n_steps, t_start_Gyr, seed,
+                              M=M, S_gpc=S_gpc)
+    rows = [tamed_comparison_row(lbl, run["disp"]) for lbl, run in runs]
+
+    fig, (ax_bar, ax_txt) = plt.subplots(1, 2, figsize=(13, 5.5))
+
+    labels = [r["label"] for r in rows]
+    vals = [r["max_over_median"] for r in rows]
+    colors = ["#d62728", "#ff7f0e", "#2ca02c"]
+    bars = ax_bar.bar(labels, vals, color=colors)
+    ax_bar.set_yscale("log")
+    ax_bar.set_ylabel("max/median slingshot tail (log)", fontsize=10)
+    ax_bar.set_title("Slingshot tail collapses stage by stage\n"
+                     "(lower = tamer; same runaway config)", fontsize=10)
+    for b, v in zip(bars, vals):
+        if math.isfinite(v):
+            ax_bar.text(b.get_x() + b.get_width() / 2, v, f"{v:.1f}",
+                        ha="center", va="bottom", fontsize=9)
+    ax_bar.tick_params(axis="x", labelsize=8)
+    ax_bar.grid(True, alpha=0.3, axis="y")
+
+    reduction = tail_reduction_factor(rows[0], rows[-1])
+    soft_only = tail_reduction_factor(rows[0], rows[1])
+    red_str = f"{reduction:.0f}x" if math.isfinite(reduction) else "n/a"
+    soft_str = f"{soft_only:.0f}x" if math.isfinite(soft_only) else "n/a"
+    ax_txt.axis("off")
+    txt = (
+        "DOUBLY TAMED verdict (real product path)\n"
+        "----------------------------------------\n"
+        f"runaway config: cube26 M={M:.0f}, S={S_gpc:.0f}\n\n"
+        f"(1) untamed cube26       max/median = {rows[0]['max_over_median']:.1f}\n"
+        f"(2) node-softened cube26 max/median = {rows[1]['max_over_median']:.1f}"
+        f"  ({soft_str})\n"
+        f"(3) DOUBLY TAMED         max/median = {rows[2]['max_over_median']:.1f}"
+        f"  ({red_str})\n\n"
+        f"=> node softening (1 Gpc) + virialized\n"
+        f"   structure together shrink the tail\n"
+        f"   {red_str} vs untamed cube26.\n\n"
+        "This is the REAL product knob\n"
+        "(node_softening_gpc), NOT the Fig 5\n"
+        "diagnostic monkeypatch — it is exactly\n"
+        "what sweeps/virialized_final.json sets."
+    )
+    ax_txt.text(0.02, 0.98, txt, transform=ax_txt.transAxes, fontsize=10,
+                va="top", ha="left", family="monospace",
+                bbox=dict(boxstyle="round", fc="#eaffea", alpha=0.9))
+
+    fig.suptitle(
+        "WS8 Fig 6 — DOUBLY TAMED before/after (real product node softening)\n"
+        "virialized geometry + node_softening_gpc=1 Gpc tames the slingshot on the "
+        "PRODUCT tidal path (the headline final config).",
+        fontsize=12, y=0.99,
+    )
+    _footer(ax_bar, f"M={M:.0f} S={S_gpc:.0f} N={n_particles} "
+                    f"steps={n_steps} seed={seed}")
+    fig.tight_layout(rect=(0, 0, 1, 0.92))
+    out = figure_path(_WS, "doubly_tamed_before_after")
+    fig.savefig(out, dpi=_DPI, bbox_inches=_BBOX)
+    plt.close(fig)
+    print(f"[Fig 6] Saved: {out}")
+    print(f"[Fig 6] untamed -> doubly tamed tail reduction: {red_str}")
+    return out, rows
+
+
+# ===========================================================================
 # CLI
 # ===========================================================================
 
@@ -1262,6 +1446,17 @@ def main(argv=None) -> int:
         paths.append(p5)
     else:
         print("[ws8] --no-sim: skipping Fig 5 (slingshot knob-sweep).")
+
+    # Fig 6 — "doubly tamed" before/after on the REAL product softening path.
+    if not args.no_sim:
+        t_dur6 = _TODAY_GYR - _SLING_T_START
+        n_steps6 = resolve_n_steps(t_dur6, _SLING_N_STEPS)
+        p6, _ = generate_fig6_doubly_tamed(
+            _SLING_N, n_steps6, _SLING_T_START, args.seed
+        )
+        paths.append(p6)
+    else:
+        print("[ws8] --no-sim: skipping Fig 6 (doubly-tamed before/after).")
 
     print("\n[ws8] Figures written:")
     for p in paths:

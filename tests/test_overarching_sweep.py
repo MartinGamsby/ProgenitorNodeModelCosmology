@@ -43,6 +43,7 @@ from sweep import (
     SWEEP_CSV_COLS, BEST_ISO_COLS,
     _FixedSweepConfig, run_plots_only,
     _make_sweep_config_for_cell, _make_sim_callback,
+    _build_sim_params, _cell_from_best_row,
 )
 from cosmo.parameter_sweep import build_cache_name
 
@@ -422,6 +423,142 @@ class TestNodeSofteningThreading(unittest.TestCase):
         self.assertEqual(sweep_cfg.node_softening_gpc, 0.0)
         key = build_cache_name(sweep_cfg, 100, 30, 1, [42])
         self.assertNotIn("nsoft", key)
+
+
+# ---------------------------------------------------------------------------
+# 5d. mu(z) panel params == sim-callback params (figure<->CSV chi2 reconciliation)
+# ---------------------------------------------------------------------------
+
+class TestMuZPanelParamsMatchSim(unittest.TestCase):
+    """Section 1 (chi2 conflict fix): the mu(z) figure must re-run the SAME full
+    config the sweep cell ran, or its annotated chi2 diverges from the CSV value.
+
+    `_generate_mu_z_panel` now builds SimulationParameters via the SAME machinery
+    as `_make_sim_callback` (`_cell_from_best_row` -> `_make_sweep_config_for_cell`
+    -> `_build_sim_params`). These tests assert field-by-field that the panel's
+    params equal the sim-callback's params for a virialized cell (the bug case),
+    so the figure can never again silently drop geometry/vir_*/softening/start-size
+    and re-run a different a(t). Hermetic — no real simulation runs.
+
+    Fields that MUST match: every knob threaded by _make_sim_callback._sim.
+    """
+
+    # Mirror TestVirializedGridThreading._NONDEFAULT: a config differing from every
+    # default on the knobs the old panel dropped.
+    _NONDEFAULT = dict(
+        node_geometries=["virialized"],
+        geometry_kwargs={"foo": 1},
+        vir_n_nodes=54,
+        vir_extent=2.0,
+        vir_mass_rule="massfunc",
+        vir_mass_spread=0.5,
+        vir_segregation=0.3,
+        vir_s_metric="mean",
+        node_softening_gpc=1.0,
+        start_size_scale=1.5,
+    )
+
+    # Knobs the old _generate_mu_z_panel omitted (the bug) + the always-threaded ones.
+    _FIELDS = (
+        "M_value", "S_value", "n_particles", "t_start_Gyr", "t_duration_Gyr",
+        "n_steps", "center_node_mass", "node_mass_seed", "node_mass_amplitude",
+        "node_s_amplitude", "init_distribution",
+        "node_geometry", "geometry_kwargs",
+        "vir_n_nodes", "vir_extent", "vir_mass_rule", "vir_mass_spread",
+        "vir_segregation", "vir_s_metric", "vir_relax_steps",
+        "node_softening_gpc", "start_size_scale",
+    )
+
+    def _cfg(self, **overrides):
+        cfg = dict(DEFAULT_CONFIG)
+        cfg.update(overrides)
+        return cfg
+
+    def _vir_cell(self):
+        return dict(M=100, amplitude=0.0, nm_seed=42, s_amplitude=0.0,
+                    init="uniform_sphere", geometry="virialized")
+
+    def _best_row_for(self, cell, M=100, S=30, centerM=1):
+        """The CSV row the sweep would emit for this cell (see _cofit_S_for_cell)."""
+        return dict(
+            M_factor=M, S_gpc=S, centerM=centerM,
+            node_mass_amplitude=cell["amplitude"],
+            node_s_amplitude=cell["s_amplitude"],
+            node_mass_seed=cell["nm_seed"],
+            init_distribution=cell["init"],
+            node_geometry=cell["geometry"],
+            chi2_dof=0.903,
+        )
+
+    def _sim_callback_params(self, cfg, cell, M, S, centerM):
+        """The SimulationParameters the REAL run (sim callback) hands to the sim."""
+        sweep_cfg = _make_sweep_config_for_cell(cell, cfg)
+        sim_cb = _make_sim_callback(sweep_cfg, box_size_Gpc=10.0, a_start=0.1)
+        captured = {}
+
+        def fake_run(sim_params, box_size_Gpc, a_start, save_interval):
+            captured["params"] = sim_params
+            return {"dummy": True}
+
+        with patch("sweep.run_external_node_simulation", side_effect=fake_run), \
+             patch("sweep.results_to_sim_result", return_value="ok"):
+            sim_cb(M_factor=M, S_gpc=S, centerM=centerM, seeds=[42])
+        return captured["params"]
+
+    def _panel_params(self, cfg, best_row, M, S, centerM):
+        """The SimulationParameters the FIGURE panel builds (post-fix path)."""
+        cell = _cell_from_best_row(best_row)
+        sweep_cfg = _make_sweep_config_for_cell(cell, cfg)
+        return _build_sim_params(sweep_cfg, M, S, centerM, seed=42)
+
+    def test_cell_from_best_row_roundtrips(self):
+        """_cell_from_best_row reconstructs the exact cell that produced the row."""
+        cell = self._vir_cell()
+        row = self._best_row_for(cell)
+        self.assertEqual(_cell_from_best_row(row), cell)
+
+    def test_panel_params_match_sim_params_virialized(self):
+        """THE regression: panel params == sim-callback params, field-by-field,
+        for a virialized cell with every dropped knob non-default."""
+        cfg = self._cfg(**self._NONDEFAULT)
+        cell = self._vir_cell()
+        row = self._best_row_for(cell, M=100, S=30, centerM=1)
+        sim_p = self._sim_callback_params(cfg, cell, M=100, S=30, centerM=1)
+        panel_p = self._panel_params(cfg, row, M=100, S=30, centerM=1)
+        for f in self._FIELDS:
+            self.assertEqual(
+                getattr(panel_p, f), getattr(sim_p, f),
+                f"panel param {f!r} ({getattr(panel_p, f)!r}) != "
+                f"sim param ({getattr(sim_p, f)!r}) -> figure would re-run a "
+                f"different a(t) and its chi2 would diverge from the CSV")
+
+    def test_panel_runs_virialized_not_cube26(self):
+        """Direct guard against the exact bug: the old panel left node_geometry at
+        the cube26 default and dropped softening -> 0.52 vs 0.903."""
+        cfg = self._cfg(**self._NONDEFAULT)
+        cell = self._vir_cell()
+        row = self._best_row_for(cell)
+        panel_p = self._panel_params(cfg, row, M=100, S=30, centerM=1)
+        self.assertEqual(panel_p.node_geometry, "virialized")
+        self.assertEqual(panel_p.node_softening_gpc, 1.0)
+        self.assertEqual(panel_p.start_size_scale, 1.5)
+        self.assertEqual(panel_p.vir_n_nodes, 54)
+
+    def test_cube26_default_panel_is_noop(self):
+        """INVARIANT: for a plain cube26 default config the panel params equal the
+        sim params AND carry only defaults (the fix is a no-op for cube26)."""
+        cfg = self._cfg()  # plain defaults: cube26, all knobs default
+        cell = dict(M=100, amplitude=0.0, nm_seed=42, s_amplitude=0.0,
+                    init="uniform_sphere", geometry="cube26")
+        row = self._best_row_for(cell)
+        sim_p = self._sim_callback_params(cfg, cell, M=100, S=30, centerM=1)
+        panel_p = self._panel_params(cfg, row, M=100, S=30, centerM=1)
+        for f in self._FIELDS:
+            self.assertEqual(getattr(panel_p, f), getattr(sim_p, f), f)
+        # Defaults intact: no virialized leakage.
+        self.assertEqual(panel_p.node_geometry, "cube26")
+        self.assertEqual(panel_p.node_softening_gpc, 0.0)
+        self.assertEqual(panel_p.start_size_scale, 1.0)
 
 
 # ---------------------------------------------------------------------------

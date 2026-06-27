@@ -294,47 +294,69 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
     )
 
 
+def _build_sim_params(
+    sweep_cfg: _FixedSweepConfig, M_factor, S_gpc, centerM, seed,
+) -> SimulationParameters:
+    """Build the SimulationParameters for one (M, S, centerM, seed) of a cell.
+
+    SINGLE SOURCE OF TRUTH for "the params a sweep cell actually runs with".
+    Every consumer that must reproduce a cell's exact simulation — the sim
+    callback (`_make_sim_callback`, the real run that feeds the CSV chi2) AND the
+    mu(z) figure panel (`_generate_mu_z_panel`) — goes through here. This closes
+    the figure<->CSV chi2 conflict: the panel can never again omit a knob
+    (geometry, geometry_kwargs, vir_*, node_softening_gpc, start_size_scale) that
+    the real run threaded, which would otherwise re-run a different a(t).
+
+    The cell-specific axes (M, S, centerM, seed, amplitudes, init, geometry) ride
+    in via `sweep_cfg` built by `_make_sweep_config_for_cell`; the config-wide
+    knobs (geometry_kwargs, vir_*, softening, start-size) live on `sweep_cfg` too.
+    Defaults mirror SimulationParameters/SweepConfig, so non-virialized,
+    default-knob cells stay byte-identical.
+    """
+    return SimulationParameters(
+        M_value=M_factor,
+        S_value=S_gpc,
+        n_particles=sweep_cfg.particle_count,
+        seed=seed,
+        t_start_Gyr=sweep_cfg.t_start_Gyr,
+        t_duration_Gyr=sweep_cfg.t_duration_Gyr,
+        n_steps=sweep_cfg.n_steps,
+        damping_factor=sweep_cfg.damping_factor,
+        center_node_mass=centerM,
+        outer_density_ceiling=getattr(sweep_cfg, "outer_density_ceiling", 1.0),
+        mass_randomize=0.0,
+        node_mass_seed=sweep_cfg.node_mass_seed,
+        node_mass_amplitude=sweep_cfg.node_mass_amplitude,
+        node_s_amplitude=getattr(sweep_cfg, "node_s_amplitude", 0.0),
+        init_distribution=sweep_cfg.init_distribution,
+        node_geometry=getattr(sweep_cfg, "node_geometry", "cube26"),
+        geometry_kwargs=getattr(sweep_cfg, "geometry_kwargs", {}),
+        # Virialized COUPLED-grid params: read from the same SweepConfig that
+        # build_cache_name keys off, so the sim sees exactly what the cache key
+        # encodes. Defaults mirror SimulationParameters/SweepConfig, so
+        # non-virialized runs are unaffected.
+        vir_n_nodes=getattr(sweep_cfg, "vir_n_nodes", 26),
+        vir_extent=getattr(sweep_cfg, "vir_extent", 1.0),
+        vir_mass_rule=getattr(sweep_cfg, "vir_mass_rule", "radial"),
+        vir_mass_spread=getattr(sweep_cfg, "vir_mass_spread", 0.0),
+        vir_segregation=getattr(sweep_cfg, "vir_segregation", 1.0),
+        vir_s_metric=getattr(sweep_cfg, "vir_s_metric", "median"),
+        vir_relax_steps=getattr(sweep_cfg, "vir_relax_steps", 1),
+        # Node-softening: read from the same SweepConfig that build_cache_name
+        # keys off, so the sim runs exactly what the cache key encodes.
+        node_softening_gpc=getattr(sweep_cfg, "node_softening_gpc", 0.0),
+        # Start-size lever (Section 6): read from the same SweepConfig that
+        # build_cache_name keys off, so the sim runs exactly what the cache key
+        # encodes (keyed == run). Default 1.0 -> byte-identical, no slug.
+        start_size_scale=getattr(sweep_cfg, "start_size_scale", 1.0),
+    )
+
+
 def _make_sim_callback(sweep_cfg: _FixedSweepConfig, box_size_Gpc: float, a_start: float):
     """Return a sim_callback(M, S, centerM, seeds) -> [SimResult]."""
 
     def _sim(M_factor, S_gpc, centerM, seed):
-        sim_params = SimulationParameters(
-            M_value=M_factor,
-            S_value=S_gpc,
-            n_particles=sweep_cfg.particle_count,
-            seed=seed,
-            t_start_Gyr=sweep_cfg.t_start_Gyr,
-            t_duration_Gyr=sweep_cfg.t_duration_Gyr,
-            n_steps=sweep_cfg.n_steps,
-            damping_factor=sweep_cfg.damping_factor,
-            center_node_mass=centerM,
-            outer_density_ceiling=getattr(sweep_cfg, "outer_density_ceiling", 1.0),
-            mass_randomize=0.0,
-            node_mass_seed=sweep_cfg.node_mass_seed,
-            node_mass_amplitude=sweep_cfg.node_mass_amplitude,
-            node_s_amplitude=getattr(sweep_cfg, "node_s_amplitude", 0.0),
-            init_distribution=sweep_cfg.init_distribution,
-            node_geometry=getattr(sweep_cfg, "node_geometry", "cube26"),
-            geometry_kwargs=getattr(sweep_cfg, "geometry_kwargs", {}),
-            # Virialized COUPLED-grid params: read from the same SweepConfig that
-            # build_cache_name keys off, so the sim sees exactly what the cache key
-            # encodes. Defaults mirror SimulationParameters/SweepConfig, so
-            # non-virialized runs are unaffected.
-            vir_n_nodes=getattr(sweep_cfg, "vir_n_nodes", 26),
-            vir_extent=getattr(sweep_cfg, "vir_extent", 1.0),
-            vir_mass_rule=getattr(sweep_cfg, "vir_mass_rule", "radial"),
-            vir_mass_spread=getattr(sweep_cfg, "vir_mass_spread", 0.0),
-            vir_segregation=getattr(sweep_cfg, "vir_segregation", 1.0),
-            vir_s_metric=getattr(sweep_cfg, "vir_s_metric", "median"),
-            vir_relax_steps=getattr(sweep_cfg, "vir_relax_steps", 1),
-            # Node-softening: read from the same SweepConfig that build_cache_name
-            # keys off, so the sim runs exactly what the cache key encodes.
-            node_softening_gpc=getattr(sweep_cfg, "node_softening_gpc", 0.0),
-            # Start-size lever (Section 6): read from the same SweepConfig that
-            # build_cache_name keys off, so the sim runs exactly what the cache key
-            # encodes (keyed == run). Default 1.0 -> byte-identical, no slug.
-            start_size_scale=getattr(sweep_cfg, "start_size_scale", 1.0),
-        )
+        sim_params = _build_sim_params(sweep_cfg, M_factor, S_gpc, centerM, seed)
         ext_results = run_external_node_simulation(
             sim_params, box_size_Gpc, a_start, sweep_cfg.save_interval
         )
@@ -641,13 +663,41 @@ def generate_figures(csv_path: str, cfg: Dict, best_row: Optional[Dict],
     return saved
 
 
+def _cell_from_best_row(best_row: Dict) -> Dict:
+    """Reconstruct the `expand_grid` cell dict that produced `best_row`.
+
+    The CSV row carries every cell-identifying axis (geometry, amplitudes, seed,
+    init); the config-wide knobs (geometry_kwargs, vir_*, softening, start-size)
+    are NOT per-cell and stay in `cfg`. Feeding this cell to
+    `_make_sweep_config_for_cell` reproduces the EXACT SweepConfig the run used,
+    so the mu(z) panel re-runs the same a(t) the CSV chi2 was scored on.
+    """
+    return dict(
+        M=int(best_row["M_factor"]),
+        amplitude=float(best_row.get("node_mass_amplitude", 0.0)),
+        nm_seed=int(best_row.get("node_mass_seed", 42)),
+        s_amplitude=float(best_row.get("node_s_amplitude", 0.0)),
+        init=str(best_row.get("init_distribution", "uniform_sphere")),
+        geometry=str(best_row.get("node_geometry", "cube26")),
+    )
+
+
 def _generate_mu_z_panel(
     best_row: Dict, cfg: Dict,
     box_size_Gpc: float, a_start: float,
     pantheon_data: Dict,
     ws: str, tag: str, saved: List[str],
 ):
-    """Generate the mu(z) panel for the best config."""
+    """Generate the mu(z) panel for the best config.
+
+    The panel re-runs the SAME full config the sweep cell ran (geometry,
+    geometry_kwargs, vir_*, node_softening_gpc, start_size_scale) by going through
+    `_make_sweep_config_for_cell` + `_build_sim_params` — the identical machinery
+    `_make_sim_callback` (the real run that fed the CSV chi2) uses. This keeps the
+    figure annotation and the CSV `chi2_dof` in agreement; a stale hand-rolled
+    SimulationParameters here used to drop the vir_*/softening knobs and re-run a
+    different a(t), producing the figure<->CSV chi2 conflict.
+    """
     from cosmo.plots import plot_mu_z_panel
     from cosmo.sim_distance import sim_to_distance_modulus
     import cosmo.hubble_diagram as hd_engine
@@ -657,25 +707,16 @@ def _generate_mu_z_panel(
     S = int(best_row["S_gpc"])
     centerM = float(best_row.get("centerM", cfg["centerM"]))
     t_start = cfg["t_start_Gyr"]
-    t_dur = 13.8 - t_start
 
-    print(f"  [mu_z] Running best config M={M} S={S} for mu(z) panel ...")
-    sim_params = SimulationParameters(
-        M_value=M,
-        S_value=S,
-        n_particles=cfg["particle_count"],
-        seed=42,
-        t_start_Gyr=t_start,
-        t_duration_Gyr=t_dur,
-        n_steps=cfg["n_steps"],
-        damping_factor=None,
-        center_node_mass=centerM,
-        mass_randomize=0.0,
-        node_mass_seed=int(best_row.get("node_mass_seed", 42)),
-        node_mass_amplitude=float(best_row.get("node_mass_amplitude", 0.0)),
-        node_s_amplitude=float(best_row.get("node_s_amplitude", 0.0)),
-        init_distribution=str(best_row.get("init_distribution", "uniform_sphere")),
-    )
+    # Single source of truth: rebuild the cell + SweepConfig the run used, then
+    # the SimulationParameters via the SAME _build_sim_params the sim callback
+    # uses. seed=42 matches the co-fit seed (linear/ternary search seeds=[42]).
+    cell = _cell_from_best_row(best_row)
+    sweep_cfg = _make_sweep_config_for_cell(cell, cfg)
+    sim_params = _build_sim_params(sweep_cfg, M, S, centerM, seed=42)
+
+    print(f"  [mu_z] Running best config M={M} S={S} geo={cell['geometry']} "
+          f"for mu(z) panel ...")
     try:
         ext = run_external_node_simulation(sim_params, box_size_Gpc, a_start, 10)
         a_curve = ext["a"]
@@ -713,8 +754,55 @@ def _generate_mu_z_panel(
         )
         saved.append(p)
         print(f"  F6 => {p}")
+
+        # chi2 reconciliation proof: the figure-recomputed chi2_dof (this fresh
+        # run, scored by the SAME evaluate_precomputed the CSV scorer uses) MUST
+        # now agree with the authoritative CSV value (best_row["chi2_dof"], from
+        # compute_pantheon_metrics). Any residual is per-seed RNG of a fresh run
+        # and must be << 0.01 — not the ~0.38 gap the old param-dropping panel had.
+        _emit_chi2_reconciliation(best_row, results, ws, tag)
     except Exception as exc:
         print(f"  [mu_z] WARNING: could not generate panel: {exc}")
+
+
+def _emit_chi2_reconciliation(
+    best_row: Dict, results: Dict, ws: str, tag: str,
+) -> None:
+    """Print + write the figure<->CSV chi2 reconciliation proof note.
+
+    Authoritative chi2/dof = the CSV scorer (`compute_pantheon_metrics`, which is
+    `best_row["chi2_dof"]`). The figure now re-runs the cell's full config, so its
+    recomputed chi2/dof (the `external_node_nbody` panel result) matches the CSV
+    to within fresh-run RNG noise. Writes a gitignored note next to the figures.
+    """
+    csv_chi2 = float(best_row.get("chi2_dof", float("nan")))
+    fig_chi2 = float(results.get("external_node_nbody", {}).get("chi2_dof", float("nan")))
+    diff = abs(fig_chi2 - csv_chi2)
+
+    lines = [
+        "chi2 reconciliation (figure <-> CSV)",
+        f"  tag                 : {tag}",
+        f"  cell                : M={int(best_row['M_factor'])} S={int(best_row['S_gpc'])} "
+        f"geo={best_row.get('node_geometry', 'cube26')}",
+        f"  CSV chi2_dof        : {csv_chi2:.6f}   (authoritative: compute_pantheon_metrics)",
+        f"  figure chi2_dof     : {fig_chi2:.6f}   (re-run of the SAME full config)",
+        f"  |diff|              : {diff:.6f}   (REQUIRED < 0.01)",
+        f"  status              : {'OK' if diff < 0.01 else 'MISMATCH (knob still dropped?)'}",
+    ]
+    note = "\n".join(lines)
+    print("  [mu_z] " + note.replace("\n", "\n  [mu_z] "))
+
+    try:
+        from cosmo.plots import figure_path
+        # Reuse the figures dir helper to keep the note beside the panel (the
+        # whole results/ tree is gitignored).
+        png = figure_path(ws, f"chi2_reconciliation_{tag}")
+        txt = os.path.splitext(png)[0] + ".txt"
+        with open(txt, "w", encoding="utf-8") as fh:
+            fh.write(note + "\n")
+        print(f"  [mu_z] reconciliation note => {txt}")
+    except Exception as exc:
+        print(f"  [mu_z] WARNING: could not write reconciliation note: {exc}")
 
 
 # ---------------------------------------------------------------------------

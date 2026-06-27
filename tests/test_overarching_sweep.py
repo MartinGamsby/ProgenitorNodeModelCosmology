@@ -451,6 +451,107 @@ class TestNodeSofteningThreading(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# 5c2. node_force_law + adaptive substep + vir_relax_mode threading (keyed==run)
+# ---------------------------------------------------------------------------
+
+class TestForceLawSubstepRelaxModeThreading(unittest.TestCase):
+    """Section 4 (node_force_law / adaptive KDK sub-stepping) + Section 2 Option B
+    (vir_relax_mode='gradient'). Each axis is keyed by build_cache_name off the
+    SweepConfig, so it MUST also reach the SimulationParameters the sim runs, or a
+    config that sets it would key on a value it never runs (a dead axis / poisoned
+    cache). These knobs were keyed in build_cache_name but NOT threaded by sweep.py
+    until this section — without the threading the comparison_v2 bounded-law and
+    Option-B arms would silently run plummer/lattice.
+    """
+
+    def _cfg(self, **overrides):
+        cfg = dict(DEFAULT_CONFIG)
+        cfg.update(overrides)
+        return cfg
+
+    def _cell(self, geometry="cube26"):
+        return dict(M=100, amplitude=0.0, nm_seed=42, s_amplitude=0.0,
+                    init="uniform_sphere", geometry=geometry)
+
+    def _capture(self, cfg, cell):
+        sweep_cfg = _make_sweep_config_for_cell(cell, cfg)
+        sim_cb = _make_sim_callback(sweep_cfg, box_size_Gpc=10.0, a_start=0.1)
+        captured = {}
+
+        def fake_run(sim_params, box_size_Gpc, a_start, save_interval):
+            captured["params"] = sim_params
+            return {"dummy": True}
+
+        with patch("sweep.run_external_node_simulation", side_effect=fake_run), \
+             patch("sweep.results_to_sim_result", return_value="ok"):
+            sim_cb(M_factor=cell["M"], S_gpc=30, centerM=1, seeds=[42])
+        return captured["params"], sweep_cfg
+
+    def test_bounded_force_law_reaches_sim_and_key(self):
+        cfg = self._cfg(node_softening_gpc=1.0, node_force_law="bounded")
+        sim_params, sweep_cfg = self._capture(cfg, self._cell())
+        self.assertEqual(sim_params.node_force_law, "bounded")
+        self.assertEqual(sweep_cfg.node_force_law, "bounded")
+        key = build_cache_name(sweep_cfg, 100, 30, 1, [42])
+        self.assertIn("boundednlaw", key)
+
+    def test_substep_reaches_sim_and_key(self):
+        cfg = self._cfg(node_softening_gpc=1.0, node_substep_threshold=0.5,
+                        node_substeps=8)
+        sim_params, sweep_cfg = self._capture(cfg, self._cell())
+        self.assertEqual(sim_params.node_substep_threshold, 0.5)
+        self.assertEqual(sim_params.node_substeps, 8)
+        self.assertEqual(sweep_cfg.node_substep_threshold, 0.5)
+        self.assertEqual(sweep_cfg.node_substeps, 8)
+        key = build_cache_name(sweep_cfg, 100, 30, 1, [42])
+        self.assertIn("0.5nsubth", key)
+        self.assertIn("8nsub", key)
+
+    def test_gradient_relax_mode_reaches_sim_and_key(self):
+        cfg = self._cfg(node_geometries=["virialized"], vir_n_nodes=40,
+                        vir_relax_steps=20, vir_relax_mode="gradient",
+                        vir_relax_rate=0.1, vir_hold_outer_frac=0.3)
+        sim_params, sweep_cfg = self._capture(cfg, self._cell("virialized"))
+        self.assertEqual(sim_params.vir_relax_mode, "gradient")
+        self.assertEqual(sim_params.vir_relax_steps, 20)
+        self.assertEqual(sim_params.vir_relax_rate, 0.1)
+        self.assertEqual(sim_params.vir_hold_outer_frac, 0.3)
+        self.assertEqual(sweep_cfg.vir_relax_mode, "gradient")
+        key = build_cache_name(sweep_cfg, 100, 30, 1, [42])
+        self.assertIn("gradientvrm", key)
+
+    def test_gradient_grid_differs_from_lattice_through_sweep(self):
+        """Keyed == RUN: the Option-B grid the sim path builds actually DIFFERS from
+        the Option-A lattice grid (the mode changes the BUILT positions, not just the
+        key). Built via the SAME external_params.build_virialized() the sim uses, so
+        this guards against a future regression dropping vir_relax_mode."""
+        common = dict(node_geometries=["virialized"], vir_n_nodes=40,
+                      vir_mass_rule="massfunc", vir_mass_spread=0.8)
+        lat_p, _ = self._capture(self._cfg(vir_relax_steps=1, vir_relax_mode="lattice",
+                                           **common), self._cell("virialized"))
+        grad_p, _ = self._capture(self._cfg(vir_relax_steps=20, vir_relax_mode="gradient",
+                                            **common), self._cell("virialized"))
+        lat_pos, _ = lat_p.external_params.build_virialized()
+        grad_pos, _ = grad_p.external_params.build_virialized()
+        self.assertEqual(lat_pos.shape, grad_pos.shape)
+        self.assertFalse(np.allclose(lat_pos, grad_pos),
+                         "gradient (Option B) grid must differ from lattice (Option A)")
+
+    def test_defaults_no_slugs_byte_identical(self):
+        """INVARIANT: default plummer / no-substep / lattice add NO cache slug and
+        reach the sim as defaults — byte-identical to before this threading."""
+        cfg = self._cfg(node_geometries=["virialized"], vir_n_nodes=40)
+        sim_params, sweep_cfg = self._capture(cfg, self._cell("virialized"))
+        self.assertEqual(sim_params.node_force_law, "plummer")
+        self.assertEqual(sim_params.node_substep_threshold, 0.0)
+        self.assertEqual(sim_params.node_substeps, 1)
+        self.assertEqual(sim_params.vir_relax_mode, "lattice")
+        key = build_cache_name(sweep_cfg, 100, 30, 1, [42])
+        for slug in ("nlaw", "nsubth", "nsub", "vrm", "vrr", "vho"):
+            self.assertNotIn(slug, key, f"default key must not carry {slug!r}: {key}")
+
+
+# ---------------------------------------------------------------------------
 # 5d. mu(z) panel params == sim-callback params (figure<->CSV chi2 reconciliation)
 # ---------------------------------------------------------------------------
 
@@ -900,6 +1001,117 @@ class TestAllSweepConfigsLoadAndExpand(unittest.TestCase):
                     for k in ("M", "amplitude", "nm_seed", "s_amplitude",
                               "init", "geometry"):
                         self.assertIn(k, c)
+
+
+# ---------------------------------------------------------------------------
+# 13. comparison_v2 family: the headline isolation sweep (items 2/8/9/10 + E)
+# ---------------------------------------------------------------------------
+
+class TestComparisonV2Family(unittest.TestCase):
+    """The sweeps/comparison_v2/ family ISOLATES one variable per arm against the
+    cube26/no-softening control. This test pins the family's structure so a future
+    edit cannot silently drop an axis: every arm loads+expands, the documented cell
+    count holds, and across the arms ALL the required comparison axes are present —
+    cube26 control AND virialized, Option A (lattice) AND Option B (gradient),
+    softening 0 AND >0, plummer AND bounded force law, linear AND ternary co-fit,
+    a start_size_scale spread, the extent-coupling arm, and the particle/step ladder.
+    """
+
+    def _arm_paths(self):
+        import glob
+        # Only the NN_*.json arms — exclude the _manifest.json (not a sweep config).
+        d = os.path.join(_repo_root, "sweeps", "comparison_v2")
+        return sorted(glob.glob(os.path.join(d, "[0-9]*.json")))
+
+    def _arm_cfgs(self):
+        return [load_config(p) for p in self._arm_paths()]
+
+    def test_nineteen_arms_load_and_expand(self):
+        paths = self._arm_paths()
+        self.assertEqual(len(paths), 19,
+                         f"expected 19 comparison_v2 arms, found {len(paths)}")
+        total_cells = 0
+        for p in paths:
+            with self.subTest(arm=os.path.basename(p)):
+                cells = expand_grid(load_config(p))
+                self.assertGreater(len(cells), 0)
+                total_cells += len(cells)
+        # 18 arms x 12 cells (2 geoms? no — single geom per arm => 12 M each)
+        # 18 arms at 12 M + 1 ladder arm at 6 M = 18*12 + 6 = 222 documented cells.
+        self.assertEqual(total_cells, 222,
+                         f"documented comparison_v2 cell total is 222, got {total_cells}")
+
+    def test_unique_tags_per_arm(self):
+        tags = [c["tag"] for c in self._arm_cfgs()]
+        self.assertEqual(len(tags), len(set(tags)),
+                         "every comparison_v2 arm must have a UNIQUE tag (its own CSV)")
+
+    def test_all_required_axes_present_across_arms(self):
+        cfgs = self._arm_cfgs()
+        geoms = set()
+        relax_modes = set()
+        softenings = set()
+        force_laws = set()
+        cofit_methods = set()
+        start_sizes = set()
+        has_extent_couple = False
+        ladders = set()
+        for c in cfgs:
+            geoms.update(c["node_geometries"])
+            relax_modes.add(c.get("vir_relax_mode", "lattice"))
+            softenings.add(c.get("node_softening_gpc", 0.0))
+            force_laws.add(c.get("node_force_law", "plummer"))
+            cofit_methods.add(c.get("s_cofit_method", "linear"))
+            start_sizes.add(c.get("start_size_scale", 1.0))
+            if c.get("vir_extent_couples_nodes", False):
+                has_extent_couple = True
+            ladders.add((c["particle_count"], c["n_steps"]))
+
+        # cube26 control (item 9) AND virialized.
+        self.assertIn("cube26", geoms)
+        self.assertIn("virialized", geoms)
+        # Option A (lattice) AND Option B (gradient) (item 6).
+        self.assertIn("lattice", relax_modes)
+        self.assertIn("gradient", relax_modes)
+        # softening incl 0 so effects are attributable (item 9).
+        self.assertIn(0.0, softenings)
+        self.assertTrue(any(s > 0.0 for s in softenings))
+        # bounded close-range law tested too (item 3).
+        self.assertIn("plummer", force_laws)
+        self.assertIn("bounded", force_laws)
+        # linear AND ternary co-fit (item 2: linear may pin at the S boundary).
+        self.assertIn("linear", cofit_methods)
+        self.assertIn("ternary", cofit_methods)
+        # start_size_scale spread incl below and above 1.0 (item 8).
+        self.assertTrue(any(s < 1.0 for s in start_sizes))
+        self.assertTrue(any(s > 1.0 for s in start_sizes))
+        # extent coupled to node count (item 10).
+        self.assertTrue(has_extent_couple)
+        # particle_count + n_steps convergence ladder (item 2): >= 3 distinct rungs.
+        self.assertGreaterEqual(len(ladders), 3,
+                                f"expected >=3 ladder rungs, got {sorted(ladders)}")
+
+    def test_low_finer_M_and_S(self):
+        """Item 2: M MUCH lower than 200 and S MUCH lower than 20."""
+        for c in self._arm_cfgs():
+            self.assertLessEqual(min(c["M_values"]), 50,
+                                 "comparison_v2 must reach M <= 50 (item 2)")
+            self.assertLess(c["s_min_gpc"], 15,
+                            "comparison_v2 S co-fit must reach below 15 Gpc (item 2)")
+
+    def test_smoke_config_exercises_new_knobs(self):
+        """The smoke config must parse AND set the new knobs (so the smoke RUN proves
+        keyed==run end-to-end), and stay tiny (fast pipeline check, not physics)."""
+        p = os.path.join(_repo_root, "sweeps", "comparison_v2_smoke.json")
+        cfg = load_config(p)
+        cells = expand_grid(cfg)
+        self.assertGreater(len(cells), 0)
+        self.assertEqual(cfg["node_softening_gpc"], 1.0)
+        self.assertEqual(cfg["node_force_law"], "bounded")
+        self.assertNotEqual(cfg["start_size_scale"], 1.0)
+        self.assertIn("virialized", cfg["node_geometries"])
+        self.assertIn("cube26", cfg["node_geometries"])
+        self.assertLessEqual(cfg["particle_count"], 200)
 
 
 if __name__ == "__main__":

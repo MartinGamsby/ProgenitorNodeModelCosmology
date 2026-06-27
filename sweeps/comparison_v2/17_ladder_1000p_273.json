@@ -1,0 +1,52 @@
+{
+  "M_values": [
+    20,
+    35,
+    50,
+    75,
+    100,
+    150,
+    200,
+    300,
+    500,
+    1000,
+    1500,
+    3000
+  ],
+  "S_values": "co-fit",
+  "s_min_gpc": 8,
+  "s_max_gpc": 45,
+  "s_cofit_method": "linear",
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_seeds": [
+    42
+  ],
+  "init_distributions": [
+    "uniform_sphere"
+  ],
+  "node_geometries": [
+    "virialized"
+  ],
+  "particle_count": 1000,
+  "n_steps": 273,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "figures_dir": "results/figures/comparison_v2",
+  "tag": "cmp2_17_ladder_1000p_273",
+  "vir_n_nodes": 80,
+  "vir_mass_rule": "massfunc",
+  "vir_mass_spread": 0.8,
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "lattice",
+  "node_softening_gpc": 1.0,
+  "_comment": "Convergence ladder rung 1: 1000 particles / 273 steps on the headline (item 2: 'you only tested <1000 particles'). Full M grid (cheap)."
+}

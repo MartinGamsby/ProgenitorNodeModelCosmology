@@ -246,6 +246,16 @@ class SweepConfig:
     # layout; >= 1 (default) -> force-balanced cubic-lattice ball. Its cache
     # sub-slug is appended ONLY for the virialized geometry (see build_cache_name).
     vir_relax_steps: int = 1
+    # Option A vs Option B selector (Section 2). "lattice" (default, Option A:
+    # analytic balance level) is byte-identical, so its cache sub-slug is appended
+    # ONLY for virialized AND only when != "lattice" (all existing keys untouched ->
+    # NO PHYSICS_CACHE_VERSION bump). "gradient" (Option B) is the TRUE iterative
+    # relaxation of a realistic blob; vir_relax_rate / vir_hold_outer_frac tune the
+    # descent (used only in gradient mode). They also key the cache in gradient mode
+    # so a distinct (rate, hold) tuple -> a distinct key (keyed == run).
+    vir_relax_mode: str = "lattice"
+    vir_relax_rate: float = 0.1
+    vir_hold_outer_frac: float = 0.3
     # Item-10 coupling: when True, vir_extent DRIVES vir_n_nodes (density-preserving
     # N ~ extent^3), making vir_extent meaningful in the force-balanced lattice mode.
     # False (default) -> byte-identical; its cache sub-slug is appended ONLY for the
@@ -759,6 +769,18 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
         # is keyed == run, not just keyed.
         if getattr(config, 'vir_extent_couples_nodes', False):
             parts.append("1vxcouple")
+        # Relaxation-mode slug (Section 2 Option A/B): append ONLY when the mode is
+        # non-default ("gradient", Option B) so every existing virialized key (all
+        # built in the default "lattice" mode) stays valid -> NO PHYSICS_CACHE_VERSION
+        # bump. In gradient mode the descent tuning (rate, hold_outer_frac) changes the
+        # built grid, so key those too -> a distinct (mode, rate, hold) tuple maps to a
+        # distinct key (keyed == run). Suffixes are purely alphabetic so cache._split_key
+        # round-trips them ("gradientvrm", "0.1vrr", "0.3vho").
+        vir_relax_mode = getattr(config, 'vir_relax_mode', 'lattice')
+        if vir_relax_mode != 'lattice':
+            parts.append(f"{vir_relax_mode}vrm")
+            parts.append(f"{getattr(config, 'vir_relax_rate', 0.1)}vrr")
+            parts.append(f"{getattr(config, 'vir_hold_outer_frac', 0.3)}vho")
     # outer_density_ceiling slug: append only when != 1.0 so the default (no outer
     # over-density) keeps its existing cache key and non-default ceilings get distinct keys.
     outer_density_ceiling = getattr(config, 'outer_density_ceiling', 1.0)

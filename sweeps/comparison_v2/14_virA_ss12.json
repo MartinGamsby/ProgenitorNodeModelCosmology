@@ -1,0 +1,53 @@
+{
+  "M_values": [
+    20,
+    35,
+    50,
+    75,
+    100,
+    150,
+    200,
+    300,
+    500,
+    1000,
+    1500,
+    3000
+  ],
+  "S_values": "co-fit",
+  "s_min_gpc": 8,
+  "s_max_gpc": 45,
+  "s_cofit_method": "linear",
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_seeds": [
+    42
+  ],
+  "init_distributions": [
+    "uniform_sphere"
+  ],
+  "node_geometries": [
+    "virialized"
+  ],
+  "particle_count": 400,
+  "n_steps": 273,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "figures_dir": "results/figures/comparison_v2",
+  "tag": "cmp2_14_virA_ss12",
+  "vir_n_nodes": 80,
+  "vir_mass_rule": "massfunc",
+  "vir_mass_spread": 0.8,
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "lattice",
+  "node_softening_gpc": 1.0,
+  "start_size_scale": 1.2,
+  "_comment": "Virialized Option A headline at start_size_scale=1.2 (item 8: 'try more start sizes'). vs 05 (ss=1.0) shows the a(t)-shape/chi2 effect of initial density."
+}

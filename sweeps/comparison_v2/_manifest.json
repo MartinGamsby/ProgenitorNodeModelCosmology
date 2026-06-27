@@ -1,0 +1,100 @@
+{
+  "_comment": "comparison_v2 sweep family: ISOLATE one variable per arm against the cube26/no-softening control. Run in sequence by launch_sweep_detached.ps1. Each arm writes results/ws1_sweep_<tag>.csv (resumable).",
+  "arms": [
+    {
+      "file": "sweeps/comparison_v2/01_cube26_baseline.json",
+      "tag": "cmp2_01_cube26_baseline",
+      "isolates": "CONTROL (item 9): cube26, NO softening, plummer. The attribution baseline every "
+    },
+    {
+      "file": "sweeps/comparison_v2/02_cube26_soft1.json",
+      "tag": "cmp2_02_cube26_soft1",
+      "isolates": "cube26 + 1 Gpc Plummer node softening. ISOLATES the softening effect on the CONT"
+    },
+    {
+      "file": "sweeps/comparison_v2/03_cube26_bounded.json",
+      "tag": "cmp2_03_cube26_bounded",
+      "isolates": "cube26 + 1 Gpc softening + BOUNDED close-range law (item 3: 'can't cross the mid"
+    },
+    {
+      "file": "sweeps/comparison_v2/04_virA_soft0.json",
+      "tag": "cmp2_04_virA_soft0",
+      "isolates": "Virialized OPTION A (force-balanced lattice), NO softening. Compare vs 01 to ISO"
+    },
+    {
+      "file": "sweeps/comparison_v2/05_virA_soft1.json",
+      "tag": "cmp2_05_virA_soft1",
+      "isolates": "Virialized OPTION A + 1 Gpc softening = the prior 'doubly tamed' headline. The n"
+    },
+    {
+      "file": "sweeps/comparison_v2/06_virB_soft0.json",
+      "tag": "cmp2_06_virB_soft0",
+      "isolates": "Virialized OPTION B (TRUE iterative relaxation, 40 gradient steps) NO softening "
+    },
+    {
+      "file": "sweeps/comparison_v2/07_virB_soft1.json",
+      "tag": "cmp2_07_virB_soft1",
+      "isolates": "Virialized OPTION B + 1 Gpc softening. vs 05 = Option A vs Option B at the same "
+    },
+    {
+      "file": "sweeps/comparison_v2/08_virA_bounded.json",
+      "tag": "cmp2_08_virA_bounded",
+      "isolates": "Virialized Option A + softening + BOUNDED close-range law. vs 05 (plummer) tests"
+    },
+    {
+      "file": "sweeps/comparison_v2/09_virA_extentcouple.json",
+      "tag": "cmp2_09_virA_extentcouple",
+      "isolates": "Virialized Option A, vir_extent=1.5 COUPLED to node count (item 10: 'higher exte"
+    },
+    {
+      "file": "sweeps/comparison_v2/10_cube26_ternary.json",
+      "tag": "cmp2_10_cube26_ternary",
+      "isolates": "cube26 baseline but TERNARY S co-fit (item 2: 'linear might pin at the S boundar"
+    },
+    {
+      "file": "sweeps/comparison_v2/11_virA_ternary.json",
+      "tag": "cmp2_11_virA_ternary",
+      "isolates": "Virialized Option A + softening, TERNARY S co-fit. vs 05 (linear) for the headli"
+    },
+    {
+      "file": "sweeps/comparison_v2/12_virA_ss05.json",
+      "tag": "cmp2_12_virA_ss05",
+      "isolates": "Virialized Option A headline at start_size_scale=0.5 (item 8: 'try more start si"
+    },
+    {
+      "file": "sweeps/comparison_v2/13_virA_ss08.json",
+      "tag": "cmp2_13_virA_ss08",
+      "isolates": "Virialized Option A headline at start_size_scale=0.8 (item 8: 'try more start si"
+    },
+    {
+      "file": "sweeps/comparison_v2/14_virA_ss12.json",
+      "tag": "cmp2_14_virA_ss12",
+      "isolates": "Virialized Option A headline at start_size_scale=1.2 (item 8: 'try more start si"
+    },
+    {
+      "file": "sweeps/comparison_v2/15_virA_ss15.json",
+      "tag": "cmp2_15_virA_ss15",
+      "isolates": "Virialized Option A headline at start_size_scale=1.5 (item 8: 'try more start si"
+    },
+    {
+      "file": "sweeps/comparison_v2/16_virA_ss20.json",
+      "tag": "cmp2_16_virA_ss20",
+      "isolates": "Virialized Option A headline at start_size_scale=2.0 (item 8: 'try more start si"
+    },
+    {
+      "file": "sweeps/comparison_v2/17_ladder_1000p_273.json",
+      "tag": "cmp2_17_ladder_1000p_273",
+      "isolates": "Convergence ladder rung 1: 1000 particles / 273 steps on the headline (item 2: '"
+    },
+    {
+      "file": "sweeps/comparison_v2/18_ladder_2000p_546.json",
+      "tag": "cmp2_18_ladder_2000p_546",
+      "isolates": "Convergence ladder rung 2: 2000 particles / 546 steps (item 3: 273 steps = ~40 M"
+    },
+    {
+      "file": "sweeps/comparison_v2/19_ladder_4000p_1092.json",
+      "tag": "cmp2_19_ladder_4000p_1092",
+      "isolates": "Convergence ladder rung 3: 4000 particles / 1092 steps (~10 Myr/step) on the nea"
+    }
+  ]
+}

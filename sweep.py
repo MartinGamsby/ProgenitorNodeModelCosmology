@@ -292,6 +292,31 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
         # (SimulationParameters, see _make_sim_callback) agree -> keyed == run.
         # Default 0.0 mirrors SweepConfig/SimulationParameters (byte-identical).
         node_softening_gpc=cfg.get("node_softening_gpc", 0.0),
+        # Close-range tidal force law + adaptive KDK sub-stepping (Section 4).
+        # Threaded here so build_cache_name (keys off the SweepConfig) and the
+        # actual sim (SimulationParameters, see _make_sim_callback) agree ->
+        # keyed == run. Defaults ("plummer" / 0.0 / 1) mirror SweepConfig /
+        # SimulationParameters and add NO cache slug (byte-identical). "bounded"
+        # selects the regularized "can't cross the midpoint" close-range law;
+        # node_substep_threshold>0 AND node_substeps>1 enable adaptive sub-stepping
+        # during close node passes. WITHOUT this threading these config axes would
+        # be silently ignored (the SweepConfig defaults would key AND run plummer /
+        # no-substep), so the comparison sweep's bounded-law row would be a dead axis.
+        node_force_law=cfg.get("node_force_law", "plummer"),
+        node_substep_threshold=cfg.get("node_substep_threshold", 0.0),
+        node_substeps=cfg.get("node_substeps", 1),
+        # Virialized RELAXATION MODE (Section 2 Option A vs Option B). Threaded here
+        # so build_cache_name (keys off the SweepConfig) and the actual sim
+        # (SimulationParameters -> ExternalNodeParameters.build_virialized) agree ->
+        # keyed == run. "lattice" (default, Option A) is byte-identical and adds no
+        # slug; "gradient" (Option B) is the TRUE iterative relaxation of a realistic
+        # segregated blob (vir_relax_steps becomes the iteration count). vir_relax_rate
+        # / vir_hold_outer_frac tune the gradient descent (used only in gradient mode).
+        # WITHOUT this threading Option B was UNREACHABLE from a sweep config (the sim
+        # path always ran "lattice"), so the A-vs-B comparison would have been invalid.
+        vir_relax_mode=cfg.get("vir_relax_mode", "lattice"),
+        vir_relax_rate=cfg.get("vir_relax_rate", 0.1),
+        vir_hold_outer_frac=cfg.get("vir_hold_outer_frac", 0.3),
         # Start-size lever (Section 6). Threaded here so build_cache_name (keys off
         # the SweepConfig) and the actual sim (SimulationParameters, see
         # _make_sim_callback) agree -> keyed == run. Default 1.0 mirrors
@@ -355,6 +380,19 @@ def _build_sim_params(
         # Node-softening: read from the same SweepConfig that build_cache_name
         # keys off, so the sim runs exactly what the cache key encodes.
         node_softening_gpc=getattr(sweep_cfg, "node_softening_gpc", 0.0),
+        # Close-range force law + adaptive sub-stepping (Section 4): read from the
+        # same SweepConfig that build_cache_name keys off, so the sim runs exactly
+        # what the cache key encodes (keyed == run). Defaults -> byte-identical.
+        node_force_law=getattr(sweep_cfg, "node_force_law", "plummer"),
+        node_substep_threshold=getattr(sweep_cfg, "node_substep_threshold", 0.0),
+        node_substeps=getattr(sweep_cfg, "node_substeps", 1),
+        # Virialized relaxation mode (Section 2 Option A/B): read from the same
+        # SweepConfig that build_cache_name keys off, so the sim runs exactly what
+        # the cache key encodes (keyed == run). Defaults ("lattice"/0.1/0.3) ->
+        # byte-identical; "gradient" reaches Option B.
+        vir_relax_mode=getattr(sweep_cfg, "vir_relax_mode", "lattice"),
+        vir_relax_rate=getattr(sweep_cfg, "vir_relax_rate", 0.1),
+        vir_hold_outer_frac=getattr(sweep_cfg, "vir_hold_outer_frac", 0.3),
         # Start-size lever (Section 6): read from the same SweepConfig that
         # build_cache_name keys off, so the sim runs exactly what the cache key
         # encodes (keyed == run). Default 1.0 -> byte-identical, no slug.

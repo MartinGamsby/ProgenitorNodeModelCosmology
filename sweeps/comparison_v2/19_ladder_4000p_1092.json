@@ -1,0 +1,46 @@
+{
+  "M_values": [
+    50,
+    100,
+    200,
+    500,
+    1000,
+    1500
+  ],
+  "S_values": "co-fit",
+  "s_min_gpc": 8,
+  "s_max_gpc": 45,
+  "s_cofit_method": "linear",
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_seeds": [
+    42
+  ],
+  "init_distributions": [
+    "uniform_sphere"
+  ],
+  "node_geometries": [
+    "virialized"
+  ],
+  "particle_count": 4000,
+  "n_steps": 1092,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "figures_dir": "results/figures/comparison_v2",
+  "tag": "cmp2_19_ladder_4000p_1092",
+  "vir_n_nodes": 80,
+  "vir_mass_rule": "massfunc",
+  "vir_mass_spread": 0.8,
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "lattice",
+  "node_softening_gpc": 1.0,
+  "_comment": "Convergence ladder rung 3: 4000 particles / 1092 steps (~10 Myr/step) on the near-LCDM M band only (6 M values) to keep runtime sane (~2h). The convergence endpoint: if chi2 is flat 400->4000p and 273->1092 steps the headline is converged."
+}

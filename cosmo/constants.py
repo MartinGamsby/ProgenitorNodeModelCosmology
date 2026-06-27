@@ -126,6 +126,9 @@ class ExternalNodeParameters:
                  vir_mass_rule: str = "radial", vir_mass_spread: float = 0.0,
                  vir_segregation: float = 1.0, vir_s_metric: str = "median",
                  vir_relax_steps: int = 1,
+                 vir_relax_mode: str = "lattice",
+                 vir_relax_rate: float = 0.1,
+                 vir_hold_outer_frac: float = 0.3,
                  vir_extent_couples_nodes: bool = False,
                  node_softening_gpc: float = 0.0,
                  node_force_law: str = NODE_FORCE_LAW_DEFAULT):
@@ -168,10 +171,20 @@ class ExternalNodeParameters:
                 0.0 -> mass/radius decoupled (no segregation).
             vir_s_metric: NN-spacing definition the generator targets:
                 "median" (default) or "mean".
-            vir_relax_steps: Virialized BALANCE LEVEL (default 1). 0 -> realistic
-                Fibonacci layout (NOT force-balanced); >= 1 -> force-balanced
-                cubic-lattice ball (inner nodes feel ~zero net force). See
+            vir_relax_steps: Virialized BALANCE LEVEL (default 1) in lattice mode.
+                0 -> realistic Fibonacci layout (NOT force-balanced); >= 1 ->
+                force-balanced cubic-lattice ball (inner nodes feel ~zero net force).
+                In gradient mode (vir_relax_mode="gradient") it is instead the literal
+                NUMBER of relaxation iterations. See
                 cosmo.node_geometry.build_virialized_grid.
+            vir_relax_mode: "lattice" (default, Option A: analytic balance level) or
+                "gradient" (Option B: TRUE iterative relaxation of a realistic
+                segregated blob). "lattice" is byte-identical to prior behaviour.
+            vir_relax_rate: Gradient-descent step size as a fraction of the NN spacing
+                (Option B only; default 0.1).
+            vir_hold_outer_frac: Fraction of outermost nodes pinned during gradient
+                relaxation (Option B only; default 0.3) so the interior relaxes inside
+                a fixed boundary.
             vir_extent_couples_nodes: When False (default) vir_n_nodes is the literal
                 node count (byte-identical). When True, vir_extent DRIVES the count to
                 hold the ball density constant: effective count =
@@ -216,6 +229,12 @@ class ExternalNodeParameters:
         self.vir_segregation = vir_segregation
         self.vir_s_metric = vir_s_metric
         self.vir_relax_steps = vir_relax_steps
+        # Option A vs Option B selector + gradient-descent tuning (Section 2).
+        # "lattice" (default) is byte-identical; "gradient" reaches the true
+        # iterative relaxation. rate/hold_outer_frac are used only in gradient mode.
+        self.vir_relax_mode = str(vir_relax_mode)
+        self.vir_relax_rate = float(vir_relax_rate)
+        self.vir_hold_outer_frac = float(vir_hold_outer_frac)
         # Item-10 coupling: when True, vir_extent drives vir_n_nodes (density-
         # preserving N ~ extent^3). False (default) -> count used as given (byte-
         # identical); at vir_extent == 1.0 it is a no-op regardless.
@@ -248,6 +267,9 @@ class ExternalNodeParameters:
             vir_segregation=self.vir_segregation,
             vir_s_metric=self.vir_s_metric,
             vir_relax_steps=self.vir_relax_steps,
+            vir_relax_mode=self.vir_relax_mode,
+            vir_relax_rate=self.vir_relax_rate,
+            vir_hold_outer_frac=self.vir_hold_outer_frac,
             vir_extent_couples_nodes=self.vir_extent_couples_nodes,
             seed=self.node_mass_seed,
         )
@@ -379,6 +401,9 @@ class SimulationParameters:
                  vir_mass_rule: str = "radial", vir_mass_spread: float = 0.0,
                  vir_segregation: float = 1.0, vir_s_metric: str = "median",
                  vir_relax_steps: int = 1,
+                 vir_relax_mode: str = "lattice",
+                 vir_relax_rate: float = 0.1,
+                 vir_hold_outer_frac: float = 0.3,
                  vir_extent_couples_nodes: bool = False,
                  node_softening_gpc: float = 0.0,
                  node_force_law: str = NODE_FORCE_LAW_DEFAULT,
@@ -481,6 +506,15 @@ class SimulationParameters:
                             force-balanced) Fibonacci layout; >= 1 (default) ->
                             force-balanced cubic-lattice ball (inner nodes ~ zero net
                             force). The virialized RNG reuses node_mass_seed.
+            vir_relax_mode: "lattice" (default, Option A: the analytic balance level
+                            where vir_relax_steps is a balance level) or "gradient"
+                            (Option B: TRUE iterative relaxation of a realistic
+                            segregated blob, where vir_relax_steps is the iteration
+                            count). "lattice" is byte-identical to prior behaviour.
+            vir_relax_rate: Gradient-descent step size as a fraction of NN spacing
+                            (Option B only; default 0.1).
+            vir_hold_outer_frac: Fraction of outermost nodes pinned during gradient
+                            relaxation (Option B only; default 0.3).
             vir_extent_couples_nodes: When False (default) vir_n_nodes is the literal
                             count (byte-identical). When True, vir_extent DRIVES the
                             node count to hold the virialized ball DENSITY constant
@@ -588,6 +622,11 @@ class SimulationParameters:
         self.vir_segregation = vir_segregation
         self.vir_s_metric = vir_s_metric
         self.vir_relax_steps = vir_relax_steps
+        # Option A vs Option B selector + gradient tuning (Section 2). "lattice"
+        # (default) byte-identical; "gradient" reaches the true iterative relaxation.
+        self.vir_relax_mode = str(vir_relax_mode)
+        self.vir_relax_rate = float(vir_relax_rate)
+        self.vir_hold_outer_frac = float(vir_hold_outer_frac)
         # Item-10 coupling: when True, vir_extent drives vir_n_nodes (N ~ extent^3,
         # density-preserving). False (default) -> byte-identical; no-op at extent 1.0.
         self.vir_extent_couples_nodes = bool(vir_extent_couples_nodes)
@@ -658,6 +697,9 @@ class SimulationParameters:
             vir_segregation=self.vir_segregation,
             vir_s_metric=self.vir_s_metric,
             vir_relax_steps=self.vir_relax_steps,
+            vir_relax_mode=self.vir_relax_mode,
+            vir_relax_rate=self.vir_relax_rate,
+            vir_hold_outer_frac=self.vir_hold_outer_frac,
             vir_extent_couples_nodes=self.vir_extent_couples_nodes,
             node_softening_gpc=self.node_softening_gpc,
             node_force_law=self.node_force_law,

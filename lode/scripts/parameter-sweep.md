@@ -411,6 +411,11 @@ one config-wide scalar = one arm; MATCHED to the core cell otherwise):
 Launched DETACHED + RESUMABLE via `launch_sweep_detached.ps1` (Start-Process, STATIC
 argument vector). **CORE-ONLY by default**; `-IncludeSatellites` appends the satellite arms
 (two hardcoded static arrays, not a runtime glob — the flag cannot widen the set). The
+launcher is **single-instance** (refuses a bare relaunch while a worker runs) and `-Stop`
+kills the whole tree (the worker SHELL + its `python sweep.py` CHILD) + clears stale
+`data/*.lock` — never `Stop-Process` the shell alone (orphans the child). `-Force` =
+stop-then-relaunch. Resume granularity = one COMPLETED cell (kill mid-cell ⇒ that cell re-runs).
+The
 multi-day RESULTS are a FLAGGED FOLLOW-ON — the cube26-vs-virialized attribution and the
 final virialized chi2 band stay PENDING until it completes (see PF-PENDING). Family
 contracts tested in `tests/test_overarching_sweep.py::TestCoreV3Family` (12 arms, 84-cell +

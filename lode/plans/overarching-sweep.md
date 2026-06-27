@@ -248,6 +248,15 @@ static argument vector `@('sweep.py','--config',$cfg)`, per-arm logs in `results
 to append the satellite arms (selected by switching between two hardcoded static arrays — the
 flag cannot widen the set beyond literals). Resume = relaunch; `-NoResume` forces recompute.
 
+**Single-instance + clean stop (the worker is a powershell SHELL that spawns `python sweep.py`
+CHILD processes):** the launcher REFUSES a bare relaunch while a worker is alive (no stacked
+racing workers corrupting the shared metrics cache). Stop with `-Stop`, which kills BOTH the
+shell AND its python child and clears stale `data/*.lock` — do NOT `Stop-Process -Id <shell>`
+alone (it orphans the python child, the original bug). `-Force` = stop-then-relaunch. The launch
+banner prints the worker shell PID and the python child PID; the run log prints a `[resume-info]`
+line per arm showing how many cells it skipped. **Resume granularity = one COMPLETED cell**
+(a co-fit cell = ~6-7 sims, minutes each); killing MID-cell re-runs that cell (not a resume bug).
+
 **Results are a FLAGGED FOLLOW-ON (multi-day).** Until this completes, the cube26-vs-
 virialized attribution, the low/fine M/S landscape, start-size/convergence/extent results,
 and the final virialized chi2 band are PENDING — do NOT pin "virialized fits worse/better"

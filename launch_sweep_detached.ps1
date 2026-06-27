@@ -13,7 +13,20 @@
     (5 virialized realizations). Each arm is a separate single-driver sweep that
     writes results/ws1_sweep_<tag>.csv, and sweep.py CHECKPOINTS every finished cell
     to that CSV and SKIPS done cells on a re-run -- so the whole family is resumable:
-    re-launch and it picks up where it stopped (per arm, per cell).
+    re-launch and it picks up where it stopped (per arm, per COMPLETED cell).
+
+    RESUME GRANULARITY (important): the checkpoint is one fully-COMPLETED cell. A
+    co-fit cell runs ~6-7 sims internally and a single 2000p cell takes minutes
+    (cube26 ~3 min; virialized bounded ~30 min). If you kill MID-cell, that cell has
+    no checkpoint yet and re-runs from scratch -- that is expected, not a resume bug.
+    On a relaunch the run log prints a "[resume-info] N cell(s) already ... skipping"
+    line per arm so you can SEE resume working.
+
+    SINGLE INSTANCE: only ONE worker may run at a time. A bare relaunch while a worker
+    is alive REFUSES (it does not stack a second racing worker -- the old failure mode
+    where Stop-Process on the shell orphaned the python child and re-launching piled up
+    concurrent sweeps corrupting the shared cache). Use -Stop to end the current run
+    cleanly, or -Force to stop-then-relaunch.
 
     CORE-ONLY by DEFAULT. The 12 core arms + the seed arm are the HEADLINE. The
     secondary SATELLITE shape studies (sweeps/satellite_*/) are run ONLY when you
@@ -54,6 +67,16 @@
     (start_size / convergence / extent) after the core + seed arms. Default:
     CORE-ONLY (the 12 core arms + the seed arm).
 
+.PARAMETER Stop
+    Pass -Stop to cleanly END the running sweep: it kills the detached worker shell
+    AND its (orphaned-on-Stop-Process) python child, then clears stale data/*.lock.
+    This is the CORRECT way to stop -- do NOT `Stop-Process -Id <shell PID>`, which
+    leaves the python child running. Exits without launching.
+
+.PARAMETER Force
+    Pass -Force to stop any already-running worker and relaunch fresh in one step
+    (equivalent to -Stop followed by a normal launch).
+
 .SECURITY
     The argument vector handed to python is STATIC: a fixed @("sweep.py","--config",
     <literal path>) array per arm, built only from the hardcoded arm lists in this
@@ -62,22 +85,31 @@
     ($CoreArms and $CoreArms+$SatelliteArms), NOT by building paths at runtime, so the
     -IncludeSatellites flag cannot widen the set beyond these literals. The only
     optional flag (--no-resume) is a fixed literal gated by the boolean switch above.
-    Keep it this way: do not concatenate a command string and do not glob the disk.
+    The worker body IS rendered as a here-string, but ONLY from this file's own
+    literals (the single-quoted static arm paths); no external/untrusted value is
+    interpolated. The -Stop / -Force process matching is read-only CIM CommandLine
+    matching against fixed patterns. Keep it this way: do not concatenate a command
+    string from untrusted input and do not glob the disk for the arm set.
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File .\launch_sweep_detached.ps1
-    # launches the CORE (12 arms + seed) detached; prints the worker PID + resume cmd.
+    # launches the CORE (12 arms + seed) detached; prints the worker + python PIDs.
 
     powershell -ExecutionPolicy Bypass -File .\launch_sweep_detached.ps1 -IncludeSatellites
     # core + seed THEN the start_size / convergence / extent satellites.
 
-    powershell -ExecutionPolicy Bypass -File .\launch_sweep_detached.ps1 -NoResume
-    # same as default (core-only), but recomputes every cell from scratch.
+    powershell -ExecutionPolicy Bypass -File .\launch_sweep_detached.ps1 -Stop
+    # cleanly stop the running sweep (shell + python child) and clear stale locks.
+
+    powershell -ExecutionPolicy Bypass -File .\launch_sweep_detached.ps1 -Force
+    # stop whatever is running and relaunch the core fresh.
 #>
 [CmdletBinding()]
 param(
     [switch]$NoResume,
-    [switch]$IncludeSatellites
+    [switch]$IncludeSatellites,
+    [switch]$Stop,
+    [switch]$Force
 )
 
 Set-StrictMode -Version Latest
@@ -89,6 +121,67 @@ $ResultsDir = Join-Path $RepoRoot "results"
 $LogDir = Join-Path $ResultsDir "logs"
 New-Item -ItemType Directory -Force -Path $ResultsDir | Out-Null
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+
+# ---------------------------------------------------------------------------
+# Single-instance management. The detached worker is a powershell shell running
+# core_v3_worker.ps1 that spawns `python sweep.py --config sweeps/...` children.
+# Stop-Process on the shell alone ORPHANS the python child (the bug that let
+# relaunches stack concurrent racing sweeps). We identify BOTH by CommandLine and
+# stop the whole set, then clear the stale per-process cache locks a force-kill
+# leaves behind. Matching is read-only CIM against fixed patterns (no untrusted input).
+# ---------------------------------------------------------------------------
+function Get-SweepWorkers {
+    Get-CimInstance Win32_Process | Where-Object {
+        $_.CommandLine -and (
+            ($_.Name -eq 'python.exe'     -and $_.CommandLine -match 'sweep\.py\s+--config\s+sweeps/') -or
+            ($_.Name -eq 'powershell.exe' -and $_.CommandLine -match 'core_v3_worker\.ps1')
+        )
+    }
+}
+
+function Stop-SweepWorkers {
+    $workers = @(Get-SweepWorkers)
+    foreach ($w in $workers) {
+        Write-Host ("   stopping {0} PID {1}" -f $w.Name, $w.ProcessId)
+        try { Stop-Process -Id $w.ProcessId -Force -ErrorAction Stop } catch { Write-Host "     (already gone)" }
+    }
+    if ($workers.Count -gt 0) { Start-Sleep -Milliseconds 800 }
+    # Clear stale per-process cache locks left by a force-kill (gitignored).
+    Get-ChildItem (Join-Path $RepoRoot 'data') -Filter '*.lock' -ErrorAction SilentlyContinue |
+        ForEach-Object { Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue }
+    return $workers.Count
+}
+
+# -Stop: end the current run cleanly and exit (no launch).
+if ($Stop) {
+    Write-Host "Stopping any running core_v3 sweep worker(s)..."
+    $n = Stop-SweepWorkers
+    if ($n -eq 0) { Write-Host "  none were running." }
+    Write-Host "Stopped $n process(es); cleared stale data/*.lock."
+    return
+}
+
+# Single-instance guard: refuse to stack a second worker (unless -Force).
+$existing = @(Get-SweepWorkers)
+if ($existing.Count -gt 0) {
+    if ($Force) {
+        Write-Host "[-Force] stopping $($existing.Count) existing worker process(es) before relaunch..."
+        Stop-SweepWorkers | Out-Null
+    } else {
+        Write-Host ""
+        Write-Host "A core_v3 sweep is ALREADY running -- refusing to launch a second (racing) worker:"
+        $existing | ForEach-Object { Write-Host ("   PID {0}  {1}" -f $_.ProcessId, $_.Name) }
+        Write-Host ""
+        Write-Host " Resume is automatic; that worker is still going. Check progress:"
+        Write-Host "   Get-Content results/logs/core_v3_run_*.log -Tail 20"
+        Write-Host " Stop it cleanly (shell + python child + locks):"
+        Write-Host "   powershell -ExecutionPolicy Bypass -File .\launch_sweep_detached.ps1 -Stop"
+        Write-Host " Or stop-and-relaunch in one step:"
+        Write-Host "   powershell -ExecutionPolicy Bypass -File .\launch_sweep_detached.ps1 -Force"
+        Write-Host ""
+        return
+    }
+}
 
 # Sweep arms, in run order. STATIC literal lists (repo-relative). The detached
 # worker iterates exactly these; nothing here comes from user input.
@@ -140,16 +233,12 @@ $ExtraArgs = @()
 if ($NoResume) { $ExtraArgs = @("--no-resume") }
 
 # ---------------------------------------------------------------------------
-# The detached worker: a single -Command script block that loops the arms,
-# calling python sweep.py per arm with a STATIC argument array. It logs to
-# results/logs/ and keeps going if one arm fails.
-# Pass the arm list + flag in via a here-string-free, array-literal $args block
-# that we render as PowerShell source (still static: only our own literals).
+# The detached worker: a single -File script that loops the arms, calling
+# python sweep.py per arm with a STATIC argument array. It logs to results/logs/,
+# echoes the per-arm resume line so resume is VISIBLE, and keeps going if one arm
+# fails. The arm list + flag are rendered as PowerShell literals (only our own
+# static literals -> safe; each path single-quoted to avoid interpolation).
 # ---------------------------------------------------------------------------
-
-# Render the arm array + extra-args as PowerShell literals for the child. These
-# come ONLY from the static $Arms / $ExtraArgs above (no untrusted input), so the
-# rendered source is safe; we single-quote each path to avoid any interpolation.
 $ArmsLiteral = ($Arms | ForEach-Object { "'" + $_.Replace("'", "''") + "'" }) -join ", "
 $ExtraLiteral = ($ExtraArgs | ForEach-Object { "'" + $_.Replace("'", "''") + "'" }) -join ", "
 
@@ -162,7 +251,7 @@ Set-Location -LiteralPath '$($RepoRoot.Replace("'", "''"))'
 `$extra = @($ExtraLiteral)
 `$stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
 `$summary = Join-Path 'results/logs' "core_v3_run_`$stamp.log"
-"core_v3 detached run started `$(Get-Date -Format o)" | Out-File -FilePath `$summary -Encoding utf8
+"core_v3 detached run started `$(Get-Date -Format o) (PID `$PID)" | Out-File -FilePath `$summary -Encoding utf8
 foreach (`$cfg in `$arms) {
     `$name = [System.IO.Path]::GetFileNameWithoutExtension(`$cfg)
     `$out = Join-Path 'results/logs' "`$name.out"
@@ -171,7 +260,12 @@ foreach (`$cfg in `$arms) {
     # STATIC argument vector: sweep.py + --config + the (literal) config path + flags.
     `$pyArgs = @('sweep.py', '--config', `$cfg) + `$extra
     & python `$pyArgs 1> `$out 2> `$err
-    "[`$(Get-Date -Format o)] DONE  `$cfg (exit `$LASTEXITCODE)" | Tee-Object -FilePath `$summary -Append
+    `$code = `$LASTEXITCODE
+    # Surface the resume line (sweep.py prints '[resume] N cell(s) already ... skipping')
+    # so a relaunch VISIBLY shows what it skipped instead of looking like a fresh start.
+    `$r = Select-String -Path `$out -Pattern '[resume]' -SimpleMatch -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (`$r) { "[`$(Get-Date -Format o)] [resume-info] `$(`$r.Line.Trim())" | Tee-Object -FilePath `$summary -Append }
+    "[`$(Get-Date -Format o)] DONE  `$cfg (exit `$code)" | Tee-Object -FilePath `$summary -Append
 }
 "core_v3 detached run finished `$(Get-Date -Format o)" | Tee-Object -FilePath `$summary -Append
 "@
@@ -196,30 +290,46 @@ $proc = Start-Process -FilePath "powershell.exe" `
     -WindowStyle Hidden `
     -PassThru
 
+# Try to discover the python child PID (spawned by the worker shortly after start)
+# so the user can see the actual compute process, not just the shell.
+$pyPid = $null
+for ($i = 0; $i -lt 10 -and -not $pyPid; $i++) {
+    Start-Sleep -Milliseconds 500
+    $py = Get-CimInstance Win32_Process | Where-Object {
+        $_.Name -eq 'python.exe' -and $_.CommandLine -and $_.CommandLine -match 'sweep\.py\s+--config\s+sweeps/'
+    } | Select-Object -First 1
+    if ($py) { $pyPid = $py.ProcessId }
+}
+
 if ($IncludeSatellites) { $Mode = "CORE + SEED + SATELLITES" } else { $Mode = "CORE + SEED (core-only)" }
 
 Write-Host ""
 Write-Host "=================================================================="
 Write-Host " core_v3 sweep launched DETACHED."
-Write-Host "   mode       : $Mode"
-Write-Host "   worker PID : $($proc.Id)"
-Write-Host "   worker     : $WorkerPath"
-Write-Host "   arms       : $($Arms.Count) (run in NN order)"
-Write-Host "   per-arm log: results/logs/<arm>.out / .err"
-Write-Host "   run log    : results/logs/core_v3_run_<stamp>.log"
-Write-Host "   results    : results/ws1_sweep_*.csv (one CSV per arm)"
+Write-Host "   mode        : $Mode"
+Write-Host "   worker shell : PID $($proc.Id)  ($WorkerPath)"
+if ($pyPid) {
+    Write-Host "   python child : PID $pyPid  (the actual compute process)"
+} else {
+    Write-Host "   python child : (starting...) -- see results/logs/core_v3_run_*.log"
+}
+Write-Host "   arms        : $($Arms.Count) (run in NN order)"
+Write-Host "   per-arm log : results/logs/<arm>.out / .err"
+Write-Host "   run log     : results/logs/core_v3_run_<stamp>.log"
+Write-Host "   results     : results/ws1_sweep_*.csv (one CSV per arm)"
 Write-Host ""
 Write-Host " It survives a Claude restart / window close (orphaned process)."
+Write-Host " Single-instance: a bare relaunch while this is running is REFUSED"
+Write-Host " (no stacked racing workers). Resume is per COMPLETED cell."
 Write-Host ""
-Write-Host " PROJECT RUNTIME FIRST (no blind launch):"
-Write-Host "   python _calibrate_runtime.py   # -> results/runtime_projection.csv"
-Write-Host ""
-Write-Host " RESUME (just relaunch -- sweep.py skips done cells per arm):"
+Write-Host " RESUME (after a clean -Stop, or any time): just relaunch --"
 Write-Host "   powershell -ExecutionPolicy Bypass -File .\launch_sweep_detached.ps1"
 Write-Host "   (add -IncludeSatellites to also run the satellite shape studies)"
+Write-Host "   the run log shows a [resume-info] line per arm for what it skipped."
 Write-Host ""
-Write-Host " STOP the worker:"
-Write-Host "   Stop-Process -Id $($proc.Id)"
+Write-Host " STOP the worker (shell + python child + clears stale locks):"
+Write-Host "   powershell -ExecutionPolicy Bypass -File .\launch_sweep_detached.ps1 -Stop"
+Write-Host "   (do NOT 'Stop-Process -Id $($proc.Id)' alone -- it orphans the python child)"
 Write-Host ""
 Write-Host " CHECK progress:"
 Write-Host "   Get-Content results/logs/core_v3_run_*.log -Tail 20"

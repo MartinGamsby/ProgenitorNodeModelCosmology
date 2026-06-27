@@ -253,30 +253,68 @@ def virialization_residual(
     masses: np.ndarray,
     *,
     inner_frac: float = 0.5,
+    center_frac: float | None = None,
+    center_k: int | None = None,
     center_mass_kg: float | None = None,
     G: float | None = None,
     reference: str = "mean_pairwise",
 ) -> dict:
     """Dimensionless per-INNER-node force-balance residual for a node grid.
 
-    Physical criterion (the user's): the INNER nodes of a *truly virialized* grid
-    feel ~NET-ZERO gravity from all the other nodes plus a central node, so they
-    would not move. This returns, per inner node, the DIMENSIONLESS residual
+    Physical criterion (the user's): the DEEP-INTERIOR nodes of a *truly virialized*
+    grid feel ~NET-ZERO gravity from all the other nodes plus a central node, so they
+    would not move. This returns, per selected node, the DIMENSIONLESS residual
         ``residual_i = |net_accel_i| / a_ref``
     where ``a_ref`` is a characteristic single-neighbour pull (see ``reference``).
-    A well-virialized inner node has residual << 1 (its directional pulls cancel);
+    A well-virialized interior node has residual << 1 (its directional pulls cancel);
     an UN-balanced grid has residual ~O(1) or larger.
 
-    "Inner" nodes (the only ones the criterion applies to — edge nodes obviously
-    feel a net inward pull on a finite canvas, which is expected and NOT a failure)
-    are those with ``radius < inner_frac * r_max``. At least one node is always
-    returned: if none qualify, the single innermost node is used.
+    What "0.25" means (the user asked: "Not 25%?")
+    ----------------------------------------------
+    The tolerance is a DIMENSIONLESS RATIO, not a percentage of anything physical:
+        ``residual = |net node acceleration| / a_ref``,
+    where ``a_ref`` is the characteristic magnitude of a SINGLE neighbour's pull on
+    a node (see ``reference``). residual=1 means "the leftover net force is as big as
+    one typical neighbour pull" (clearly un-balanced); residual=0.25 means "the
+    directional pulls cancel to within a quarter of one neighbour pull" — i.e. the
+    node is ~4× closer to equilibrium than a single un-cancelled neighbour would
+    leave it. It is NOT "25% of the gravitational force is unbalanced relative to the
+    total"; the denominator is one neighbour, not the total. 0.25 is a deliberately
+    GENEROUS bar (a strict crystal reaches ~1e-30); the figures report the actual
+    numbers at several thresholds so the cut can be judged, not assumed.
+
+    Node SELECTION (which nodes the criterion is applied to)
+    --------------------------------------------------------
+    Edge nodes of a finite grid ALWAYS feel a net inward pull (expected, NOT a
+    failure), so the criterion is only meaningful on the genuinely deep interior of
+    a LARGE grid. Three mutually-exclusive selectors (checked in priority order):
+
+      * ``center_k`` (int) — the K nodes CLOSEST to the centroid, independent of
+        ``r_max``. This is the SIZE-INDEPENDENT deep-interior selector: on a 2000-node
+        grid ``center_k=20`` isolates the 20 most-buried nodes regardless of overall
+        radius, so growing the grid genuinely deepens the interior being tested.
+      * ``center_frac`` (float in (0,1]) — the innermost ``center_frac`` FRACTION of
+        nodes by distance-to-centroid (``ceil(center_frac*N)`` nodes). Scales the
+        interior population with grid size.
+      * ``inner_frac`` (float, default 0.5) — LEGACY radius-threshold selector:
+        nodes with ``radius < inner_frac * r_max`` (measured from the ORIGIN, not the
+        centroid). Kept default so existing callers/tests are byte-identical; it does
+        NOT isolate the deep interior of a large grid (it is "inner half of the ball
+        by radius"), which is why ``center_k`` / ``center_frac`` were added.
+
+    At least one node is always returned (the single closest-to-centroid node if a
+    selector would otherwise be empty).
 
     Args:
         positions: (N, 3) node positions in meters.
         masses:    (N,) node masses in kg.
-        inner_frac: Inner-radius fraction in (0, 1]; inner nodes are those with
-            radius below ``inner_frac * r_max`` (default 0.5).
+        inner_frac: LEGACY radius fraction in (0, 1]; used ONLY when neither
+            center_k nor center_frac is given (default 0.5).
+        center_frac: If given, select the innermost ``center_frac`` fraction of
+            nodes by distance to the CENTROID (overrides inner_frac).
+        center_k: If given, select the ``center_k`` nodes closest to the CENTROID
+            (overrides both center_frac and inner_frac). The size-independent
+            deep-interior selector.
         center_mass_kg: Central-node mass (see node_net_accelerations); defaults
             to ``mean(masses)`` (one unit node).
         G: Gravitational constant (defaults to CosmologicalConstants.G).
@@ -284,16 +322,17 @@ def virialization_residual(
             "mean_pairwise" (default) — a_ref = mean over ALL nodes i of the mean
                 single-source pull magnitude ``mean_j G m_j / |x_j - x_i|^2``
                 (incl. centre): "how big a typical single-neighbour pull is".
-            "max_pairwise" — a_ref = mean over inner nodes of the STRONGEST single
+            "max_pairwise" — a_ref = mean over selected nodes of the STRONGEST single
                 -source pull on that node (the nearest/heaviest neighbour).
 
     Returns:
         dict with:
-          'residual_per_node' (array over inner nodes, dimensionless),
-          'inner_idx'   (indices into the input arrays of the inner nodes),
+          'residual_per_node' (array over selected nodes, dimensionless),
+          'inner_idx'   (indices into the input arrays of the selected nodes),
           'max_residual', 'median_residual' (floats),
           'a_ref'       (the normalization scale, m/s^2),
-          'n_inner'     (number of inner nodes).
+          'n_inner'     (number of selected nodes),
+          'selector'    (str describing which selector was used).
 
     Raises:
         ValueError: for N < 2 or unknown ``reference``.
@@ -315,10 +354,26 @@ def virialization_residual(
 
     radius = np.linalg.norm(pos, axis=1)
     r_max = float(radius.max())
-    inner_idx = np.nonzero(radius < float(inner_frac) * r_max)[0]
-    if inner_idx.size == 0:
-        # Fall back to the single innermost node.
-        inner_idx = np.array([int(np.argmin(radius))])
+    # ---- Node selection (center-only takes priority over the legacy inner_frac) ----
+    if center_k is not None:
+        # K nodes closest to the CENTROID (size-independent deep interior).
+        centroid = pos.mean(axis=0)
+        d_centroid = np.linalg.norm(pos - centroid[None, :], axis=1)
+        k = max(1, min(int(center_k), n))
+        inner_idx = np.argsort(d_centroid, kind="stable")[:k]
+        selector = f"center_k={k}"
+    elif center_frac is not None:
+        centroid = pos.mean(axis=0)
+        d_centroid = np.linalg.norm(pos - centroid[None, :], axis=1)
+        k = max(1, int(math.ceil(float(center_frac) * n)))
+        inner_idx = np.argsort(d_centroid, kind="stable")[:k]
+        selector = f"center_frac={float(center_frac)}"
+    else:
+        inner_idx = np.nonzero(radius < float(inner_frac) * r_max)[0]
+        if inner_idx.size == 0:
+            # Fall back to the single innermost node.
+            inner_idx = np.array([int(np.argmin(radius))])
+        selector = f"inner_frac={float(inner_frac)}"
 
     accel = node_net_accelerations(
         pos, m, center_mass_kg=center_mass_kg, G=G
@@ -355,6 +410,7 @@ def virialization_residual(
         "median_residual": float(np.median(residual_per_node)),
         "a_ref": a_ref,
         "n_inner": int(inner_idx.size),
+        "selector": selector,
     }
 
 
@@ -508,6 +564,198 @@ def _build_force_balanced_grid(
     return pos.astype(np.float64), masses.astype(np.float64)
 
 
+def _force_residual_objective_and_grad(
+    pos: np.ndarray, masses: np.ndarray, center_mass: float, G: float
+) -> tuple[float, np.ndarray]:
+    """Force-residual objective ``f = sum_i |a_i|^2`` and its position gradient.
+
+    ``a_i`` is the net acceleration on node i from all OTHER nodes + a central node
+    at the origin (node_net_accelerations, same 1e10 m floor). Minimising f drives
+    every node toward force balance (a_i -> 0). Returns (f, grad) where grad has the
+    same shape as pos; the analytic gradient is validated against finite differences
+    in the tests. This is the objective Option B descends — NOT the potential energy
+    (whose minimum is a collapse), so it has genuine force-balance equilibria.
+
+    Cost is O(N^2) per call (one Python loop over source nodes), so a full relaxation
+    is O(n_steps * N^2) — tractable up to a few thousand nodes.
+    """
+    pos = np.asarray(pos, dtype=np.float64)
+    m = np.asarray(masses, dtype=np.float64)
+    n = pos.shape[0]
+    src = np.vstack([pos, np.zeros((1, 3))])
+    sm = np.concatenate([m, np.array([center_mass], dtype=np.float64)])
+    diff = src[None, :, :] - pos[:, None, :]            # r_ij = x_j - x_i, (N,S,3)
+    r = np.sqrt(np.sum(diff * diff, axis=2))
+    r = np.where(r < 1e10, 1e10, r)
+    inv_r3 = 1.0 / (r * r * r)
+    inv_r5 = inv_r3 / (r * r)
+    self_mask = np.zeros((n, n + 1), dtype=bool)
+    self_mask[:, :n] = np.eye(n, dtype=bool)
+    inv_r3 = np.where(self_mask, 0.0, inv_r3)
+    inv_r5 = np.where(self_mask, 0.0, inv_r5)
+    a = np.sum((G * sm)[None, :, None] * inv_r3[:, :, None] * diff, axis=1)  # (N,3)
+    f = float(np.sum(a * a))
+
+    grad = np.zeros((n, 3), dtype=np.float64)
+    for k in range(n):
+        # Source = node k acting on all targets i (column k of diff/inv_r*).
+        d3 = inv_r3[:, k]; d5 = inv_r5[:, k]; dvec = diff[:, k, :]  # x_k - x_i
+        coef = G * sm[k]
+        adotd = np.sum(a * dvec, axis=1)
+        contrib = coef * (a * d3[:, None] - 3.0 * adotd[:, None] * dvec * d5[:, None])
+        contrib[k] = 0.0
+        gk = 2.0 * np.sum(contrib, axis=0)
+        # Self term: a_k depends on x_k through every source j (row k).
+        d3k = inv_r3[k, :]; d5k = inv_r5[k, :]; dvk = diff[k, :, :]  # x_j - x_k
+        coefj = G * sm
+        adotk = np.sum(a[k] * dvk, axis=1)
+        j_action = coefj[:, None] * (
+            a[k][None, :] * d3k[:, None] - 3.0 * adotk[:, None] * dvk * d5k[:, None])
+        gk += 2.0 * (-np.sum(j_action, axis=0))
+        grad[k] = gk
+    return f, grad
+
+
+def _gradient_relax_positions(
+    positions: np.ndarray,
+    masses: np.ndarray,
+    *,
+    n_steps: int,
+    rate: float,
+    hold_outer_frac: float,
+    G: float | None = None,
+) -> np.ndarray:
+    """OPTION B: drive a node blob toward force balance by gradient descent.
+
+    True iterative relaxation: starting from the given (realistic, segregated)
+    positions, repeatedly step every INTERIOR node DOWN the gradient of the force-
+    residual objective ``f = sum_i |a_i|^2`` (``_force_residual_objective_and_grad``)
+    toward the equilibrium where each node's directional pulls cancel. The masses are
+    held fixed (only positions relax, like a real cluster settling); the OUTER shell
+    is pinned (``hold_outer_frac``) so the interior relaxes inside a fixed boundary —
+    an outer node CANNOT be force-free on a finite canvas, and freeing it would just
+    let the blob collapse onto its heaviest members.
+
+    IMPORTANT — why descend ``|a|^2`` and not the potential: stepping a node ALONG its
+    net acceleration descends the POTENTIAL, whose minimum is a gravitational COLLAPSE
+    (every node falls onto the nearest heavy mass), which INCREASES the residual. The
+    force-balance objective is ``|net force| -> 0``, so Option B descends ``sum|a_i|^2``;
+    that surface has real interior equilibria.
+
+    Per step: a fixed-fraction-of-spacing step
+        ``x <- x - rate * S_char * grad / max_i|grad_i|``
+    with a HALVING backtracking line search (up to a few halvings) so a step is
+    accepted only if it lowers f — this keeps the descent monotone and prevents the
+    overshoot a fixed rate causes near the basin. Normalising by ``max|grad|`` makes
+    ``rate`` a spacing fraction, consistent across grid sizes and mass scales.
+
+    Args:
+        positions:       (N, 3) starting node positions in meters.
+        masses:          (N,) node masses in kg (held fixed during relaxation).
+        n_steps:         Number of relaxation iterations (>= 1).
+        rate:            Initial step as a fraction of the characteristic NN spacing.
+        hold_outer_frac: Fraction of nodes (largest centroid distance) pinned each
+            step (0 -> none pinned; 0.3 -> outer 30% fixed).
+        G:               Gravitational constant (defaults to CosmologicalConstants.G).
+
+    Returns:
+        (N, 3) relaxed positions (float64). Deterministic (no RNG): a pure descent.
+    """
+    if G is None:
+        from .constants import CosmologicalConstants
+        G = CosmologicalConstants.G
+    pos = np.asarray(positions, dtype=np.float64).copy()
+    m = np.asarray(masses, dtype=np.float64)
+    n = pos.shape[0]
+    if n < 2 or int(n_steps) < 1:
+        return pos
+
+    center_mass = float(np.mean(m))
+    # Pin the OUTERMOST nodes (by centroid distance) as a fixed boundary.
+    centroid = pos.mean(axis=0)
+    d0 = np.linalg.norm(pos - centroid[None, :], axis=1)
+    n_hold = int(round(max(0.0, min(1.0, float(hold_outer_frac))) * n))
+    free_mask = np.ones(n, dtype=bool)
+    if n_hold > 0:
+        free_mask[np.argsort(d0, kind="stable")[-n_hold:]] = False
+
+    f_cur, _ = _force_residual_objective_and_grad(pos, m, center_mass, G)
+    for _ in range(int(n_steps)):
+        f_cur, grad = _force_residual_objective_and_grad(pos, m, center_mass, G)
+        grad[~free_mask] = 0.0
+        g_max = float(np.max(np.linalg.norm(grad, axis=1)))
+        if g_max <= 0.0:
+            break  # at a stationary point
+        s_char = nearest_neighbour_spacing(pos, "median")
+        # Backtracking line search: accept the first step that lowers f.
+        step_rate = float(rate)
+        accepted = False
+        for _bt in range(8):
+            trial = pos - step_rate * s_char * grad / g_max
+            f_trial, _ = _force_residual_objective_and_grad(
+                trial, m, center_mass, G)
+            if f_trial < f_cur:
+                pos = trial
+                f_cur = f_trial
+                accepted = True
+                break
+            step_rate *= 0.5
+        if not accepted:
+            break  # no downhill step found -> converged to a local minimum
+
+    return pos.astype(np.float64)
+
+
+def _build_relaxed_grid(
+    S: float,
+    *,
+    n_nodes: int,
+    M_ext_kg: float,
+    vir_extent: float,
+    vir_mass_rule: str,
+    vir_mass_spread: float,
+    vir_segregation: float,
+    vir_s_metric: str,
+    vir_relax_steps: int,
+    vir_relax_rate: float,
+    hold_outer_frac: float,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """OPTION B: a realistic segregated blob iteratively relaxed toward balance.
+
+    Builds the realistic Fibonacci-sphere segregated layout (the ``vir_relax_steps==0``
+    / lattice-mode-off configuration), then runs ``vir_relax_steps`` gradient-descent
+    relaxation iterations (``_gradient_relax_positions``) to drive the INTERIOR nodes
+    toward force balance while pinning the outer boundary. Finally re-targets the NN
+    spacing to S so the spacing contract still holds. Masses are the realistic mode's
+    segregated masses (UNCHANGED by relaxation), so all mass contracts are preserved.
+
+    This is the counterpart to Option A (``_build_force_balanced_grid``, an analytic
+    crystal): Option B never becomes a perfect lattice, so its DEEP-CENTER residual is
+    the real test of whether a realistic relaxed structure can virialize at its core.
+
+    Returns:
+        (positions (N,3), masses (N,)) float64, segregated, interior-relaxed.
+    """
+    # Start from the realistic (un-balanced) segregated layout.
+    pos, masses = build_virialized_grid(
+        S, n_nodes=int(n_nodes), M_ext_kg=M_ext_kg, vir_extent=vir_extent,
+        vir_mass_rule=vir_mass_rule, vir_mass_spread=vir_mass_spread,
+        vir_segregation=vir_segregation, vir_s_metric=vir_s_metric,
+        vir_relax_steps=0, vir_relax_mode="lattice", seed=seed,
+    )
+    if int(n_nodes) >= 2 and int(vir_relax_steps) >= 1:
+        pos = _gradient_relax_positions(
+            pos, masses, n_steps=int(vir_relax_steps), rate=float(vir_relax_rate),
+            hold_outer_frac=float(hold_outer_frac),
+        )
+        # Re-target the NN spacing to S (a pure global factor; preserves balance).
+        realized = nearest_neighbour_spacing(pos, vir_s_metric)
+        if realized > 0.0:
+            pos = pos * (float(S) / realized)
+    return pos.astype(np.float64), masses.astype(np.float64)
+
+
 def build_virialized_grid(
     S: float,
     *,
@@ -519,6 +767,9 @@ def build_virialized_grid(
     vir_segregation: float = 1.0,
     vir_s_metric: str = "median",
     vir_relax_steps: int = 1,
+    vir_relax_mode: str = "lattice",
+    vir_relax_rate: float = 0.1,
+    vir_hold_outer_frac: float = 0.3,
     seed: int = 0,
 ) -> tuple[np.ndarray, np.ndarray]:
     """COUPLED virialized node grid: (positions (N,3), masses (N,)), mass-segregated.
@@ -529,21 +780,28 @@ def build_virialized_grid(
     i determines radius i. Reachable ONLY via this function (build_node_positions
     raises for "virialized").
 
-    Two modes, selected by ``vir_relax_steps`` (a BALANCE LEVEL, not iteration count):
-      * ``vir_relax_steps == 0`` -> the REALISTIC Fibonacci-sphere layout (the rest
-        of this docstring). Mass-segregated and volume-filling but NOT force-balanced:
-        its inner nodes feel an O(10-70) net pull (a relaxed random blob has uneven
-        directional pulls). Use this for a realistic, non-balanced cluster.
-      * ``vir_relax_steps >= 1`` (the DEFAULT) -> a FORCE-BALANCED cubic-lattice ball
-        with a node at the origin and masses assigned by radius shell. Its inner
-        nodes feel ~ZERO net force (max_residual ~ 1e-30 for both rules) because
-        antipodal pulls cancel exactly — this is the user's "a virialized grid's
-        inner nodes should not move" criterion. See _build_force_balanced_grid.
-        A continuous position relaxation CANNOT reach this balance on a finite canvas
-        (the central monopole pull is irreducible by moves), so the balanced mode is
-        an ANALYTIC lattice, not an iterative relaxation. TRADE-OFF: it gains exact
-        force balance at the cost of the realistic mode's uneven local neighbour
-        density (a perfect crystal has uniform neighbour counts, a random blob does not).
+    Modes, selected by ``vir_relax_mode`` x ``vir_relax_steps``:
+      * ``vir_relax_mode="lattice"`` (DEFAULT) — the analytic Option-A path, where
+        ``vir_relax_steps`` is a BALANCE LEVEL (not an iteration count):
+          - ``vir_relax_steps == 0`` -> the REALISTIC Fibonacci-sphere layout (the
+            rest of this docstring). Mass-segregated and volume-filling but NOT
+            force-balanced: its inner nodes feel an O(10-70) net pull.
+          - ``vir_relax_steps >= 1`` (the DEFAULT) -> a FORCE-BALANCED cubic-lattice
+            ball with a node at the origin and masses assigned by radius shell. Its
+            inner nodes feel ~ZERO net force (max_residual ~ 1e-30 for both rules)
+            because antipodal pulls cancel exactly. See _build_force_balanced_grid.
+            This is an ANALYTIC crystal, not an iterative relaxation.
+      * ``vir_relax_mode="gradient"`` (OPTION B, opt-in) — a TRUE iterative relaxation:
+        start from the realistic segregated blob and run ``vir_relax_steps`` gradient-
+        descent steps (rate ``vir_relax_rate``) moving each interior node down its
+        net-force gradient toward equilibrium, pinning the outer boundary
+        (``vir_hold_outer_frac``). The masses stay segregated; the structure NEVER
+        becomes a perfect lattice. Use the center-only ``virialization_residual``
+        (``center_k`` / ``center_frac``) to test whether the DEEP CENTER reaches
+        balance — the realistic-virialization question Option A sidesteps with a crystal.
+
+    The DEFAULT (lattice, steps=1) is byte-identical to the prior force-balanced
+    behaviour; gradient mode is fully opt-in.
 
     Spacing contract: the radial layout is built out to ``vir_extent * S`` then
     rescaled by a single factor so the realized nearest-neighbour spacing
@@ -572,11 +830,18 @@ def build_virialized_grid(
             0.0 (default) -> uniform masses (THE falsifiable knob).
         vir_segregation: Segregation strength in [0, 1+]; 0 -> mass/radius decoupled.
         vir_s_metric: "median" (default) or "mean" NN-spacing definition to target.
-        vir_relax_steps: BALANCE LEVEL (int, default 1). 0 -> realistic Fibonacci-
-            sphere layout (byte-identical to the legacy generator, NOT force-balanced).
-            >= 1 -> the FORCE-BALANCED cubic-lattice ball (inner max_residual ~ 1e-30).
-            Reframed from an iteration count: any value >= 1 selects the analytic
-            balanced ball (there is no continuous relaxation — see the class note).
+        vir_relax_steps: In ``vir_relax_mode="lattice"`` a BALANCE LEVEL (int,
+            default 1): 0 -> realistic Fibonacci layout (byte-identical to the legacy
+            generator, NOT force-balanced); >= 1 -> the FORCE-BALANCED cubic-lattice
+            ball (inner max_residual ~ 1e-30). In ``vir_relax_mode="gradient"`` it is
+            the literal NUMBER of gradient-descent relaxation iterations (Option B).
+        vir_relax_mode: "lattice" (default, Option A: analytic balance level) or
+            "gradient" (Option B: true iterative relaxation of a realistic blob).
+        vir_relax_rate: Gradient-descent step size as a fraction of the NN spacing
+            (only used by vir_relax_mode="gradient", default 0.1).
+        vir_hold_outer_frac: Fraction of outermost nodes pinned during gradient
+            relaxation (only used by vir_relax_mode="gradient", default 0.3); a fixed
+            boundary so the interior relaxes without the blob collapsing.
         seed: RNG seed for virialized draws (np.random.default_rng(seed)); INDEPENDENT
             of the global np.random state and of the particle/simulation RNG.
 
@@ -597,9 +862,30 @@ def build_virialized_grid(
         raise ValueError(
             f"Unknown vir_s_metric {vir_s_metric!r}; use 'median' or 'mean'."
         )
+    if vir_relax_mode not in ("lattice", "gradient"):
+        raise ValueError(
+            f"Unknown vir_relax_mode {vir_relax_mode!r}; use 'lattice' or 'gradient'."
+        )
 
-    # vir_relax_steps as a BALANCE LEVEL: >= 1 -> analytic force-balanced lattice
-    # ball; == 0 -> the legacy realistic Fibonacci layout below (byte-identical).
+    # Option B (gradient): true iterative relaxation of a realistic segregated blob.
+    if vir_relax_mode == "gradient" and int(n_nodes) >= 2:
+        return _build_relaxed_grid(
+            S,
+            n_nodes=int(n_nodes),
+            M_ext_kg=M_ext_kg,
+            vir_extent=vir_extent,
+            vir_mass_rule=vir_mass_rule,
+            vir_mass_spread=vir_mass_spread,
+            vir_segregation=vir_segregation,
+            vir_s_metric=vir_s_metric,
+            vir_relax_steps=int(vir_relax_steps),
+            vir_relax_rate=float(vir_relax_rate),
+            hold_outer_frac=float(vir_hold_outer_frac),
+            seed=seed,
+        )
+
+    # Option A (lattice): vir_relax_steps as a BALANCE LEVEL: >= 1 -> analytic force-
+    # balanced lattice ball; == 0 -> the legacy realistic Fibonacci layout below.
     if int(vir_relax_steps) >= 1 and int(n_nodes) >= 2:
         return _build_force_balanced_grid(
             S,

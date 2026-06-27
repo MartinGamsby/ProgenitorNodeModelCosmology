@@ -36,6 +36,7 @@ from cosmo.node_geometry import (
     build_node_positions,
     node_net_accelerations,
     virialization_residual,
+    _force_residual_objective_and_grad,
 )
 from cosmo.constants import CosmologicalConstants
 
@@ -238,3 +239,180 @@ class TestDeterminism:
             r1["residual_per_node"], r2["residual_per_node"])
         assert r1["max_residual"] == r2["max_residual"]
         np.testing.assert_array_equal(r1["inner_idx"], r2["inner_idx"])
+
+
+# ---------------------------------------------------------------------------
+# 6. CENTER-ONLY selector — isolate the DEEP INTERIOR of a LARGE grid (item 1)
+# ---------------------------------------------------------------------------
+
+class TestCenterOnlySelector:
+    """The user's actual criterion: only the DEEP-INTERIOR nodes of a LARGE grid
+    should be net-force ~null (outer nodes feel an expected inward pull). center_k /
+    center_frac select nodes by distance to the CENTROID, independent of r_max, so a
+    bigger grid genuinely deepens the interior being tested."""
+
+    def test_center_k_isolates_innermost_nodes(self):
+        """center_k=K returns exactly the K nodes closest to the centroid."""
+        pos, masses = _big_grid("radial", n=100)
+        res = virialization_residual(
+            pos, masses, center_k=10, center_mass_kg=M_EXT_KG)
+        assert res["n_inner"] == 10
+        assert res["selector"] == "center_k=10"
+        centroid = pos.mean(axis=0)
+        d = np.linalg.norm(pos - centroid, axis=1)
+        expected = set(np.argsort(d, kind="stable")[:10].tolist())
+        assert set(res["inner_idx"].tolist()) == expected
+
+    def test_center_frac_scales_with_grid(self):
+        """center_frac selects ceil(frac*N) nodes (scales with grid size)."""
+        pos, masses = _big_grid("radial", n=120)
+        res = virialization_residual(
+            pos, masses, center_frac=0.25, center_mass_kg=M_EXT_KG)
+        assert res["n_inner"] == int(np.ceil(0.25 * 120))
+        assert "center_frac" in res["selector"]
+
+    def test_center_k_takes_priority_over_inner_frac(self):
+        pos, masses = _big_grid("radial", n=80)
+        res = virialization_residual(
+            pos, masses, inner_frac=0.5, center_k=7, center_mass_kg=M_EXT_KG)
+        assert res["n_inner"] == 7
+        assert res["selector"].startswith("center_k")
+
+    def test_legacy_inner_frac_unchanged_default(self):
+        """With no center_* given, the selector is the legacy inner_frac path."""
+        pos, masses = _big_grid("radial", n=80)
+        res = virialization_residual(pos, masses, center_mass_kg=M_EXT_KG)
+        assert res["selector"] == "inner_frac=0.5"
+
+    def test_deep_center_of_big_lattice_is_near_zero(self):
+        """On the FORCE-BALANCED lattice the deep-center (center_k) residual is at
+        machine precision and stays there as the grid grows from n=100 to n=500 —
+        the size-independent selector confirms the interior is genuinely balanced,
+        not an artifact of 'inner half of a small ball'."""
+        for n in (100, 500):
+            pos, masses = _big_grid("radial", n=n)
+            res = virialization_residual(
+                pos, masses, center_k=15, center_mass_kg=M_EXT_KG)
+            assert res["max_residual"] <= VIRIALIZATION_TOL
+            assert res["max_residual"] < 1e-6
+
+    def test_deep_center_of_realistic_blob_is_large(self):
+        """The realistic (un-relaxed) blob's deep center is FAR from balanced for
+        both rules — re-confirming PF8 under the corrected center-only metric."""
+        for rule in ("radial", "massfunc"):
+            pos, masses = _big_grid(rule, n=100, relax_steps=0)
+            res = virialization_residual(
+                pos, masses, center_k=15, center_mass_kg=M_EXT_KG)
+            assert res["max_residual"] > 1.0
+
+
+# ---------------------------------------------------------------------------
+# 7. Force-residual objective gradient (Option B's descent direction)
+# ---------------------------------------------------------------------------
+
+class TestForceResidualGradient:
+    """Option B descends f = sum_i |a_i|^2. Its analytic gradient must match a
+    finite-difference gradient (the descent is only correct if the gradient is)."""
+
+    def test_analytic_gradient_matches_finite_difference(self):
+        rng = np.random.default_rng(0)
+        pos = rng.standard_normal((9, 3)) * 1.0e24
+        masses = np.abs(rng.standard_normal(9)) + 0.5
+        cm = float(np.mean(masses))
+        f0, grad = _force_residual_objective_and_grad(pos, masses, cm, G)
+        eps = 1.0e16
+        gnum = np.zeros_like(pos)
+        for i in range(pos.shape[0]):
+            for d in range(3):
+                p2 = pos.copy()
+                p2[i, d] += eps
+                f2, _ = _force_residual_objective_and_grad(p2, masses, cm, G)
+                gnum[i, d] = (f2 - f0) / eps
+        rel = np.abs(grad - gnum) / (np.abs(gnum) + 1e-300)
+        assert np.max(rel) < 1e-3, f"gradient mismatch (max rel err {np.max(rel):.2e})"
+
+    def test_objective_is_nonnegative(self):
+        pos, masses = _big_grid("radial", n=40, relax_steps=0)
+        f, _ = _force_residual_objective_and_grad(
+            pos, masses, float(np.mean(masses)), G)
+        assert f >= 0.0
+
+
+# ---------------------------------------------------------------------------
+# 8. OPTION B vs OPTION A — true relaxation reduces, but does not crystallize
+# ---------------------------------------------------------------------------
+
+class TestOptionBvsOptionA:
+    """Build Option B (gradient relaxation) and COMPARE to Option A (lattice) on the
+    center-only metric. The honest result: B's monotone descent reduces the center
+    residual but never reaches the lattice's machine-precision balance."""
+
+    def _build(self, rule, n, *, mode="lattice", steps=1, rate=0.1):
+        return build_virialized_grid(
+            S_DEFAULT_M, n_nodes=n, M_ext_kg=M_EXT_KG, vir_mass_rule=rule,
+            vir_mass_spread=BIG_SPREAD, vir_segregation=BIG_SEG,
+            vir_extent=BIG_EXTENT, vir_relax_mode=mode, vir_relax_steps=steps,
+            vir_relax_rate=rate, seed=BIG_SEED)
+
+    @pytest.mark.parametrize("rule", ["radial", "massfunc"])
+    def test_option_b_reduces_center_residual(self, rule):
+        """A moderate Option-B relaxation lowers the deep-center residual below the
+        realistic (un-relaxed) start, for BOTH mass rules."""
+        pos0, m0 = self._build(rule, 100, steps=0)            # realistic start
+        posB, mB = self._build(rule, 100, mode="gradient", steps=20)
+        r0 = virialization_residual(pos0, m0, center_k=12, center_mass_kg=M_EXT_KG)
+        rB = virialization_residual(posB, mB, center_k=12, center_mass_kg=M_EXT_KG)
+        assert rB["max_residual"] < r0["max_residual"]
+
+    @pytest.mark.parametrize("rule", ["radial", "massfunc"])
+    def test_option_a_beats_option_b_at_center(self, rule):
+        """Option A (lattice) center residual is orders of magnitude below Option B
+        (relaxed): the crystal is balanced; the realistic relaxed blob is not."""
+        posA, mA = self._build(rule, 100, mode="lattice", steps=1)
+        posB, mB = self._build(rule, 100, mode="gradient", steps=20)
+        rA = virialization_residual(posA, mA, center_k=12, center_mass_kg=M_EXT_KG)
+        rB = virialization_residual(posB, mB, center_k=12, center_mass_kg=M_EXT_KG)
+        assert rA["max_residual"] <= VIRIALIZATION_TOL
+        assert rB["max_residual"] > VIRIALIZATION_TOL
+        assert rA["max_residual"] < rB["max_residual"]
+
+    def test_option_b_objective_decreases_with_steps(self):
+        """Within a single relaxation run the force-residual objective f decreases
+        monotonically (backtracking guarantee). Measured on the RAW relaxed positions
+        before the per-build NN-spacing rescale (a global factor that would otherwise
+        change f's absolute scale across rebuilds)."""
+        from cosmo.node_geometry import _gradient_relax_positions
+        pos0, m0 = self._build("radial", 80, steps=0)  # realistic start
+        cm = float(np.mean(m0))
+        f_prev = None
+        for steps in (0, 5, 15, 30):
+            relaxed = _gradient_relax_positions(
+                pos0, m0, n_steps=steps, rate=0.1, hold_outer_frac=0.3)
+            f, _ = _force_residual_objective_and_grad(relaxed, m0, cm, G)
+            if f_prev is not None:
+                assert f <= f_prev + 1e-9 * abs(f_prev)
+            f_prev = f
+
+    def test_option_b_preserves_mean_and_spacing(self):
+        """Option B keeps the mass + spacing contracts (only positions relax)."""
+        from cosmo.node_geometry import nearest_neighbour_spacing
+        pos, m = self._build("radial", 100, mode="gradient", steps=10)
+        np.testing.assert_allclose(m.mean(), M_EXT_KG, rtol=1e-12)
+        np.testing.assert_allclose(
+            nearest_neighbour_spacing(pos, "median"), S_DEFAULT_M, rtol=1e-6)
+        assert len(np.unique(np.round(np.linalg.norm(pos, axis=1), 3))) >= 2
+
+    def test_option_b_deterministic(self):
+        a = self._build("massfunc", 80, mode="gradient", steps=12)
+        b = self._build("massfunc", 80, mode="gradient", steps=12)
+        np.testing.assert_array_equal(a[0], b[0])
+        np.testing.assert_array_equal(a[1], b[1])
+
+    def test_option_b_m_ext_zero_is_eds(self):
+        """M_ext=0 => zero masses, no NaN, positions finite (M=0==EdS preserved)."""
+        pos, m = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=60, M_ext_kg=0.0, vir_mass_rule="radial",
+            vir_mass_spread=0.5, vir_relax_mode="gradient", vir_relax_steps=10,
+            seed=1)
+        assert np.all(np.isfinite(pos))
+        np.testing.assert_array_equal(m, np.zeros(60))

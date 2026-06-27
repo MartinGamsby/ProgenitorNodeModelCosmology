@@ -413,6 +413,92 @@ class TestRelaxBalanceLevel:
 
 
 # ---------------------------------------------------------------------------
+# G3. Option B — vir_relax_mode="gradient" true iterative relaxation
+# ---------------------------------------------------------------------------
+
+class TestRelaxModeGradient:
+    """vir_relax_mode='gradient' (Option B): a realistic blob relaxed toward force
+    balance by gradient descent. Opt-in (default 'lattice' is byte-identical)."""
+
+    def test_default_mode_is_lattice_byte_identical(self):
+        """Default vir_relax_mode='lattice' => byte-identical to the prior generator
+        (no gradient relaxation runs unless explicitly requested)."""
+        a = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=80, M_ext_kg=M_EXT_KG, vir_mass_rule="radial",
+            vir_mass_spread=0.7, seed=5)
+        b = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=80, M_ext_kg=M_EXT_KG, vir_mass_rule="radial",
+            vir_mass_spread=0.7, vir_relax_mode="lattice", seed=5)
+        np.testing.assert_array_equal(a[0], b[0])
+        np.testing.assert_array_equal(a[1], b[1])
+
+    def test_bad_mode_raises(self):
+        with pytest.raises(ValueError, match="vir_relax_mode"):
+            build_virialized_grid(
+                S_DEFAULT_M, n_nodes=26, M_ext_kg=M_EXT_KG,
+                vir_relax_mode="bogus")
+
+    @pytest.mark.parametrize("rule", RULES)
+    def test_gradient_differs_from_lattice_and_realistic(self, rule):
+        """Gradient mode produces a DISTINCT layout from both the lattice (A) and the
+        realistic (steps=0) start — it actually moves the interior nodes."""
+        lat, _ = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=80, M_ext_kg=M_EXT_KG, vir_mass_rule=rule,
+            vir_mass_spread=0.7, vir_relax_mode="lattice", vir_relax_steps=1, seed=5)
+        real, _ = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=80, M_ext_kg=M_EXT_KG, vir_mass_rule=rule,
+            vir_mass_spread=0.7, vir_relax_mode="lattice", vir_relax_steps=0, seed=5)
+        grad, _ = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=80, M_ext_kg=M_EXT_KG, vir_mass_rule=rule,
+            vir_mass_spread=0.7, vir_relax_mode="gradient", vir_relax_steps=10, seed=5)
+        assert not np.array_equal(grad, lat)
+        assert not np.array_equal(grad, real)
+
+    def test_gradient_zero_steps_is_realistic_start(self):
+        """vir_relax_steps=0 in gradient mode == the realistic Fibonacci layout
+        (no relaxation iterations run)."""
+        grad, _ = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=60, M_ext_kg=M_EXT_KG, vir_mass_rule="radial",
+            vir_mass_spread=0.7, vir_relax_mode="gradient", vir_relax_steps=0, seed=5)
+        real, _ = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=60, M_ext_kg=M_EXT_KG, vir_mass_rule="radial",
+            vir_mass_spread=0.7, vir_relax_mode="lattice", vir_relax_steps=0, seed=5)
+        np.testing.assert_array_equal(grad, real)
+
+    @pytest.mark.parametrize("rule", RULES)
+    def test_gradient_preserves_mean_spacing_volume(self, rule):
+        pos, masses = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=100, M_ext_kg=M_EXT_KG, vir_mass_rule=rule,
+            vir_mass_spread=0.8, vir_segregation=1.0, vir_extent=2.5,
+            vir_relax_mode="gradient", vir_relax_steps=15, seed=12)
+        r = _radii(pos)
+        np.testing.assert_allclose(masses.mean(), M_EXT_KG, rtol=1e-12)
+        np.testing.assert_allclose(
+            nearest_neighbour_spacing(pos, "median"), S_DEFAULT_M, rtol=1e-6)
+        assert len(np.unique(np.round(r, 3))) >= 2
+
+    def test_gradient_global_rng_isolation(self):
+        """Gradient relaxation adds no global-RNG draws (massfunc uses default_rng)."""
+        np.random.seed(123); _ = np.random.rand(777)
+        before = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=60, M_ext_kg=M_EXT_KG, vir_mass_rule="massfunc",
+            vir_mass_spread=0.6, vir_relax_mode="gradient", vir_relax_steps=8, seed=42)
+        np.random.seed(0); _ = np.random.rand(4242)
+        after = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=60, M_ext_kg=M_EXT_KG, vir_mass_rule="massfunc",
+            vir_mass_spread=0.6, vir_relax_mode="gradient", vir_relax_steps=8, seed=42)
+        np.testing.assert_array_equal(before[0], after[0])
+        np.testing.assert_array_equal(before[1], after[1])
+
+    def test_gradient_m_ext_zero_no_nan(self):
+        pos, masses = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=60, M_ext_kg=0.0, vir_mass_rule="radial",
+            vir_mass_spread=0.5, vir_relax_mode="gradient", vir_relax_steps=10, seed=1)
+        assert np.all(np.isfinite(pos))
+        np.testing.assert_array_equal(masses, np.zeros(60))
+
+
+# ---------------------------------------------------------------------------
 # H. Volume-filling (not a hollow shell)
 # ---------------------------------------------------------------------------
 

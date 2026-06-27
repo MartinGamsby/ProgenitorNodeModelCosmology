@@ -90,8 +90,9 @@ LCDM match OR a failure until the re-pinned numbers + figures land.
 Full-factorial sweep over M ∈ {50,100,250,500,700,750,800,850,900,1000},
 S ∈ {20..80 step 5}, amplitude ∈ {0,0.25,0.5,0.75}, seed ∈ {42,7},
 init_distribution="grf", particles=400, n_steps=273, t_start=2.9. Growth anchor ON.
-Executed by `pantheon_knob_sweep.py` → `results/sweep_results_pantheon.csv` (isotropic
-rows, load_best_config-compatible) + `results/knob_sweep_summary.csv` (all 910 rows).
+Executed by the GRF 2-knob sweep (then `pantheon_knob_sweep.py`, now consolidated into
+`sweep.py --config sweeps/knob_grf.json`) → `results/sweep_results_pantheon.csv`
+(isotropic rows, load_best_config-compatible) + `results/knob_sweep_summary.csv` (910 rows).
 Runtime: ~1.8 s/sim probe → 1638 s estimated; actual ~25 min (cache assisted for amplitude>0).
 
 ### HEADLINE (defensible, paper-quotable)

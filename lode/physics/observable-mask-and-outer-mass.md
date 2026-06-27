@@ -81,7 +81,7 @@ graph TD
 now differs from the old softening-only a(t), the bump retires all v2 entries (the
 token is ALWAYS appended via `physics_cache_token`). centerM=1 a(t) is byte-identical
 but the bump is applied uniformly (safe). See cache-version history comment at
-`parameter_sweep.py` (`PHYSICS_CACHE_VERSION`).
+`cosmo/parameter_sweep.py` (`PHYSICS_CACHE_VERSION`, the KEPT library).
 
 `build_cache_name` slug fixes:
 - `f"{float(centerM)}centerM"` (was `int(centerM)` which truncated 1.5→1 and collided

@@ -4,10 +4,17 @@ Back to [deeper-exploration-roadmap.md](./deeper-exploration-roadmap.md).
 Phase 1. Depends on the geometry factory ([node-geometries.md](./node-geometries.md))
 for the geometry axis; emits figures via [graphs-from-scripts.md](./graphs-from-scripts.md).
 
-## Status: IMPLEMENTED
+## Status: IMPLEMENTED — the SINGLE sweep driver
 
-`sweep.py` is the single config-driven entrypoint. `pantheon_knob_sweep.py` is
-retained as a legacy script for the 2-knob era; the new tool supersedes it.
+`sweep.py` is the ONE config-driven sweep driver. The two old root scripts are DELETED
+and their coverage folded into `sweep.py` + JSON configs:
+- root `parameter_sweep.py` (LCDM-objective grid) → `sweeps/lcdm_example.json`
+  (`"objective": "lcdm"`). The LCDM objective is now a config key, not a separate script.
+- `pantheon_knob_sweep.py` (GRF 2-knob factorial) → `sweeps/knob_grf.json`; its tests
+  ported into `tests/test_overarching_sweep.py::TestKnobGrfMigration`.
+
+`cosmo/parameter_sweep.py` (the LIBRARY: search algorithms, dataclasses,
+`build_cache_name`) is KEPT and consumed by `sweep.py`.
 
 ## Architecture
 
@@ -37,6 +44,9 @@ graph TD
 | init_distribution | `init_distributions` | `"uniform_sphere"` or `"grf"` |
 | particle count | `particle_count` | pinned via `_FixedSweepConfig` |
 | node_geometry | `node_geometries` | `"cube26"` default; others add slug to cache key |
+| virialized knobs | `vir_n_nodes`/`vir_extent`/`vir_mass_rule`/`vir_mass_spread`/`vir_segregation`/`vir_s_metric`/`vir_relax_steps` | consumed only when geometry=="virialized"; keyed==run guarded |
+| node softening | `node_softening_gpc` | 0.0 default (legacy floor, byte-identical); slingshot taming |
+| start size | `start_size_scale` | 1.0 default (byte-identical); initial-size/density lever |
 
 ## CLI
 
@@ -62,7 +72,17 @@ python sweep.py --tag my_run                        # custom CSV/figure prefix
   "init_distributions":  ["uniform_sphere"],
   "node_geometries":     ["cube26"],
   "geometry_kwargs":     {},
+  "vir_n_nodes":         26,
+  "vir_extent":          1.0,
+  "vir_mass_rule":       "radial",
+  "vir_mass_spread":     0.0,
+  "vir_segregation":     1.0,
+  "vir_s_metric":        "median",
+  "vir_relax_steps":     1,
+  "node_softening_gpc":  0.0,
+  "start_size_scale":    1.0,
   "s_cofit_method":      "linear",
+  "objective":           "pantheon",
   "particle_count":      400,
   "n_steps":             273,
   "t_start_Gyr":         2.9,
@@ -71,6 +91,9 @@ python sweep.py --tag my_run                        # custom CSV/figure prefix
   "tag":                 "ws1"
 }
 ```
+
+(vir_* keys are read only when a geometry is `"virialized"`; node_softening_gpc /
+start_size_scale default to byte-identical no-ops.)
 
 ## CSV columns
 
@@ -108,8 +131,42 @@ match_avg_pct, diff_pct
   from the previous M's best S (fewer evaluations for closely-spaced M values).
 - `chi2_lcdm` / `chi2_eds` are computed once analytically (no sim) from
   `cosmo.distances.model_distance_modulus` + `cosmo.hubble_diagram.evaluate_precomputed`.
-- Cache is fully reused: existing `data/metrics_400_s42.csv` entries from
-  `pantheon_knob_sweep.py` runs are read by `worst_callback` unchanged.
+- Cache is fully reused: existing `data/metrics_400_s42.csv` entries (incl. ones from
+  the old GRF-knob runs, now `sweeps/knob_grf.json`) are read by `worst_callback`
+  unchanged — `PHYSICS_CACHE_VERSION` stays `v3` and all new knobs slug only when
+  non-default.
+
+## sweeps/*.json catalog (every config loads + expands — smoke-tested)
+
+| config | purpose |
+|--------|---------|
+| `sweeps/lcdm_example.json` | LCDM-objective grid (replaces deleted root parameter_sweep.py) |
+| `sweeps/knob_grf.json` | GRF 2-knob factorial (replaces deleted pantheon_knob_sweep.py) |
+| `sweeps/knob_grf.json` etc. | (other exploration configs as authored) |
+| `sweeps/virialized_final.json` | **WS1/W6 HEADLINE** — see below |
+
+`tests/test_overarching_sweep.py::TestAllSweepConfigsLoadAndExpand` asserts every
+committed `sweeps/*.json` loads via `load_config` + `expand_grid` to >=1 cell.
+
+## sweeps/virialized_final.json — the WS1/W6 headline "doubly tamed" run
+
+The big-enough force-balanced virialized + node-softened headline sweep. Selection =
+min chi2/dof vs REAL Pantheon+ among anchor_ok rows (objective="pantheon"); chi2_lcdm
+≈0.436 / chi2_eds ≈0.843 stamped per row as REFERENCE only.
+
+- geometry `virialized`, `vir_relax_steps=1` (FORCE-BALANCED lattice; inner residual
+  ~1e-30, both rules virialized), `vir_mass_rule="massfunc"` (log-normal draw +
+  segregate-by-rank), `vir_mass_spread=0.8`, `vir_n_nodes=80`, `vir_extent=2.5`,
+  `vir_segregation=1.0`, `vir_s_metric="median"`.
+- `node_softening_gpc=1.0` → "DOUBLY TAMED" (force-balanced geometry + 1 Gpc Plummer
+  node softening collapses the runaway tail). `start_size_scale=1.0`, `centerM=1`.
+- TIGHT near-LCDM band (PF4): M∈{200,500,1000,1500,3000}, S co-fit (linear) [20,45]
+  (LOW S; high S is the wrong part of the landscape). Isotropic headline:
+  `node_mass_amplitudes=[0.0]` (PF2: anisotropy is the falsifiable signal). 400p / 273
+  steps / t_start=2.9 (the consistent kernel). RESUMABLE.
+
+Command: `python sweep.py --config sweeps/virialized_final.json` (the orchestrator runs
+this; numerical chi2/dof results to be pinned in pinned-findings.md once the run lands).
 
 ## First-exploration results (first_exploration tag, 2026-06-25)
 
@@ -195,16 +252,21 @@ wired into the geometry sweep.
 
 ## Tests
 
-`tests/test_overarching_sweep.py` — 33 fast unit tests (no sims):
+`tests/test_overarching_sweep.py` — 52 fast unit tests (no sims):
 - Config loading + JSON override
 - Grid expansion: amp=0 collapse, total count, required keys
 - CSV column contract: SWEEP_CSV_COLS ⊇ BEST_ISO_COLS
 - Extra WS1 columns: chi2_lcdm, chi2_eds, growth_target, runaway
 - `_FixedSweepConfig`: particle_count and n_steps pinned
 - Cache-key uniqueness across geometry/init/amplitude/seed
+- vir_* keyed==run threading (SweepConfig + SimulationParameters agree; slugs present)
+- node_softening_gpc keyed==run threading (default no-slug byte-identical)
+- objective config key + `_select_best_row` (pantheon=min chi2, lcdm=max match)
+- knob-grf migration (ported from deleted test_pantheon_knob_sweep.py)
+- every committed sweeps/*.json loads + expands (smoke)
 - S co-fit vs explicit list selection
 - --plots-only wiring
-- load_best_config compatibility
+- load_best_config compatibility + reference chi2 (LCDM > 0.3, < 0.6; EdS > LCDM)
 
 ## Next steps / known limitations
 

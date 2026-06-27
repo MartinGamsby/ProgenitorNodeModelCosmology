@@ -1,17 +1,35 @@
 # Parameter Sweep
 
-Grid search over M (mass factor), S (spacing), and centerM (center node mass) to find the best match.
-Two scoring modes: `objective="lcdm"` (default, R^2 vs LCDM baseline) and `objective="pantheon"` (chi^2 vs real Pantheon+ data).
+Grid search over M (mass factor), S (spacing), and centerM (outer-mass multiplier) to
+find the best match. Two scoring objectives: `objective="pantheon"` (default in the
+driver, chi^2 vs real Pantheon+ data) and `objective="lcdm"` (R^2 vs LCDM baseline).
+
+## THE single driver: `sweep.py`
+
+`sweep.py` (repo root) is the ONE config-driven sweep driver. The two old root
+scripts were DELETED and their unique coverage folded into `sweep.py` + JSON configs:
+- `parameter_sweep.py` (old LCDM-objective grid script) — DELETED. Its LCDM objective
+  is now `"objective": "lcdm"` in a sweep config (`sweeps/lcdm_example.json`).
+- `pantheon_knob_sweep.py` (legacy 2-knob GRF factorial) — DELETED. Its grid is now
+  `sweeps/knob_grf.json`; its tests ported into `tests/test_overarching_sweep.py`.
+
+`sweep.py` is documented in [../plans/overarching-sweep.md](../plans/overarching-sweep.md).
+This file documents the underlying LIBRARY `cosmo/parameter_sweep.py` (search
+algorithms, dataclasses, scoring, cache key) that `sweep.py` consumes.
 
 ## Architecture
 
 Logic split between:
-- `cosmo/parameter_sweep.py` - reusable search algorithms, dataclasses, parameter builders
-- `cosmo/factories.py` - shared simulation functions (solve_lcdm_baseline, run_external_node_simulation)
-- `parameter_sweep.py` - script handling callback wiring, output formatting
-- `run_simulation.py` - single-run CLI using same shared functions
+- `cosmo/parameter_sweep.py` - reusable search algorithms, dataclasses, parameter
+  builders, `build_cache_name` (the LIBRARY — KEPT)
+- `cosmo/factories.py` - shared simulation functions (solve_lcdm_baseline,
+  run_external_node_simulation)
+- `sweep.py` - the single config-driven sweep driver (callback wiring, grid expansion,
+  resumable per-cell CSV checkpoint, figures)
+- `run_simulation.py` - single-run CLI using the same shared functions
 
-Both `parameter_sweep.py` and `run_simulation.py` use shared functions from `cosmo/factories.py` to ensure identical simulation behavior.
+Both `sweep.py` and `run_simulation.py` use shared functions from `cosmo/factories.py`
+to ensure identical simulation behavior.
 
 ## Core Types (cosmo/parameter_sweep.py)
 
@@ -33,9 +51,15 @@ class SweepConfig:
     s_min_gpc: int = 15
     s_max_gpc: int = 60
     save_interval: int = 10
-    objective: str = "lcdm"         # "lcdm" or "pantheon"
+    objective: str = "lcdm"         # "lcdm" or "pantheon" (sweep.py default: pantheon)
     node_mass_seed: int = 0         # per-node HMEA mass anisotropy (Deliverable B)
     node_mass_amplitude: float = 0.0  # 0.0 => uniform 26 nodes (backward compatible)
+    node_geometry: str = "cube26"   # WS3 geometry axis
+    # virialized-geometry knobs (consumed only when node_geometry=="virialized"):
+    vir_n_nodes / vir_extent / vir_mass_rule / vir_mass_spread / vir_segregation /
+    vir_s_metric / vir_relax_steps   # see node-geometries.md
+    node_softening_gpc: float = 0.0  # Plummer node softening (0.0 = legacy hard floor)
+    start_size_scale: float = 1.0    # initial-size/density lever (1.0 = byte-identical)
 
 @dataclass
 class MatchWeights:  # USED by compute_avg (additive aggregate). Field names map
@@ -226,31 +250,46 @@ config. See [../physics/pantheon-comparison-results.md](../physics/pantheon-comp
 
 ### Sweepable init_distribution
 `SweepConfig.init_distribution` (default `"uniform_sphere"`) is threaded into
-`SimulationParameters` in both `parameter_sweep.py`'s `sim_callback` and the new
-`pantheon_knob_sweep.py`. `build_cache_name` appends `<init>init` slug ONLY when
+`SimulationParameters` by `sweep.py::_make_sim_callback`. `build_cache_name` appends `<init>init` slug ONLY when
 `init_distribution != "uniform_sphere"`, so existing uniform_sphere cache keys are
 unchanged. `"grf"` runs get distinct keys and NEVER collide with uniform_sphere.
 Expected physics: chi2/dof is clustering-insensitive at 400p (isotropic chi2 is
 shape-driven, not sampling-driven), so grf and uniform_sphere give ~same chi2/dof.
 
 ### Sweepable node_geometry (WS3) — MUST be threaded into the sim, not just the key
-`SweepConfig.node_geometry` / `geometry_kwargs` and `node_s_amplitude` are now passed
-into `SimulationParameters` by BOTH `sweep.py::_make_sim_callback` AND
-`parameter_sweep.py::sim`. `build_cache_name` appends a `<geom>geo` slug only for
-non-`cube26` geometries. INVARIANT: anything that distinguishes the cache key MUST
-also reach the actual sim — a prior bug had `sweep.py` keying cells by `node_geometry`
-while always running `cube26`, so an `fcc`/`bcc` cell silently produced cube26 physics
-cached under an `fccgeo` key. (`pantheon_knob_sweep.py` never varies geometry, so it
-correctly leaves it at the cube26 default in both sim and key.)
+`SweepConfig.node_geometry` / `geometry_kwargs` and `node_s_amplitude` are passed into
+`SimulationParameters` by `sweep.py::_make_sim_callback`. `build_cache_name` appends a
+`<geom>geo` slug only for non-`cube26` geometries. INVARIANT: anything that
+distinguishes the cache key MUST also reach the actual sim — a prior bug had `sweep.py`
+keying cells by `node_geometry` while always running `cube26`, so an `fcc`/`bcc` cell
+silently produced cube26 physics cached under an `fccgeo` key (now guarded keyed==run).
 
 The `virialized` geometry adds the SAME-pattern threading: `SweepConfig` carries
 `vir_n_nodes`/`vir_extent`/`vir_mass_rule`/`vir_mass_spread`/`vir_segregation`/
 `vir_s_metric` (defaults matching `SimulationParameters`), and `build_cache_name`
 appends `virializedgeo` PLUS virialized-only sub-slugs (`{vir_n_nodes}vn`,
-`{vir_extent}vx`, `{rule}vr`, `{spread}vsp`, `{seg}vsg`, `{metric}vsm`) — appended ONLY
-for virialized, so every existing cube26/cube_dense/fcc/bcc key is byte-unchanged and
-`PHYSICS_CACHE_VERSION` stays `v3`. Each distinct vir_* tuple → a distinct key (tested in
-`tests/test_virialized_grid.py::TestCacheSlug`).
+`{vir_extent}vx`, `{rule}vr`, `{spread}vsp`, `{seg}vsg`, `{metric}vsm`,
+`{vir_relax_steps}vrx`) — appended ONLY for virialized, so every existing
+cube26/cube_dense/fcc/bcc key is byte-unchanged and `PHYSICS_CACHE_VERSION` stays `v3`.
+Each distinct vir_* tuple → a distinct key (tested in
+`tests/test_virialized_grid.py::TestCacheSlug`). INVARIANT (keyed==run, tested in
+`tests/test_overarching_sweep.py::TestVirializedThreading`): the vir_* that distinguish
+the cache key ALSO reach the actual SimulationParameters the sim runs — no keyed-but-
+not-run cell.
+
+### Sweepable node_softening_gpc + start_size_scale (Section 4 / 6)
+Both thread `SweepConfig → _make_sweep_config_for_cell → SimulationParameters` and into
+`build_cache_name`, slug appended ONLY when non-default so existing keys are unchanged
+and `PHYSICS_CACHE_VERSION` stays `v3`:
+- `node_softening_gpc` (default 0.0 = legacy hard floor, byte-identical tidal force):
+  slug `{node_softening_gpc}nsoft` when != 0.0. Slingshot taming knob — see
+  [../physics/slingshot-and-softening.md](../physics/slingshot-and-softening.md).
+- `start_size_scale` (default 1.0 = byte-identical a(t)): slug `{start_size_scale}ssz`
+  when != 1.0. Initial-size/density lever — see
+  [../physics/initial-conditions.md](../physics/initial-conditions.md).
+Both are guarded keyed==run in
+`tests/test_overarching_sweep.py::TestNodeSofteningThreading` /
+`tests/test_start_size.py::TestThreading`.
 
 ## From-data sweep results (Stage 3, anchored, 2000p/300steps, t_start=2.9, seed=42)
 LINEAR_SEARCH on S per M, full z to ~2.1. All 98 configs passed the growth anchor
@@ -284,40 +323,34 @@ WORSE than LCDM (0.43), and under-constrained by SN data alone. (The earlier
 - `brute_force_search(...)` - exhaustive evaluation
 - `run_sweep(config, method, callback, baseline, weights, pantheon_data)` - main entry
 
-**parameter_sweep.py:**
-- `sim_callback(M, S, centerM, seed)` - runs real simulation, returns SimResult
+**sweep.py (the driver):**
+- `expand_grid(cfg)` - factorial grid expansion (amp=0 collapses to a single nm_seed)
+- `_make_sweep_config_for_cell(cell, cfg)` - builds the SweepConfig (keys the cache)
+- `_make_sim_callback(sweep_cfg, box, a_start)` - `(M,S,centerM,seeds) → [SimResult]`,
+  builds the actual SimulationParameters (must agree with the cache key — keyed==run)
+- `_select_best_row(rows, objective)` - pantheon: min chi2_dof; lcdm: max match_avg_pct
+- `_compute_reference_chi2(pantheon_data, t_start)` - analytic LCDM + EdS chi2/dof refs
 
-## Pantheon Knob Sweep Harness
+## Migrated grids (from the deleted root scripts)
 
-`pantheon_knob_sweep.py` — standalone orchestrator for the full M/S × amplitude ×
-nm_seed × init_distribution factorial sweep. Entry point: `python pantheon_knob_sweep.py`.
-
-Grid (user-chosen): M∈{50,100,250,500,700,750,800,850,900,1000}, S∈{20..80 step 5},
-amplitude∈{0.0,0.25,0.5,0.75}, nm_seed∈{42,7} (collapsed to 1 run at amplitude=0),
-init_distribution="grf" (ALWAYS). Fixed: 400p, 273 steps, t_start=2.9, centerM=1.
-Total: 10×13×7 = 910 sims. At 1.8 s/sim ≈ 27 min on current hardware.
-
-Outputs:
-- `results/sweep_results_pantheon.csv` — amplitude=0 rows, columns compatible with
-  `hubble_diagram_nbody.py --from-best-config`.
-- `results/knob_sweep_summary.csv` — one row per (M,S,amplitude,nm_seed,init) with
-  chi2_dof, chi2, R2, growth_factor, anchor_ok, n_sne_used.
-
-Uses `_SweepConfigFixed` (subclass of `SweepConfig`) that hard-codes `particle_count=400`
-and `n_steps=273` via property overrides so the cache key matches the actual sim params.
-amplitude=0 combos are collapsed to a single nm_seed=42 run (seed is a no-op when amp=0).
-
-`tests/test_pantheon_knob_sweep.py` — 24 hermetic unit tests covering:
-- `_expand_grid` amplitude=0 collapse and total count
-- CSV column contracts (_BEST_ISO_COLS / _KNOB_SUMMARY_COLS)
-- `load_best_config` compatibility (finds lowest chi2_dof)
-- Cache-key uniqueness across (amplitude, init_distribution, nm_seed)
-- `SweepConfig.init_distribution` default and getattr fallback
-- `_SweepConfigFixed` particle_count/n_steps overrides
+The GRF 2-knob factorial that used to live in the DELETED `pantheon_knob_sweep.py` is
+now `sweeps/knob_grf.json`: M list × amplitude∈{0.0,0.25,0.5,0.75} × nm_seed∈{42,7}
+(collapsed to one run at amplitude=0) × init="grf", 400p/273 steps/t_start=2.9. Its
+amp=0-collapse + cell-count + cache-uniqueness contract is now tested in
+`tests/test_overarching_sweep.py::TestKnobGrfMigration` (ported from the deleted
+`tests/test_pantheon_knob_sweep.py`). The LCDM-objective grid the deleted root
+`parameter_sweep.py` ran is `sweeps/lcdm_example.json` (`"objective": "lcdm"`).
 
 ## Testing
 
-`tests/test_parameter_sweep.py` - 36 tests using dummy callbacks (lcdm objective):
+`tests/test_overarching_sweep.py` (52) - hermetic unit tests for `sweep.py`: config
+load + JSON override, grid expansion, CSV column contract, `_FixedSweepConfig`, cache-key
+uniqueness (geometry/init/amplitude/seed + vir_* + node_softening keyed==run), S co-fit
+vs explicit, --plots-only wiring, objective key + `_select_best_row`, knob-grf migration,
+and a smoke test that EVERY `sweeps/*.json` loads + expands.
+
+`tests/test_parameter_sweep.py` - 36 tests using dummy callbacks (lcdm objective) for the
+LIBRARY `cosmo/parameter_sweep.py`:
 - Parameter space builders
 - Match metric computation
 - Search algorithm correctness with unimodal callbacks
@@ -349,24 +382,32 @@ do read/write `data/metrics_2000_s42*.csv`; the pantheon tests instead set
 
 ## Output
 
-**Console**: Progress updates, match percentages per config
+**Console**: Progress updates, chi2/dof (or match %) per config
 
-**Files**:
-- `results/sweep_results.csv` - all evaluated configurations
-- `results/sweep_best_per_S.csv` - best (M, centerM) for each S value
+**Files** (driven by `sweep.py`, prefixed by `--tag`):
+- `results/ws1_sweep_<tag>.csv` - full factorial including every knob row
+- `results/sweep_results_pantheon_<tag>.csv` - best-isotropic (amp=0) subset,
+  `load_best_config`-compatible for `hubble_diagram_nbody.py --from-best-config`
+- `results/figures/ws1/*.png` - M-S chi2/growth/runaway/mu(z) figures
 
-CSV columns defined by `CSV_COLUMNS` constant (cosmo/parameter_sweep.py):
-`[M_factor, S_gpc, centerM, match_avg_pct, diff_pct] + MATCH_METRIC_KEYS + [a_ext, size_ext, desc]`
+See [../plans/overarching-sweep.md](../plans/overarching-sweep.md) for the full column
+contract and figure list.
 
 ## Usage
 
 ```bash
-python parameter_sweep.py
+python sweep.py                                     # built-in defaults (pantheon)
+python sweep.py --config sweeps/lcdm_example.json   # LCDM objective grid
+python sweep.py --config sweeps/knob_grf.json       # GRF 2-knob factorial
+python sweep.py --config sweeps/virialized_final.json  # WS1/W6 headline run
+python sweep.py --plots-only results/ws1_sweep.csv  # regenerate figures, no sims
+python sweep.py --probe-only                        # time 5 sims, then exit
+python sweep.py --tag my_run                        # custom CSV/figure prefix
 ```
 
-Edit script constants (SEARCH_METHOD, QUICK_SEARCH, MANY_SEARCH, SEARCH_CENTER_MASS, OBJECTIVE) to change behavior.
-Set `OBJECTIVE = "pantheon"` to score against real Pantheon+ data instead of LCDM.
-Output CSVs: `results/sweep_results.csv` (lcdm) or `results/sweep_results_pantheon.csv` (pantheon).
+The objective is chosen by the config's `"objective"` key (`"pantheon"` default, or
+`"lcdm"`). Runs are RESUMABLE: a re-run skips done cells via the per-cell CSV checkpoint
+(`--no-resume` to force a fresh run).
 
 ## Best Known Configurations
 

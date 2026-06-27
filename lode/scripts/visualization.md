@@ -101,24 +101,29 @@ Standalone regeneration script (mirrors `_generate_ws4_figs.py`: `matplotlib.use
 `configure_utf8_stdout()`, argparse, one function per figure). Output PNGs go to
 `results/figures/ws8/` (GITIGNORED) via `cosmo.plots.figure_path("ws8", name)`.
 
-Three figures:
+Figures:
 1. `node_geometries_by_mass.png` — static 3D node positions for cube26/cube_dense/fcc/bcc
    plus virialized variants (extent 1/2 × rule radial/massfunc), colored by NODE MASS so
    mass segregation is visible.
 2. `particle_motion_slingshot.png` — DIAGNOSTIC: per-particle initial→final displacement
-   for a SHORT sim, cube26 vs virialized, with a slingshot-tail metric. (Diagnostic only;
-   the softening/merging runaway FIX is NOT in scope.)
+   for a SHORT sim, cube26 vs virialized, with a slingshot-tail metric.
 3. `massrule_a_vs_b.png` — "radial" vs "massfunc" mass↔position rules: side-by-side mass
    scatter + mass-vs-radius, with printed/annotated stats (Pearson/Spearman correlation,
    median & mean NN spacing, mass min/max/mean/std, mean-preservation |Δ|/M).
+4. Virialization-residual + slingshot-taming figures (Fig4 / Fig6 "doubly tamed"):
+   the inner-node force residual vs grid size / balance level (the virialization
+   criterion), and the slingshot tail OFF vs node_softening_gpc ON for cube26 AND
+   virialized (the TAMING fix is now IN scope and shipped — see
+   [../physics/slingshot-and-softening.md](../physics/slingshot-and-softening.md)).
 
-CLI: `--no-sim` (skip the Fig-2 sim → fast, Fig 1 + Fig 3 only), `--n-particles`,
-`--n-steps`, `--seed`, `--M`, `--S`, `--t-start`, `--vir-extent`, `--vir-n-nodes`. All
-seeded so figures reproduce. Prints each saved path at the end.
+CLI: `--no-sim` (skip the sim figures → fast), `--n-particles`, `--n-steps`, `--seed`,
+`--M`, `--S`, `--t-start`, `--vir-extent`, `--vir-n-nodes`, and the taming/balance knobs.
+All seeded so figures reproduce. Prints each saved path at the end.
 
-PURE helpers (no sim, no I/O) are unit-tested in `tests/test_ws8_figs.py` (18):
+PURE helpers (no sim, no I/O) are unit-tested in `tests/test_ws8_figs.py` (33):
 `resolve_n_steps` (keeps dt < 0.05 Gyr ceiling), `displacement_magnitudes`,
-`slingshot_metrics`, `mass_radius_stats`, `_pearson`, `_spearman`. See
+`slingshot_metrics`, `softened_node_acceleration` (diagnostic Plummer node force),
+the virialization-residual curve, `mass_radius_stats`, `_pearson`, `_spearman`. See
 [../plans/node-geometries.md](../plans/node-geometries.md#virialized-geometry--coupled-positions-masses-mass-segregated-implemented).
 
 ## Dependencies

@@ -52,6 +52,41 @@ This lets us probe whether a segregated, controlled-extent structure changes the
 near-field / growth story that the far-parked lattice nodes cannot. Implementation +
 parameters: [../plans/node-geometries.md](../plans/node-geometries.md).
 
+## The virialization criterion — and why it needs a LATTICE, not relaxation
+
+The user's physical test: *"the inner nodes of a big enough virialized grid should not
+move; if they do, it's not virialized."* Made measurable by two pure helpers in
+`cosmo/node_geometry.py`:
+
+- `node_net_accelerations(positions, masses, *, center_mass_kg, G)` — the net
+  gravitational accel on each node from all OTHER nodes + a central node of mass
+  `center_mass_kg` (= centerM, 1 by default). Mirrors the sim's tidal law incl. the
+  1e10 m floor.
+- `virialization_residual(...)` → a DIMENSIONLESS per-inner-node residual
+  `|net_accel| / a_ref` (a_ref = one characteristic neighbour pull). An inner node is
+  "virialized" when `max_residual <= VIRIALIZATION_TOL = 0.25`.
+
+**Empirical result:** the REALISTIC layout (`vir_relax_steps=0`, Fibonacci segregated)
+is NOT virialized — big-grid (n=100) inner residual is O(20–30) for BOTH rules. The
+FORCE-BALANCED lattice (`vir_relax_steps>=1`, DEFAULT) drops the inner residual to
+MACHINE PRECISION (~1e-30) for BOTH `radial` and `massfunc`.
+
+**The physics finding (decision):** a continuous position relaxation CANNOT reach
+net-zero inner force on a finite canvas. Any inner node sees the surrounding mass as an
+irreducible central monopole, so a random mass-segregated BLOB can never be
+force-balanced. Only LATTICE SYMMETRY (opposing pulls cancel) reaches ~0. And the HMEA
+nodes are STATIC boundary conditions — a frozen virialized meta-structure — so the
+exact symmetric lattice is the physically correct realization of "virialized", not a
+dynamically-relaxed random draw. Hence `vir_relax_steps` is a balance LEVEL (lattice
+on/off), and BOTH mass rules are virialized once balanced.
+
+```mermaid
+graph TD
+    BLOB[random mass-segregated blob] -->|irreducible central monopole| NOBAL[inner net force O(20-30) >> TOL]
+    LAT[symmetric cubic-lattice ball<br/>node at origin, masses by shell] -->|opposing pulls cancel| BAL[inner residual ~1e-30 << TOL=0.25]
+    BC[HMEA nodes = STATIC boundary conditions] --> LAT
+```
+
 ## HONEST section-1 finding: the perturbation machinery is CORRECT
 
 When generalizing the unit tests from cube26-only to ALL geometries
@@ -78,7 +113,9 @@ the cube on the isotropic fit (PF3 / node-geometries.md).
 
 ## References
 
-- [../plans/node-geometries.md](../plans/node-geometries.md) — WS3 factory + virialized geometry (IMPLEMENTED)
-- [../plans/pinned-findings.md](../plans/pinned-findings.md) — PF1 (M=0==EdS), PF2 (anisotropy), PF3 (M/S³)
+- [../plans/node-geometries.md](../plans/node-geometries.md) — WS3 factory + virialized geometry + vir_relax_steps balance level (IMPLEMENTED)
+- [../plans/pinned-findings.md](../plans/pinned-findings.md) — PF1 (M=0==EdS), PF2 (anisotropy), PF3 (M/S³), PF8 (force-balance-requires-lattice)
 - [force-calculations.md](./force-calculations.md) — tidal 1/r³, per-node mass/position knobs
+- [slingshot-and-softening.md](./slingshot-and-softening.md) — node close-pass slingshot + node_softening_gpc taming
 - [observable-mask-and-outer-mass.md](./observable-mask-and-outer-mass.md) — WS4 outer-mass (related "horizon" framing)
+- Tests: `tests/test_virialization_validation.py` (the metric + criterion), `tests/test_virialized_grid.py::TestRelaxBalanceLevel` (balance level)

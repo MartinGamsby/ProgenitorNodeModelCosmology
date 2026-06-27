@@ -140,6 +140,53 @@ near-field), not how the perturbation acts. Source:
 [../physics/node-placement-vs-perturbation.md](../physics/node-placement-vs-perturbation.md),
 [node-geometries.md](./node-geometries.md).
 
+## PF8 — Force balance requires LATTICE symmetry (a random blob can't virialize)
+
+The user's criterion ("inner nodes of a big-enough virialized grid should not move")
+is measurable via `virialization_residual` (dimensionless inner-node net force / one
+neighbour pull; criterion `max_residual <= 0.25`). MEASURED: the REALISTIC virialized
+layout (`vir_relax_steps=0`, Fibonacci segregated) is NOT virialized — big-grid (n=100)
+inner residual O(20–30) for BOTH mass rules. The FORCE-BALANCED lattice
+(`vir_relax_steps>=1`, the DEFAULT: cubic-lattice ball, node at origin, masses by shell)
+drops it to MACHINE PRECISION (~1e-30) for BOTH `radial` and `massfunc`.
+
+FINDING: a continuous position relaxation CANNOT reach net-zero inner force on a finite
+canvas (an irreducible central monopole), so a random mass-segregated blob can never be
+force-balanced — only LATTICE SYMMETRY cancels opposing pulls. HMEA nodes are STATIC
+boundary conditions (a frozen virialized meta-structure), so the exact symmetric lattice
+is the physically correct realization of "virialized". Hence `vir_relax_steps` is a
+balance LEVEL (lattice on/off), not a relaxation-step count, and BOTH mass rules are
+virialized once balanced. Source:
+[../physics/node-placement-vs-perturbation.md](../physics/node-placement-vs-perturbation.md),
+[node-geometries.md](./node-geometries.md); tests `test_virialization_validation.py`.
+
+## PF9 — Slingshot cause is the node close-pass; node softening is the only lever
+
+The runaway particle "slingshot" (heavy-tailed displacement, max/median ~514x on cube26
+at M=1000/S=10) is caused by a particle's close pass to a near-point HMEA NODE (the
+unsoftened 1/r^3 tidal force diverges), NOT by particle-particle encounters: turning the
+external nodes OFF collapses the tail to ~1.3x (UT-pinned). n_steps and n_particles do
+NOT tame it. The fix is `node_softening_gpc` (Plummer node softening on the tidal path):
+default 0.0 = legacy hard floor = BYTE-IDENTICAL (no PHYSICS_CACHE_VERSION bump);
+=1.0 caps the close-pass kick. "DOUBLY TAMED": the force-balanced virialized geometry
+already lowers the tail (~23x vs ~514x) AND softening collapses it further (cube26
+514→~2.8, virialized ~23→~7). Vanishes at M_ext=0 (PF1 preserved); far-field < 5%
+change. Source: [../physics/slingshot-and-softening.md](../physics/slingshot-and-softening.md);
+tests `tests/test_slingshot.py`.
+
+## PF10 — start_size_scale is a REAL a(t)-shape lever, not a normalization offset
+
+`start_size_scale` multiplies the initial cloud size. It is NOT a divided-out offset:
+a(t) is an RMS RATIO so a uniform rescale cancels at M=0 (M=0==EdS holds at ANY size
+because the EdS-critical cloud mass scales with volume, keeping density critical), but at
+M_ext>0 the nodes keep their UNSCALED spacing S, so a different-size cloud spans a
+different fraction of S ⇒ different differential tidal shear ⇒ the a(t) SHAPE moves
+(total growth ~3.07/3.38/4.73 at scale 0.8/1.0/1.2 in one test cell). Default 1.0 is
+byte-identical (no slug, no cache bump). It is the density/size counterpart to M/S — a
+way to vary the tidal-to-self-gravity ratio without changing M or S. Source:
+[../physics/initial-conditions.md](../physics/initial-conditions.md); tests
+`tests/test_start_size.py`.
+
 ## What is NOT yet pinned (the job of this phase)
 
 - The single consistent chi2/dof for the nominal + best configs on one kernel/anchor.

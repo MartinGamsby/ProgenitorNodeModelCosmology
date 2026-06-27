@@ -27,6 +27,33 @@ noise, leapfrog dt). The mu(z) sits ON the EdS null and is ~10x FARTHER from LCD
 — the physically correct ordering. Invariant is t_start-INDEPENDENT (holds at
 t_start=2.0 Gyr too). Test: `tests/test_matter_only_consistency.py`.
 
+## start_size_scale — a falsifiable initial-size / density lever
+
+`start_size_scale` (SimulationParameters/SweepConfig/CLI, default **1.0**)
+multiplies the LCDM-implied INITIAL cloud size in `CosmologicalSimulation.__init__`
+(`box_size_Gpc *= start_size_scale`) BEFORE particles are built. It is a REAL
+physical lever on the a(t) SHAPE, NOT a normalization offset:
+
+- **Why it's NOT a no-op offset:** a(t) is computed as an RMS RATIO
+  (rms(t)/rms(0)) and the mu(z) pipeline divides out absolute size, so a UNIFORM
+  rescale of the whole cloud would cancel — IF nothing else broke scale invariance.
+- **M=0 == EdS at ANY size:** under `eds_consistent` the cloud mass = EdS-critical
+  density × V(box), so scaling the box scales the mass with VOLUME ⇒ the DENSITY
+  stays critical ⇒ at M_ext=0 the dynamics are identical EdS for any size. (PF1
+  holds; validated to <3% growth at scale ∈ {0.5,1.0,2.0}, byte-identical at 1.0.)
+- **The falsifiable effect is at M_ext>0:** the HMEA nodes keep their UNSCALED
+  spacing S (and softening is frozen), so a bigger/smaller cloud spans a DIFFERENT
+  fraction of S ⇒ a different differential tidal shear across it ⇒ the a(t) SHAPE
+  moves (not just an offset). In one test cell the total growth a[-1]/a[0] tracks
+  ~3.07 / 3.38 / 4.73 at scale 0.8 / 1.0 / 1.2.
+
+`start_size_scale <= 0` raises ValueError. Cache slug `{start_size_scale}ssz` only
+when != 1.0 (default keys byte-unchanged, no PHYSICS_CACHE_VERSION bump). It is the
+density/size counterpart to the M/S tidal-strength knobs — a way to vary the
+tidal-to-self-gravity ratio WITHOUT changing M or S. Tests:
+`tests/test_start_size.py` (20). Pinned in
+[../plans/pinned-findings.md](../plans/pinned-findings.md) PF10.
+
 ## Pre-t_start HMEA tidal velocity boost (the physical pre-history term)
 
 The EdS baseline sets `v_i = H_EdS*r_i` — pure matter-only Hubble flow, i.e. the

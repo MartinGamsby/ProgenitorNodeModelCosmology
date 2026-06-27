@@ -205,7 +205,7 @@ unchanged); only its DISTANCE changes. So it is a pure radial symmetry-break.
 `node_s_amplitude != 0.0` (the seed slug is added here too since node_s depends on
 it; not double-added if node_mass_amplitude already added it). Sweepable in the
 objective="pantheon" path: `SweepConfig.node_s_amplitude`, threaded by
-`pantheon_knob_sweep._make_sweep_config`/`_make_sim_callback`/`_run_single`.
+`sweep._make_sweep_config_for_cell` / `_make_sim_callback`.
 
 ### LEVER EXPERIMENT — can breaking lattice symmetry reach LCDM? (honest verdict: NO)
 

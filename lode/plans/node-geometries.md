@@ -153,7 +153,34 @@ other geometry gets positions from `build_node_positions` and masses INDEPENDENT
 | `vir_mass_spread` | amplitude of the node-mass distribution. **THE falsifiable knob**: 0 → uniform masses | 0.0 |
 | `vir_segregation` | mass↔radius coupling strength [0,1]; 0 → decoupled | 1.0 |
 | `vir_s_metric` | `"median"` or `"mean"` — which NN-spacing statistic the layout targets as S | `"median"` |
+| `vir_relax_steps` | BALANCE LEVEL (see below). 0 → realistic Fibonacci layout; >=1 → force-balanced cubic-lattice ball | 1 |
 | seed | `np.random.default_rng(node_mass_seed)` (one-seed coherence, like node_s_amplitude) | node_mass_seed |
+
+### vir_relax_steps — REALISTIC vs FORCE-BALANCED (the virialization criterion)
+
+`vir_relax_steps` is a BALANCE LEVEL, not a count of relaxation iterations:
+
+- **`vir_relax_steps=0` (REALISTIC):** the Fibonacci-sphere segregated layout above
+  (directions on a Fibonacci sphere, radii `[0.5S,(0.5+extent)S]`, NN-rescaled to S).
+  It is a plausible *snapshot* of a relaxed cluster but is NOT force-balanced — the
+  inner-node net force residual is O(20–30)×a_ref (massfunc slightly the lesser
+  offender). vir_extent / vir_s_metric (median vs mean) only shape THIS mode.
+- **`vir_relax_steps>=1` (FORCE-BALANCED, DEFAULT):** an exact cubic-lattice ball with
+  a node AT the origin and masses assigned by radius shell (antipodal nodes share a
+  mass to keep the balance). Inner-node residual is at MACHINE PRECISION (~1e-30) for
+  BOTH `radial` AND `massfunc` rules → satisfies the user's criterion. This mode puts
+  ONE node at r=0, so tests that need every node at non-zero radius use relax_steps=0.
+
+**PHYSICS FINDING (why a lattice, not iterative relaxation):** a continuous position
+relaxation provably CANNOT reach net-zero inner force on a finite canvas — the cloud of
+inner mass always presents an irreducible central monopole, so a random mass-segregated
+blob can never be force-balanced. Only LATTICE SYMMETRY makes opposing pulls cancel to
+~0. And the HMEA nodes are STATIC boundary conditions (a frozen virialized
+meta-structure feeding the Progenitor node), so an exact symmetric lattice is the
+PHYSICALLY RIGHT realization of "virialized" — not a dynamically-relaxed random draw.
+Hence "balance level" (lattice on/off), not "relaxation steps". BOTH mass rules are
+virialized when balanced. Metric + criterion:
+[../physics/node-placement-vs-perturbation.md](../physics/node-placement-vs-perturbation.md).
 
 ### nearest_neighbour_spacing — the S definition
 
@@ -191,19 +218,28 @@ cloud, both numba + numpy paths, both rules).
 
 `build_cache_name` appends `virializedgeo` (via the existing `!= "cube26"` branch) PLUS
 virialized-only sub-slugs (`{vir_n_nodes}vn`, `{vir_extent}vx`, `{rule}vr`,
-`{spread}vsp`, `{seg}vsg`, `{metric}vsm`). These are appended ONLY for virialized, so every
-existing cube26/cube_dense/fcc/bcc key is UNTOUCHED and virialized lives at a brand-new key
-→ `PHYSICS_CACHE_VERSION` stays `v3`.
+`{spread}vsp`, `{seg}vsg`, `{metric}vsm`, `{vir_relax_steps}vrx`). These are appended
+ONLY for virialized, so every existing cube26/cube_dense/fcc/bcc key is UNTOUCHED and
+virialized lives at a brand-new key → `PHYSICS_CACHE_VERSION` stays `v3`.
 
 ### Tests (all green)
 
-- `tests/test_virialized_grid.py` (70) — generator shapes/dtype/count, mean-preservation
+- `tests/test_virialization_validation.py` (15) — the force-balance METRIC: `node_net_
+  accelerations` shape/dtype + hand checks (symmetric-ring-is-null, 2-node sign, singularity
+  floor), `virialization_residual` reads ~null on a symmetric ground truth, THE criterion on
+  the big grid (n=100) — default (relax_steps>=1) max_residual << TOL=0.25 for BOTH rules,
+  realistic (relax_steps=0) residual O(20-30) >> TOL (contrast), bigger grid stays balanced,
+  determinism.
+- `tests/test_virialized_grid.py` (88) — generator shapes/dtype/count, mean-preservation
   (both rules, several N), falsifiable reductions, positive segregation correlation,
-  vir_extent range scaling, median/mean NN metric, determinism + global-RNG isolation,
-  volume-filling, positions-only raises, NN-helper sanity, HMEAGrid coupled-branch
-  threading (count, mean-preserving masses, masses-not-from-node_masses, node_s composition,
-  M=0 zero-tidal EdS invariant), cube26 byte-identical opt-in, SimulationParameters /
-  SweepConfig threading, cache-slug distinctness + non-virialized-key regression.
+  vir_extent range scaling (realistic mode), median/mean NN metric (realistic mode),
+  determinism + global-RNG isolation, volume-filling, positions-only raises, NN-helper
+  sanity, the `vir_relax_steps` BALANCE LEVEL (default force-balanced; balanced<<unbalanced;
+  relax_steps=0 has no node at origin, relax_steps=1 puts one at origin), HMEAGrid
+  coupled-branch threading (count, mean-preserving masses, masses-not-from-node_masses,
+  node_s composition on realistic mode, M=0 zero-tidal EdS invariant), cube26 byte-identical
+  opt-in, SimulationParameters / SweepConfig threading (incl. vir_relax_steps), cache-slug
+  distinctness (incl. node_softening) + non-virialized-key regression.
 - `tests/test_node_geometry_anisotropy.py` (128) — generalizes node POSITIONS + node MASSES
   + node_mass_amplitude + node_s_amplitude invariants (mean-preservation for ANY N, ray
   preservation, seeded determinism, separate-RNG-draw cross-knob independence) across

@@ -15,9 +15,9 @@ graph TD
     numba_direct[numba_direct.py<br/>Numba JIT O(N²) direct]
     bh_numba[barnes_hut_numba.py<br/>Barnes-Hut O(N log N) octree]
     tidal_numba[tidal_forces_numba.py<br/>Numba JIT tidal forces]
-    param_sweep[cosmo/parameter_sweep.py<br/>Search algorithms]
+    param_sweep[cosmo/parameter_sweep.py<br/>Search algorithms LIBRARY]
     run[run_simulation.py<br/>Main entry point]
-    sweep[parameter_sweep.py<br/>Grid search script]
+    sweep[sweep.py<br/>THE config-driven sweep driver]
     viz3d[visualize_3d.py<br/>3D visualizations]
     distances[cosmo/distances.py<br/>Distance kernel: H z, d_L, mu]
     pantheon[cosmo/pantheon.py<br/>Pantheon+ loader]
@@ -78,7 +78,7 @@ particles -> integrator -> simulation N-body chain.
 - `CosmologicalConstants`: G, c, Mpc_to_m, Gpc_to_m, Gyr_to_s, M_observable, etc.
 - `LambdaCDMParameters`: H₀, Ω_m, Ω_Λ, method `H_at_time(a)`
 - `ExternalNodeParameters`: M_ext, S, Ω_Λ_eff, method `calculate_required_spacing()`
-- `SimulationParameters`: Unified config (M_value, S_value, n_particles, seed, t_start_Gyr, t_duration_Gyr, n_steps, damping_factor, center_node_mass, mass_randomize)
+- `SimulationParameters`: Unified config (M_value, S_value, n_particles, seed, t_start_Gyr, t_duration_Gyr, n_steps, damping_factor, center_node_mass, mass_randomize, node_geometry + vir_* virialized knobs incl. vir_relax_steps balance level, node_softening_gpc, start_size_scale). Validates start_size_scale > 0; derives node_softening_m and external_params (incl. vir_*) in `_calculate_derived()`.
 
 **Exports**: All four classes.
 
@@ -88,7 +88,7 @@ particles -> integrator -> simulation N-body chain.
 **Purpose**: Command-line interface utilities shared across scripts.
 
 **Functions**:
-- `add_common_arguments(parser)`: Add shared simulation args (--M, --S, --particles, --seed, --t-start, --t-duration, --n-steps, --damping, --center-node-mass, --mass-randomize, --compare)
+- `add_common_arguments(parser)`: Add shared simulation args (--M, --S, --particles, --seed, --t-start, --t-duration, --n-steps, --damping, --center-node-mass, --mass-randomize, --compare, --node-geometry, --vir-n-nodes/--vir-extent/--vir-mass-rule/--vir-mass-spread/--vir-segregation/--vir-s-metric/--vir-relax-steps, --node-softening-gpc, --start-size-scale)
 - `parse_arguments(description, add_output_dir)`: Create parser, add common args, parse CLI
 - `args_to_sim_params(args)`: Convert parsed args to SimulationParameters
 
@@ -102,7 +102,7 @@ particles -> integrator -> simulation N-body chain.
 **Classes**:
 - `Particle`: Single entity with position, velocity, mass, acceleration, id
 - `ParticleSystem`: N particles with update methods, energy calculations
-- `HMEAGrid`: 26-node cubic lattice (3×3×3-1), vectorized tidal force calculation
+- `HMEAGrid`: geometry-driven node grid (`build_node_positions` / coupled `build_virialized_grid`), vectorized tidal force calculation with optional Plummer node softening (numba + numpy paths)
 
 **Key methods**:
 - `ParticleSystem._initialize_particles()`: Sets up particles with Hubble flow + peculiar velocities (particles.py:60-175)
@@ -111,7 +111,7 @@ particles -> integrator -> simulation N-body chain.
   - No damping applied here; damping is applied at sim.run() via velocity calibration
 - `ParticleSystem.set_positions(positions)`: Set positions for all particles (used by velocity calibration state restore)
 - `ParticleSystem.set_velocities(velocities)`: Set velocities for all particles
-- `HMEAGrid.calculate_tidal_acceleration_batch()`: Vectorized tidal forces across all 26 nodes
+- `HMEAGrid.calculate_tidal_acceleration_batch()`: Vectorized tidal forces across all nodes; applies `params.node_softening_m` (0.0 = legacy hard floor, byte-identical; >0 = Plummer) on both numba and numpy paths
 
 **Exports**: All three classes.
 
@@ -159,14 +159,14 @@ particles -> integrator -> simulation N-body chain.
 **Purpose**: Numba JIT-compiled tidal force calculation from external HMEA nodes.
 
 **Functions**:
-- `calculate_tidal_forces_numba(particle_positions, node_positions, node_masses, G)`: Returns (N, 3) accelerations in m/s²
+- `calculate_tidal_forces_numba(particle_positions, node_positions, node_masses, G, softening_m=0.0)`: Returns (N, 3) accelerations in m/s²
 
-**Algorithm**: Double loop over N particles × M nodes (M=26), computing attractive acceleration toward each node. Singularity protection at r < 1e10 m.
+**Algorithm**: Double loop over N particles × M nodes, computing attractive acceleration toward each node. Singularity handling: `softening_m==0.0` (DEFAULT) uses the LEGACY hard `r<1e10 m` floor (byte-identical to pre-softening); `softening_m>0.0` uses Plummer softening `r_soft^2 = r^2 + softening_m^2` (the slingshot taming knob `node_softening_gpc`; the 1e10 floor is dropped in that branch). See [../physics/slingshot-and-softening.md](../physics/slingshot-and-softening.md).
 
-**Used by**: `integrator.py` for external force calculations
+**Used by**: `HMEAGrid.calculate_tidal_acceleration_batch` (numba path; the numpy fallback mirrors the same softening) → `integrator.py` external forces
 
 ### `cosmo/factories.py`
-**Purpose**: Shared simulation functions used by both run_simulation.py and parameter_sweep.py for consistency. Single source of truth for simulation execution.
+**Purpose**: Shared simulation functions used by both run_simulation.py and sweep.py for consistency. Single source of truth for simulation execution.
 
 **Functions**:
 - `run_and_extract_results(sim, t_duration_Gyr, n_steps, save_interval, damping=None)`: Runs simulation, returns dict with t_Gyr, a, diameter_Gpc, max_radius_Gpc, H_hubble, sim
@@ -176,7 +176,7 @@ particles -> integrator -> simulation N-body chain.
 - `setup_simulation_context(t_start_Gyr, t_duration_Gyr, n_steps, save_interval)`: Combined initial conditions + LCDM baseline setup, returns (box_size, a_start, baseline_dict)
 - `results_to_sim_result(ext_results, sim_params)`: Convert factory results dict to SimResult for parameter_sweep
 
-**Used by**: `run_simulation.py`, `parameter_sweep.py`
+**Used by**: `run_simulation.py`, `sweep.py`
 
 ### `cosmo/cache.py`
 **Purpose**: Two-level key-value disk cache with JSON, CSV, and Pickle format support.
@@ -205,7 +205,7 @@ PID liveness: `ctypes`+`OpenProcess`/`GetExitCodeProcess` on Windows, `os.kill(p
 
 **CSV format**: One row per cache key. Cache keys are split on `_` into `key.{i}_{suffix}` columns (e.g. `key.0_p`, `key.1_Gyr`, `key.2_M`). Scalar values get a column named after data_type (e.g. `velocity`). Dict values are flattened: each field becomes `data_type.field` (e.g. `metrics.match_avg_pct`, `results.size_final_Gpc`). Nested dicts within fields are JSON-encoded per cell.
 
-**Used by**: `simulation.py` (velocity cache), `parameter_sweep.py` (metrics/results cache)
+**Used by**: `simulation.py` (velocity cache), `sweep.py` / `cosmo/parameter_sweep.py` (metrics/results cache)
 
 ### `cosmo/simulation.py`
 **Purpose**: High-level simulation orchestration.
@@ -238,7 +238,7 @@ PID liveness: `ctypes`+`OpenProcess`/`GetExitCodeProcess` on Windows, `os.kill(p
 - `detect_runaway_particles(max_distance, rms_size, threshold)`: Detect numerical instability
 - `calculate_today_marker(t_start, t_duration, today)`: Position of "today" in simulation time
 
-**Used by**: `run_simulation.py`, `parameter_sweep.py`, `visualize_3d.py`
+**Used by**: `run_simulation.py`, `sweep.py`, `visualize_3d.py`
 
 **Exports**: All functions listed above.
 
@@ -258,14 +258,14 @@ PID liveness: `ctypes`+`OpenProcess`/`GetExitCodeProcess` on Windows, `os.kill(p
 **Exports**: All functions listed above.
 
 ### `run_simulation.py`
-**Purpose**: Main script orchestrating full comparison workflow. Uses shared functions from factories.py for consistency with parameter_sweep.py.
+**Purpose**: Main script orchestrating full comparison workflow. Uses shared functions from factories.py for consistency with sweep.py.
 
 **Key functions**:
 - `run_simulation(output_dir, sim_params)`: Runs 3 simulations (ΛCDM analytic, External-Node N-body, Matter-only N-body), generates 4-panel plot
 
 **CLI**: Uses `cosmo.cli.parse_arguments()` and `cosmo.cli.args_to_sim_params()` for argument handling. Supports --M, --S, --particles, --seed, --t-start, --t-duration, --n-steps, --damping, --center-node-mass, --mass-randomize, --compare, --output-dir.
 
-**Default values** (aligned with parameter_sweep.py quick_search mode):
+**Default values** (aligned with the sweep quick_search mode):
 - n_steps=250
 - particles=200
 - mass_randomize=0.0 (deterministic)
@@ -273,7 +273,7 @@ PID liveness: `ctypes`+`OpenProcess`/`GetExitCodeProcess` on Windows, `os.kill(p
 
 **Workflow**:
 1. Calculate initial conditions using `analysis.calculate_initial_conditions()`
-2. Solve ΛCDM baseline using `factories.solve_lcdm_baseline()` (shared with parameter_sweep.py)
+2. Solve ΛCDM baseline using `factories.solve_lcdm_baseline()` (shared with sweep.py)
 3. Run External-Node N-body using `factories.run_external_node_simulation()`
 4. Run Matter-only N-body using `factories.run_matter_only_simulation()`
 5. Compare using `analysis.compare_expansion_histories()`, detect runaways with `analysis.detect_runaway_particles()`
@@ -282,39 +282,43 @@ PID liveness: `ctypes`+`OpenProcess`/`GetExitCodeProcess` on Windows, `os.kill(p
 
 **Entry point**: `if __name__ == "__main__"`
 
-### `cosmo/parameter_sweep.py`
-**Purpose**: Reusable parameter sweep infrastructure with search algorithms and dataclasses.
+### `cosmo/parameter_sweep.py` (LIBRARY — kept)
+**Purpose**: Reusable parameter sweep infrastructure with search algorithms,
+dataclasses, scoring, and `build_cache_name`. Consumed by `sweep.py`.
 
 **Classes**:
 - `SearchMethod`: Enum (BRUTE_FORCE, TERNARY_SEARCH, LINEAR_SEARCH)
-- `SweepConfig`: Configuration dataclass (quick_search, many_search, search_center_mass, etc.)
-- `MatchWeights`: Match metric weights (hubble_curve, size_curve, endpoint, max_radius)
-- `SimResult`: Raw simulation output dataclass (size_curve_Gpc, hubble_curve, etc.)
+- `SweepConfig`: Configuration dataclass (objective, node_geometry, vir_*,
+  node_softening_gpc, start_size_scale, etc.)
+- `MatchWeights`: Match metric weights (curve, curve_r2, end, ...)
+- `SimResult`: Raw simulation output dataclass (size_curve_Gpc, hubble_curve, a_curve)
 - `LCDMBaseline`: Precomputed LCDM reference data
 
 **Functions**:
-- `build_m_list(many_search)`: Build M value list (descending)
-- `build_s_list(s_min, s_max)`: Build S value list
-- `build_center_mass_list(search_center_mass, many_search)`: Build centerM value list
-- `compute_match_metrics(sim_result, baseline, weights)`: Compute R^2-based match metrics
-- `ternary_search_S(...)`: Ternary search for optimal S
-- `linear_search_S(...)`: Linear search with early stopping
-- `brute_force_search(...)`: Exhaustive grid search
-- `run_sweep(config, method, callback, baseline, weights)`: Main entry point
+- `build_m_list` / `build_s_list` / `build_center_mass_list`: parameter list builders
+- `compute_match_metrics` (lcdm) / `compute_pantheon_metrics` (pantheon): scorers
+- `ternary_search_S` / `linear_search_S` / `brute_force_search`: S searches
+- `run_sweep(config, method, callback, baseline, weights, pantheon_data)`: entry point
+- `build_cache_name(config, M, S, centerM, seeds)`: physics-versioned cache key
+  (PHYSICS_CACHE_VERSION="v3"; non-default-only slugs incl. nsoft / ssz / vir_*)
 
 **Exports**: All classes and functions.
 
-### `parameter_sweep.py`
-**Purpose**: Script wiring simulation callback to sweep module, handling output formatting. Uses shared functions from factories.py for consistency with run_simulation.py.
+### `sweep.py` (THE single sweep driver)
+**Purpose**: The one config-driven, resumable, cached sweep over ALL parameter axes
+(M, S, amplitudes, seed, init, particles, geometry, vir_*, node_softening, start-size).
+Replaces the DELETED root `parameter_sweep.py` (LCDM grid → `sweeps/lcdm_example.json`)
+and `pantheon_knob_sweep.py` (GRF factorial → `sweeps/knob_grf.json`).
 
-**Workflow**:
-1. Calculate initial conditions using `analysis.calculate_initial_conditions()`
-2. Compute ΛCDM baseline using `factories.solve_lcdm_baseline()` (shared with run_simulation.py)
-3. Define sim_callback that uses `factories.run_external_node_simulation()`, returns SimResult
-4. Call run_sweep() from cosmo.parameter_sweep module
-5. Format and display results, save best config
+**Key functions**: `load_config`, `expand_grid`, `_make_sweep_config_for_cell`,
+`_make_sim_callback`, `_select_best_row`, `_compute_reference_chi2`, `run_plots_only`.
 
-**Uses**: `cosmo.parameter_sweep.run_sweep()` for search algorithms, `cosmo.factories` for simulation consistency.
+**Workflow**: load JSON config → `expand_grid` (amp=0 collapse) → per cell:
+co-fit S (linear/ternary) or explicit list on the configured objective → cached
+`worst_callback` → growth-anchor check → resumable per-cell CSV checkpoint → figures.
+
+**Uses**: `cosmo.parameter_sweep` (search + cache key), `cosmo.factories` (sim),
+`cosmo.plots` (figures). Documented in [../plans/overarching-sweep.md](../plans/overarching-sweep.md).
 
 ### `cosmo/distances.py`
 **Purpose**: Pure-function cosmological distance kernel for the Hubble-diagram test. No I/O, no plotting.
@@ -368,14 +372,14 @@ See [../physics/hubble-diagram.md](../physics/hubble-diagram.md) for the physics
 | `cosmo/visualization.py` | 213 | Shared plotting utilities |
 | `cosmo/numba_direct.py` | 82 | Numba JIT O(N²) direct |
 | `cosmo/barnes_hut_numba.py` | 200 | Barnes-Hut O(N log N) octree |
-| `cosmo/tidal_forces_numba.py` | 60 | Numba JIT tidal forces |
+| `cosmo/tidal_forces_numba.py` | ~83 | Numba JIT tidal forces (+ node Plummer softening) |
 | `cosmo/factories.py` | 120 | Shared simulation functions |
-| `cosmo/parameter_sweep.py` | 350 | Search algorithms, dataclasses |
+| `cosmo/parameter_sweep.py` | ~760 | Search algorithms, dataclasses, build_cache_name (LIBRARY) |
 | `cosmo/distances.py` | 309 | Cosmological distance kernel (H z, d_L, mu) |
 | `cosmo/pantheon.py` | 207 | Pantheon+SH0ES loader + plot binning |
 | `cosmo/hubble_diagram.py` | 238 | Offset-marginalized chi^2/R^2 engine |
 | `run_simulation.py` | 280 | Main comparison script |
-| `parameter_sweep.py` | 210 | Parameter exploration script |
+| `sweep.py` | ~700 | THE config-driven sweep driver (resumable, cached) |
 | `hubble_diagram.py` | 345 | Hubble-diagram vs Pantheon+ script |
 | `visualize_3d.py` | 765 | 3D visualization |
 

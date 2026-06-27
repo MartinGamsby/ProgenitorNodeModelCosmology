@@ -136,6 +136,46 @@ def effective_M_ext_kg(M_ext_kg: float, n_nodes: int, ref_nodes: int = 26) -> fl
     return M_ext_kg * ref_nodes / n_nodes
 
 
+def extent_coupled_n_nodes(base_n_nodes: int, vir_extent: float) -> int:
+    """Node count that holds node DENSITY constant as ``vir_extent`` grows.
+
+    Item-10 coupling: the user wants a larger radial extent to imply MORE nodes
+    (like centerM implies more particles), keeping the node *density* of the
+    virialized ball roughly fixed rather than thinning out. The virialized grid is
+    VOLUME-FILLING (a 3D ball, see module docstring), so its density is
+
+        rho = N / V,   V = (4/3) pi R^3.
+
+    The realized ball radius R scales ~LINEARLY with ``vir_extent`` relative to the
+    FIXED nearest-neighbour spacing S (the radial RANGE ratio is ``1 + 2*extent`` and
+    the NN spacing is rescaled to S, so reach grows ~linearly with extent). Holding
+    ``rho`` constant under ``R ~ extent`` therefore needs ``N ~ R^3 ~ extent^3``:
+
+        n_eff = round(base_n_nodes * (vir_extent / EXTENT_DEFAULT)^3),   EXTENT_DEFAULT = 1.0.
+
+    The reference is the DEFAULT extent (1.0), so at ``vir_extent == 1.0`` the factor
+    is exactly 1.0 and ``n_eff == base_n_nodes`` (the default node count is reproduced
+    EXACTLY -> byte-identical when coupling is enabled at default extent). A bigger
+    extent raises the count by extent^3 (extent=2 -> ~8x), a smaller extent lowers it,
+    keeping ``N / extent^3`` (i.e. the density) ~constant. The result is clamped to
+    ``>= 1`` so a tiny extent never yields a degenerate empty grid.
+
+    This is a PURE count derivation (no positions/masses, no RNG): callers pass the
+    returned count straight to ``build_virialized_grid(n_nodes=...)``.
+
+    Args:
+        base_n_nodes: The configured ``vir_n_nodes`` (the count at extent == 1.0).
+        vir_extent:   The radial-range multiplier (>= 0); 1.0 -> unchanged count.
+
+    Returns:
+        The density-preserving effective node count (int, >= 1).
+    """
+    EXTENT_DEFAULT = 1.0
+    ext = max(float(vir_extent), 0.0)
+    factor = (ext / EXTENT_DEFAULT) ** 3
+    return max(1, int(round(float(base_n_nodes) * factor)))
+
+
 # ---------------------------------------------------------------------------
 # Virialized-grid helpers (coupled positions+masses)
 # ---------------------------------------------------------------------------
@@ -770,6 +810,7 @@ def build_virialized_grid(
     vir_relax_mode: str = "lattice",
     vir_relax_rate: float = 0.1,
     vir_hold_outer_frac: float = 0.3,
+    vir_extent_couples_nodes: bool = False,
     seed: int = 0,
 ) -> tuple[np.ndarray, np.ndarray]:
     """COUPLED virialized node grid: (positions (N,3), masses (N,)), mass-segregated.
@@ -842,6 +883,17 @@ def build_virialized_grid(
         vir_hold_outer_frac: Fraction of outermost nodes pinned during gradient
             relaxation (only used by vir_relax_mode="gradient", default 0.3); a fixed
             boundary so the interior relaxes without the blob collapsing.
+        vir_extent_couples_nodes: When False (DEFAULT) ``n_nodes`` is used as given
+            (byte-identical). When True, ``vir_extent`` DRIVES the node count to hold
+            the virialized ball's DENSITY constant: the effective count becomes
+            ``round(n_nodes * vir_extent^3)`` (see ``extent_coupled_n_nodes``). This
+            is the item-10 coupling ("a higher extent should imply MORE nodes, like
+            centerM"); it ALSO makes ``vir_extent`` meaningful in the force-balanced
+            lattice mode (where it was otherwise a no-op, since the lattice ball's
+            radius derives from the node count, not from the radial-range knob). At
+            the default ``vir_extent == 1.0`` the factor is exactly 1.0, so enabling
+            the coupling at default extent leaves the node count (and the whole grid)
+            unchanged.
         seed: RNG seed for virialized draws (np.random.default_rng(seed)); INDEPENDENT
             of the global np.random state and of the particle/simulation RNG.
 
@@ -854,6 +906,14 @@ def build_virialized_grid(
     """
     if n_nodes < 1:
         raise ValueError(f"vir_n_nodes must be >= 1, got {n_nodes}")
+    # Item-10 coupling: a larger radial extent auto-raises the node count to hold the
+    # ball's DENSITY constant (N ~ extent^3). OFF by default (byte-identical); even
+    # when ON, vir_extent == 1.0 is a no-op (factor 1.0). Applied here so EVERY mode
+    # (force-balanced lattice, realistic Fibonacci, gradient Option B) sees the same
+    # density-preserving count -> this is what makes vir_extent matter in the
+    # force-balanced lattice mode, where the knob was otherwise inert.
+    if vir_extent_couples_nodes:
+        n_nodes = extent_coupled_n_nodes(int(n_nodes), vir_extent)
     if vir_mass_rule not in ("radial", "massfunc"):
         raise ValueError(
             f"Unknown vir_mass_rule {vir_mass_rule!r}; use 'radial' or 'massfunc'."

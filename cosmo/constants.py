@@ -126,6 +126,7 @@ class ExternalNodeParameters:
                  vir_mass_rule: str = "radial", vir_mass_spread: float = 0.0,
                  vir_segregation: float = 1.0, vir_s_metric: str = "median",
                  vir_relax_steps: int = 1,
+                 vir_extent_couples_nodes: bool = False,
                  node_softening_gpc: float = 0.0,
                  node_force_law: str = NODE_FORCE_LAW_DEFAULT):
         """Initialize External-Node parameters (M_ext_kg in kg, S in meters).
@@ -171,6 +172,13 @@ class ExternalNodeParameters:
                 Fibonacci layout (NOT force-balanced); >= 1 -> force-balanced
                 cubic-lattice ball (inner nodes feel ~zero net force). See
                 cosmo.node_geometry.build_virialized_grid.
+            vir_extent_couples_nodes: When False (default) vir_n_nodes is the literal
+                node count (byte-identical). When True, vir_extent DRIVES the count to
+                hold the ball density constant: effective count =
+                round(vir_n_nodes * vir_extent^3) (item 10: "a higher extent should
+                imply MORE nodes, like centerM"). This also makes vir_extent matter in
+                the force-balanced lattice mode (where it was otherwise a no-op). At the
+                default vir_extent == 1.0 the count is unchanged even when enabled.
             Note: the virialized RNG reuses node_mass_seed (one-seed coherence,
                 like node_s_amplitude); there is no separate vir_seed field.
             node_softening_gpc: Plummer NODE-softening length in Gpc applied on the
@@ -208,6 +216,10 @@ class ExternalNodeParameters:
         self.vir_segregation = vir_segregation
         self.vir_s_metric = vir_s_metric
         self.vir_relax_steps = vir_relax_steps
+        # Item-10 coupling: when True, vir_extent drives vir_n_nodes (density-
+        # preserving N ~ extent^3). False (default) -> count used as given (byte-
+        # identical); at vir_extent == 1.0 it is a no-op regardless.
+        self.vir_extent_couples_nodes = bool(vir_extent_couples_nodes)
         # Node Plummer softening length in Gpc (Section 4 slingshot fix).
         # 0.0 (default) -> legacy hard 1e10 m floor (byte-identical).
         self.node_softening_gpc = node_softening_gpc
@@ -236,6 +248,7 @@ class ExternalNodeParameters:
             vir_segregation=self.vir_segregation,
             vir_s_metric=self.vir_s_metric,
             vir_relax_steps=self.vir_relax_steps,
+            vir_extent_couples_nodes=self.vir_extent_couples_nodes,
             seed=self.node_mass_seed,
         )
 
@@ -366,6 +379,7 @@ class SimulationParameters:
                  vir_mass_rule: str = "radial", vir_mass_spread: float = 0.0,
                  vir_segregation: float = 1.0, vir_s_metric: str = "median",
                  vir_relax_steps: int = 1,
+                 vir_extent_couples_nodes: bool = False,
                  node_softening_gpc: float = 0.0,
                  node_force_law: str = NODE_FORCE_LAW_DEFAULT,
                  node_substep_threshold: float = 0.0,
@@ -467,6 +481,13 @@ class SimulationParameters:
                             force-balanced) Fibonacci layout; >= 1 (default) ->
                             force-balanced cubic-lattice ball (inner nodes ~ zero net
                             force). The virialized RNG reuses node_mass_seed.
+            vir_extent_couples_nodes: When False (default) vir_n_nodes is the literal
+                            count (byte-identical). When True, vir_extent DRIVES the
+                            node count to hold the virialized ball DENSITY constant
+                            (effective count = round(vir_n_nodes * vir_extent^3); item
+                            10 "a higher extent should imply more nodes, like centerM"),
+                            which also makes vir_extent matter in the force-balanced
+                            lattice mode. A no-op at the default vir_extent == 1.0.
             node_softening_gpc: Plummer NODE-softening length in Gpc on the tidal
                             force path (Section 4 slingshot taming knob). 0.0
                             (default) keeps the LEGACY hard 1e10 m floor -> the
@@ -567,6 +588,9 @@ class SimulationParameters:
         self.vir_segregation = vir_segregation
         self.vir_s_metric = vir_s_metric
         self.vir_relax_steps = vir_relax_steps
+        # Item-10 coupling: when True, vir_extent drives vir_n_nodes (N ~ extent^3,
+        # density-preserving). False (default) -> byte-identical; no-op at extent 1.0.
+        self.vir_extent_couples_nodes = bool(vir_extent_couples_nodes)
         # Node Plummer softening length in Gpc (Section 4 slingshot fix).
         # 0.0 (default) -> legacy hard 1e10 m floor (byte-identical).
         self.node_softening_gpc = node_softening_gpc
@@ -634,6 +658,7 @@ class SimulationParameters:
             vir_segregation=self.vir_segregation,
             vir_s_metric=self.vir_s_metric,
             vir_relax_steps=self.vir_relax_steps,
+            vir_extent_couples_nodes=self.vir_extent_couples_nodes,
             node_softening_gpc=self.node_softening_gpc,
             node_force_law=self.node_force_law,
         )

@@ -281,6 +281,12 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
         vir_segregation=cfg.get("vir_segregation", 1.0),
         vir_s_metric=cfg.get("vir_s_metric", "median"),
         vir_relax_steps=cfg.get("vir_relax_steps", 1),
+        # Extent->node-count coupling (Section 6 / item 10). Threaded here so
+        # build_cache_name (keys off the SweepConfig) and the actual sim
+        # (SimulationParameters, see _make_sim_callback) agree -> keyed == run.
+        # Default False mirrors SweepConfig/SimulationParameters (byte-identical,
+        # no cache slug). When True a bigger vir_extent auto-raises the node count.
+        vir_extent_couples_nodes=cfg.get("vir_extent_couples_nodes", False),
         # Node-softening (Section 4 slingshot taming knob). Threaded here so
         # build_cache_name (keys off the SweepConfig) and the actual sim
         # (SimulationParameters, see _make_sim_callback) agree -> keyed == run.
@@ -342,6 +348,10 @@ def _build_sim_params(
         vir_segregation=getattr(sweep_cfg, "vir_segregation", 1.0),
         vir_s_metric=getattr(sweep_cfg, "vir_s_metric", "median"),
         vir_relax_steps=getattr(sweep_cfg, "vir_relax_steps", 1),
+        # Extent->node-count coupling (Section 6 / item 10): read from the same
+        # SweepConfig that build_cache_name keys off, so the sim runs exactly what
+        # the cache key encodes (keyed == run). Default False -> byte-identical.
+        vir_extent_couples_nodes=getattr(sweep_cfg, "vir_extent_couples_nodes", False),
         # Node-softening: read from the same SweepConfig that build_cache_name
         # keys off, so the sim runs exactly what the cache key encodes.
         node_softening_gpc=getattr(sweep_cfg, "node_softening_gpc", 0.0),

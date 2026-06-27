@@ -208,6 +208,169 @@ class TestExtent:
 
 
 # ---------------------------------------------------------------------------
+# E2. vir_extent -> node-count coupling (item 10): a larger radial extent
+#     auto-raises the node count to hold the ball DENSITY ~constant. OFF by
+#     default (byte-identical); a no-op at the default extent == 1.0 even when ON.
+# ---------------------------------------------------------------------------
+
+class TestExtentNodeCoupling:
+
+    BASE_N = 64  # an exact-ish cube count so the lattice ball is well-formed
+
+    def test_density_law_count_scales_as_extent_cubed(self):
+        """extent_coupled_n_nodes derives round(base_n * extent^3) (volume law)."""
+        from cosmo.node_geometry import extent_coupled_n_nodes
+        base = 64
+        assert extent_coupled_n_nodes(base, 1.0) == 64        # 64 * 1^3
+        assert extent_coupled_n_nodes(base, 2.0) == 512       # 64 * 8
+        assert extent_coupled_n_nodes(base, 3.0) == 1728      # 64 * 27
+        assert extent_coupled_n_nodes(base, 1.5) == 216       # 64 * 3.375
+        assert extent_coupled_n_nodes(base, 0.5) == 8         # 64 * 0.125
+        # Never degenerate: clamped to >= 1 for a tiny extent.
+        assert extent_coupled_n_nodes(base, 0.0) == 1
+
+    def test_default_extent_reproduces_base_count_exactly(self):
+        """Coupling ON at extent == 1.0 yields EXACTLY the base node count."""
+        for couples in (False, True):
+            pos, _ = build_virialized_grid(
+                S_DEFAULT_M, n_nodes=self.BASE_N, M_ext_kg=M_EXT_KG,
+                vir_extent=1.0, vir_extent_couples_nodes=couples, seed=0,
+            )
+            assert pos.shape[0] == self.BASE_N
+
+    def test_coupling_off_is_byte_identical_to_omitting_flag(self):
+        """Default OFF leaves node count AND the grid byte-identical (no behaviour)."""
+        for extent in (1.0, 2.0, 3.0):
+            p_off, m_off = build_virialized_grid(
+                S_DEFAULT_M, n_nodes=self.BASE_N, M_ext_kg=M_EXT_KG,
+                vir_extent=extent, vir_extent_couples_nodes=False, seed=0,
+            )
+            p_omit, m_omit = build_virialized_grid(
+                S_DEFAULT_M, n_nodes=self.BASE_N, M_ext_kg=M_EXT_KG,
+                vir_extent=extent, seed=0,
+            )
+            assert p_off.shape[0] == self.BASE_N
+            np.testing.assert_array_equal(p_off, p_omit)
+            np.testing.assert_array_equal(m_off, m_omit)
+
+    def test_on_at_default_extent_is_noop_vs_off(self):
+        """ON at extent == 1.0 must be byte-identical to OFF (factor exactly 1)."""
+        p_on, m_on = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=self.BASE_N, M_ext_kg=M_EXT_KG,
+            vir_extent=1.0, vir_extent_couples_nodes=True, seed=0,
+        )
+        p_off, m_off = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=self.BASE_N, M_ext_kg=M_EXT_KG,
+            vir_extent=1.0, vir_extent_couples_nodes=False, seed=0,
+        )
+        np.testing.assert_array_equal(p_on, p_off)
+        np.testing.assert_array_equal(m_on, m_off)
+
+    def test_larger_extent_yields_proportionally_more_nodes(self):
+        """Coupling ON: realized node count == round(base_n * extent^3)."""
+        from cosmo.node_geometry import extent_coupled_n_nodes
+        for extent in (1.0, 1.5, 2.0, 3.0):
+            pos, _ = build_virialized_grid(
+                S_DEFAULT_M, n_nodes=self.BASE_N, M_ext_kg=M_EXT_KG,
+                vir_extent=extent, vir_extent_couples_nodes=True, seed=0,
+            )
+            assert pos.shape[0] == extent_coupled_n_nodes(self.BASE_N, extent)
+        # And monotonically increasing.
+        counts = [
+            build_virialized_grid(
+                S_DEFAULT_M, n_nodes=self.BASE_N, M_ext_kg=M_EXT_KG,
+                vir_extent=e, vir_extent_couples_nodes=True, seed=0)[0].shape[0]
+            for e in (1.0, 1.5, 2.0, 3.0)
+        ]
+        assert counts == sorted(counts) and counts[0] < counts[-1]
+
+    def test_nn_spacing_still_equals_S(self):
+        """The NN-spacing contract holds at every coupled extent (realized NN == S)."""
+        for extent in (1.0, 2.0, 3.0):
+            pos, _ = build_virialized_grid(
+                S_DEFAULT_M, n_nodes=self.BASE_N, M_ext_kg=M_EXT_KG,
+                vir_extent=extent, vir_extent_couples_nodes=True, seed=0,
+            )
+            np.testing.assert_allclose(
+                nearest_neighbour_spacing(pos, "median"), S_DEFAULT_M, rtol=1e-6)
+
+    def test_mean_preserved_at_every_coupled_extent(self):
+        """mean(masses) == M_ext_kg for every coupled extent (mass contract held)."""
+        for extent in (1.0, 2.0, 3.0):
+            _, masses = build_virialized_grid(
+                S_DEFAULT_M, n_nodes=self.BASE_N, M_ext_kg=M_EXT_KG,
+                vir_mass_spread=0.5, vir_extent=extent,
+                vir_extent_couples_nodes=True, seed=0,
+            )
+            np.testing.assert_allclose(masses.mean(), M_EXT_KG, rtol=1e-12)
+
+    def test_density_roughly_constant_across_extents(self):
+        """N / reach^3 (the ball density) stays ~constant as extent grows.
+
+        The coupling is designed so a larger extent reaches further (more nodes)
+        WITHOUT thinning out: density = N / (radial reach)^3 should be roughly
+        flat. The lattice ball's reach/N relation is not perfectly cubic at small
+        N, so we allow a generous band but require it does NOT drift by an order of
+        magnitude (i.e. node density really is being held, not the radius fixed).
+        """
+        densities = []
+        for extent in (1.0, 1.5, 2.0, 3.0):
+            pos, _ = build_virialized_grid(
+                S_DEFAULT_M, n_nodes=self.BASE_N, M_ext_kg=M_EXT_KG,
+                vir_extent=extent, vir_extent_couples_nodes=True, seed=0,
+            )
+            n_eff = pos.shape[0]
+            reach = np.linalg.norm(pos, axis=1).max() / S_DEFAULT_M
+            densities.append(n_eff / reach ** 3)
+        densities = np.array(densities)
+        # Density stays within +/-30% of its mean across a 1->3 extent range
+        # (a fixed-node-count grid would instead drop ~27x in density at extent 3).
+        rel_spread = (densities.max() - densities.min()) / densities.mean()
+        assert rel_spread < 0.3, f"density not ~constant: {densities}"
+
+    def test_coupling_makes_extent_meaningful_in_lattice_mode(self):
+        """In the force-balanced lattice mode vir_extent is a no-op UNLESS coupled.
+
+        Without coupling, the force-balanced lattice ball ignores vir_extent (its
+        radius derives from node count): the grid is byte-identical across extents.
+        With coupling ON, a larger extent raises the node count and the realized
+        radial reach grows -> the knob is meaningful again.
+        """
+        # No coupling: extent has NO effect on the force-balanced lattice.
+        p1, _ = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=self.BASE_N, M_ext_kg=M_EXT_KG,
+            vir_extent=1.0, vir_relax_steps=1, seed=0)
+        p2, _ = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=self.BASE_N, M_ext_kg=M_EXT_KG,
+            vir_extent=3.0, vir_relax_steps=1, seed=0)
+        np.testing.assert_array_equal(p1, p2)  # extent inert without coupling
+        # With coupling: extent now drives reach (more nodes -> larger ball).
+        reach1 = np.linalg.norm(build_virialized_grid(
+            S_DEFAULT_M, n_nodes=self.BASE_N, M_ext_kg=M_EXT_KG, vir_extent=1.0,
+            vir_extent_couples_nodes=True, seed=0)[0], axis=1).max()
+        reach3 = np.linalg.norm(build_virialized_grid(
+            S_DEFAULT_M, n_nodes=self.BASE_N, M_ext_kg=M_EXT_KG, vir_extent=3.0,
+            vir_extent_couples_nodes=True, seed=0)[0], axis=1).max()
+        assert reach3 > 1.5 * reach1
+
+    def test_center_stays_virialized_as_extent_grows(self):
+        """The deep-center force residual stays tiny as the coupled grid grows.
+
+        Growing the grid via extent must not break the force balance the lattice
+        mode guarantees: the center-only residual stays << 1 (machine-precision-ish)
+        at every extent, so a bigger virialized ball is still virialized at its core.
+        """
+        for extent in (1.0, 2.0, 3.0):
+            pos, masses = build_virialized_grid(
+                S_DEFAULT_M, n_nodes=self.BASE_N, M_ext_kg=M_EXT_KG,
+                vir_extent=extent, vir_extent_couples_nodes=True, seed=0,
+            )
+            res = virialization_residual(pos, masses, center_k=8)
+            assert res["max_residual"] < 1e-3, (
+                f"center not virialized at extent={extent}: {res['max_residual']}")
+
+
+# ---------------------------------------------------------------------------
 # F. vir_s_metric (median / mean)
 # ---------------------------------------------------------------------------
 
@@ -743,12 +906,13 @@ class TestSimParamsThreading:
         assert p.vir_segregation == 1.0
         assert p.vir_s_metric == "median"
         assert p.vir_relax_steps == 1  # DEFAULT = force-balanced
+        assert p.vir_extent_couples_nodes is False  # item-10 coupling OFF by default
 
     def test_external_params_receives_vir_fields(self):
         p = SimulationParameters(
             node_geometry="virialized", vir_n_nodes=40, vir_extent=2.0,
             vir_mass_rule="massfunc", vir_mass_spread=0.7, vir_segregation=0.5,
-            vir_s_metric="mean", vir_relax_steps=0,
+            vir_s_metric="mean", vir_relax_steps=0, vir_extent_couples_nodes=True,
         )
         ep = p.external_params
         assert ep.node_geometry == "virialized"
@@ -759,6 +923,7 @@ class TestSimParamsThreading:
         assert ep.vir_segregation == 0.5
         assert ep.vir_s_metric == "mean"
         assert ep.vir_relax_steps == 0
+        assert ep.vir_extent_couples_nodes is True
 
     def test_sim_params_build_grid_uses_vir(self):
         p = SimulationParameters(
@@ -768,6 +933,29 @@ class TestSimParamsThreading:
         grid = HMEAGrid(node_params=p.external_params)
         assert len(grid.nodes) == 30
         np.testing.assert_allclose(grid.get_masses().mean(), p.M_ext_kg, rtol=1e-12)
+
+    def test_extent_coupling_changes_built_node_count(self):
+        """Keyed == RUN: the coupling actually changes the built grid's node count.
+
+        With the coupling ON and a non-default extent, the HMEAGrid built from these
+        params must have round(vir_n_nodes * extent^3) nodes, not vir_n_nodes — the
+        knob changes the BUILT grid, not just the cache key.
+        """
+        from cosmo.node_geometry import extent_coupled_n_nodes
+        base = 32
+        p = SimulationParameters(
+            M_value=500, S_value=25.0, n_particles=5, seed=1,
+            node_geometry="virialized", vir_n_nodes=base, vir_extent=2.0,
+            vir_extent_couples_nodes=True,
+        )
+        grid = HMEAGrid(node_params=p.external_params)
+        assert len(grid.nodes) == extent_coupled_n_nodes(base, 2.0) == 256
+        # Default OFF: count stays at the base regardless of extent.
+        p_off = SimulationParameters(
+            M_value=500, S_value=25.0, n_particles=5, seed=1,
+            node_geometry="virialized", vir_n_nodes=base, vir_extent=2.0,
+        )
+        assert len(HMEAGrid(node_params=p_off.external_params).nodes) == base
 
 
 class TestSweepConfigFields:
@@ -782,6 +970,7 @@ class TestSweepConfigFields:
         assert cfg.vir_segregation == 1.0
         assert cfg.vir_s_metric == "median"
         assert cfg.vir_relax_steps == 1  # DEFAULT = force-balanced
+        assert cfg.vir_extent_couples_nodes is False  # item-10 coupling OFF by default
 
     def test_custom(self):
         from cosmo.parameter_sweep import SweepConfig
@@ -822,15 +1011,29 @@ class TestCacheSlug:
         k6 = self._key(node_geometry="virialized", vir_n_nodes=12)
         k7 = self._key(node_geometry="virialized", vir_s_metric="mean")
         k8 = self._key(node_geometry="virialized", vir_relax_steps=0)
-        keys = [k1, k2, k3, k4, k5, k6, k7, k8]
+        k9 = self._key(node_geometry="virialized", vir_extent_couples_nodes=True)
+        keys = [k1, k2, k3, k4, k5, k6, k7, k8, k9]
         assert len(set(keys)) == len(keys), "vir_* values must yield distinct cache keys"
+
+    def test_extent_coupling_slug_only_when_on(self):
+        """The extent-coupling slug appears ONLY when the flag is True (keyed==run).
+
+        Default virialized runs (flag False) must keep their existing cache key, so
+        the slug is absent; a coupled run gets a distinct key.
+        """
+        k_off = self._key(node_geometry="virialized")
+        k_on = self._key(node_geometry="virialized", vir_extent_couples_nodes=True)
+        assert "vxcouple" not in k_off, "default virialized key must NOT bump"
+        assert "vxcouple" in k_on
+        assert k_off != k_on
 
     def test_non_virialized_keys_carry_no_vir_slug(self):
         """Regression: cube26/cube_dense/fcc/bcc keys must NOT pick up vir slugs."""
         for geo in ("cube26", "cube_dense", "fcc", "bcc"):
             kwargs = {} if geo == "cube26" else {"node_geometry": geo}
-            key = self._key(**kwargs)
-            for slug in ("vn", "vx", "vr", "vsp", "vsg", "vsm", "vrx"):
+            # Even requesting the coupling on a non-virialized geometry must not slug.
+            key = self._key(vir_extent_couples_nodes=True, **kwargs)
+            for slug in ("vn", "vx", "vr", "vsp", "vsg", "vsm", "vrx", "vxcouple"):
                 # Guard against substring collisions by checking the suffix tokens.
                 assert not any(part.endswith(slug) for part in key.split("_")), \
                     f"{geo}: unexpected vir sub-slug {slug!r} in key {key!r}"

@@ -288,6 +288,7 @@ class TestVirializedThreading(unittest.TestCase):
         vir_mass_spread=0.5,
         vir_segregation=0.3,
         vir_s_metric="mean",
+        vir_extent_couples_nodes=True,
     )
 
     def _cfg(self, **overrides):
@@ -326,6 +327,7 @@ class TestVirializedThreading(unittest.TestCase):
         self.assertEqual(sim_params.vir_mass_spread, 0.5)
         self.assertEqual(sim_params.vir_segregation, 0.3)
         self.assertEqual(sim_params.vir_s_metric, "mean")
+        self.assertTrue(sim_params.vir_extent_couples_nodes)
 
     def test_sweep_config_carries_nondefault_vir(self):
         """_make_sweep_config_for_cell threads vir_* onto the SweepConfig that
@@ -338,18 +340,41 @@ class TestVirializedThreading(unittest.TestCase):
         self.assertEqual(sweep_cfg.vir_mass_spread, 0.5)
         self.assertEqual(sweep_cfg.vir_segregation, 0.3)
         self.assertEqual(sweep_cfg.vir_s_metric, "mean")
+        self.assertTrue(sweep_cfg.vir_extent_couples_nodes)
 
     def test_cache_key_encodes_nondefault_vir(self):
         """The cache key must encode the SAME vir_* the sim will use."""
         cfg = self._cfg(**self._NONDEFAULT)
         sim_params, sweep_cfg = self._capture_sim_params(cfg, self._vir_cell())
         key = build_cache_name(sweep_cfg, 100, 30, 1, [42])
-        # Slugs (see build_cache_name): vn / vx / vr / vsp / vsg / vsm
-        for slug in ("54vn", "2.0vx", "massfuncvr", "0.5vsp", "0.3vsg", "meanvsm"):
+        # Slugs (see build_cache_name): vn / vx / vr / vsp / vsg / vsm / vxcouple
+        for slug in ("54vn", "2.0vx", "massfuncvr", "0.5vsp", "0.3vsg", "meanvsm",
+                     "vxcouple"):
             self.assertIn(slug, key, f"cache key missing vir slug {slug!r}: {key}")
         # And the sim params agree with what the key encoded.
         self.assertEqual(sim_params.vir_n_nodes, sweep_cfg.vir_n_nodes)
         self.assertEqual(sim_params.vir_mass_rule, sweep_cfg.vir_mass_rule)
+        self.assertEqual(sim_params.vir_extent_couples_nodes,
+                         sweep_cfg.vir_extent_couples_nodes)
+
+    def test_extent_coupling_changes_built_node_count_through_sweep(self):
+        """Keyed == RUN through the sweep: with coupling ON, the grid the sim path
+        builds has round(vir_n_nodes * extent^3) nodes (the knob changes the BUILT
+        grid, not just the cache key)."""
+        from cosmo.node_geometry import extent_coupled_n_nodes
+        from cosmo.particles import HMEAGrid
+        cfg = self._cfg(node_geometries=["virialized"], vir_n_nodes=32,
+                        vir_extent=2.0, vir_extent_couples_nodes=True)
+        sim_params, _ = self._capture_sim_params(cfg, self._vir_cell())
+        grid = HMEAGrid(node_params=sim_params.external_params)
+        self.assertEqual(len(grid.nodes), extent_coupled_n_nodes(32, 2.0))
+        self.assertEqual(len(grid.nodes), 256)
+        # Coupling OFF -> count stays at the base regardless of extent.
+        cfg_off = self._cfg(node_geometries=["virialized"], vir_n_nodes=32,
+                            vir_extent=2.0)
+        sim_off, _ = self._capture_sim_params(cfg_off, self._vir_cell())
+        grid_off = HMEAGrid(node_params=sim_off.external_params)
+        self.assertEqual(len(grid_off.nodes), 32)
 
     def test_nonvirialized_default_vir_unchanged(self):
         """INVARIANT: a cube26 (non-virialized) config still gets default vir_*
@@ -454,6 +479,7 @@ class TestMuZPanelParamsMatchSim(unittest.TestCase):
         vir_mass_spread=0.5,
         vir_segregation=0.3,
         vir_s_metric="mean",
+        vir_extent_couples_nodes=True,
         node_softening_gpc=1.0,
         start_size_scale=1.5,
     )
@@ -466,6 +492,7 @@ class TestMuZPanelParamsMatchSim(unittest.TestCase):
         "node_geometry", "geometry_kwargs",
         "vir_n_nodes", "vir_extent", "vir_mass_rule", "vir_mass_spread",
         "vir_segregation", "vir_s_metric", "vir_relax_steps",
+        "vir_extent_couples_nodes",
         "node_softening_gpc", "start_size_scale",
     )
 

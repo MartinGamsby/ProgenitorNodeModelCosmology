@@ -154,7 +154,42 @@ other geometry gets positions from `build_node_positions` and masses INDEPENDENT
 | `vir_segregation` | mass↔radius coupling strength [0,1]; 0 → decoupled | 1.0 |
 | `vir_s_metric` | `"median"` or `"mean"` — which NN-spacing statistic the layout targets as S | `"median"` |
 | `vir_relax_steps` | BALANCE LEVEL (see below). 0 → realistic Fibonacci layout; >=1 → force-balanced cubic-lattice ball | 1 |
+| `vir_extent_couples_nodes` | item-10 coupling (see below). When True, `vir_extent` DRIVES `vir_n_nodes` (density-preserving `N = round(N0·extent³)`), making `vir_extent` meaningful in the force-balanced lattice mode. False = byte-identical; no-op at `vir_extent==1.0` | False |
 | seed | `np.random.default_rng(node_mass_seed)` (one-seed coherence, like node_s_amplitude) | node_mass_seed |
+
+### vir_extent_couples_nodes — extent DRIVES node count (item 10, density-preserving)
+
+By default `vir_extent` is a radial-RANGE multiplier that ONLY shapes the realistic
+(`vir_relax_steps=0`) Fibonacci layout; in the DEFAULT force-balanced lattice mode it
+is a **no-op** (the lattice ball's radius derives from the node count, not the range).
+`vir_extent_couples_nodes=True` (item 10: "a higher extent should imply MORE nodes,
+like centerM") makes a larger extent auto-raise the node count to hold the ball
+**density** constant, which ALSO makes `vir_extent` matter in the lattice mode (it now
+changes how far the lattice ball reaches, via node count).
+
+- **Density law (volume-filling ball):** the grid is a 3D ball, density `ρ = N/V`,
+  `V = (4/3)π R³`; the realized reach `R` scales ~linearly with `vir_extent` (NN spacing
+  is rescaled to S, range ratio `1+2·extent`). Holding `ρ` constant under `R ~ extent`
+  ⇒ `N ~ extent³`. So `cosmo.node_geometry.extent_coupled_n_nodes(N0, extent) =
+  max(1, round(N0 · extent³))`. Reference extent is the default 1.0, so at `extent=1.0`
+  the factor is exactly 1.0 → node count (and the whole grid) UNCHANGED even when ON.
+- **Applied at the top of `build_virialized_grid`** (before dispatch), so EVERY mode
+  (force-balanced lattice / realistic Fibonacci / gradient Option B) sees the same
+  density-preserving count. `_build_relaxed_grid`'s recursive call uses default-OFF
+  coupling, so the count is never double-applied.
+- **Numbers (base N0=64, lattice mode, coupling ON):** extent 1.0/1.5/2.0/3.0 →
+  n_eff 64/216/512/1728; realized reach/S 2.45/3.74/5.10/7.81 (extent now drives reach);
+  NN spacing/S == 1.0000 at every extent (spacing contract held); density `N/reach³`
+  ≈ 4.35/4.12/3.86/3.63 (~constant, vs a ~27× drop for a fixed-count grid); center-only
+  residual (center_k=8) ~1e-7…1e-6 ≪ 0.25 (still virialized at the core). Artifact:
+  `_generate_extent_nodecount.py` → `results/figures/ws8/vir_extent_nodecount.{csv,png}`
+  (gitignored).
+- **Keyed == run:** threaded through BOTH sweep functions (`_make_sweep_config_for_cell`
+  AND `_build_sim_params` in `sweep.py`); the coupling changes the BUILT grid's node
+  count, not just the key. Cache sub-slug `1vxcouple` is appended ONLY for the
+  virialized geometry AND only when the flag is True, so default virialized keys are
+  untouched (NO `PHYSICS_CACHE_VERSION` bump). M_ext=0 == EdS preserved (node count
+  doesn't matter when all masses are 0).
 
 ### vir_relax_steps — REALISTIC vs FORCE-BALANCED (the virialization criterion)
 
@@ -218,9 +253,11 @@ cloud, both numba + numpy paths, both rules).
 
 `build_cache_name` appends `virializedgeo` (via the existing `!= "cube26"` branch) PLUS
 virialized-only sub-slugs (`{vir_n_nodes}vn`, `{vir_extent}vx`, `{rule}vr`,
-`{spread}vsp`, `{seg}vsg`, `{metric}vsm`, `{vir_relax_steps}vrx`). These are appended
-ONLY for virialized, so every existing cube26/cube_dense/fcc/bcc key is UNTOUCHED and
-virialized lives at a brand-new key → `PHYSICS_CACHE_VERSION` stays `v3`.
+`{spread}vsp`, `{seg}vsg`, `{metric}vsm`, `{vir_relax_steps}vrx`), plus `1vxcouple`
+ONLY when `vir_extent_couples_nodes` is True. These are appended ONLY for virialized,
+so every existing cube26/cube_dense/fcc/bcc key is UNTOUCHED and virialized lives at a
+brand-new key → `PHYSICS_CACHE_VERSION` stays `v3`. The `1vxcouple` slug is gated on the
+flag too, so a DEFAULT (coupling-off) virialized run keeps its existing key as well.
 
 ### Tests (all green)
 

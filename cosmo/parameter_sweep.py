@@ -246,6 +246,12 @@ class SweepConfig:
     # layout; >= 1 (default) -> force-balanced cubic-lattice ball. Its cache
     # sub-slug is appended ONLY for the virialized geometry (see build_cache_name).
     vir_relax_steps: int = 1
+    # Item-10 coupling: when True, vir_extent DRIVES vir_n_nodes (density-preserving
+    # N ~ extent^3), making vir_extent meaningful in the force-balanced lattice mode.
+    # False (default) -> byte-identical; its cache sub-slug is appended ONLY for the
+    # virialized geometry AND only when True (so default keys are untouched -> NO
+    # PHYSICS_CACHE_VERSION bump). A no-op at the default vir_extent == 1.0.
+    vir_extent_couples_nodes: bool = False
     # Outer-region density ceiling (WS4). Default 1.0 = outer density == inner density
     # (EdS critical). Clipped in SimulationParameters to MAX_OUTER_DENSITY_CEILING.
     outer_density_ceiling: float = 1.0
@@ -744,6 +750,15 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
         parts.append(f"{getattr(config, 'vir_segregation', 1.0)}vsg")
         parts.append(f"{getattr(config, 'vir_s_metric', 'median')}vsm")
         parts.append(f"{getattr(config, 'vir_relax_steps', 1)}vrx")
+        # Extent->node-count coupling slug (item 10): append ONLY when the coupling
+        # is ON (and only for virialized), so default virialized runs keep their
+        # existing keys (NO PHYSICS_CACHE_VERSION bump) and a coupled run gets a
+        # distinct key. Emitted as "1vxcouple" (value "1", purely-alphabetic suffix
+        # "vxcouple") so cache._split_key round-trips it. The coupling changes the
+        # built grid (effective node count = round(vir_n_nodes*vir_extent^3)), so it
+        # is keyed == run, not just keyed.
+        if getattr(config, 'vir_extent_couples_nodes', False):
+            parts.append("1vxcouple")
     # outer_density_ceiling slug: append only when != 1.0 so the default (no outer
     # over-density) keeps its existing cache key and non-default ceilings get distinct keys.
     outer_density_ceiling = getattr(config, 'outer_density_ceiling', 1.0)

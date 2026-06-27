@@ -80,14 +80,37 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
 
     # Node geometry (WS3)
     parser.add_argument('--node-geometry', type=str, default='cube26',
-                        choices=['cube26', 'cube_dense', 'fcc', 'bcc'],
+                        choices=['cube26', 'cube_dense', 'fcc', 'bcc', 'virialized'],
                         help='HMEA node geometry (must be volume-filling / virialized). '
                              '"cube26" (default) = 3×3×3-1 cubic lattice (26 nodes, '
                              'backward-compatible). Alternatives: "cube_dense" '
-                             '(5×5×5-1, 124 nodes), "fcc" / "bcc" (close-packed lattices). '
+                             '(5×5×5-1, 124 nodes), "fcc" / "bcc" (close-packed lattices), '
+                             '"virialized" (COUPLED mass-segregated grid; see --vir-* flags). '
                              'Hollow spherical shells are excluded (opposite of virialized). '
                              'For a fair Omega_Lambda_eff comparison across geometries, '
                              'scale --M so M*26/n_nodes is constant.')
+
+    # Virialized-grid parameters (consumed only when --node-geometry virialized)
+    parser.add_argument('--vir-n-nodes', type=int, default=26,
+                        help='Virialized node count (default 26, parity with cube26).')
+    parser.add_argument('--vir-extent', type=float, default=1.0,
+                        help='Virialized radius multiplier; raw outer radius ~ '
+                             'vir_extent*S before NN-spacing rescale (default 1.0).')
+    parser.add_argument('--vir-mass-rule', type=str, default='radial',
+                        choices=['radial', 'massfunc'],
+                        help='Virialized mass<->position rule: "radial" (deterministic '
+                             'mass ~ f(r), default) or "massfunc" (log-normal draw + '
+                             'spatial segregation).')
+    parser.add_argument('--vir-mass-spread', type=float, default=0.0,
+                        help='Virialized node-mass distribution amplitude. 0.0 (default) '
+                             '= uniform masses (the falsifiable knob).')
+    parser.add_argument('--vir-segregation', type=float, default=1.0,
+                        help='Virialized mass<->radius coupling strength (default 1.0). '
+                             '0.0 = mass/radius decoupled (no segregation).')
+    parser.add_argument('--vir-s-metric', type=str, default='median',
+                        choices=['median', 'mean'],
+                        help='Virialized NN-spacing target metric: "median" (default) '
+                             'or "mean".')
 
     # Mode flags
     parser.add_argument('--compare', action='store_true',
@@ -147,4 +170,10 @@ def args_to_sim_params(args: argparse.Namespace) -> SimulationParameters:
         node_s_amplitude=getattr(args, 'node_s_amplitude', 0.0),
         init_distribution=args.init_distribution,
         node_geometry=getattr(args, 'node_geometry', 'cube26'),
+        vir_n_nodes=getattr(args, 'vir_n_nodes', 26),
+        vir_extent=getattr(args, 'vir_extent', 1.0),
+        vir_mass_rule=getattr(args, 'vir_mass_rule', 'radial'),
+        vir_mass_spread=getattr(args, 'vir_mass_spread', 0.0),
+        vir_segregation=getattr(args, 'vir_segregation', 1.0),
+        vir_s_metric=getattr(args, 'vir_s_metric', 'median'),
     )

@@ -31,6 +31,13 @@ fcc         Face-centred cubic — corners + face centres per unit cell, iterate
             outward for n_shells unit-cell layers (default 2).
 bcc         Body-centred cubic — corners + body centre per unit cell, n_shells
             unit-cell layers (default 2).
+virialized  COUPLED (positions, masses) generator with MASS SEGREGATION: bigger
+            nodes sit FURTHER from the centre, smaller nodes cluster near it
+            (like a relaxed cluster). UNLIKE every other geometry this returns
+            BOTH positions AND masses already paired (mass↔radius coupled), so it
+            is NOT reachable through build_node_positions (positions-only); call
+            build_virialized_grid(...) instead. HMEAGrid._create_grid branches on
+            geometry=="virialized" and consumes the coupled masses directly.
 
 Invariants
 ----------
@@ -127,6 +134,207 @@ def effective_M_ext_kg(M_ext_kg: float, n_nodes: int, ref_nodes: int = 26) -> fl
         Rescaled per-node mass for the target geometry.
     """
     return M_ext_kg * ref_nodes / n_nodes
+
+
+# ---------------------------------------------------------------------------
+# Virialized-grid helpers (coupled positions+masses)
+# ---------------------------------------------------------------------------
+
+def nearest_neighbour_spacing(positions: np.ndarray, metric: str = "median") -> float:
+    """Characteristic nearest-neighbour (NN) spacing of a node set.
+
+    For each node, find the distance to its CLOSEST other node, then reduce the
+    per-node NN distances with ``metric`` ("median" or "mean"). This is the
+    derived statistic the virialized generator targets as its spacing ``S``.
+
+    Args:
+        positions: (N, 3) node positions (N >= 2).
+        metric: "median" (default) or "mean" — both return finite, positive
+                values for any non-degenerate set; they differ in general.
+
+    Returns:
+        The median/mean per-node NN distance (float).
+
+    Raises:
+        ValueError: if N < 2 or metric is unknown.
+    """
+    pos = np.asarray(positions, dtype=np.float64)
+    n = pos.shape[0]
+    if n < 2:
+        raise ValueError("nearest_neighbour_spacing needs at least 2 nodes.")
+    # Pairwise distances; mask the diagonal so a node is not its own neighbour.
+    diff = pos[:, None, :] - pos[None, :, :]
+    dist = np.sqrt(np.sum(diff * diff, axis=2))
+    np.fill_diagonal(dist, np.inf)
+    nn = dist.min(axis=1)
+    if metric == "median":
+        return float(np.median(nn))
+    if metric == "mean":
+        return float(np.mean(nn))
+    raise ValueError(f"Unknown vir_s_metric {metric!r}; use 'median' or 'mean'.")
+
+
+def _fibonacci_sphere(n: int) -> np.ndarray:
+    """n roughly-isotropic unit direction vectors (Fibonacci sphere).
+
+    Deterministic (no RNG): used as the default node directions so the virialized
+    grid is volume-filling rather than a hollow shell or a clumped patch.
+
+    Returns:
+        (n, 3) float64 unit vectors.
+    """
+    if n <= 0:
+        return np.zeros((0, 3), dtype=np.float64)
+    i = np.arange(n, dtype=np.float64)
+    # z evenly spaced in (-1, 1) avoiding the exact poles; golden-angle azimuth.
+    z = 1.0 - (2.0 * i + 1.0) / n
+    radius_xy = np.sqrt(np.maximum(0.0, 1.0 - z * z))
+    golden_angle = np.pi * (3.0 - np.sqrt(5.0))
+    theta = golden_angle * i
+    x = radius_xy * np.cos(theta)
+    y = radius_xy * np.sin(theta)
+    return np.stack([x, y, z], axis=1).astype(np.float64)
+
+
+def build_virialized_grid(
+    S: float,
+    *,
+    n_nodes: int = 26,
+    M_ext_kg: float = 1.0,
+    vir_extent: float = 1.0,
+    vir_mass_rule: str = "radial",
+    vir_mass_spread: float = 0.0,
+    vir_segregation: float = 1.0,
+    vir_s_metric: str = "median",
+    seed: int = 0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """COUPLED virialized node grid: (positions (N,3), masses (N,)), mass-segregated.
+
+    A physically-motivated *relaxed cluster*: smaller nodes cluster near the
+    centre, more massive nodes are pushed FURTHER out (mass segregation). UNLIKE
+    every positions-only geometry this returns BOTH arrays already paired, so mass
+    i determines radius i. Reachable ONLY via this function (build_node_positions
+    raises for "virialized").
+
+    Spacing contract: the radial layout is built out to ``vir_extent * S`` then
+    rescaled by a single factor so the realized nearest-neighbour spacing
+    (``nearest_neighbour_spacing(positions, vir_s_metric)``) equals ``S`` exactly.
+    Thus ``S`` is the TARGET characteristic spacing per ``vir_s_metric``.
+
+    Mean-preservation contract: ``mean(masses) == M_ext_kg`` EXACTLY (rtol 1e-12),
+    so total external mass == N * M_ext_kg and Omega_Lambda_eff stays comparable.
+
+    Falsifiable knobs:
+      * ``vir_mass_spread == 0`` -> all masses == M_ext_kg (uniform), both rules.
+      * ``vir_segregation == 0`` -> mass and radius are DECOUPLED (no segregation).
+
+    Args:
+        S: Target characteristic NN spacing in meters (see spacing contract).
+        n_nodes: Number of nodes (>= 1; segregation/spacing need >= 2).
+        M_ext_kg: Per-node MEAN mass in kg (mean-preserving target).
+        vir_extent: Continuous RADIAL-RANGE multiplier (>= 0). Nodes span radii in
+            [0.5*S, (0.5+vir_extent)*S] before the global NN-spacing rescale. Because
+            that rescale fixes the spacing to S, a PURE global factor would cancel;
+            vir_extent therefore widens the radial RANGE (extent=1 -> [0.5S,1.5S];
+            extent=2 -> [0.5S,2.5S]), reaching further relative to the spacing.
+        vir_mass_rule: "radial" (deterministic mass ~ f(r), default) or "massfunc"
+            (log-normal mass-function draw + spatial segregation by mass rank).
+        vir_mass_spread: Amplitude of the node-mass distribution about the mean.
+            0.0 (default) -> uniform masses (THE falsifiable knob).
+        vir_segregation: Segregation strength in [0, 1+]; 0 -> mass/radius decoupled.
+        vir_s_metric: "median" (default) or "mean" NN-spacing definition to target.
+        seed: RNG seed for virialized draws (np.random.default_rng(seed)); INDEPENDENT
+            of the global np.random state and of the particle/simulation RNG.
+
+    Returns:
+        (positions, masses): positions (N,3) float64 (mass-segregated radii),
+        masses (N,) float64 with mean == M_ext_kg exactly.
+
+    Raises:
+        ValueError: for invalid n_nodes / vir_mass_rule / vir_s_metric.
+    """
+    if n_nodes < 1:
+        raise ValueError(f"vir_n_nodes must be >= 1, got {n_nodes}")
+    if vir_mass_rule not in ("radial", "massfunc"):
+        raise ValueError(
+            f"Unknown vir_mass_rule {vir_mass_rule!r}; use 'radial' or 'massfunc'."
+        )
+    if vir_s_metric not in ("median", "mean"):
+        raise ValueError(
+            f"Unknown vir_s_metric {vir_s_metric!r}; use 'median' or 'mean'."
+        )
+
+    n = int(n_nodes)
+    rng = np.random.default_rng(seed)
+
+    # ---- Directions: roughly isotropic, volume-filling (NOT a hollow shell) ----
+    directions = _fibonacci_sphere(n)
+
+    # ---- Raw radial profile: nodes span [r_inner, r_outer] (NOT a hollow shell) ----
+    # A PURE global radius factor would cancel under the later NN-spacing rescale, so
+    # vir_extent must widen the radial RANGE, not just scale it. We anchor an inner
+    # floor at 0.5*S and set the outer reach to (0.5 + vir_extent)*S, so:
+    #   extent=1 -> radii in [0.5*S, 1.5*S] (ratio 3); extent=2 -> [0.5*S, 2.5*S]
+    # (ratio 5). The RANGE grows with vir_extent and there is always a real spread
+    # (>= 2 distinct radii) even at extent=1 — never a degenerate shell.
+    # slot fractions in [0, 1]; slot 0 = innermost, slot n-1 = outermost.
+    if n == 1:
+        slot = np.array([0.0], dtype=np.float64)
+    else:
+        slot = np.arange(n, dtype=np.float64) / (n - 1)
+    r_inner = 0.5 * float(S)
+    r_outer = (0.5 + max(float(vir_extent), 0.0)) * float(S)
+    radius_levels = r_inner + slot * (r_outer - r_inner)
+    # Centred radius proxy in ~[-0.5, 0.5] for the deterministic mass rule.
+    rank_frac = slot
+
+    if vir_mass_rule == "radial":
+        # (b) Deterministic mass ~ f(r): place nodes evenly in radius from floor to
+        # outer reach; mass INCREASES monotonically with radius (scaled by spread &
+        # segregation). segregation=0 -> flat -> uniform (after normalization).
+        radii_raw = radius_levels
+        x = rank_frac - rank_frac.mean()  # centred radius proxy in ~[-0.5, 0.5]
+        raw_masses = 1.0 + float(vir_mass_spread) * float(vir_segregation) * x
+        raw_masses = np.maximum(raw_masses, 1e-12)
+    else:  # "massfunc"
+        # (a) Draw N masses from a log-normal mass function (many small, few large).
+        if float(vir_mass_spread) == 0.0:
+            raw_masses = np.ones(n, dtype=np.float64)
+        else:
+            g = rng.standard_normal(n)
+            raw_masses = np.exp(float(vir_mass_spread) * g)
+        # Radii on the deterministic floor->outer profile (radius_levels above);
+        # ASSIGN by mass rank so bigger mass -> larger radius (segregation).
+        # vir_segregation blends the mass-sorted order with a random order:
+        # seg=1 -> fully sorted, seg=0 -> mass/radius decoupled.
+        order_by_mass = np.argsort(raw_masses, kind="stable")  # ascending mass
+        order_random = rng.permutation(n)
+        seg = float(np.clip(vir_segregation, 0.0, 1.0))
+        # Blend two RANKINGS: a continuous score interpolating sorted vs random rank.
+        rank_sorted = np.empty(n, dtype=np.float64)
+        rank_sorted[order_by_mass] = np.arange(n, dtype=np.float64)
+        rank_random = np.empty(n, dtype=np.float64)
+        rank_random[order_random] = np.arange(n, dtype=np.float64)
+        blended = seg * rank_sorted + (1.0 - seg) * rank_random
+        assign = np.argsort(blended, kind="stable")  # node index -> radius slot
+        radii_raw = np.empty(n, dtype=np.float64)
+        radii_raw[assign] = radius_levels
+
+    # ---- Mean-preserving normalization: mean(masses) == M_ext_kg exactly ----
+    raw_masses = np.asarray(raw_masses, dtype=np.float64)
+    if raw_masses.mean() == 0.0:
+        masses = np.full(n, float(M_ext_kg), dtype=np.float64)
+    else:
+        masses = float(M_ext_kg) * raw_masses / raw_masses.mean()
+
+    # ---- Compose positions; rescale so realized NN spacing (metric) == S ----
+    positions = directions * radii_raw[:, None]
+    if n >= 2:
+        realized = nearest_neighbour_spacing(positions, vir_s_metric)
+        if realized > 0.0:
+            positions = positions * (float(S) / realized)
+
+    return positions.astype(np.float64), masses.astype(np.float64)
 
 
 # ---------------------------------------------------------------------------
@@ -270,3 +478,21 @@ def _bcc(S: float, n_shells: int = 2) -> np.ndarray:
     if not positions:
         raise RuntimeError(f"BCC geometry produced 0 nodes for n_shells={n_shells}")
     return np.array(positions, dtype=np.float64)
+
+
+@register("virialized")
+def _virialized_positions_only(S: float, **kwargs) -> np.ndarray:
+    """Sentinel so list_geometries() includes "virialized".
+
+    The virialized geometry returns COUPLED (positions, masses) — it cannot be
+    served through the positions-only build_node_positions path (that would yield
+    an UN-COUPLED virialized run, losing mass segregation). Always raise with a
+    pointer to the coupled entry point.
+    """
+    raise ValueError(
+        "node_geometry='virialized' returns COUPLED (positions, masses) and is not "
+        "available via build_node_positions(); call build_virialized_grid(S, "
+        "n_nodes=..., M_ext_kg=..., vir_*=...) instead, or build an HMEAGrid whose "
+        "ExternalNodeParameters.node_geometry=='virialized' (HMEAGrid._create_grid "
+        "takes the coupled path automatically)."
+    )

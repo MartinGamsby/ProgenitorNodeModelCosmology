@@ -93,7 +93,10 @@ class ExternalNodeParameters:
                  node_mass_seed: int = 0, node_mass_amplitude: float = 0.0,
                  node_s_amplitude: float = 0.0,
                  node_geometry: str = "cube26",
-                 geometry_kwargs: dict = None):
+                 geometry_kwargs: dict = None,
+                 vir_n_nodes: int = 26, vir_extent: float = 1.0,
+                 vir_mass_rule: str = "radial", vir_mass_spread: float = 0.0,
+                 vir_segregation: float = 1.0, vir_s_metric: str = "median"):
         """Initialize External-Node parameters (M_ext_kg in kg, S in meters).
 
         Args:
@@ -114,8 +117,27 @@ class ExternalNodeParameters:
                 net S change.
             node_geometry: Geometry identifier for the HMEA node layout
                 (default "cube26" = current 3×3×3-1 lattice, backward-compatible).
+                "virialized" selects the COUPLED (positions, masses) mass-segregated
+                generator (see cosmo/node_geometry.build_virialized_grid); the vir_*
+                params below are consumed ONLY then (ignored otherwise), and for
+                "virialized" node_mass_amplitude is IGNORED (vir_mass_spread owns the
+                node-mass distribution).
             geometry_kwargs: Optional dict forwarded to the geometry factory.
-                Default None (uses each geometry's built-in defaults).
+                Default None (uses each geometry's built-in defaults). NOT used by
+                "virialized" (it reads the vir_* fields instead).
+            vir_n_nodes: Virialized node count (default 26, parity with cube26).
+            vir_extent: Virialized radius multiplier; raw outer radius ~ vir_extent*S
+                before the NN-spacing rescale (default 1.0).
+            vir_mass_rule: "radial" (deterministic mass ~ f(r), default) or "massfunc"
+                (log-normal mass-function draw + spatial segregation).
+            vir_mass_spread: Amplitude of the node-mass distribution about the mean.
+                0.0 (default) -> uniform masses (THE falsifiable knob).
+            vir_segregation: Mass<->radius coupling strength (default 1.0).
+                0.0 -> mass/radius decoupled (no segregation).
+            vir_s_metric: NN-spacing definition the generator targets:
+                "median" (default) or "mean".
+            Note: the virialized RNG reuses node_mass_seed (one-seed coherence,
+                like node_s_amplitude); there is no separate vir_seed field.
         """
         # Default values - S is tuned to give Ω_Λ_eff ≈ 0.7 with M_ext_kg = 5e55
         self.M_ext_kg = M_ext_kg if M_ext_kg is not None else 5e55  # kg
@@ -125,14 +147,42 @@ class ExternalNodeParameters:
         self.node_s_amplitude = node_s_amplitude
         self.node_geometry = node_geometry
         self.geometry_kwargs = geometry_kwargs if geometry_kwargs is not None else {}
+        # Virialized-grid params (consumed only when node_geometry == "virialized").
+        self.vir_n_nodes = vir_n_nodes
+        self.vir_extent = vir_extent
+        self.vir_mass_rule = vir_mass_rule
+        self.vir_mass_spread = vir_mass_spread
+        self.vir_segregation = vir_segregation
+        self.vir_s_metric = vir_s_metric
 
         # Calculate derived parameters
         self._calculate_derived()
-        
+
+    def build_virialized(self) -> tuple:
+        """Return COUPLED (positions, masses) for the virialized geometry.
+
+        Thin adapter that forwards this object's vir_* fields (and M_ext_kg / S /
+        node_mass_seed) to cosmo.node_geometry.build_virialized_grid. Only valid
+        when node_geometry == "virialized"; HMEAGrid._create_grid calls this on the
+        coupled branch.
+        """
+        from .node_geometry import build_virialized_grid
+        return build_virialized_grid(
+            self.S,
+            n_nodes=self.vir_n_nodes,
+            M_ext_kg=self.M_ext_kg,
+            vir_extent=self.vir_extent,
+            vir_mass_rule=self.vir_mass_rule,
+            vir_mass_spread=self.vir_mass_spread,
+            vir_segregation=self.vir_segregation,
+            vir_s_metric=self.vir_s_metric,
+            seed=self.node_mass_seed,
+        )
+
     def _calculate_derived(self) -> None:
         """Calculate derived quantities."""
         const = CosmologicalConstants()
-        
+
         # Effective dark energy from tidal acceleration
         # From paper: H0^2 * Omega_Lambda ≈ G*M_ext_kg/S^3
         self.Omega_Lambda_eff = (const.G * self.M_ext_kg) / (self.S**3 * (70*1000/const.Mpc_to_m)**2)
@@ -243,7 +293,10 @@ class SimulationParameters:
                  eds_consistent: bool = True,
                  pre_start_tidal_boost: bool = True,
                  node_geometry: str = "cube26",
-                 geometry_kwargs: dict = None):
+                 geometry_kwargs: dict = None,
+                 vir_n_nodes: int = 26, vir_extent: float = 1.0,
+                 vir_mass_rule: str = "radial", vir_mass_spread: float = 0.0,
+                 vir_segregation: float = 1.0, vir_s_metric: str = "median"):
         """
         Initialize simulation parameters.
 
@@ -330,6 +383,13 @@ class SimulationParameters:
             geometry_kwargs: Optional dict of keyword arguments forwarded to the
                             geometry factory (e.g. n_per_side=7 for "cube_dense").
                             Default None (uses each geometry's own defaults).
+            vir_n_nodes / vir_extent / vir_mass_rule / vir_mass_spread /
+            vir_segregation / vir_s_metric: parameters of the "virialized"
+                            COUPLED (positions, masses) mass-segregated grid,
+                            consumed ONLY when node_geometry == "virialized" (see
+                            ExternalNodeParameters / node_geometry.build_virialized_grid).
+                            Defaults: 26, 1.0, "radial", 0.0, 1.0, "median".
+                            The virialized RNG reuses node_mass_seed.
         """
         self.M_value = M_value
         self.S_value = S_value
@@ -363,6 +423,13 @@ class SimulationParameters:
         self.pre_start_tidal_boost = pre_start_tidal_boost
         self.node_geometry = node_geometry
         self.geometry_kwargs = geometry_kwargs if geometry_kwargs is not None else {}
+        # Virialized-grid params (consumed only when node_geometry == "virialized").
+        self.vir_n_nodes = vir_n_nodes
+        self.vir_extent = vir_extent
+        self.vir_mass_rule = vir_mass_rule
+        self.vir_mass_spread = vir_mass_spread
+        self.vir_segregation = vir_segregation
+        self.vir_s_metric = vir_s_metric
 
         # Calculate derived quantities
         self._calculate_derived()
@@ -393,6 +460,12 @@ class SimulationParameters:
             node_s_amplitude=self.node_s_amplitude,
             node_geometry=self.node_geometry,
             geometry_kwargs=self.geometry_kwargs,
+            vir_n_nodes=self.vir_n_nodes,
+            vir_extent=self.vir_extent,
+            vir_mass_rule=self.vir_mass_rule,
+            vir_mass_spread=self.vir_mass_spread,
+            vir_segregation=self.vir_segregation,
+            vir_s_metric=self.vir_s_metric,
         )
 
     def __str__(self):

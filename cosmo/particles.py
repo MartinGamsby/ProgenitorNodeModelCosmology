@@ -550,6 +550,14 @@ class HMEAGrid:
         Omega_Lambda_eff formula uses M_ext_kg (per-node mean), so to keep
         Omega_Lambda_eff comparable across geometries the caller should rescale
         M_ext_kg via effective_M_ext_kg() from cosmo/node_geometry.py.
+
+        COUPLED "virialized" branch: when node_geometry == "virialized" the
+        positions AND masses come together from build_virialized_grid (mass↔radius
+        coupled, mass-segregated). The returned masses are used DIRECTLY (the
+        virialized vir_mass_spread knob owns the node-mass distribution, so
+        node_masses()/node_mass_amplitude is NOT consulted on this branch). The
+        per-node radial node_scale_factors() perturbation STILL composes on top
+        (mean-preserving radial jitter, as for every geometry).
         """
         from .node_geometry import build_node_positions
 
@@ -557,12 +565,17 @@ class HMEAGrid:
         geometry = getattr(self.params, 'node_geometry', 'cube26')
         geometry_kwargs = getattr(self.params, 'geometry_kwargs', {})
 
-        # Build base positions via the factory (cube26 is byte-identical to old loop)
-        base_positions_arr = build_node_positions(geometry, S, **geometry_kwargs)
-        n = len(base_positions_arr)
+        if geometry == "virialized":
+            # COUPLED path: positions + masses already paired (mass-segregated).
+            base_positions_arr, masses = self.params.build_virialized()
+            n = len(base_positions_arr)
+        else:
+            # Independent path (UNCHANGED): positions from factory, masses separately.
+            base_positions_arr = build_node_positions(geometry, S, **geometry_kwargs)
+            n = len(base_positions_arr)
+            masses = self.params.node_masses(n)
 
         scale_factors = self.params.node_scale_factors(n)  # mean == 1.0; ones() when amp=0
-        masses = self.params.node_masses(n)
 
         for node_id in range(n):
             pos = base_positions_arr[node_id] * scale_factors[node_id]

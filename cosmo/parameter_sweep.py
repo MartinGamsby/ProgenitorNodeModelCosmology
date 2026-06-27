@@ -232,6 +232,16 @@ class SweepConfig:
     # does NOT add a slug to the cache key. Any other geometry appends a slug.
     node_geometry: str = "cube26"
     geometry_kwargs: dict = field(default_factory=dict)
+    # Virialized COUPLED (positions, masses) mass-segregated grid params. Consumed
+    # only when node_geometry == "virialized"; their cache sub-slugs are appended
+    # ONLY for the virialized geometry (so all existing keys stay valid -> no
+    # PHYSICS_CACHE_VERSION bump). Defaults match constants.SimulationParameters.
+    vir_n_nodes: int = 26
+    vir_extent: float = 1.0
+    vir_mass_rule: str = "radial"
+    vir_mass_spread: float = 0.0
+    vir_segregation: float = 1.0
+    vir_s_metric: str = "median"
     # Outer-region density ceiling (WS4). Default 1.0 = outer density == inner density
     # (EdS critical). Clipped in SimulationParameters to MAX_OUTER_DENSITY_CEILING.
     outer_density_ceiling: float = 1.0
@@ -696,6 +706,16 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     # existing cache keys and alternative geometries get distinct keys.
     if node_geometry != "cube26":
         parts.append(f"{node_geometry}geo")
+    # Virialized sub-slugs: append the vir_* params ONLY for the virialized geometry
+    # so every existing (cube26/cube_dense/fcc/bcc) key is untouched (NO
+    # PHYSICS_CACHE_VERSION bump). Each distinct vir_* tuple -> a distinct key.
+    if node_geometry == "virialized":
+        parts.append(f"{getattr(config, 'vir_n_nodes', 26)}vn")
+        parts.append(f"{getattr(config, 'vir_extent', 1.0)}vx")
+        parts.append(f"{getattr(config, 'vir_mass_rule', 'radial')}vr")
+        parts.append(f"{getattr(config, 'vir_mass_spread', 0.0)}vsp")
+        parts.append(f"{getattr(config, 'vir_segregation', 1.0)}vsg")
+        parts.append(f"{getattr(config, 'vir_s_metric', 'median')}vsm")
     # outer_density_ceiling slug: append only when != 1.0 so the default (no outer
     # over-density) keeps its existing cache key and non-default ceilings get distinct keys.
     outer_density_ceiling = getattr(config, 'outer_density_ceiling', 1.0)

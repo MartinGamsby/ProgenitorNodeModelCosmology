@@ -255,6 +255,12 @@ class SweepConfig:
     # != 0.0 (all existing keys untouched -> NO PHYSICS_CACHE_VERSION bump). > 0.0
     # tames the runaway slingshot for both cube26 and virialized.
     node_softening_gpc: float = 0.0
+    # Start-size lever (Section 6): multiplier on the LCDM-implied initial cloud
+    # size. 1.0 (default) keeps the LCDM-implied size -> a(t) byte-identical, so
+    # its cache sub-slug is appended ONLY when != 1.0 (all existing keys untouched
+    # -> NO PHYSICS_CACHE_VERSION bump). != 1.0 changes a(t) (cloud spans a
+    # different fraction of the fixed node spacing S), so it MUST key the cache.
+    start_size_scale: float = 1.0
     # Physics-affecting IC flags (mirror SimulationParameters defaults). These are
     # NOT otherwise encoded in the cache key, so they are folded into the physics
     # token (physics_cache_token) — a legacy run with these turned off gets a
@@ -740,6 +746,14 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     node_softening_gpc = getattr(config, 'node_softening_gpc', 0.0)
     if node_softening_gpc != 0.0:
         parts.append(f"{node_softening_gpc}nsoft")
+    # Start-size slug: append ONLY when != 1.0 so the default (LCDM-implied size,
+    # byte-identical a(t)) keeps its existing cache key and NO PHYSICS_CACHE_VERSION
+    # bump is needed. A non-default size changes a(t), so each distinct value gets a
+    # distinct key. Suffix is purely alphabetic so cache._split_key round-trips it
+    # ("1.2ssz" -> value "1.2", suffix "ssz").
+    start_size_scale = getattr(config, 'start_size_scale', 1.0)
+    if start_size_scale != 1.0:
+        parts.append(f"{start_size_scale}ssz")
     # Physics-version token (ALWAYS appended): invalidates entries computed under a
     # different simulation-physics version (e.g. pre-EdS-ICs / pre-boost), so a
     # physics change can never silently reuse a stale parameter-only cache entry.

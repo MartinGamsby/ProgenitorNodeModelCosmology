@@ -46,7 +46,19 @@ class CosmologicalSimulation:
         self.use_external_nodes = use_external_nodes
         self.t_start_Gyr = sim_params.t_start_Gyr
         self.a_start = a_start
-        self.box_size_Gpc = box_size_Gpc  # Store initial box size for consistent size calculation
+        # Start-size lever (Section 6): scale the incoming LCDM-implied box BEFORE
+        # building particles. 1.0 (default) -> box unchanged, byte-identical. The
+        # scaled box is what self.box_size_Gpc stores, so size_Gpc = a(t)*box and
+        # the EdS-critical cloud MASS (derived from box volume in ParticleSystem)
+        # both follow the scaled size consistently. The nodes keep their UNSCALED
+        # spacing S, so a bigger/smaller cloud spans a different fraction of S ->
+        # different differential tidal shear -> a(t) SHAPE moves (M_ext>0). a(t) is
+        # an RMS RATIO (scale-free), so a pure size change at M_ext=0 leaves a(t)
+        # identical (density stays EdS-critical) -> M=0 == EdS preserved at any size.
+        start_size_scale = float(getattr(sim_params, 'start_size_scale', 1.0))
+        box_size_Gpc = box_size_Gpc * start_size_scale
+        self.start_size_scale = start_size_scale
+        self.box_size_Gpc = box_size_Gpc  # Store (scaled) initial box size for consistent size calculation
         self.seed = sim_params.seed
         np.random.seed(self.seed)
 

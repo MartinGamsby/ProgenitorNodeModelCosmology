@@ -143,6 +143,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # 0.0 (default) keeps the legacy hard 1e10 m floor (byte-identical, no cache
     # slug). Set ~1.0 to tame the runaway slingshot for both cube26 and virialized.
     "node_softening_gpc": 0.0,
+    # Start-size lever (Section 6): multiplier on the LCDM-implied initial cloud
+    # size. 1.0 (default) = current LCDM-implied size (byte-identical a(t), no cache
+    # slug). != 1.0 starts the cloud bigger/smaller relative to the FIXED node
+    # spacing S, changing the tidal shear and hence the a(t) SHAPE (falsifiable).
+    "start_size_scale": 1.0,
     # S co-fit method (when S_values=="co-fit")
     "s_cofit_method": "linear",   # "linear" or "ternary"
     # Scoring objective for the per-cell worst_callback:
@@ -281,6 +286,11 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
         # (SimulationParameters, see _make_sim_callback) agree -> keyed == run.
         # Default 0.0 mirrors SweepConfig/SimulationParameters (byte-identical).
         node_softening_gpc=cfg.get("node_softening_gpc", 0.0),
+        # Start-size lever (Section 6). Threaded here so build_cache_name (keys off
+        # the SweepConfig) and the actual sim (SimulationParameters, see
+        # _make_sim_callback) agree -> keyed == run. Default 1.0 mirrors
+        # SweepConfig/SimulationParameters (byte-identical, no cache slug).
+        start_size_scale=cfg.get("start_size_scale", 1.0),
     )
 
 
@@ -320,6 +330,10 @@ def _make_sim_callback(sweep_cfg: _FixedSweepConfig, box_size_Gpc: float, a_star
             # Node-softening: read from the same SweepConfig that build_cache_name
             # keys off, so the sim runs exactly what the cache key encodes.
             node_softening_gpc=getattr(sweep_cfg, "node_softening_gpc", 0.0),
+            # Start-size lever (Section 6): read from the same SweepConfig that
+            # build_cache_name keys off, so the sim runs exactly what the cache key
+            # encodes (keyed == run). Default 1.0 -> byte-identical, no slug.
+            start_size_scale=getattr(sweep_cfg, "start_size_scale", 1.0),
         )
         ext_results = run_external_node_simulation(
             sim_params, box_size_Gpc, a_start, sweep_cfg.save_interval

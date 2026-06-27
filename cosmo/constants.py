@@ -324,7 +324,8 @@ class SimulationParameters:
                  vir_mass_rule: str = "radial", vir_mass_spread: float = 0.0,
                  vir_segregation: float = 1.0, vir_s_metric: str = "median",
                  vir_relax_steps: int = 1,
-                 node_softening_gpc: float = 0.0):
+                 node_softening_gpc: float = 0.0,
+                 start_size_scale: float = 1.0):
         """
         Initialize simulation parameters.
 
@@ -432,6 +433,24 @@ class SimulationParameters:
                             a geometry-agnostic force-path change). VANISHES at
                             M_ext=0 (no node mass -> no tidal force), so M=0 == EdS
                             is preserved. Recommended ~1.0 for the final sweep.
+            start_size_scale: Multiplier on the LCDM-implied INITIAL cloud size
+                            (the box passed to CosmologicalSimulation is scaled by
+                            this factor BEFORE particles are built). 1.0 (default)
+                            = current LCDM-implied size -> byte-identical to before
+                            (a(t), positions, masses, cache key all unchanged).
+                            > 1.0 starts the cloud BIGGER, < 1.0 starts it SMALLER.
+                            It is NOT a pure normalization (a(t) = RMS ratio is
+                            scale-free, and the mu(z) pipeline divides out the
+                            absolute size). Under eds_consistent the EdS-critical
+                            cloud MASS scales with the box VOLUME, so the cloud
+                            DENSITY (and thus the M=0 == EdS invariant) is preserved
+                            for ANY size; the falsifiable EFFECT at M_ext>0 comes
+                            from the cloud spanning a different fraction of the FIXED
+                            node spacing S (and fixed softening), which changes the
+                            differential-tidal-to-self-gravity ratio across the
+                            cloud and hence the a(t) SHAPE. Must be > 0 (values
+                            <= 0 raise ValueError). Like the retired centerM it is
+                            an invalidatable lever (can go bigger OR smaller).
         """
         self.M_value = M_value
         self.S_value = S_value
@@ -476,6 +495,16 @@ class SimulationParameters:
         # Node Plummer softening length in Gpc (Section 4 slingshot fix).
         # 0.0 (default) -> legacy hard 1e10 m floor (byte-identical).
         self.node_softening_gpc = node_softening_gpc
+        # Start-size lever: multiplier on the LCDM-implied initial box size.
+        # 1.0 (default) -> byte-identical. Must be strictly positive: a zero or
+        # negative cloud size is unphysical (and would divide by zero in the
+        # RMS-ratio a(t)). Raise rather than clip so a misconfiguration is loud.
+        if start_size_scale <= 0:
+            raise ValueError(
+                f"start_size_scale must be > 0 (got {start_size_scale}); a "
+                "non-positive initial cloud size is unphysical."
+            )
+        self.start_size_scale = float(start_size_scale)
 
         # Calculate derived quantities
         self._calculate_derived()

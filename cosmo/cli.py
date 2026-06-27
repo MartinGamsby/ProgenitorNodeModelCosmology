@@ -126,6 +126,18 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
                              'tames the runaway slingshot for BOTH cube26 and '
                              'virialized. Vanishes at M_ext=0 (M=0 == EdS preserved).')
 
+    # Start-size lever (Section 6)
+    parser.add_argument('--start-size-scale', type=float, default=1.0,
+                        help='Multiplier on the LCDM-implied INITIAL cloud size. '
+                             '1.0 (default) = current LCDM-implied size '
+                             '(byte-identical a(t)). > 1.0 starts the cloud bigger '
+                             '(lower density), < 1.0 smaller (higher density). NOT a '
+                             'pure normalization: at fixed node spacing S the cloud '
+                             'spans a different fraction of S, changing the tidal '
+                             'shear and hence the a(t) SHAPE. Must be > 0. '
+                             'Preserves M=0 == EdS at any size (cloud mass scales '
+                             'with volume -> density stays EdS-critical).')
+
     # Mode flags
     parser.add_argument('--compare', action='store_true',
                         help='Enable comparison mode (External-Node vs Matter-only vs LCDM)')
@@ -192,4 +204,5 @@ def args_to_sim_params(args: argparse.Namespace) -> SimulationParameters:
         vir_s_metric=getattr(args, 'vir_s_metric', 'median'),
         vir_relax_steps=getattr(args, 'vir_relax_steps', 1),
         node_softening_gpc=getattr(args, 'node_softening_gpc', 0.0),
+        start_size_scale=getattr(args, 'start_size_scale', 1.0),
     )

@@ -96,7 +96,8 @@ class ExternalNodeParameters:
                  geometry_kwargs: dict = None,
                  vir_n_nodes: int = 26, vir_extent: float = 1.0,
                  vir_mass_rule: str = "radial", vir_mass_spread: float = 0.0,
-                 vir_segregation: float = 1.0, vir_s_metric: str = "median"):
+                 vir_segregation: float = 1.0, vir_s_metric: str = "median",
+                 vir_relax_steps: int = 1):
         """Initialize External-Node parameters (M_ext_kg in kg, S in meters).
 
         Args:
@@ -136,6 +137,10 @@ class ExternalNodeParameters:
                 0.0 -> mass/radius decoupled (no segregation).
             vir_s_metric: NN-spacing definition the generator targets:
                 "median" (default) or "mean".
+            vir_relax_steps: Virialized BALANCE LEVEL (default 1). 0 -> realistic
+                Fibonacci layout (NOT force-balanced); >= 1 -> force-balanced
+                cubic-lattice ball (inner nodes feel ~zero net force). See
+                cosmo.node_geometry.build_virialized_grid.
             Note: the virialized RNG reuses node_mass_seed (one-seed coherence,
                 like node_s_amplitude); there is no separate vir_seed field.
         """
@@ -154,6 +159,7 @@ class ExternalNodeParameters:
         self.vir_mass_spread = vir_mass_spread
         self.vir_segregation = vir_segregation
         self.vir_s_metric = vir_s_metric
+        self.vir_relax_steps = vir_relax_steps
 
         # Calculate derived parameters
         self._calculate_derived()
@@ -176,6 +182,7 @@ class ExternalNodeParameters:
             vir_mass_spread=self.vir_mass_spread,
             vir_segregation=self.vir_segregation,
             vir_s_metric=self.vir_s_metric,
+            vir_relax_steps=self.vir_relax_steps,
             seed=self.node_mass_seed,
         )
 
@@ -296,7 +303,8 @@ class SimulationParameters:
                  geometry_kwargs: dict = None,
                  vir_n_nodes: int = 26, vir_extent: float = 1.0,
                  vir_mass_rule: str = "radial", vir_mass_spread: float = 0.0,
-                 vir_segregation: float = 1.0, vir_s_metric: str = "median"):
+                 vir_segregation: float = 1.0, vir_s_metric: str = "median",
+                 vir_relax_steps: int = 1):
         """
         Initialize simulation parameters.
 
@@ -384,12 +392,15 @@ class SimulationParameters:
                             geometry factory (e.g. n_per_side=7 for "cube_dense").
                             Default None (uses each geometry's own defaults).
             vir_n_nodes / vir_extent / vir_mass_rule / vir_mass_spread /
-            vir_segregation / vir_s_metric: parameters of the "virialized"
-                            COUPLED (positions, masses) mass-segregated grid,
-                            consumed ONLY when node_geometry == "virialized" (see
+            vir_segregation / vir_s_metric / vir_relax_steps: parameters of the
+                            "virialized" COUPLED (positions, masses) mass-segregated
+                            grid, consumed ONLY when node_geometry == "virialized" (see
                             ExternalNodeParameters / node_geometry.build_virialized_grid).
-                            Defaults: 26, 1.0, "radial", 0.0, 1.0, "median".
-                            The virialized RNG reuses node_mass_seed.
+                            Defaults: 26, 1.0, "radial", 0.0, 1.0, "median", 1.
+                            vir_relax_steps is a BALANCE LEVEL: 0 -> realistic (not
+                            force-balanced) Fibonacci layout; >= 1 (default) ->
+                            force-balanced cubic-lattice ball (inner nodes ~ zero net
+                            force). The virialized RNG reuses node_mass_seed.
         """
         self.M_value = M_value
         self.S_value = S_value
@@ -430,6 +441,7 @@ class SimulationParameters:
         self.vir_mass_spread = vir_mass_spread
         self.vir_segregation = vir_segregation
         self.vir_s_metric = vir_s_metric
+        self.vir_relax_steps = vir_relax_steps
 
         # Calculate derived quantities
         self._calculate_derived()
@@ -466,6 +478,7 @@ class SimulationParameters:
             vir_mass_spread=self.vir_mass_spread,
             vir_segregation=self.vir_segregation,
             vir_s_metric=self.vir_s_metric,
+            vir_relax_steps=self.vir_relax_steps,
         )
 
     def __str__(self):

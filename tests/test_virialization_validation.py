@@ -16,21 +16,17 @@ cosmo.node_geometry:
 
 WHICH RULE IS ACTUALLY VIRIALIZED (measured, not guessed)
 ---------------------------------------------------------
-On the CURRENT generator (mass-segregated but NOT force-balanced) the big-grid
-inner residuals are HUGE — far above VIRIALIZATION_TOL — for BOTH rules:
-    radial   : max_residual ~ 73   (n=100, extent=2.5, spread=0.8, seg=1, seed=12)
-    massfunc : max_residual ~ 48   (same config)
-So NEITHER rule is virialized today; massfunc is merely the lesser offender.
-Both tolerance assertions are therefore xfail(strict=True) and Section 2 (which
-force-balances the generator) MUST remove the xfails once max_residual drops
-below VIRIALIZATION_TOL. The bigger->smaller-residual property is likewise a
-property of a virialized structure that the current generator does NOT satisfy
-(residual currently GROWS with N), so that test is xfail(strict=True) too.
+The DEFAULT virialized generator (vir_relax_steps>=1) is the FORCE-BALANCED mode:
+an exact cubic-lattice ball with a node at the origin and masses assigned by radius
+shell. Its big-grid inner residual is at MACHINE PRECISION (~1e-30) for BOTH rules,
+well below VIRIALIZATION_TOL — so the default grid satisfies the user's criterion
+(inner nodes feel ~zero net force) for radial AND massfunc.
 
-TODO(Section 2): when the generator is force-balanced, REMOVE the three
-@pytest.mark.xfail markers below (test_big_grid_inner_residual_below_tol for both
-rules, and test_bigger_grid_smaller_residual). The asserts already encode the
-TARGET (max_residual <= VIRIALIZATION_TOL).
+The REALISTIC mode (vir_relax_steps=0, the old Fibonacci layout) is NOT force-
+balanced: its big-grid inner residual is O(20-30) for both rules (massfunc the
+lesser offender). A continuous position relaxation cannot reach balance on a finite
+canvas, so Section 2 implemented the analytic lattice instead (Option A). The
+balanced-vs-unbalanced contrast is asserted below.
 """
 import numpy as np
 import pytest
@@ -60,24 +56,16 @@ BIG_SPREAD = 0.8
 BIG_SEG = 1.0
 BIG_SEED = 12
 
-# Rules whose force-balance the CURRENT generator FAILS (measured below).
-# Section 2 removes the xfail once max_residual <= VIRIALIZATION_TOL.
-_XFAIL_NOT_BALANCED = pytest.mark.xfail(
-    reason="current generator is mass-segregated but NOT force-balanced; "
-           "Section 2 force-balances it and must then REMOVE this xfail.",
-    strict=True,
-)
-
-
 def _radii(positions):
     return np.linalg.norm(positions, axis=1)
 
 
-def _big_grid(rule, n=BIG_N):
+def _big_grid(rule, n=BIG_N, relax_steps=1):
+    """The big grid. relax_steps>=1 (default) = force-balanced; 0 = realistic."""
     return build_virialized_grid(
         S_DEFAULT_M, n_nodes=n, M_ext_kg=M_EXT_KG, vir_mass_rule=rule,
         vir_mass_spread=BIG_SPREAD, vir_segregation=BIG_SEG,
-        vir_extent=BIG_EXTENT, seed=BIG_SEED,
+        vir_extent=BIG_EXTENT, vir_relax_steps=relax_steps, seed=BIG_SEED,
     )
 
 
@@ -167,45 +155,46 @@ class TestResidualSymmetricGroundTruth:
 class TestVirializationCriterion:
     """Build the BIG grid, compute the residual, assert inner nodes are balanced.
 
-    EXPECTED TO FAIL on the current generator (not force-balanced). Section 2
-    force-balances the generator and MUST remove the xfail markers.
-
-    Measured big-grid max_residual on the CURRENT generator (recorded so S2 knows
-    its target — both are >> VIRIALIZATION_TOL=0.25):
-        radial   ~ 73     massfunc ~ 48
+    The DEFAULT generator (vir_relax_steps>=1) is force-balanced, so this now PASSES
+    for BOTH rules (it was xfail on the old un-balanced generator). The contrast with
+    the realistic (un-balanced) mode is asserted in test_unbalanced_mode_is_large.
     """
 
-    @pytest.mark.parametrize("rule", [
-        pytest.param("radial", marks=_XFAIL_NOT_BALANCED),
-        pytest.param("massfunc", marks=_XFAIL_NOT_BALANCED),
-    ])
+    @pytest.mark.parametrize("rule", ["radial", "massfunc"])
     def test_big_grid_inner_residual_below_tol(self, rule):
         pos, masses = _big_grid(rule)
         res = virialization_residual(
             pos, masses, inner_frac=0.5, center_mass_kg=M_EXT_KG)
         # Printed so the empirical comparison is captured in -s output.
         print(f"\n[virialization] rule={rule} n={BIG_N} "
-              f"n_inner={res['n_inner']} max_residual={res['max_residual']:.4f} "
-              f"median={res['median_residual']:.4f} (TOL={VIRIALIZATION_TOL})")
+              f"n_inner={res['n_inner']} max_residual={res['max_residual']:.3e} "
+              f"median={res['median_residual']:.3e} (TOL={VIRIALIZATION_TOL})")
         assert res["max_residual"] <= VIRIALIZATION_TOL, (
             f"{rule}: inner nodes are NOT force-balanced "
-            f"(max_residual={res['max_residual']:.3f} > {VIRIALIZATION_TOL})"
+            f"(max_residual={res['max_residual']:.3e} > {VIRIALIZATION_TOL})"
         )
 
     @pytest.mark.parametrize("rule", ["radial", "massfunc"])
-    def test_current_generator_residual_is_large(self, rule):
-        """Characterization (NOT xfail): documents that the CURRENT generator is
-        far from virialized for BOTH rules, so Section 2 has real work to do.
-        Section 2 may DELETE this characterization test once it passes the real
-        criterion above."""
-        pos, masses = _big_grid(rule)
+    def test_unbalanced_mode_is_large(self, rule):
+        """The REALISTIC mode (vir_relax_steps=0) is far from virialized for BOTH
+        rules (residual O(20-30) >> TOL), so the force-balanced default is a genuine
+        improvement, not a no-op."""
+        pos, masses = _big_grid(rule, relax_steps=0)
         res = virialization_residual(
             pos, masses, inner_frac=0.5, center_mass_kg=M_EXT_KG)
         assert res["max_residual"] > 1.0, (
-            f"{rule}: residual unexpectedly small ({res['max_residual']:.3f}); "
-            "if BOTH rules are already < VIRIALIZATION_TOL, remove the xfails and "
-            "delete this characterization test (see plan)."
-        )
+            f"{rule}: unbalanced residual unexpectedly small "
+            f"({res['max_residual']:.3f})")
+
+    @pytest.mark.parametrize("rule", ["radial", "massfunc"])
+    def test_balanced_far_below_unbalanced(self, rule):
+        """balanced (steps>=1) max_residual <= TOL << unbalanced (steps=0)."""
+        rb = virialization_residual(
+            *_big_grid(rule, relax_steps=1), inner_frac=0.5, center_mass_kg=M_EXT_KG)
+        ru = virialization_residual(
+            *_big_grid(rule, relax_steps=0), inner_frac=0.5, center_mass_kg=M_EXT_KG)
+        assert rb["max_residual"] <= VIRIALIZATION_TOL
+        assert rb["max_residual"] < ru["max_residual"]
 
 
 # ---------------------------------------------------------------------------
@@ -214,24 +203,22 @@ class TestVirializationCriterion:
 
 class TestBigEnough:
 
-    @_XFAIL_NOT_BALANCED
     def test_bigger_grid_smaller_residual(self):
-        """A virialized structure's inner nodes get a MORE symmetric environment
-        as the grid grows, so the inner residual should fall (or at least not
-        rise) from n=40 to n=120. The CURRENT generator FAILS this (residual
-        grows with N because it is not force-balanced) -> xfail until Section 2.
-
-        TODO(Section 2): remove the xfail; the assert encodes the target property.
+        """A virialized (force-balanced) structure's inner nodes feel ~zero net
+        force at EVERY size: the inner residual stays below TOL as the grid grows
+        from n=40 to n=120 (it does not blow up with N). On the force-balanced
+        lattice both are at machine precision; the meaningful invariant is that the
+        bigger grid remains balanced.
         """
         res40 = virialization_residual(
             *_big_grid("radial", n=40), inner_frac=0.5, center_mass_kg=M_EXT_KG)
         res120 = virialization_residual(
             *_big_grid("radial", n=120), inner_frac=0.5, center_mass_kg=M_EXT_KG)
-        # Allow a little slack (10%) so it is "monotone-ish", not knife-edge.
-        assert res120["max_residual"] <= 1.1 * res40["max_residual"], (
-            f"residual should not grow with grid size: "
-            f"n=40 -> {res40['max_residual']:.3f}, "
-            f"n=120 -> {res120['max_residual']:.3f}"
+        assert res40["max_residual"] <= VIRIALIZATION_TOL
+        assert res120["max_residual"] <= VIRIALIZATION_TOL, (
+            f"residual should stay balanced as the grid grows: "
+            f"n=40 -> {res40['max_residual']:.3e}, "
+            f"n=120 -> {res120['max_residual']:.3e}"
         )
 
 

@@ -35,6 +35,7 @@ from cosmo.node_geometry import (
     build_node_positions,
     list_geometries,
     nearest_neighbour_spacing,
+    virialization_residual,
 )
 from cosmo.constants import ExternalNodeParameters, SimulationParameters, CosmologicalConstants
 from cosmo.particles import HMEAGrid
@@ -119,10 +120,18 @@ class TestFalsifiableReductions:
 
     @pytest.mark.parametrize("rule", RULES)
     def test_segregation_zero_decouples_mass_and_radius(self, rule):
-        """vir_segregation == 0 -> mass<->radius correlation ~ 0 (decoupled)."""
+        """vir_segregation == 0 -> mass<->radius correlation ~ 0 (decoupled).
+
+        Asserted on the REALISTIC (vir_relax_steps=0) layout where every node has a
+        distinct radius, so a decoupled (random) mass assignment yields ~0
+        correlation. The force-balanced lattice has only a handful of radius SHELLS
+        (antipodes share a mass to keep the force balance), so shell-level random
+        assignment cannot fully decouple at small shell counts — decoupling is a
+        property of the realistic, per-node-radius mode.
+        """
         pos, masses = build_virialized_grid(
             S_DEFAULT_M, n_nodes=54, M_ext_kg=M_EXT_KG, vir_mass_rule=rule,
-            vir_mass_spread=0.8, vir_segregation=0.0, seed=11,
+            vir_mass_spread=0.8, vir_segregation=0.0, vir_relax_steps=0, seed=11,
         )
         r = _radii(pos)
         if masses.std() == 0.0 or r.std() == 0.0:
@@ -176,15 +185,17 @@ class TestExtent:
     def test_extent_widens_radial_range(self):
         """Larger vir_extent -> larger outer-to-inner radius ratio.
 
-        The NN-spacing rescale fixes the spacing to S (a global factor that cancels
-        in any radius RATIO), so the scale-invariant signature of vir_extent is the
-        radial spread r_max / r_min: with radii in [0.5S, (0.5+extent)S] this ratio
-        is 1 + 2*extent, growing strongly and predictably with extent.
+        vir_extent shapes the REALISTIC (vir_relax_steps=0) Fibonacci layout, whose
+        radii span [0.5S, (0.5+extent)S]; the force-balanced lattice mode ignores
+        vir_extent (it is a fixed cubic ball), so this property is asserted on the
+        realistic mode. The NN-spacing rescale fixes the spacing to S (a global
+        factor that cancels in any radius RATIO), so the scale-invariant signature
+        of vir_extent is the radial spread r_max / r_min = 1 + 2*extent.
         """
         def span(extent):
             pos, _ = build_virialized_grid(
                 S_DEFAULT_M, n_nodes=40, M_ext_kg=M_EXT_KG, vir_mass_rule="radial",
-                vir_mass_spread=0.0, vir_extent=extent, seed=1,
+                vir_mass_spread=0.0, vir_extent=extent, vir_relax_steps=0, seed=1,
             )
             r = _radii(pos)
             return r.max() / r.min()
@@ -222,14 +233,20 @@ class TestSMetric:
         assert np.isfinite(mean) and mean > 0
 
     def test_metric_switch_changes_targeted_S_layout(self):
-        """Targeting median vs mean produces different absolute layouts in general."""
+        """Targeting median vs mean produces different absolute layouts in general.
+
+        Asserted on the REALISTIC (vir_relax_steps=0) Fibonacci layout, whose
+        irregular NN distribution makes median != mean. The force-balanced lattice
+        mode is a near-uniform crystal (median ~ mean), so the two metrics yield the
+        same rescale there; the meaningful difference lives in the realistic mode.
+        """
         pos_med, _ = build_virialized_grid(
             S_DEFAULT_M, n_nodes=54, M_ext_kg=M_EXT_KG, vir_mass_rule="radial",
-            vir_mass_spread=0.4, vir_s_metric="median", seed=9,
+            vir_mass_spread=0.4, vir_s_metric="median", vir_relax_steps=0, seed=9,
         )
         pos_mean, _ = build_virialized_grid(
             S_DEFAULT_M, n_nodes=54, M_ext_kg=M_EXT_KG, vir_mass_rule="radial",
-            vir_mass_spread=0.4, vir_s_metric="mean", seed=9,
+            vir_mass_spread=0.4, vir_s_metric="mean", vir_relax_steps=0, seed=9,
         )
         assert not np.array_equal(pos_med, pos_mean), \
             "median vs mean s-metric should produce different absolute layouts"
@@ -275,6 +292,122 @@ class TestDeterminismAndRNG:
             S_DEFAULT_M, n_nodes=26, M_ext_kg=M_EXT_KG, vir_mass_rule="massfunc",
             vir_mass_spread=0.6, seed=42,
         )
+        np.testing.assert_array_equal(before[0], after[0])
+        np.testing.assert_array_equal(before[1], after[1])
+
+
+# ---------------------------------------------------------------------------
+# G2. vir_relax_steps BALANCE LEVEL (force-balanced lattice mode)
+# ---------------------------------------------------------------------------
+
+_BAL_TOL = 0.25  # mirrors VIRIALIZATION_TOL in test_virialization_validation.
+
+def _legacy_fibonacci_grid(rule, n=100, **kw):
+    """The realistic (un-balanced) layout = vir_relax_steps=0."""
+    return build_virialized_grid(
+        S_DEFAULT_M, n_nodes=n, M_ext_kg=M_EXT_KG, vir_mass_rule=rule,
+        vir_mass_spread=0.8, vir_segregation=1.0, vir_extent=2.5,
+        vir_relax_steps=0, seed=12, **kw,
+    )
+
+
+class TestRelaxBalanceLevel:
+    """vir_relax_steps reframed as a BALANCE LEVEL: 0 = realistic Fibonacci layout
+    (byte-identical to the legacy generator), >= 1 = force-balanced lattice ball."""
+
+    def test_default_is_force_balanced(self):
+        """The DEFAULT (vir_relax_steps unset == 1) is force-balanced: inner
+        max_residual << TOL for BOTH rules (the headline criterion)."""
+        for rule in RULES:
+            pos, masses = build_virialized_grid(
+                S_DEFAULT_M, n_nodes=100, M_ext_kg=M_EXT_KG, vir_mass_rule=rule,
+                vir_mass_spread=0.8, vir_segregation=1.0, vir_extent=2.5, seed=12,
+            )
+            res = virialization_residual(
+                pos, masses, inner_frac=0.5, center_mass_kg=M_EXT_KG)
+            assert res["max_residual"] <= _BAL_TOL, (
+                f"{rule}: default grid not force-balanced "
+                f"(max_residual={res['max_residual']:.3e})")
+
+    @pytest.mark.parametrize("rule", RULES)
+    def test_balanced_residual_far_below_unbalanced(self, rule):
+        """balanced (steps>=1) max_residual <= TOL << unbalanced (steps=0)."""
+        pos_b, m_b = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=100, M_ext_kg=M_EXT_KG, vir_mass_rule=rule,
+            vir_mass_spread=0.8, vir_segregation=1.0, vir_extent=2.5,
+            vir_relax_steps=1, seed=12)
+        pos_u, m_u = _legacy_fibonacci_grid(rule)
+        rb = virialization_residual(pos_b, m_b, inner_frac=0.5, center_mass_kg=M_EXT_KG)
+        ru = virialization_residual(pos_u, m_u, inner_frac=0.5, center_mass_kg=M_EXT_KG)
+        assert rb["max_residual"] <= _BAL_TOL
+        assert ru["max_residual"] > 1.0  # unbalanced is far from balanced
+        assert rb["max_residual"] < ru["max_residual"]
+
+    def test_steps_zero_reproduces_legacy_generator(self):
+        """vir_relax_steps=0 reproduces the realistic Fibonacci layout: no node at
+        the origin and it obeys the extent radial-range law (1+2*extent), which the
+        lattice ball does NOT — proving steps=0 is the legacy generator unchanged."""
+        pos, _ = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=40, M_ext_kg=M_EXT_KG, vir_mass_rule="radial",
+            vir_mass_spread=0.0, vir_extent=2.0, vir_relax_steps=0, seed=1)
+        r = _radii(pos)
+        assert r.min() > 0.0, "legacy layout has no node at the origin"
+        np.testing.assert_allclose(r.max() / r.min(), 5.0, rtol=1e-6)
+
+    def test_balanced_has_node_at_origin(self):
+        """The force-balanced lattice ball includes a node AT the origin (the
+        symmetric centre that makes antipodal pulls cancel)."""
+        pos, _ = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=100, M_ext_kg=M_EXT_KG, vir_mass_rule="radial",
+            vir_mass_spread=0.8, seed=12)
+        r = _radii(pos)
+        assert np.min(r) == 0.0
+
+    @pytest.mark.parametrize("rule", RULES)
+    def test_balanced_preserves_segregation_mean_spacing(self, rule):
+        """Post-balance: positive mass-radius correlation, mean(masses)==M_ext_kg,
+        NN-spacing==S, >=2 distinct radii — all the realistic-mode contracts hold."""
+        pos, masses = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=100, M_ext_kg=M_EXT_KG, vir_mass_rule=rule,
+            vir_mass_spread=0.8, vir_segregation=1.0, seed=12)
+        r = _radii(pos)
+        np.testing.assert_allclose(masses.mean(), M_EXT_KG, rtol=1e-12)
+        np.testing.assert_allclose(
+            nearest_neighbour_spacing(pos, "median"), S_DEFAULT_M, rtol=1e-6)
+        assert len(np.unique(np.round(r, 3))) >= 2
+        corr = np.corrcoef(masses, r)[0, 1]
+        assert corr > 0.5, f"{rule}: balanced grid lost segregation (corr={corr:.3f})"
+
+    @pytest.mark.parametrize("rule", RULES)
+    def test_balanced_determinism(self, rule):
+        """Same (seed, params, steps) -> byte-identical balanced grid."""
+        a = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=80, M_ext_kg=M_EXT_KG, vir_mass_rule=rule,
+            vir_mass_spread=0.7, seed=5)
+        b = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=80, M_ext_kg=M_EXT_KG, vir_mass_rule=rule,
+            vir_mass_spread=0.7, seed=5)
+        np.testing.assert_array_equal(a[0], b[0])
+        np.testing.assert_array_equal(a[1], b[1])
+
+    def test_balanced_m_ext_zero_no_nan(self):
+        """M_ext_kg=0 with balancing on -> all masses 0, no NaN (M=0==EdS)."""
+        pos, masses = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=80, M_ext_kg=0.0, vir_mass_rule="radial",
+            vir_mass_spread=0.5, seed=1)
+        assert np.all(np.isfinite(pos))
+        np.testing.assert_array_equal(masses, np.zeros(80))
+
+    def test_balanced_global_rng_isolation(self):
+        """Balancing adds no global-RNG draws (massfunc uses default_rng(seed))."""
+        np.random.seed(123); _ = np.random.rand(777)
+        before = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=80, M_ext_kg=M_EXT_KG, vir_mass_rule="massfunc",
+            vir_mass_spread=0.6, seed=42)
+        np.random.seed(0); _ = np.random.rand(4242)
+        after = build_virialized_grid(
+            S_DEFAULT_M, n_nodes=80, M_ext_kg=M_EXT_KG, vir_mass_rule="massfunc",
+            vir_mass_spread=0.6, seed=42)
         np.testing.assert_array_equal(before[0], after[0])
         np.testing.assert_array_equal(before[1], after[1])
 
@@ -334,7 +467,7 @@ class TestNNSpacingHelper:
 
 def _vir_params(*, seed=0, n_nodes=26, spread=0.5, segregation=1.0,
                 rule="radial", metric="median", s_amp=0.0, M_ext_kg=M_EXT_KG,
-                extent=1.0, S=S_DEFAULT_M):
+                extent=1.0, S=S_DEFAULT_M, relax_steps=1):
     return ExternalNodeParameters(
         M_ext_kg=M_ext_kg, S=S,
         node_mass_seed=seed,
@@ -342,6 +475,7 @@ def _vir_params(*, seed=0, n_nodes=26, spread=0.5, segregation=1.0,
         node_geometry="virialized",
         vir_n_nodes=n_nodes, vir_extent=extent, vir_mass_rule=rule,
         vir_mass_spread=spread, vir_segregation=segregation, vir_s_metric=metric,
+        vir_relax_steps=relax_steps,
     )
 
 
@@ -387,9 +521,15 @@ class TestHMEAGridThreading:
 
     def test_node_s_amplitude_composes_mean_radial_preserved(self):
         """node_s_amplitude>0 perturbs radii but mean radial scale is preserved and
-        masses are unchanged (the s-perturbation acts on positions only)."""
-        p0 = _vir_params(n_nodes=26, spread=0.5, seed=13, s_amp=0.0)
-        ps = _vir_params(n_nodes=26, spread=0.5, seed=13, s_amp=0.4)
+        masses are unchanged (the s-perturbation acts on positions only).
+
+        Uses the realistic layout (relax_steps=0) so every node has a non-zero
+        radius; the force-balanced lattice puts one node AT the origin (r=0), where
+        the per-node radial RATIO rs/r0 is undefined, so this mechanics check runs
+        on the all-positive-radius realistic mode.
+        """
+        p0 = _vir_params(n_nodes=26, spread=0.5, seed=13, s_amp=0.0, relax_steps=0)
+        ps = _vir_params(n_nodes=26, spread=0.5, seed=13, s_amp=0.4, relax_steps=0)
         g0 = HMEAGrid(node_params=p0)
         gs = HMEAGrid(node_params=ps)
         r0 = _radii(g0.get_positions())
@@ -516,12 +656,13 @@ class TestSimParamsThreading:
         assert p.vir_mass_spread == 0.0
         assert p.vir_segregation == 1.0
         assert p.vir_s_metric == "median"
+        assert p.vir_relax_steps == 1  # DEFAULT = force-balanced
 
     def test_external_params_receives_vir_fields(self):
         p = SimulationParameters(
             node_geometry="virialized", vir_n_nodes=40, vir_extent=2.0,
             vir_mass_rule="massfunc", vir_mass_spread=0.7, vir_segregation=0.5,
-            vir_s_metric="mean",
+            vir_s_metric="mean", vir_relax_steps=0,
         )
         ep = p.external_params
         assert ep.node_geometry == "virialized"
@@ -531,6 +672,7 @@ class TestSimParamsThreading:
         assert ep.vir_mass_spread == 0.7
         assert ep.vir_segregation == 0.5
         assert ep.vir_s_metric == "mean"
+        assert ep.vir_relax_steps == 0
 
     def test_sim_params_build_grid_uses_vir(self):
         p = SimulationParameters(
@@ -553,6 +695,7 @@ class TestSweepConfigFields:
         assert cfg.vir_mass_spread == 0.0
         assert cfg.vir_segregation == 1.0
         assert cfg.vir_s_metric == "median"
+        assert cfg.vir_relax_steps == 1  # DEFAULT = force-balanced
 
     def test_custom(self):
         from cosmo.parameter_sweep import SweepConfig
@@ -576,7 +719,7 @@ class TestCacheSlug:
     def test_virialized_key_has_vir_slugs(self):
         key = self._key(node_geometry="virialized")
         assert "virializedgeo" in key
-        for slug in ("vn", "vx", "vr", "vsp", "vsg", "vsm"):
+        for slug in ("vn", "vx", "vr", "vsp", "vsg", "vsm", "vrx"):
             assert slug in key, f"missing {slug!r} sub-slug for virialized"
 
     def test_virialized_distinct_from_cube26(self):
@@ -592,7 +735,8 @@ class TestCacheSlug:
         k5 = self._key(node_geometry="virialized", vir_extent=2.0)
         k6 = self._key(node_geometry="virialized", vir_n_nodes=12)
         k7 = self._key(node_geometry="virialized", vir_s_metric="mean")
-        keys = [k1, k2, k3, k4, k5, k6, k7]
+        k8 = self._key(node_geometry="virialized", vir_relax_steps=0)
+        keys = [k1, k2, k3, k4, k5, k6, k7, k8]
         assert len(set(keys)) == len(keys), "vir_* values must yield distinct cache keys"
 
     def test_non_virialized_keys_carry_no_vir_slug(self):
@@ -600,7 +744,7 @@ class TestCacheSlug:
         for geo in ("cube26", "cube_dense", "fcc", "bcc"):
             kwargs = {} if geo == "cube26" else {"node_geometry": geo}
             key = self._key(**kwargs)
-            for slug in ("vn", "vx", "vr", "vsp", "vsg", "vsm"):
+            for slug in ("vn", "vx", "vr", "vsp", "vsg", "vsm", "vrx"):
                 # Guard against substring collisions by checking the suffix tokens.
                 assert not any(part.endswith(slug) for part in key.split("_")), \
                     f"{geo}: unexpected vir sub-slug {slug!r} in key {key!r}"

@@ -254,6 +254,7 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
         vir_mass_spread=cfg.get("vir_mass_spread", 0.0),
         vir_segregation=cfg.get("vir_segregation", 1.0),
         vir_s_metric=cfg.get("vir_s_metric", "median"),
+        vir_relax_steps=cfg.get("vir_relax_steps", 1),
     )
 
 
@@ -289,6 +290,7 @@ def _make_sim_callback(sweep_cfg: _FixedSweepConfig, box_size_Gpc: float, a_star
             vir_mass_spread=getattr(sweep_cfg, "vir_mass_spread", 0.0),
             vir_segregation=getattr(sweep_cfg, "vir_segregation", 1.0),
             vir_s_metric=getattr(sweep_cfg, "vir_s_metric", "median"),
+            vir_relax_steps=getattr(sweep_cfg, "vir_relax_steps", 1),
         )
         ext_results = run_external_node_simulation(
             sim_params, box_size_Gpc, a_start, sweep_cfg.save_interval

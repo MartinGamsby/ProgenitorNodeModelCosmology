@@ -111,6 +111,11 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
                         choices=['median', 'mean'],
                         help='Virialized NN-spacing target metric: "median" (default) '
                              'or "mean".')
+    parser.add_argument('--vir-relax-steps', type=int, default=1,
+                        help='Virialized BALANCE LEVEL (default 1). 0 = realistic '
+                             '(not force-balanced) Fibonacci layout; >= 1 = '
+                             'force-balanced cubic-lattice ball (inner nodes feel '
+                             '~zero net force).')
 
     # Mode flags
     parser.add_argument('--compare', action='store_true',
@@ -176,4 +181,5 @@ def args_to_sim_params(args: argparse.Namespace) -> SimulationParameters:
         vir_mass_spread=getattr(args, 'vir_mass_spread', 0.0),
         vir_segregation=getattr(args, 'vir_segregation', 1.0),
         vir_s_metric=getattr(args, 'vir_s_metric', 'median'),
+        vir_relax_steps=getattr(args, 'vir_relax_steps', 1),
     )

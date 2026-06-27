@@ -242,6 +242,10 @@ class SweepConfig:
     vir_mass_spread: float = 0.0
     vir_segregation: float = 1.0
     vir_s_metric: str = "median"
+    # Virialized BALANCE LEVEL: 0 -> realistic (not force-balanced) Fibonacci
+    # layout; >= 1 (default) -> force-balanced cubic-lattice ball. Its cache
+    # sub-slug is appended ONLY for the virialized geometry (see build_cache_name).
+    vir_relax_steps: int = 1
     # Outer-region density ceiling (WS4). Default 1.0 = outer density == inner density
     # (EdS critical). Clipped in SimulationParameters to MAX_OUTER_DENSITY_CEILING.
     outer_density_ceiling: float = 1.0
@@ -716,6 +720,7 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
         parts.append(f"{getattr(config, 'vir_mass_spread', 0.0)}vsp")
         parts.append(f"{getattr(config, 'vir_segregation', 1.0)}vsg")
         parts.append(f"{getattr(config, 'vir_s_metric', 'median')}vsm")
+        parts.append(f"{getattr(config, 'vir_relax_steps', 1)}vrx")
     # outer_density_ceiling slug: append only when != 1.0 so the default (no outer
     # over-density) keeps its existing cache key and non-default ceilings get distinct keys.
     outer_density_ceiling = getattr(config, 'outer_density_ceiling', 1.0)

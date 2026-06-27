@@ -438,6 +438,52 @@ class TestHMEAGridThreading:
 
 
 # ---------------------------------------------------------------------------
+# K2. Particle-realization independence (confound guard, plan S2)
+# ---------------------------------------------------------------------------
+
+class TestParticleRealizationIndependence:
+    """Building a virialized grid must NOT perturb the particle-cloud realization.
+
+    Mirrors the node_mass_amplitude confound guard
+    (test_particle_realization_independent_of_amplitude): the virialized generator
+    draws from its own default_rng(node_mass_seed) and must NEVER touch the global
+    np.random state. So a cloud sampled before the grid is built (the real ordering:
+    cloud first, then HMEAGrid) is byte-identical regardless of vir_* values, and the
+    global RNG stream is not advanced by the (massfunc) virialized draws.
+    """
+
+    def _cloud_then_grid(self, *, rule, spread, segregation):
+        from cosmo.particles import ParticleSystem
+        np.random.seed(20240601)
+        ps = ParticleSystem(
+            n_particles=40, eds_consistent=True, t_start_Gyr=2.9, mass_randomize=0.0,
+        )
+        cloud_pos = ps.get_positions().copy()
+        params = ExternalNodeParameters(
+            M_ext_kg=M_EXT_KG, S=S_DEFAULT_M, node_mass_seed=7,
+            node_geometry="virialized", vir_n_nodes=26, vir_mass_rule=rule,
+            vir_mass_spread=spread, vir_segregation=segregation,
+        )
+        HMEAGrid(node_params=params)  # build consumes default_rng(seed) only
+        post_grid_global = np.random.rand(4)  # global stream after grid build
+        return cloud_pos, post_grid_global
+
+    def test_cloud_byte_identical_across_vir_params(self):
+        c1, _ = self._cloud_then_grid(rule="massfunc", spread=0.3, segregation=1.0)
+        c2, _ = self._cloud_then_grid(rule="massfunc", spread=0.9, segregation=0.4)
+        c3, _ = self._cloud_then_grid(rule="radial", spread=0.7, segregation=1.0)
+        np.testing.assert_array_equal(c1, c2)
+        np.testing.assert_array_equal(c1, c3)
+
+    def test_global_rng_not_advanced_by_grid_build(self):
+        """Even the massfunc RNG draws use default_rng(seed), never global np.random,
+        so the global stream after a grid build is identical across vir_* values."""
+        _, g1 = self._cloud_then_grid(rule="massfunc", spread=0.3, segregation=1.0)
+        _, g2 = self._cloud_then_grid(rule="massfunc", spread=0.9, segregation=0.4)
+        np.testing.assert_array_equal(g1, g2)
+
+
+# ---------------------------------------------------------------------------
 # L. cube26 opt-in invariant (virialized never the default; cube26 unchanged)
 # ---------------------------------------------------------------------------
 

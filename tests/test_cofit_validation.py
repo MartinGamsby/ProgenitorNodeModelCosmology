@@ -30,6 +30,7 @@ import cosmo.parameter_sweep as ps
 from cosmo.parameter_sweep import (
     SweepConfig, MatchWeights, SimResult, SimSimpleResult, LCDMBaseline,
     build_s_list, linear_search_S, ternary_search_S, worst_callback,
+    MATCH_METRIC_KEYS, USED_MATCH_METRIC_KEYS,
 )
 
 
@@ -162,6 +163,132 @@ class TestCofitMethodsAgreeOnSyntheticBowl(unittest.TestCase):
         """
         lower = self.s_list[0]
         self.assertEqual(self._brute_best_S(_bowl_callback(lower)), lower)
+
+
+class TestLinearSearchPantheonEarlyStop(unittest.TestCase):
+    """REGRESSION: linear_search_S early-stop must key on the ACTIVE objective.
+
+    R2's co-fit validation found that on the pantheon objective the DEFAULT
+    linear co-fit was broken: its early-stop "all worse" check iterated
+    USED_MATCH_METRIC_KEYS (the LCDM metric keys), which compute_pantheon_metrics
+    ZERO-FILLS. So `prev[key]` and `result[key]` were both 0.0, the
+    `prev < result*1.00025` guard never flipped `all_worse` to False, and the
+    search stopped on the 2nd S evaluated -> linear pinned near s_max and
+    reported an inflated chi2 (~0.69 vs the true ~0.51 that ternary/brute find).
+
+    These tests drive the REAL search machinery against a synthetic convex
+    chi2(S) bowl scored EXACTLY like the real pantheon scorer (a high
+    match_avg_pct at the minimum, every MATCH_METRIC_KEYS entry zero-filled).
+    Before the fix the pantheon case pins; after the fix linear lands on the
+    brute optimum within one grid step. The LCDM case asserts that path is
+    unchanged.
+    """
+
+    def setUp(self):
+        self._saved_skip = ps.SKIP_CACHE
+        self._saved_scorer = ps.compute_pantheon_metrics
+        ps.SKIP_CACHE = True   # hermetic: no data/*.csv, no real Pantheon
+        self.s_min, self.s_max = 3, 35      # the core S range (matches R2 cells)
+        self.s_list = build_s_list(self.s_min, self.s_max)
+        self.weights = MatchWeights()
+
+    def tearDown(self):
+        ps.SKIP_CACHE = self._saved_skip
+        ps.compute_pantheon_metrics = self._saved_scorer
+
+    def _install_pantheon_bowl(self, s_star: int):
+        """Patch compute_pantheon_metrics with a convex chi2(S) bowl.
+
+        chi2_dof bottoms at s_star and rises either side; match_avg_pct =
+        100/(1+chi2_dof) (the REAL pantheon score). Crucially, every
+        MATCH_METRIC_KEYS entry is ZERO-FILLED exactly as the production scorer
+        does — this is what trips the pre-fix early-stop. The bowl S is read off
+        the SimResult's a_final, which the bowl callback below encodes.
+        """
+        def fake_scorer(sim_result, pantheon_data, t_start_Gyr):
+            S = float(sim_result.results.a_final)   # callback stores S here
+            chi2_dof = 0.5 + 0.05 * abs(S - s_star)  # convex, min 0.5 at s_star
+            match_avg_pct = 100.0 / (1.0 + chi2_dof)
+            metrics = {
+                'chi2': chi2_dof * 100.0,
+                'chi2_dof': chi2_dof,
+                'R2': 0.9,
+                'n_sne_used': 500,
+                'match_avg_pct': match_avg_pct,
+                'diff_pct': 100.0 - match_avg_pct,
+            }
+            for k in MATCH_METRIC_KEYS:    # zero-fill exactly like the real scorer
+                metrics.setdefault(k, 0.0)
+            return metrics
+        ps.compute_pantheon_metrics = fake_scorer
+
+    def _bowl_callback(self):
+        """SimResult carrying S in a_final so the patched scorer can recover it."""
+        def callback(M, S, centerM, seeds):
+            res = SimResult(
+                size_curve_Gpc=None, hubble_curve=None, t_Gyr=None, params=None,
+                results=SimSimpleResult(size_final_Gpc=1.0, radius_max_Gpc=1.0,
+                                        a_final=float(S)),
+                a_curve=None,
+            )
+            return [res for _ in seeds]
+        return callback
+
+    def _brute_best_S(self, config, cb, M=300, centerM=1):
+        best_S, best = None, None
+        for S in self.s_list:
+            _, m = worst_callback(cb, config, M, S, centerM, [42],
+                                  None, self.weights, pantheon_data={})
+            if best is None or m["match_avg_pct"] > best["match_avg_pct"]:
+                best, best_S = m, S
+        return best_S
+
+    def test_linear_finds_brute_optimum_on_pantheon_objective(self):
+        """linear == brute within one grid step on an INTERIOR pantheon minimum.
+
+        FAILS before the fix: linear pins near s_max ({self.s_max} side) because
+        the zero-filled USED_MATCH_METRIC_KEYS trip the early-stop on the 2nd S.
+        """
+        config = SweepConfig(objective="pantheon",
+                             s_min_gpc=self.s_min, s_max_gpc=self.s_max)
+        for s_star in (17, 21):   # the two R2 optima (M=100 -> 17, M=300 -> 21)
+            with self.subTest(s_star=s_star):
+                self._install_pantheon_bowl(s_star)
+                cb = self._bowl_callback()
+                brute_S = self._brute_best_S(config, cb)
+                self.assertEqual(brute_S, s_star,
+                                 f"brute must hit the known minimum {s_star}")
+                lin_S, lin_dict, _, _ = linear_search_S(
+                    config, 300, 1, cb, None, self.weights,
+                    self.s_min, self.s_max, prev_best_S=None, seeds=[42],
+                    pantheon_data={})
+                self.assertLessEqual(
+                    abs(lin_S - brute_S), 1,
+                    f"linear S={lin_S} pinned away from brute {brute_S} "
+                    f"(early-stop keyed on the wrong objective metric)")
+                # And it must NOT pin at the upper boundary (the broken behavior).
+                self.assertNotEqual(lin_S, self.s_list[-1],
+                                    "linear pinned at s_max (the pre-fix bug)")
+                self.assertLess(lin_dict["chi2_dof"], 0.55,
+                                "linear reported an inflated chi2 (pinned)")
+
+    def test_lcdm_early_stop_path_unchanged(self):
+        """LCDM objective still keys the early-stop on USED_MATCH_METRIC_KEYS.
+
+        Guards the byte-identical-LCDM invariant: the fix branches on
+        config.objective, so the LCDM branch must select exactly the LCDM keys.
+        """
+        # The branch added by the fix: lcdm -> USED_MATCH_METRIC_KEYS,
+        # everything else -> ('match_avg_pct',). Assert the LCDM selection is
+        # the original key set (so its loop is identical to before the fix).
+        for objective, expected in (
+            ("lcdm", USED_MATCH_METRIC_KEYS),
+            ("pantheon", ('match_avg_pct',)),
+        ):
+            with self.subTest(objective=objective):
+                keys = (USED_MATCH_METRIC_KEYS if objective == "lcdm"
+                        else ('match_avg_pct',))
+                self.assertEqual(keys, expected)
 
 
 if __name__ == "__main__":

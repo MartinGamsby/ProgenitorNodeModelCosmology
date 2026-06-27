@@ -144,26 +144,34 @@ Faster than linear but may miss local optima.
 ### BRUTE_FORCE
 Exhaustive grid: all M x all S x all centerM. Most thorough, slowest.
 
-### Co-fit method on the PANTHEON objective: use TERNARY, not linear (B4 validated)
-`linear_search_S`'s early-stop loop keys on `USED_MATCH_METRIC_KEYS` (the LCDM
-metric keys). Those keys are ZERO-FILLED by `compute_pantheon_metrics`, so on the
-pantheon objective the `all_worse` check (`prev[key] < cur[key]*1.00025` -> `0<0`
-False for every key) trips on the SECOND S evaluated and linear stops immediately,
-pinning S near `s_max`. It does NOT track `match_avg_pct`/chi2 on this path -> the
-co-fit is effectively broken for pantheon.
+### Co-fit early-stop is objective-aware; core sweep uses TERNARY (B4 validated)
+`linear_search_S`'s early-stop "all worse" check keys on the metric the co-fit is
+ACTUALLY optimizing for the active objective:
+- `objective=="lcdm"` -> iterates `USED_MATCH_METRIC_KEYS` (the populated LCDM
+  metric keys) — byte-identical to the historical behavior.
+- otherwise (pantheon) -> keys on `('match_avg_pct',)`, i.e. `100/(1+chi2_dof)`,
+  the same scalar the co-fit RANKS candidates by.
+
+This fixes a prior correctness bug: `compute_pantheon_metrics` ZERO-FILLS
+`USED_MATCH_METRIC_KEYS`, so the old key-loop compared `0<0` for every key, trips
+the stop on the SECOND S, and linear pinned near `s_max` with an inflated chi2.
+Now linear tracks the objective and finds the true optimum on the pantheon path.
+(See `cosmo/parameter_sweep.py` `linear_search_S`, the `early_stop_keys` branch.)
 
 VALIDATED one-off `_validate_cofit.py` (cube26/uniform, 400p/273, core range
 `build_s_list(3,35)` -> `[3..30]`, authoritative `compute_pantheon_metrics` via
 `worst_callback`): for the near-LCDM cell M=100 and stronger-field M=300, BRUTE
-(ground truth) finds S=17 (chi2/dof 0.509) and S=21 (0.510); TERNARY lands EXACTLY
-on brute (dchi2=0.0000); LINEAR pins at S=34 (chi2/dof ~0.68-0.69, dS=13-17).
-=> The core sweep co-fit method is **ternary** (exact here AND cheaper than brute).
-`_validate_cofit.py` re-runs the comparison; `tests/test_cofit_validation.py`
-guards the comparison logic on a synthetic convex bowl (brute hits the known
-minimum; linear/ternary/brute agree within one grid step on the LCDM path where
-the early-stop keys are populated). Note `build_s_list` floors the grid at the
-first "nice" value (e.g. (15,60)->starts at 20), which is why a boundary optimum
-is reported at `s_list[0]`.
+(ground truth) finds S=17 (chi2/dof 0.5093) and S=21 (0.5095); TERNARY **and now
+LINEAR** both land EXACTLY on brute (dS=0, dchi2=0.0000). No pinning.
+The core sweep co-fit method is **ternary** (per decisions-v2: exact here AND
+cheaper than brute); the linear fix makes the DEFAULT method safe for legacy/other
+configs. `tests/test_cofit_validation.py` guards both: a synthetic convex bowl on
+the LCDM path (brute hits the known minimum; the three methods agree within one
+grid step) AND a pantheon-objective regression (`TestLinearSearchPantheonEarlyStop`
+— a zero-filled-keys convex bowl; linear must hit brute within one step and NOT
+pin at s_max; FAILS pre-fix). Note `build_s_list` floors the grid at the first
+"nice" value (e.g. (15,60)->starts at 20), which is why a boundary optimum is
+reported at `s_list[0]`.
 
 ## Match Metric
 

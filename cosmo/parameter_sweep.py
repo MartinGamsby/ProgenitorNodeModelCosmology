@@ -1103,8 +1103,20 @@ def linear_search_S(
                 print("\r\tMatch below 0%, stopping search for this M.")
                 break
 
+            # Early-stop "all worse" decision must key on the metric the co-fit is
+            # ACTUALLY optimizing for the active objective. For objective=="pantheon",
+            # compute_pantheon_metrics zero-fills USED_MATCH_METRIC_KEYS (the LCDM keys),
+            # so iterating them here would compare 0.0 vs 0.0 and trip the stop on the
+            # 2nd S evaluated -> linear pins near s_max with an inflated chi2. Use the
+            # objective's scalar score (match_avg_pct == 100/(1+chi2_dof), the same value
+            # the co-fit ranks candidates by) instead. LCDM keeps its multi-key behavior
+            # byte-identical.
+            if config.objective == "lcdm":
+                early_stop_keys = USED_MATCH_METRIC_KEYS
+            else:
+                early_stop_keys = ('match_avg_pct',)
             all_worse = True
-            for key in USED_MATCH_METRIC_KEYS:
+            for key in early_stop_keys:
                 #print(key, prev_result[key] > result[key] * 1.00025, prev_result[key], result[key])
                 if prev_result[key] < result[key] * 1.00025:
                     all_worse = False

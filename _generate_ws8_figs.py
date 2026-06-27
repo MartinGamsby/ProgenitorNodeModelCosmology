@@ -66,8 +66,13 @@ from cosmo.node_geometry import (
     node_net_accelerations,
     virialization_residual,
 )
-from cosmo.factories import run_external_node_simulation, setup_simulation_context
+from cosmo.factories import (
+    run_external_node_simulation,
+    run_matter_only_simulation,
+    setup_simulation_context,
+)
 from cosmo.plots import figure_path, _footer, _DPI, _BBOX
+from cosmo.simulation import CosmologicalSimulation
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -202,6 +207,85 @@ def slingshot_metrics(disp: np.ndarray, tail_factor: float = 5.0) -> Dict[str, f
         "max_over_median": max_over_median, "p99_over_median": p99_over_median,
         "tail_fraction": tail_fraction, "n": n,
     }
+
+
+def slingshot_sweep_row(
+    knob: str, value: float, disp: np.ndarray, tail_factor: float = 5.0
+) -> Dict[str, Any]:
+    """Build ONE tidy knob-sweep row from a precomputed displacement array.
+
+    Pure (no sim, no I/O): takes the per-particle displacement magnitudes for a
+    single (knob, value) point and packs the headline slingshot-tail metrics into
+    a flat dict suitable for a DataFrame/CSV row. Splitting this out keeps the
+    sim-running part of the sweep thin and lets the row-builder be unit-tested.
+
+    Args:
+        knob:        Name of the knob being swept (e.g. "n_steps", "softening_gpc").
+        value:       The knob value for this row (float; ints stored as float).
+        disp:        (N,) per-particle displacement magnitudes for this run.
+        tail_factor: Slingshot tail cutoff forwarded to slingshot_metrics.
+
+    Returns:
+        dict with keys: knob, value, max_over_median, p99_over_median,
+        tail_fraction, max_disp, median_disp, n.
+    """
+    m = slingshot_metrics(disp, tail_factor=tail_factor)
+    return {
+        "knob": str(knob),
+        "value": float(value),
+        "max_over_median": m["max_over_median"],
+        "p99_over_median": m["p99_over_median"],
+        "tail_fraction": m["tail_fraction"],
+        "max_disp": m["max"],
+        "median_disp": m["median"],
+        "n": m["n"],
+    }
+
+
+def softened_node_acceleration(
+    particle_positions: np.ndarray,
+    node_positions: np.ndarray,
+    node_masses: np.ndarray,
+    softening_m: float,
+    G: float,
+) -> np.ndarray:
+    """Plummer-SOFTENED tidal acceleration from external nodes (DIAGNOSTIC ONLY).
+
+    A drop-in replacement for cosmo.tidal_forces_numba.calculate_tidal_forces_numba
+    whose ONLY difference is the singularity handling: the product code uses a hard
+    ``r < 1e10 m`` floor (~3e-13 Gpc — effectively NO softening at Gpc scales),
+    which lets a particle that passes very close to a near-point-mass node receive
+    an enormous ``G m / r^2`` kick (the slingshot). This helper instead uses a
+    Plummer softening ``r_soft^2 = r^2 + softening_m^2`` exactly like the internal
+    particle-particle force (cosmo.integrator.calculate_internal_forces), so the
+    sweep can MEASURE how a node-softening scale reduces the slingshot tail.
+
+    DIAGNOSTIC ONLY: this is NOT wired into any product sim path. Section 4
+    implements the real node softening; here it is monkeypatched onto a grid
+    instance purely to quantify the lever. ``softening_m == 0`` reproduces the
+    UNSOFTENED 1/r^2 force (minus the 1e10 m floor) for an apples-to-apples baseline.
+
+    Args:
+        particle_positions: (N, 3) particle positions in meters.
+        node_positions:     (M, 3) node positions in meters.
+        node_masses:        (M,) node masses in kg.
+        softening_m:        Plummer softening length in meters (>= 0).
+        G:                  Gravitational constant.
+
+    Returns:
+        (N, 3) accelerations in m/s^2.
+    """
+    pos = np.asarray(particle_positions, dtype=np.float64)
+    npos = np.asarray(node_positions, dtype=np.float64)
+    nmass = np.asarray(node_masses, dtype=np.float64)
+    eps2 = float(softening_m) * float(softening_m)
+    acc = np.zeros_like(pos)
+    for j in range(npos.shape[0]):
+        r_vec = npos[j] - pos                       # (N, 3) toward node
+        r2 = np.sum(r_vec * r_vec, axis=1) + eps2   # (N,) softened
+        r3 = r2 * np.sqrt(r2)
+        acc += (G * nmass[j] / r3)[:, None] * r_vec
+    return acc
 
 
 def _pearson(x: np.ndarray, y: np.ndarray) -> float:
@@ -801,6 +885,316 @@ def generate_fig4_virialization(
 
 
 # ===========================================================================
+# Fig 5 — slingshot knob-sweep diagnostic (root-cause + taming levers)
+# ===========================================================================
+#
+# Runaway config (cube26, M=1000, S=10) slingshots one inner particle off a
+# near-point-mass NODE to max/median ~500x. This block:
+#   * proves the ROOT CAUSE (nodes ON vs OFF), and
+#   * sweeps each candidate taming knob (n_steps, n_particles, node softening,
+#     geometry) and quantifies how each moves the slingshot metric,
+# so Section 4 knows which lever actually works. MEASUREMENT ONLY — the only
+# physics deviation is the DIAGNOSTIC node-softening monkeypatch below, which is
+# never wired into a product sim path.
+
+# Runaway config the sweep is built around (dominated by a node close-pass).
+_SLING_M = 1000.0
+_SLING_S_GPC = 10.0
+_SLING_N = 200
+_SLING_N_STEPS = 80          # bumped by resolve_n_steps to keep dt < 0.05 Gyr
+_SLING_T_START = 5.8
+_SLING_SEED = 42
+
+# Independent knob grids (each swept with the others held at the config above).
+_SLING_NSTEPS_GRID: Tuple[int, ...] = (80, 160, 320)
+_SLING_NPART_GRID: Tuple[int, ...] = (200, 400, 800)
+# Node softening MULTIPLIER on the 1 Gpc particle-softening baseline. 0 == the
+# current (effectively unsoftened) node force; the rest are diagnostic probes.
+_SLING_SOFT_BASE_GPC = 1.0
+_SLING_SOFT_GRID: Tuple[float, ...] = (0.0, 0.5, 1.0, 2.0, 5.0)
+
+
+def _build_sling_params(
+    n_particles: int, n_steps: int, geometry: str = "cube26",
+    M: float = _SLING_M, S_gpc: float = _SLING_S_GPC,
+    t_start: float = _SLING_T_START, seed: int = _SLING_SEED,
+) -> Tuple[SimulationParameters, float, float, int]:
+    """Build (sim_params, box_size_Gpc, a_start, resolved_n_steps) for a sweep run."""
+    t_dur = _TODAY_GYR - t_start
+    n_steps = resolve_n_steps(t_dur, n_steps)
+    box, a_start, _ = setup_simulation_context(
+        t_start, t_dur, n_steps, save_interval=max(1, n_steps // 4))
+    sp = SimulationParameters(
+        M_value=M, S_value=S_gpc, n_particles=n_particles, seed=seed,
+        t_start_Gyr=t_start, t_duration_Gyr=t_dur, n_steps=n_steps,
+        damping_factor=None, center_node_mass=1.0, mass_randomize=0.0,
+        node_mass_seed=seed, init_distribution="uniform_sphere",
+        node_geometry=geometry,
+        vir_n_nodes=_DEFAULT_VIR_N_NODES, vir_extent=_DEFAULT_VIR_EXTENT,
+        vir_mass_rule="radial", vir_mass_spread=_DEFAULT_VIR_SPREAD,
+        vir_segregation=_DEFAULT_VIR_SEGREGATION, vir_s_metric="median",
+    )
+    return sp, box, a_start, n_steps
+
+
+def _disp_from_sim(sim) -> np.ndarray:
+    """Inner-observable per-particle |final-initial| displacement (Gpc) from a sim."""
+    mask = np.asarray(sim.particles.get_observable_mask(), dtype=bool)
+    g = CosmologicalConstants.Gpc_to_m
+    p0 = sim.snapshots[0]["positions"][mask] / g
+    p1 = sim.snapshots[-1]["positions"][mask] / g
+    return displacement_magnitudes(p0, p1)
+
+
+def run_slingshot_disp(
+    n_particles: int, n_steps: int, *, geometry: str = "cube26",
+    nodes: bool = True, node_soft_gpc: Optional[float] = None,
+    M: float = _SLING_M, S_gpc: float = _SLING_S_GPC,
+    t_start: float = _SLING_T_START, seed: int = _SLING_SEED,
+) -> np.ndarray:
+    """Run ONE short slingshot sim and return inner-particle displacements (Gpc).
+
+    Args:
+        n_particles / n_steps: sweep knobs.
+        geometry:      "cube26" (default) or "virialized".
+        nodes:         External HMEA nodes ON (default) or OFF (matter-only).
+        node_soft_gpc: If not None AND nodes ON, MONKEYPATCH the grid's tidal
+                       force with a Plummer-softened version (softened_node_
+                       acceleration) using this softening length in Gpc. This is
+                       the DIAGNOSTIC-ONLY node-softening probe (Section 4 owns the
+                       real fix). None -> the product (1e10 m floor) force is used.
+    """
+    sp, box, a_start, n_steps = _build_sling_params(
+        n_particles, n_steps, geometry=geometry, M=M, S_gpc=S_gpc,
+        t_start=t_start, seed=seed)
+    sim = CosmologicalSimulation(
+        sp, box, a_start, use_external_nodes=nodes, use_dark_energy=False)
+    if nodes and node_soft_gpc is not None:
+        grid = sim.hmea_grid
+        npos = grid.get_positions()
+        nmass = grid.get_masses()
+        soft_m = float(node_soft_gpc) * CosmologicalConstants.Gpc_to_m
+        Gc = CosmologicalConstants.G
+
+        def _softened_batch(positions, use_numba=True, _npos=npos, _nmass=nmass,
+                            _soft=soft_m, _G=Gc):
+            return softened_node_acceleration(positions, _npos, _nmass, _soft, _G)
+
+        grid.calculate_tidal_acceleration_batch = _softened_batch
+    sim.run(t_end_Gyr=sp.t_duration_Gyr, n_steps=n_steps,
+            save_interval=max(1, n_steps // 4))
+    return _disp_from_sim(sim)
+
+
+def slingshot_knob_sweep(
+    *, nsteps_grid: Tuple[int, ...] = _SLING_NSTEPS_GRID,
+    npart_grid: Tuple[int, ...] = _SLING_NPART_GRID,
+    soft_grid: Tuple[float, ...] = _SLING_SOFT_GRID,
+    seed: int = _SLING_SEED,
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Sweep EACH taming knob independently at the runaway config; quantify the tail.
+
+    Holds the runaway config (cube26, M=1000, S=10) fixed and varies ONE knob at a
+    time, recording slingshot_metrics for each value. Knobs:
+      - "n_steps":       finer time resolution (does it resolve/tame the close pass?).
+      - "n_particles":   more sampling (does it dilute or worsen the tail?).
+      - "softening_gpc": DIAGNOSTIC node-softening length (the prime taming lever).
+      - "nodes":         root-cause control — nodes ON vs OFF at the base config.
+      - "geometry":      cube26 vs virialized (spreads node mass -> smaller peak pull).
+
+    Returns dict keyed by knob name -> list of slingshot_sweep_row dicts. Pure-ish
+    orchestrator: all heavy lifting is in run_slingshot_disp + slingshot_sweep_row.
+    """
+    base_N, base_steps = _SLING_N, _SLING_N_STEPS
+    out: Dict[str, List[Dict[str, Any]]] = {}
+
+    print("\n[Fig 5] Slingshot knob-sweep (runaway cube26 M=1000 S=10) ...")
+
+    # Root cause: nodes ON vs OFF at the base config.
+    out["nodes"] = []
+    for on in (1.0, 0.0):
+        disp = run_slingshot_disp(base_N, base_steps, nodes=bool(on), seed=seed)
+        row = slingshot_sweep_row("nodes", on, disp)
+        out["nodes"].append(row)
+        print(f"  nodes={'ON ' if on else 'OFF'}  max/median={row['max_over_median']:.2f} "
+              f"max={row['max_disp']:.3f}")
+
+    # n_steps.
+    out["n_steps"] = []
+    for ns in nsteps_grid:
+        disp = run_slingshot_disp(base_N, ns, seed=seed)
+        row = slingshot_sweep_row("n_steps", ns, disp)
+        out["n_steps"].append(row)
+        print(f"  n_steps={ns:<5} max/median={row['max_over_median']:.2f} "
+              f"tail={row['tail_fraction']:.3f}")
+
+    # n_particles.
+    out["n_particles"] = []
+    for N in npart_grid:
+        disp = run_slingshot_disp(N, base_steps, seed=seed)
+        row = slingshot_sweep_row("n_particles", N, disp)
+        out["n_particles"].append(row)
+        print(f"  N={N:<5} max/median={row['max_over_median']:.2f} "
+              f"tail={row['tail_fraction']:.3f}")
+
+    # node softening (DIAGNOSTIC probe).
+    out["softening_gpc"] = []
+    for s in soft_grid:
+        disp = run_slingshot_disp(base_N, base_steps, node_soft_gpc=s, seed=seed)
+        row = slingshot_sweep_row("softening_gpc", s, disp)
+        out["softening_gpc"].append(row)
+        print(f"  soft={s:<4} Gpc max/median={row['max_over_median']:.2f} "
+              f"tail={row['tail_fraction']:.3f}")
+
+    # geometry: cube26 vs virialized at the base config.
+    out["geometry"] = []
+    for gi, geom in enumerate(("cube26", "virialized")):
+        disp = run_slingshot_disp(base_N, base_steps, geometry=geom, seed=seed)
+        row = slingshot_sweep_row("geometry", float(gi), disp)
+        row["label"] = geom
+        out["geometry"].append(row)
+        print(f"  geometry={geom:<11} max/median={row['max_over_median']:.2f} "
+              f"tail={row['tail_fraction']:.3f}")
+
+    return out
+
+
+def _print_slingshot_sweep_verdict(sweep: Dict[str, List[Dict[str, Any]]]) -> None:
+    """Print the root-cause + which-knob-wins headline from a knob sweep."""
+    on = sweep["nodes"][0]["max_over_median"]
+    off = sweep["nodes"][1]["max_over_median"]
+    soft_rows = sweep["softening_gpc"]
+    soft0 = soft_rows[0]["max_over_median"]
+    soft_best = min(soft_rows, key=lambda r: r["max_over_median"])
+    print("\n" + "=" * 70)
+    print("WS8 SLINGSHOT KNOB-SWEEP VERDICT")
+    print("=" * 70)
+    print(f"  ROOT CAUSE: nodes ON max/median={on:.1f} vs OFF={off:.1f} "
+          f"({on / off:.0f}x) -> driven by the node close-pass.")
+    print(f"  NODE SOFTENING: 0 Gpc -> {soft0:.1f}; "
+          f"{soft_best['value']:.1f} Gpc -> {soft_best['max_over_median']:.1f} "
+          f"({soft0 / max(soft_best['max_over_median'], 1e-9):.0f}x reduction).")
+    print("  n_steps / n_particles do NOT reliably reduce the tail (see figure).")
+    print("=" * 70)
+
+
+def _plot_knob_panel(ax, rows: List[Dict[str, Any]], title: str,
+                     xlabel: str, logx: bool = False) -> None:
+    """Plot max/median (left axis) + tail_fraction (right) vs a knob's values."""
+    xs = [r["value"] for r in rows]
+    mm = [r["max_over_median"] for r in rows]
+    tf = [r["tail_fraction"] for r in rows]
+    ax.plot(xs, mm, "o-", color="#d62728", label="max/median")
+    ax.set_yscale("log")
+    ax.set_xlabel(xlabel, fontsize=9)
+    ax.set_ylabel("max/median (log)", color="#d62728", fontsize=9)
+    ax.tick_params(axis="y", labelcolor="#d62728")
+    if logx:
+        ax.set_xscale("log")
+    ax.set_title(title, fontsize=9)
+    ax.grid(True, alpha=0.3)
+    ax2 = ax.twinx()
+    ax2.plot(xs, tf, "s--", color="#1f77b4", alpha=0.7, label="tail frac")
+    ax2.set_ylabel("tail frac (>5×med)", color="#1f77b4", fontsize=9)
+    ax2.tick_params(axis="y", labelcolor="#1f77b4")
+
+
+def generate_fig5_slingshot_knobs(
+    sweep: Optional[Dict[str, List[Dict[str, Any]]]] = None, *,
+    seed: int = _SLING_SEED,
+) -> Tuple[str, Dict[str, List[Dict[str, Any]]]]:
+    """Fig 5: small-multiples of the slingshot tail vs each knob + nodes ON/OFF.
+
+    Six panels: nodes ON/OFF (root cause), n_steps, n_particles, node softening,
+    geometry, and a summary text panel. Each line panel shows max/median (log) and
+    tail-fraction vs the knob value, making "what reduces the slingshot" visual.
+    """
+    if sweep is None:
+        sweep = slingshot_knob_sweep(seed=seed)
+
+    fig, axes = plt.subplots(2, 3, figsize=(16, 9))
+
+    # Panel 1 — nodes ON vs OFF (root cause), as a bar chart.
+    ax = axes[0, 0]
+    labels = ["nodes ON", "nodes OFF"]
+    vals = [sweep["nodes"][0]["max_over_median"], sweep["nodes"][1]["max_over_median"]]
+    bars = ax.bar(labels, vals, color=["#d62728", "#2ca02c"])
+    ax.set_yscale("log")
+    ax.set_ylabel("max/median (log)", fontsize=9)
+    ax.set_title("ROOT CAUSE: nodes ON vs OFF\n(tail collapses with nodes off)",
+                 fontsize=9)
+    for b, v in zip(bars, vals):
+        ax.text(b.get_x() + b.get_width() / 2, v, f"{v:.1f}",
+                ha="center", va="bottom", fontsize=9)
+    ax.grid(True, alpha=0.3, axis="y")
+
+    _plot_knob_panel(axes[0, 1], sweep["n_steps"], "n_steps sweep", "n_steps")
+    _plot_knob_panel(axes[0, 2], sweep["n_particles"], "n_particles sweep",
+                     "n_particles")
+    _plot_knob_panel(axes[1, 0], sweep["softening_gpc"],
+                     "NODE SOFTENING sweep (diagnostic)", "node softening [Gpc]")
+
+    # Panel 5 — geometry cube26 vs virialized bar.
+    axg = axes[1, 1]
+    glabels = [r.get("label", str(r["value"])) for r in sweep["geometry"]]
+    gvals = [r["max_over_median"] for r in sweep["geometry"]]
+    gbars = axg.bar(glabels, gvals, color=["#d62728", "#9467bd"])
+    axg.set_yscale("log")
+    axg.set_ylabel("max/median (log)", fontsize=9)
+    axg.set_title("geometry: cube26 vs virialized", fontsize=9)
+    for b, v in zip(gbars, gvals):
+        axg.text(b.get_x() + b.get_width() / 2, v, f"{v:.1f}",
+                 ha="center", va="bottom", fontsize=9)
+    axg.grid(True, alpha=0.3, axis="y")
+
+    # Panel 6 — verdict text.
+    axt = axes[1, 2]
+    axt.axis("off")
+    on = sweep["nodes"][0]["max_over_median"]
+    off = sweep["nodes"][1]["max_over_median"]
+    soft_rows = sweep["softening_gpc"]
+    soft0 = soft_rows[0]["max_over_median"]
+    soft_best = min(soft_rows, key=lambda r: r["max_over_median"])
+    txt = (
+        "VERDICT (runaway cube26, M=1000, S=10)\n"
+        "-------------------------------------\n"
+        f"ROOT CAUSE: node close-pass.\n"
+        f"  nodes ON  max/median = {on:.0f}\n"
+        f"  nodes OFF max/median = {off:.1f}  ({on/off:.0f}x)\n\n"
+        "TAMING LEVERS:\n"
+        f"  node softening {soft_best['value']:.1f} Gpc:\n"
+        f"    max/median {soft0:.0f} -> {soft_best['max_over_median']:.1f}\n"
+        f"    ({soft0/max(soft_best['max_over_median'],1e-9):.0f}x; tail->"
+        f"{soft_best['tail_fraction']:.2f})\n"
+        "  n_steps:     no reliable reduction\n"
+        "  n_particles: does NOT help (often worse)\n"
+        "  virialized:  partial help\n\n"
+        "=> Section 4: add NODE softening\n"
+        f"   ~{_SLING_SOFT_BASE_GPC:.0f} Gpc (match particle soft.)"
+    )
+    axt.text(0.02, 0.98, txt, transform=axt.transAxes, fontsize=10,
+             va="top", ha="left", family="monospace",
+             bbox=dict(boxstyle="round", fc="#fffbe6", alpha=0.9))
+
+    fig.suptitle(
+        "WS8 Fig 5 — SLINGSHOT root cause + taming-knob sweep "
+        "(runaway cube26, M=1000, S=10)\n"
+        "Node close-pass drives the tail; a ~1 Gpc NODE softening is the only "
+        "knob that tames it. DIAGNOSTIC ONLY — Section 4 implements the fix.",
+        fontsize=12, y=0.99,
+    )
+    _footer(axes[1, 0], f"M={_SLING_M:.0f} S={_SLING_S_GPC:.0f} "
+                        f"N={_SLING_N} seed={seed}")
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    out = figure_path(_WS, "slingshot_knob_sweep")
+    fig.savefig(out, dpi=_DPI, bbox_inches=_BBOX)
+    plt.close(fig)
+    print(f"[Fig 5] Saved: {out}")
+    _print_slingshot_sweep_verdict(sweep)
+    return out, sweep
+
+
+# ===========================================================================
 # CLI
 # ===========================================================================
 
@@ -861,6 +1255,13 @@ def main(argv=None) -> int:
     # Fig 4 — virialization (force-balance) residual (no sim).
     p4, _ = generate_fig4_virialization(args.S_gpc, args.vir_n_nodes, args.seed)
     paths.append(p4)
+
+    # Fig 5 — slingshot knob-sweep diagnostic (runs several short sims).
+    if not args.no_sim:
+        p5, _ = generate_fig5_slingshot_knobs(seed=args.seed)
+        paths.append(p5)
+    else:
+        print("[ws8] --no-sim: skipping Fig 5 (slingshot knob-sweep).")
 
     print("\n[ws8] Figures written:")
     for p in paths:

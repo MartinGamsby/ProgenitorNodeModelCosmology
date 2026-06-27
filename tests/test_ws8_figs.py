@@ -25,11 +25,14 @@ from _generate_ws8_figs import (
     resolve_n_steps,
     displacement_magnitudes,
     slingshot_metrics,
+    slingshot_sweep_row,
+    softened_node_acceleration,
     mass_radius_stats,
     virialization_residual_curve,
     _pearson,
     _spearman,
 )
+from cosmo.constants import CosmologicalConstants
 from cosmo.node_geometry import build_virialized_grid
 
 
@@ -118,6 +121,75 @@ class TestSlingshotMetrics:
         m = slingshot_metrics(np.zeros(10))
         assert m["median"] == 0.0
         assert math.isnan(m["max_over_median"])
+
+
+# ---------------------------------------------------------------------------
+# 3b. slingshot_sweep_row (pure row-builder for the knob sweep)
+# ---------------------------------------------------------------------------
+
+class TestSlingshotSweepRow:
+    def test_row_keys_and_values(self):
+        disp = np.concatenate([np.full(99, 1.0), np.array([100.0])])
+        row = slingshot_sweep_row("softening_gpc", 1.5, disp, tail_factor=5.0)
+        for key in ("knob", "value", "max_over_median", "p99_over_median",
+                    "tail_fraction", "max_disp", "median_disp", "n"):
+            assert key in row
+        assert row["knob"] == "softening_gpc"
+        assert row["value"] == 1.5
+        assert row["n"] == 100
+        assert row["max_disp"] == 100.0
+        # Heavy tail -> large ratio, matches slingshot_metrics directly.
+        m = slingshot_metrics(disp, tail_factor=5.0)
+        assert row["max_over_median"] == m["max_over_median"]
+
+    def test_int_value_stored_as_float(self):
+        row = slingshot_sweep_row("n_steps", 320, np.full(10, 2.0))
+        assert isinstance(row["value"], float)
+        assert row["value"] == 320.0
+
+
+# ---------------------------------------------------------------------------
+# 3c. softened_node_acceleration (diagnostic softened tidal force)
+# ---------------------------------------------------------------------------
+
+class TestSoftenedNodeAcceleration:
+    G = CosmologicalConstants.G
+
+    def test_far_field_matches_newton(self):
+        node = np.array([[1.0e25, 0.0, 0.0]])
+        mass = np.array([1.0e53])
+        part = np.array([[0.0, 0.0, 0.0]])
+        a = softened_node_acceleration(part, node, mass, softening_m=1.0e10, G=self.G)
+        expected = self.G * mass[0] / (1.0e25) ** 2
+        assert a[0, 0] > 0.0   # toward the node (+x)
+        assert abs(a[0, 0] - expected) / expected < 1e-6
+
+    def test_finite_and_zero_at_node_centre(self):
+        node = np.array([[0.0, 0.0, 0.0]])
+        mass = np.array([1.0e53])
+        part = np.array([[0.0, 0.0, 0.0]])
+        a = softened_node_acceleration(part, node, mass, softening_m=1.0e24, G=self.G)
+        assert np.all(np.isfinite(a))
+        assert np.allclose(a, 0.0)
+
+    def test_larger_softening_weakens_close_force(self):
+        node = np.array([[1.0e23, 0.0, 0.0]])  # closer than 1 Gpc
+        mass = np.array([1.0e53])
+        part = np.array([[0.0, 0.0, 0.0]])
+        a_small = softened_node_acceleration(part, node, mass, 1.0e24, self.G)
+        a_big = softened_node_acceleration(part, node, mass, 5.0e24, self.G)
+        assert np.linalg.norm(a_big) < np.linalg.norm(a_small)
+
+    def test_shape_and_superposition(self):
+        # Two nodes, two particles: shape (2,3); sum of single-node contributions.
+        nodes = np.array([[1.0e25, 0.0, 0.0], [0.0, 1.0e25, 0.0]])
+        mass = np.array([1.0e53, 2.0e53])
+        part = np.array([[0.0, 0.0, 0.0], [1.0e24, 1.0e24, 0.0]])
+        a = softened_node_acceleration(part, nodes, mass, 1.0e24, self.G)
+        assert a.shape == (2, 3)
+        a0 = softened_node_acceleration(part, nodes[:1], mass[:1], 1.0e24, self.G)
+        a1 = softened_node_acceleration(part, nodes[1:], mass[1:], 1.0e24, self.G)
+        np.testing.assert_allclose(a, a0 + a1, rtol=1e-12)
 
 
 # ---------------------------------------------------------------------------

@@ -41,8 +41,14 @@ def _eds_growth(t_start_Gyr: float, t_today_Gyr: float = 13.8) -> float:
     return (t_today_Gyr / t_start_Gyr) ** (2.0 / 3.0)
 
 
-def _run_matter_only(t_start_Gyr: float, n_particles: int = 300, seed: int = 42):
-    """Run an M_ext=0 (matter-only) sim end-to-end and return (a, t_Gyr)."""
+def _run_matter_only(t_start_Gyr: float, n_particles: int = 300, seed: int = 42,
+                     init_distribution: str = "uniform_sphere"):
+    """Run an M_ext=0 (matter-only) sim end-to-end and return (a, t_Gyr).
+
+    init_distribution: "uniform_sphere" (default) or "grf". The EdS invariant must
+    hold for GRF too (M=0 == EdS is geometry/clustering-independent: a(t) is the
+    RMS RATIO, and the cloud carries the EdS critical density regardless of how the
+    particles are arranged)."""
     # Fresh velocity cache so a stale calibration entry can never leak in.
     simmod.velocity_cache = None
     t_dur = 13.8 - t_start_Gyr
@@ -51,6 +57,7 @@ def _run_matter_only(t_start_Gyr: float, n_particles: int = 300, seed: int = 42)
     a_start = ic["a_start"]
     # dt = t_dur / n_steps must stay < 0.05 Gyr (leapfrog stability).
     n_steps = int(np.ceil(t_dur / 0.04))
+    init_kwargs = {"Ng": 32} if init_distribution == "grf" else {}
     sim_params = SimulationParameters(
         M_value=0,
         n_particles=n_particles,
@@ -58,6 +65,8 @@ def _run_matter_only(t_start_Gyr: float, n_particles: int = 300, seed: int = 42)
         t_start_Gyr=t_start_Gyr,
         t_duration_Gyr=t_dur,
         n_steps=n_steps,
+        init_distribution=init_distribution,
+        init_kwargs=init_kwargs,
         # eds_consistent defaults True -> self-consistent EdS ICs, no calibration.
     )
     res = run_matter_only_simulation(sim_params, box_size_Gpc, a_start, save_interval=10)
@@ -144,6 +153,28 @@ class TestMatterOnlyEdSConsistency(unittest.TestCase):
             f"At t_start={t_start} Gyr, M_ext=0 growth {sim_growth:.4f} deviates "
             f"{rel_err*100:.2f}% from EdS {eds_growth:.4f} (must be < 3%). The EdS "
             f"invariant should hold at lower t_start with self-consistent ICs."
+        )
+
+    def test_eds_invariant_holds_for_grf_init(self):
+        """M_ext=0 == EdS must hold for the GRF initial distribution too.
+
+        a(t) is the RMS RATIO and the cloud carries the EdS critical density
+        regardless of HOW the particles are arranged, so a clustered (GRF) cloud
+        with no external tidal forces still reproduces EdS. This guards the
+        section-8 invariant (M=0 == EdS preserved for GRF). Tolerance is slightly
+        looser than uniform_sphere because GRF clustering adds a touch more N-body
+        discreteness noise at fixed N.
+        """
+        t_start = 2.9
+        a, _t = _run_matter_only(t_start, init_distribution="grf")
+        sim_growth = a[-1] / a[0]
+        eds_growth = _eds_growth(t_start)
+        rel_err = abs(sim_growth - eds_growth) / eds_growth
+        self.assertLess(
+            rel_err, 0.03,
+            f"GRF M_ext=0 growth {sim_growth:.4f} deviates {rel_err*100:.2f}% from "
+            f"analytic EdS {eds_growth:.4f} (must be < 3%). M=0 == EdS must be "
+            f"distribution-independent."
         )
 
 

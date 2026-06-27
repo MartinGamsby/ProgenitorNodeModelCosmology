@@ -3,6 +3,21 @@
 Back to [deeper-exploration-roadmap.md](./deeper-exploration-roadmap.md). Phase 2.
 Uses WS1 (sweep) + WS2 (figures) + WS6 (convergence) tools.
 
+## VERDICT (resolved, item 11)
+
+GRF is NOT broken. The swing is **H4 (setup, fixed) + H1 (real physics, residual)** — NOT H2/H3.
+- **H4 (fixed):** legacy GRF filled a CUBE; cube-vs-sphere geometry (mass in the corners) drove
+  ~40% of the swing. Fix = `sample_grf(support="sphere")` (default): clustered SPHERE matching the
+  uniform_sphere radius. Cuts delta(grf-uni) at M=1500/S=30 from ~+0.53 (box) to ~+0.30 (sphere).
+- **H1 (real, residual ~+0.30):** sphere-confined CLUSTERING still fits worse in the STRONG-field
+  cell (peaks feel different node tidal forcing). LOCALIZED (weak cell delta ~+0.001) and
+  N-stable (N=1000..4000) — so not H3 (noise), not H2 (not at runaway).
+- Full diagnosis + fix in [../physics/realistic-initial-conditions.md](../physics/realistic-initial-conditions.md).
+  Script `_generate_ws5_grf.py` -> `results/figures/ws5/grf_vs_uniform.{png,csv}` (Part A field
+  stats: delta mean ~0 / no NaN / P(k) decays / disp RMS 0.5 cell; Part B swing decomposition).
+
+The original plan/hypotheses below are KEPT for context.
+
 ## The anomaly
 
 The isotropic background was EXPECTED to be clustering-insensitive: chi2/dof is shape-

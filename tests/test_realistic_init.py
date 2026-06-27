@@ -20,7 +20,10 @@ import pytest
 
 from cosmo.constants import CosmologicalConstants, SimulationParameters
 from cosmo.particles import ParticleSystem
-from cosmo.initial_distributions import sample_grf, sample_uniform_sphere, _power_spectrum
+from cosmo.initial_distributions import (
+    sample_grf, sample_uniform_sphere, _power_spectrum,
+    grf_density_field, grf_field_stats,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -374,6 +377,121 @@ class TestPowerSpectrum:
     def test_pk_zero_at_dc(self):
         """P(0) = 0 (DC component)."""
         assert _power_spectrum(np.array([0.0]))[0] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# GRF density-field statistics (the WS5 diagnosis: field is healthy, not broken)
+# ---------------------------------------------------------------------------
+
+class TestGRFFieldStats:
+    """The GRF density field must be a valid Gaussian random field: mean ~ 0,
+    finite, with a P(k) that decays from large to small scales, and a Zel'dovich
+    displacement that is RMS-controlled to ~0.5 cell. These pin the diagnosis
+    that GRF is NOT broken (no NaN / degenerate / unphysical field)."""
+
+    BOX = 10.0 * CosmologicalConstants().Gpc_to_m
+
+    def test_density_field_mean_near_zero(self):
+        delta = grf_density_field(self.BOX, seed=42, Ng=32)
+        # A zero-mean GRF: mean should be tiny relative to its std.
+        assert abs(np.mean(delta)) < 1e-6 * (np.std(delta) + 1e-30)
+
+    def test_density_field_finite(self):
+        delta = grf_density_field(self.BOX, seed=42, Ng=32)
+        assert np.all(np.isfinite(delta)), "GRF density field has NaN/Inf"
+
+    def test_field_stats_healthy(self):
+        fs = grf_field_stats(self.BOX, seed=42, Ng=32)
+        assert fs["delta_has_nan"] is False
+        assert fs["pk_decays"] is True, "P(k) must decay from large to small scales"
+        # Zel'dovich displacement is RMS-normalised to 0.5 cell by construction.
+        assert abs(fs["disp_rms_over_cell"] - 0.5) < 1e-6, (
+            f"displacement RMS/cell = {fs['disp_rms_over_cell']:.4f}, expected 0.5; "
+            "if this drifts the displacement amplitude is no longer cell-controlled"
+        )
+
+    def test_field_stats_deterministic(self):
+        a = grf_field_stats(self.BOX, seed=42, Ng=32)
+        b = grf_field_stats(self.BOX, seed=42, Ng=32)
+        assert a == b, "grf_field_stats not deterministic for a fixed seed"
+
+
+# ---------------------------------------------------------------------------
+# GRF support geometry: the WS5 swing FIX (clustered sphere, not clustered cube)
+# ---------------------------------------------------------------------------
+
+class TestGRFSupport:
+    """sample_grf default support='sphere' confines the cloud to the SAME radius
+    uniform_sphere uses, so GRF and uniform share bounding geometry and the only
+    difference is clustering. support='box' keeps the legacy GRF-perturbed cube
+    (fat radial tail) for reproducibility. This was the WS5 swing root cause."""
+
+    BOX = 10.0 * CosmologicalConstants().Gpc_to_m
+    N = 4000
+    SEED = 42
+
+    def _radii_over_R(self, support):
+        pos = sample_grf(self.N, self.BOX, seed=self.SEED, Ng=64, support=support)
+        # Post-process to the shared frame (center + RMS-norm to R=box/2).
+        pos = pos - pos.mean(axis=0)
+        rms = np.sqrt(np.mean(np.sum(pos ** 2, axis=1)))
+        pos = pos * ((self.BOX / 2) / rms)
+        R = self.BOX / 2
+        return np.linalg.norm(pos, axis=1) / R
+
+    def test_default_is_sphere(self):
+        """The fixed default is sphere support (the swing fix)."""
+        a = sample_grf(self.N, self.BOX, seed=self.SEED, Ng=64)
+        b = sample_grf(self.N, self.BOX, seed=self.SEED, Ng=64, support="sphere")
+        np.testing.assert_array_equal(a, b)
+
+    def test_sphere_has_thinner_radial_tail_than_box(self):
+        """Sphere support cuts the fat radial tail the cube grid produced."""
+        r_sphere = self._radii_over_R("sphere")
+        r_box = self._radii_over_R("box")
+        frac_sphere = float(np.mean(r_sphere > 1.3))
+        frac_box = float(np.mean(r_box > 1.3))
+        assert frac_sphere < frac_box, (
+            f"sphere tail ({frac_sphere:.3f}) not thinner than box tail "
+            f"({frac_box:.3f}) — the swing fix is not taking effect"
+        )
+        # And the max radius shrinks toward the uniform-sphere envelope.
+        assert r_sphere.max() < r_box.max()
+
+    def test_sphere_confines_within_radius(self):
+        """No sphere-support particle exceeds the uniform_sphere radius (radial clip)."""
+        pos = sample_grf(self.N, self.BOX, seed=self.SEED, Ng=64, support="sphere")
+        r = np.linalg.norm(pos, axis=1)
+        r_max_allowed = (self.BOX / 2) / np.sqrt(3 / 5)
+        # allow a hair of float slack
+        assert r.max() <= r_max_allowed * (1 + 1e-9), (
+            f"sphere support produced r_max={r.max():.3e} > radius {r_max_allowed:.3e}"
+        )
+
+    def test_unknown_support_raises(self):
+        with pytest.raises(ValueError, match="Unknown GRF support"):
+            sample_grf(100, self.BOX, seed=1, Ng=16, support="ellipsoid")
+
+    def test_sphere_still_clustered(self):
+        """Sphere support keeps the clustering signal (NN spacing < uniform)."""
+        try:
+            from scipy.spatial import cKDTree
+        except ImportError:
+            pytest.skip("scipy not available")
+
+        def median_nn(pos):
+            pos = pos - pos.mean(axis=0)
+            tree = cKDTree(pos)
+            d, _ = tree.query(pos, k=2)
+            rms = np.sqrt(np.mean(np.sum(pos ** 2, axis=1)))
+            return float(np.median(d[:, 1]) / rms)
+
+        grf = sample_grf(self.N, self.BOX, seed=self.SEED, Ng=64, support="sphere")
+        uni = sample_uniform_sphere(self.N, (self.BOX / 2) / np.sqrt(3 / 5),
+                                    np.random.default_rng(self.SEED))
+        assert median_nn(grf) < median_nn(uni), (
+            "sphere-support GRF should still be MORE clustered than uniform_sphere"
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -96,6 +96,103 @@ def _zeldovich_displacement_field(delta_k: np.ndarray, Ng: int) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
+# Diagnostic helpers (read-only inspection; NOT on the sampler path)
+# ---------------------------------------------------------------------------
+
+def grf_density_field(box_size_m: float,
+                      seed: int,
+                      Ng: int = 64,
+                      n_s: float = 0.965,
+                      Omega_m: float = 0.3,
+                      h: float = 0.70) -> np.ndarray:
+    """Return the real-space density contrast delta(x) used by ``sample_grf``.
+
+    This reproduces steps 1-3 of ``sample_grf`` (white noise -> P(k) shaping ->
+    inverse FFT) so the density field can be inspected directly (mean ~ 0,
+    variance, NaN check). It is a DIAGNOSTIC helper and is NOT called on the
+    particle-sampling path, so it cannot change ``uniform_sphere`` or ``grf``
+    output.
+
+    Args:
+        box_size_m : physical box size in metres (only sets the cell size,
+                     unused by delta itself but kept for signature symmetry).
+        seed       : integer seed (matches ``sample_grf``).
+        Ng         : grid resolution.
+
+    Returns:
+        delta : real array of shape (Ng, Ng, Ng), the density contrast.
+    """
+    rng = np.random.default_rng(seed)
+    white_noise = rng.standard_normal((Ng, Ng, Ng))
+    noise_k = np.fft.fftn(white_noise)
+
+    freq = np.fft.fftfreq(Ng) * Ng
+    kx, ky, kz = np.meshgrid(freq, freq, freq, indexing='ij')
+    k_mag = np.sqrt(kx ** 2 + ky ** 2 + kz ** 2)
+
+    Pk = _power_spectrum(k_mag, n_s=n_s, Omega_m=Omega_m, h=h)
+    delta_k = noise_k * np.sqrt(Pk)
+    delta = np.fft.ifftn(delta_k).real
+    return delta
+
+
+def grf_field_stats(box_size_m: float,
+                    seed: int,
+                    Ng: int = 64,
+                    n_s: float = 0.965,
+                    Omega_m: float = 0.3,
+                    h: float = 0.70) -> dict:
+    """Statistics of the GRF density field + Zel'dovich displacement.
+
+    Used by the WS5 GRF investigation to decide whether the GRF setup is healthy
+    (H4) or broken. Returns a dict with:
+      - delta_mean / delta_std : density-contrast moments (mean should be ~0).
+      - delta_has_nan          : NaN/Inf present in the density field.
+      - pk_low_mean / pk_high_mean / pk_decays : P(k) shape sanity (must decay
+        from large to small scales, i.e. low-k power > high-k power).
+      - disp_rms_over_cell     : RMS of the FINAL (rescaled) Zel'dovich
+        displacement in units of the grid cell size. ``sample_grf`` rescales the
+        displacement so this is ~0.5 by construction; >1 would mean particles are
+        displaced more than a cell (over-perturbation -> clipping).
+    """
+    delta = grf_density_field(box_size_m, seed, Ng=Ng,
+                              n_s=n_s, Omega_m=Omega_m, h=h)
+
+    # P(k) shape sanity (independent of the realization).
+    k_low = np.array([0.001, 0.01, 0.05])
+    k_high = np.array([1.0, 5.0, 10.0])
+    pk_low = float(np.mean(_power_spectrum(k_low, n_s=n_s, Omega_m=Omega_m, h=h)))
+    pk_high = float(np.mean(_power_spectrum(k_high, n_s=n_s, Omega_m=Omega_m, h=h)))
+
+    # Reconstruct the FINAL (rescaled) displacement exactly as sample_grf does,
+    # so disp_rms_over_cell reflects what the sampler actually applies.
+    rng = np.random.default_rng(seed)
+    white_noise = rng.standard_normal((Ng, Ng, Ng))
+    noise_k = np.fft.fftn(white_noise)
+    freq = np.fft.fftfreq(Ng) * Ng
+    kx, ky, kz = np.meshgrid(freq, freq, freq, indexing='ij')
+    k_mag = np.sqrt(kx ** 2 + ky ** 2 + kz ** 2)
+    delta_k = noise_k * np.sqrt(_power_spectrum(k_mag, n_s=n_s,
+                                                Omega_m=Omega_m, h=h))
+    psi = _zeldovich_displacement_field(delta_k, Ng)
+    cell_size_m = box_size_m / Ng
+    psi_rms_raw = np.sqrt(np.mean(psi ** 2))
+    if psi_rms_raw > 0:
+        psi = psi * (0.5 * cell_size_m / psi_rms_raw)
+    disp_rms_over_cell = float(np.sqrt(np.mean(psi ** 2)) / cell_size_m)
+
+    return {
+        "delta_mean": float(np.mean(delta)),
+        "delta_std": float(np.std(delta)),
+        "delta_has_nan": bool(np.any(~np.isfinite(delta))),
+        "pk_low_mean": pk_low,
+        "pk_high_mean": pk_high,
+        "pk_decays": bool(pk_low > pk_high),
+        "disp_rms_over_cell": disp_rms_over_cell,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Public samplers
 # ---------------------------------------------------------------------------
 
@@ -133,7 +230,8 @@ def sample_grf(n_particles: int,
                Ng: int = 64,
                n_s: float = 0.965,
                Omega_m: float = 0.3,
-               h: float = 0.70) -> np.ndarray:
+               h: float = 0.70,
+               support: str = "sphere") -> np.ndarray:
     """Generate particle positions via a Gaussian random field + Zel'dovich displacement.
 
     Recipe (deterministic for a fixed seed):
@@ -141,13 +239,22 @@ def sample_grf(n_particles: int,
     2. FFT to k-space, multiply by sqrt(P(k)) to impose BBKS LCDM spectrum.
     3. IFFT to get density contrast delta(x).
     4. Compute the Zel'dovich displacement field Psi(x) from delta(x).
-    5. Place N particles on a regular grid and displace each by Psi at its
-       grid cell.
-    6. Subsample / select N particles (all of them — the grid already has Ng^3
-       points; if N < Ng^3 we randomly subsample; if N > Ng^3 we tile).
-    7. Scale positions to fit inside the target sphere radius (box_size_m / 2).
-       The shared RMS-normalisation in particles.py will then rescale to the
-       exact target regardless, so only the SHAPE / clustering is baked in here.
+    5. Place N particles on a regular Lagrangian grid and displace each by Psi at
+       its grid cell.
+    6. SUPPORT MASK (``support="sphere"``, default): keep only grid cells whose
+       UNDISPLACED (Lagrangian) radius is within the same sphere radius
+       ``(box/2)/sqrt(3/5)`` that ``uniform_sphere`` uses. This makes the GRF
+       cloud a CLUSTERED SPHERE rather than a clustered CUBE — so GRF and
+       uniform_sphere share the SAME bounding geometry and the ONLY remaining
+       difference is clustering (the intended physics). ``support="box"`` keeps
+       the legacy full-cube grid (a GRF-perturbed cube; kept for reproducibility
+       / comparison only).
+    7. Subsample / select N particles from the masked grid (random without
+       replacement; if N exceeds the masked count we tile + jitter).
+    8. Radial clip to the sphere radius (sphere support) — NOT a cube clip — so a
+       wild Zel'dovich excursion cannot push a particle outside the spherical
+       envelope. The shared RMS-normalisation in particles.py then rescales to the
+       exact target, so only the SHAPE / clustering is baked in here.
 
     Args:
         n_particles : number of output particles N.
@@ -158,11 +265,19 @@ def sample_grf(n_particles: int,
         n_s         : scalar spectral index (LCDM default 0.965).
         Omega_m     : matter fraction (LCDM default 0.3).
         h           : dimensionless Hubble (LCDM default 0.70).
+        support     : "sphere" (default) confines the cloud to the uniform_sphere
+                      radius (clustered sphere, comparable geometry); "box" keeps
+                      the legacy GRF-perturbed cube.
 
     Returns:
         positions : (N, 3) float64 array in metres, raw (NOT centred/normalised).
-                    Particles lie within [-box_size_m/2, box_size_m/2] approximately.
+                    Sphere support: |r| <= (box/2)/sqrt(3/5). Box support: within
+                    [-box/2, box/2].
     """
+    if support not in ("sphere", "box"):
+        raise ValueError(
+            f"Unknown GRF support {support!r}. Valid: 'sphere' (default), 'box'."
+        )
     rng = np.random.default_rng(seed)
 
     # ------------------------------------------------------------------
@@ -211,6 +326,7 @@ def sample_grf(n_particles: int,
     # Grid points range from -box_size_m/2 to +box_size_m/2
     lin = np.linspace(-box_size_m / 2, box_size_m / 2, Ng, endpoint=False)
     gx, gy, gz = np.meshgrid(lin, lin, lin, indexing='ij')
+    g0 = np.stack([gx.ravel(), gy.ravel(), gz.ravel()], axis=1)  # Lagrangian (Ng^3, 3)
     # Eulerian positions after Zel'dovich displacement
     ex = (gx + psi[..., 0]).ravel()
     ey = (gy + psi[..., 1]).ravel()
@@ -218,23 +334,46 @@ def sample_grf(n_particles: int,
     all_positions = np.stack([ex, ey, ez], axis=1)  # (Ng^3, 3)
 
     # ------------------------------------------------------------------
-    # 6. Subsample to exactly N particles
+    # 6. SUPPORT MASK: confine to the uniform_sphere radius (default), so GRF
+    #    and uniform_sphere share the SAME geometry and only clustering differs.
+    #    The mask uses the UNDISPLACED Lagrangian radius (a fixed, seed-independent
+    #    set of cells) so the cut is the cloud's bounding geometry, not a clip on
+    #    the structure itself.
     # ------------------------------------------------------------------
-    n_grid = Ng ** 3
-    if n_particles <= n_grid:
+    sphere_radius_m = (box_size_m / 2.0) / np.sqrt(3.0 / 5.0)
+    if support == "sphere":
+        inside = np.linalg.norm(g0, axis=1) <= sphere_radius_m
+        all_positions = all_positions[inside]
+    # support == "box": keep the full cube grid (legacy).
+
+    # ------------------------------------------------------------------
+    # 7. Subsample to exactly N particles
+    # ------------------------------------------------------------------
+    n_avail = all_positions.shape[0]
+    if n_particles <= n_avail:
         # Random without-replacement subsample (deterministic)
-        idx = rng.choice(n_grid, size=n_particles, replace=False)
+        idx = rng.choice(n_avail, size=n_particles, replace=False)
         positions = all_positions[idx]
     else:
-        # Tile the grid and add jitter (edge case: N > Ng^3)
-        repeats = int(np.ceil(n_particles / n_grid))
+        # Tile the available cells and add jitter (edge case: N > available cells)
+        repeats = int(np.ceil(n_particles / n_avail))
         tiled = np.tile(all_positions, (repeats, 1))[:n_particles]
         jitter = rng.uniform(-0.1 * cell_size_m, 0.1 * cell_size_m,
                              tiled.shape)
         positions = tiled + jitter
 
-    # Clip to bounding box to prevent wild Zel'dovich excursions
-    limit = box_size_m / 2
-    positions = np.clip(positions, -limit, limit)
+    # ------------------------------------------------------------------
+    # 8. Clip excursions. Sphere support: radial clip to the sphere radius (so a
+    #    rare large Zel'dovich displacement cannot push a particle outside the
+    #    spherical envelope). Box support: legacy per-axis cube clip.
+    # ------------------------------------------------------------------
+    if support == "sphere":
+        r = np.linalg.norm(positions, axis=1, keepdims=True)
+        over = (r > sphere_radius_m).ravel()
+        if np.any(over):
+            positions[over] = positions[over] * (sphere_radius_m / r[over])
+    else:
+        limit = box_size_m / 2
+        positions = np.clip(positions, -limit, limit)
 
     return positions.astype(np.float64)

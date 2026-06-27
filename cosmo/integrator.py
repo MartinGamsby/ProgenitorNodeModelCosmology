@@ -22,7 +22,8 @@ class Integrator:
     
     def __init__(self, particle_system: ParticleSystem, hmea_grid: Optional[HMEAGrid] = None,
                  softening_per_Mobs_m: float = 1e24, use_external_nodes: bool = True, use_dark_energy: bool = False,
-                 force_method: str = 'auto', barnes_hut_theta: float = 0.5, use_hubble_drag: bool = False):
+                 force_method: str = 'auto', barnes_hut_theta: float = 0.5, use_hubble_drag: bool = False,
+                 node_substep_threshold: float = 0.0, node_substeps: int = 1):
         """
         Initialize integrator.
 
@@ -35,6 +36,16 @@ class Integrator:
                           'numba_direct' for Numba JIT O(N²), or 'barnes_hut' for real O(N log N) octree
             barnes_hut_theta: Opening angle for Barnes-Hut (0.3-0.7 typical)
             use_hubble_drag: Apply Hubble drag a_drag = -2H(a)v for matter-only sims
+            node_substep_threshold: Adaptive KDK sub-stepping trigger (Section 4),
+                          in units of the node softening length (or node spacing S
+                          if softening is 0). 0.0 (default) DISABLES sub-stepping
+                          (one plain leapfrog step -> byte-identical). > 0.0: a
+                          global step where any particle is within
+                          node_substep_threshold * S_ref of a node is integrated as
+                          node_substeps smaller KDK substeps, refining dt during the
+                          close pass.
+            node_substeps: KDK substeps per triggered close pass (>= 1). 1 (default)
+                          is a no-op even with a positive threshold.
         """
         self.particles = particle_system
         self.hmea_grid = hmea_grid
@@ -44,6 +55,13 @@ class Integrator:
         self.use_hubble_drag = use_hubble_drag
         self.force_method = force_method
         self.barnes_hut_theta = barnes_hut_theta
+        # Adaptive KDK sub-stepping config (Section 4). Default OFF (threshold 0
+        # or substeps <= 1) -> the integrator takes one plain leapfrog step, so a
+        # default sim is byte-identical. The reference scale S_ref is the node
+        # softening length when set, else the characteristic node spacing.
+        self.node_substep_threshold = float(node_substep_threshold)
+        self.node_substeps = int(max(1, node_substeps))
+        self._node_substep_ref_m = self._compute_node_substep_ref_m()
 
         # Determine actual method to use
         N = len(particle_system.particles)
@@ -214,9 +232,72 @@ class Integrator:
         """
         if not self.use_external_nodes or self.hmea_grid is None:
             return np.zeros((len(self.particles), 3))
-        
+
         positions = self.particles.get_positions()
         return self.hmea_grid.calculate_tidal_acceleration_batch(positions)
+
+    # ------------------------------------------------------------------
+    # Adaptive KDK sub-stepping helpers (Section 4)
+    # ------------------------------------------------------------------
+    def _compute_node_substep_ref_m(self) -> float:
+        """Reference length S_ref for the close-pass trigger, in meters.
+
+        Uses the node softening length when it is set (> 0), else the
+        characteristic node spacing (median nearest-neighbour distance, or the
+        minimum node radius for tiny grids). Returns 0.0 when there are no nodes
+        (sub-stepping then never triggers).
+        """
+        if self.hmea_grid is None:
+            return 0.0
+        params = getattr(self.hmea_grid, 'params', None)
+        soft_m = float(getattr(params, 'node_softening_m', 0.0)) if params else 0.0
+        if soft_m > 0.0:
+            return soft_m
+        # Fall back to a node-spacing scale so the trigger is meaningful even at
+        # zero softening (the bounded/legacy laws still slingshot near a node).
+        try:
+            npos = self.hmea_grid.get_positions()
+        except Exception:
+            return 0.0
+        if npos is None or len(npos) < 2:
+            if npos is not None and len(npos) == 1:
+                return float(np.linalg.norm(npos[0]))
+            return 0.0
+        # Median nearest-neighbour spacing (robust, O(M^2) but M is small).
+        d2 = np.sum(
+            (npos[:, None, :] - npos[None, :, :]) ** 2, axis=2)
+        np.fill_diagonal(d2, np.inf)
+        nn = np.sqrt(np.min(d2, axis=1))
+        return float(np.median(nn))
+
+    def _substep_active(self) -> bool:
+        """True when adaptive sub-stepping is configured AND has nodes to watch."""
+        return (
+            self.use_external_nodes
+            and self.hmea_grid is not None
+            and self.node_substep_threshold > 0.0
+            and self.node_substeps > 1
+            and self._node_substep_ref_m > 0.0
+        )
+
+    def _in_close_pass(self) -> bool:
+        """True when any particle is within threshold * S_ref of any node.
+
+        Used by the leapfrog step to decide whether to subdivide the step into
+        KDK substeps. O(N*M) on the current positions; only evaluated when
+        sub-stepping is active.
+        """
+        if not self._substep_active():
+            return False
+        positions = self.particles.get_positions()           # (N, 3)
+        npos = self.hmea_grid.get_positions()                 # (M, 3)
+        if positions.size == 0 or npos is None or len(npos) == 0:
+            return False
+        trigger_m = self.node_substep_threshold * self._node_substep_ref_m
+        trigger2 = trigger_m * trigger_m
+        # Min squared distance from each particle to the nearest node.
+        d2 = np.sum((positions[:, None, :] - npos[None, :, :]) ** 2, axis=2)
+        return bool(np.any(np.min(d2, axis=1) < trigger2))
     
     def calculate_dark_energy_forces(self) -> np.ndarray:
         """
@@ -333,13 +414,8 @@ class LeapfrogIntegrator(Integrator):
     Second-order symplectic integrator, conserves energy well
     """
     
-    def step(self, dt_s: float) -> None:
-        """
-        Take one leapfrog timestep with optional Hubble drag.
-
-        For matter-only simulations with use_hubble_drag=True, applies
-        cosmological expansion via Hubble drag term: v_new = v * exp(-2Hdt).
-        """
+    def _kdk(self, dt_s: float) -> None:
+        """One bare kick-drift-kick leapfrog update (no drag, no time bump)."""
         a_total = self.calculate_total_forces()
 
         # Kick (half step)
@@ -354,6 +430,30 @@ class LeapfrogIntegrator(Integrator):
 
         self.particles.set_accelerations(a_total)
         self.particles.update_velocities(dt_s / 2)
+
+    def step(self, dt_s: float) -> None:
+        """
+        Take one leapfrog timestep with optional Hubble drag.
+
+        For matter-only simulations with use_hubble_drag=True, applies
+        cosmological expansion via Hubble drag term: v_new = v * exp(-2Hdt).
+
+        Adaptive KDK sub-stepping (Section 4): when sub-stepping is enabled
+        (node_substep_threshold > 0 AND node_substeps > 1) and a particle is
+        within threshold * S_ref of a node at the start of this step, the step is
+        integrated as node_substeps smaller KDK substeps to refine dt during the
+        close pass. When sub-stepping is OFF (default) OR no close pass is
+        detected, exactly ONE KDK step is taken — byte-identical to the legacy
+        integrator. Hubble drag and the time advance are applied ONCE per global
+        step in both cases.
+        """
+        if self._substep_active() and self._in_close_pass():
+            m = self.node_substeps
+            dt_sub = dt_s / m
+            for _ in range(m):
+                self._kdk(dt_sub)
+        else:
+            self._kdk(dt_s)
 
         # Apply Hubble drag if enabled (for matter-only to match Friedmann)
         self.apply_hubble_drag(dt_s)

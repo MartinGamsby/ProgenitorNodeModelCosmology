@@ -622,6 +622,9 @@ class HMEAGrid:
         # Node Plummer softening length (meters). Default 0.0 -> legacy floor.
         softening_m = float(getattr(self.params, 'node_softening_m', 0.0))
         eps2 = softening_m * softening_m
+        # Close-range force-law code: 0 plummer (default/legacy), 1 bounded.
+        force_law = int(getattr(self.params, 'node_force_law_code', 0))
+        bounded = (force_law == 1) and (eps2 > 0.0)
 
         if use_numba:
             # Use Numba JIT-compiled version (much faster)
@@ -636,9 +639,11 @@ class HMEAGrid:
                 node_masses,
                 const.G,
                 softening_m,
+                force_law,
             )
         else:
-            # Original NumPy vectorized version (fallback)
+            # Original NumPy vectorized version (fallback) — mirrors the numba
+            # kernel branch-for-branch (legacy floor / Plummer / bounded).
             N = len(positions)
             accelerations = np.zeros((N, 3))
 
@@ -648,6 +653,23 @@ class HMEAGrid:
 
                 # Vector from position to node (attractive force toward node)
                 r_vec_m = node_pos - positions  # Broadcasting
+
+                if bounded:
+                    # BOUNDED "can't cross the midpoint" law: true 1/r^2 outside
+                    # the softening length, magnitude capped at G m / eps^2 inside.
+                    r_m = np.linalg.norm(r_vec_m, axis=1, keepdims=True)
+                    inside = r_m < softening_m
+                    # Far field: exact Newtonian (no Plummer offset). Guard r==0.
+                    r_safe = np.where(r_m > 0.0, r_m, 1.0)
+                    a_far = const.G * M_ext_kg * r_vec_m / r_safe**3
+                    # Inside: a_cap * unit_vector = (G m / eps^2) * (r_vec / r).
+                    a_cap = const.G * M_ext_kg / eps2
+                    a_in = a_cap * r_vec_m / r_safe
+                    a_tidal = np.where(inside, a_in, a_far)
+                    # r == 0 contributes nothing (symmetric); zero those rows.
+                    a_tidal = np.where(r_m > 0.0, a_tidal, 0.0)
+                    accelerations += a_tidal
+                    continue
 
                 if eps2 > 0.0:
                     # Plummer softening: r_soft^2 = r^2 + eps^2 (finite at r->0).

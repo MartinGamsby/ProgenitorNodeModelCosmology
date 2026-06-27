@@ -255,6 +255,17 @@ class SweepConfig:
     # != 0.0 (all existing keys untouched -> NO PHYSICS_CACHE_VERSION bump). > 0.0
     # tames the runaway slingshot for both cube26 and virialized.
     node_softening_gpc: float = 0.0
+    # Close-range tidal force law (Section 4). "plummer" (default) is the legacy
+    # law -> byte-identical, so its cache sub-slug is appended ONLY when != the
+    # default (all existing keys untouched -> NO PHYSICS_CACHE_VERSION bump).
+    # "bounded" is the regularized "can't cross the midpoint" law.
+    node_force_law: str = "plummer"
+    # Adaptive KDK sub-stepping (Section 4). threshold 0.0 (default) -> OFF
+    # (byte-identical). Their cache sub-slugs are appended ONLY when sub-stepping
+    # is actually active (threshold > 0 AND substeps > 1), so default runs keep
+    # their existing keys (NO PHYSICS_CACHE_VERSION bump).
+    node_substep_threshold: float = 0.0
+    node_substeps: int = 1
     # Start-size lever (Section 6): multiplier on the LCDM-implied initial cloud
     # size. 1.0 (default) keeps the LCDM-implied size -> a(t) byte-identical, so
     # its cache sub-slug is appended ONLY when != 1.0 (all existing keys untouched
@@ -746,6 +757,19 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     node_softening_gpc = getattr(config, 'node_softening_gpc', 0.0)
     if node_softening_gpc != 0.0:
         parts.append(f"{node_softening_gpc}nsoft")
+    # Node force-law slug: append ONLY when non-default ("plummer") so legacy runs
+    # keep their existing cache key (NO PHYSICS_CACHE_VERSION bump) and the bounded
+    # law gets a distinct key. Suffix is purely alphabetic for cache._split_key.
+    node_force_law = getattr(config, 'node_force_law', 'plummer')
+    if node_force_law != 'plummer':
+        parts.append(f"{node_force_law}nlaw")
+    # Adaptive-substep slugs: append ONLY when sub-stepping is actually active
+    # (threshold > 0 AND substeps > 1) so default runs keep their existing keys.
+    node_substep_threshold = getattr(config, 'node_substep_threshold', 0.0)
+    node_substeps = getattr(config, 'node_substeps', 1)
+    if node_substep_threshold > 0.0 and node_substeps > 1:
+        parts.append(f"{node_substep_threshold}nsubth")
+        parts.append(f"{node_substeps}nsub")
     # Start-size slug: append ONLY when != 1.0 so the default (LCDM-implied size,
     # byte-identical a(t)) keeps its existing cache key and NO PHYSICS_CACHE_VERSION
     # bump is needed. A non-default size changes a(t), so each distinct value gets a

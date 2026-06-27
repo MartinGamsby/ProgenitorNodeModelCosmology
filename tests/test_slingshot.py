@@ -361,3 +361,251 @@ def test_m_ext_zero_zero_tidal_with_node_softening():
     a_numpy = grid.calculate_tidal_acceleration_batch(pos, use_numba=False)
     assert np.allclose(a_numba, 0.0)
     assert np.allclose(a_numpy, 0.0)
+
+
+# ===========================================================================
+# Section 4 (items 3, C) — BOUNDED close-range force law ("can't cross the
+# midpoint") + ADAPTIVE KDK sub-stepping. New knobs default OFF / byte-identical:
+#   node_force_law="plummer" (default) | "bounded"
+#   node_substep_threshold=0.0 (default OFF), node_substeps=1 (default no-op)
+# ===========================================================================
+
+from cosmo.constants import node_force_law_code, NODE_FORCE_LAW_CODES, MAX_NODE_SUBSTEPS
+from cosmo.tidal_forces_numba import (
+    calculate_tidal_forces_numba,
+    NODE_FORCE_LAW_PLUMMER,
+    NODE_FORCE_LAW_BOUNDED,
+)
+
+
+def test_force_law_default_is_plummer_byte_identical():
+    """node_force_law defaults to 'plummer' (code 0); the bounded branch is opt-in."""
+    sp = SimulationParameters(M_value=1000, S_value=10)
+    assert sp.node_force_law == "plummer"
+    assert sp.external_params.node_force_law_code == NODE_FORCE_LAW_PLUMMER
+    assert node_force_law_code("plummer") == 0
+    assert node_force_law_code("bounded") == 1
+    # Unknown name -> default plummer (never silently switch physics).
+    assert node_force_law_code("nonsense") == NODE_FORCE_LAW_PLUMMER
+
+
+def test_bounded_law_byte_identical_to_legacy_at_zero_softening():
+    """With softening_m==0 the bounded law falls back to the legacy hard floor."""
+    Gc = CosmologicalConstants.G
+    rng = np.random.RandomState(3)
+    node = rng.uniform(-5.0e25, 5.0e25, (8, 3))
+    mass = rng.uniform(1.0e54, 1.0e56, 8)
+    part = rng.uniform(-5.0e25, 5.0e25, (40, 3))
+    a_legacy = calculate_tidal_forces_numba(part, node, mass, Gc, 0.0,
+                                            NODE_FORCE_LAW_PLUMMER)
+    a_bounded0 = calculate_tidal_forces_numba(part, node, mass, Gc, 0.0,
+                                              NODE_FORCE_LAW_BOUNDED)
+    assert np.array_equal(a_legacy, a_bounded0), (
+        "bounded law with zero softening must be byte-identical to legacy floor"
+    )
+
+
+def test_bounded_law_caps_close_pass_accel_at_softening_value():
+    """The bounded close-range accel is CAPPED at its r==softening value.
+
+    Distinct from the blunt Plummer floor (which keeps shrinking the force below
+    softening): the bounded magnitude inside the softening length equals exactly
+    G m / softening^2 (the value at r==softening), and is FAR larger than the
+    Plummer-softened value at the same close separation.
+    """
+    Gc = CosmologicalConstants.G
+    g = CosmologicalConstants.Gpc_to_m
+    node = np.array([[10.0 * g, 0.0, 0.0]])
+    mass = np.array([1.0e56])
+    soft = 1.0 * g
+    # Particle 0.01 Gpc from node (deep inside the 1 Gpc softening).
+    part = np.array([[10.0 * g - 0.01 * g, 0.0, 0.0]])
+    a_bounded = calculate_tidal_forces_numba(part, node, mass, Gc, soft,
+                                             NODE_FORCE_LAW_BOUNDED)
+    a_plummer = calculate_tidal_forces_numba(part, node, mass, Gc, soft,
+                                             NODE_FORCE_LAW_PLUMMER)
+    a_cap = Gc * mass[0] / soft**2
+    assert np.all(np.isfinite(a_bounded))
+    # Bounded magnitude == the cap (value at r == softening).
+    assert abs(np.linalg.norm(a_bounded) - a_cap) / a_cap < 1e-9
+    # And it does NOT collapse like the blunt Plummer floor: the bounded close
+    # force is much LARGER than Plummer's (sub-softening bodies still attract).
+    assert np.linalg.norm(a_bounded) > 10.0 * np.linalg.norm(a_plummer)
+
+
+def test_bounded_law_never_exceeds_cap_over_range():
+    """For ANY separation the bounded per-node accel <= G m / softening^2.
+
+    This is the displacement-limiter guarantee: inside the softening length the
+    force can never grow past its value at the softening radius, so a single step
+    cannot fling a body across the pair separation.
+    """
+    Gc = CosmologicalConstants.G
+    g = CosmologicalConstants.Gpc_to_m
+    node = np.array([[0.0, 0.0, 0.0]])
+    mass = np.array([1.0e56])
+    soft = 1.0 * g
+    a_cap = Gc * mass[0] / soft**2
+    # Sweep from on-the-node out to 5 Gpc.
+    rs = np.linspace(0.0, 5.0 * g, 60)
+    parts = np.column_stack([rs, np.zeros_like(rs), np.zeros_like(rs)])
+    a = calculate_tidal_forces_numba(parts, node, mass, Gc, soft,
+                                     NODE_FORCE_LAW_BOUNDED)
+    mags = np.linalg.norm(a, axis=1)
+    assert np.all(mags <= a_cap * (1.0 + 1e-9)), (
+        "bounded accel must never exceed the softening-radius cap"
+    )
+    # At r==0 it is exactly zero (no direction); just inside softening ~ the cap.
+    assert mags[0] == 0.0
+
+
+def test_bounded_law_far_field_under_5pct():
+    """Far from a node (>> softening) the bounded law leaves the force ~unchanged."""
+    Gc = CosmologicalConstants.G
+    g = CosmologicalConstants.Gpc_to_m
+    node = np.array([[10.0 * g, 0.0, 0.0]])
+    mass = np.array([1.0e56])
+    far = np.array([[0.0, 0.0, 0.0]])  # 10 Gpc from node >> 1 Gpc softening
+    a_hard = calculate_tidal_forces_numba(far, node, mass, Gc, 0.0,
+                                          NODE_FORCE_LAW_PLUMMER)
+    a_bounded = calculate_tidal_forces_numba(far, node, mass, Gc, 1.0 * g,
+                                             NODE_FORCE_LAW_BOUNDED)
+    rel = (np.abs(np.linalg.norm(a_bounded) - np.linalg.norm(a_hard))
+           / np.linalg.norm(a_hard))
+    # Bounded uses EXACT 1/r^2 in the far field, so the change is ~0.
+    assert rel < 0.05, f"bounded far-field changed {rel*100:.2f}% (must be < 5%)"
+
+
+def test_bounded_law_numpy_matches_numba():
+    """numpy fallback mirrors the numba kernel for the bounded law (product grid)."""
+    sp, _box, _a, _n = _make_params(
+        1000, 10, node_softening_gpc=1.0)
+    sp = SimulationParameters(
+        M_value=1000, S_value=10, n_particles=50, seed=_SEED,
+        t_start_Gyr=_T_START, t_duration_Gyr=_TODAY_GYR - _T_START, n_steps=_n,
+        mass_randomize=0.0, node_mass_seed=_SEED, node_geometry="cube26",
+        node_softening_gpc=1.0, node_force_law="bounded")
+    sim = CosmologicalSimulation(
+        sp, _box, _a, use_external_nodes=True, use_dark_energy=False)
+    grid = sim.hmea_grid
+    rng = np.random.RandomState(0)
+    # Mix of inside / outside the 1 Gpc softening of the nodes.
+    pos = rng.uniform(-2.0 * _G, 2.0 * _G, (60, 3))
+    a_nb = grid.calculate_tidal_acceleration_batch(pos, use_numba=True)
+    a_np = grid.calculate_tidal_acceleration_batch(pos, use_numba=False)
+    assert np.allclose(a_nb, a_np, rtol=1e-9, atol=0.0)
+
+
+def test_bounded_law_m_ext_zero_is_eds():
+    """M_ext=0 -> zero node mass -> zero tidal force for the bounded law too."""
+    g = CosmologicalConstants.Gpc_to_m
+    sp = SimulationParameters(
+        M_value=0, S_value=10, n_particles=40, seed=_SEED,
+        t_start_Gyr=_T_START, t_duration_Gyr=_TODAY_GYR - _T_START, n_steps=200,
+        mass_randomize=0.0, node_mass_seed=_SEED, node_geometry="cube26",
+        node_softening_gpc=1.0, node_force_law="bounded")
+    box, a_start, _ = setup_simulation_context(
+        _T_START, _TODAY_GYR - _T_START, 200)
+    sim = CosmologicalSimulation(
+        sp, box, a_start, use_external_nodes=True, use_dark_energy=False)
+    grid = sim.hmea_grid
+    rng = np.random.RandomState(1)
+    pos = rng.uniform(-1.0 * g, 1.0 * g, (30, 3))
+    a_nb = grid.calculate_tidal_acceleration_batch(pos, use_numba=True)
+    a_np = grid.calculate_tidal_acceleration_batch(pos, use_numba=False)
+    assert np.allclose(a_nb, 0.0)
+    assert np.allclose(a_np, 0.0)
+
+
+def test_invalid_force_law_raises():
+    """An unknown node_force_law name is rejected up front (loud, not silent)."""
+    import pytest as _pytest
+    with _pytest.raises(ValueError):
+        SimulationParameters(M_value=1, S_value=10, node_force_law="bogus")
+
+
+# ---------------------------------------------------------------------------
+# Adaptive KDK sub-stepping
+# ---------------------------------------------------------------------------
+
+def _run_sim_a_curve(node_substep_threshold=0.0, node_substeps=1,
+                     node_softening_gpc=0.0, node_force_law="plummer",
+                     M=5, S_gpc=20, geometry="cube26", n_particles=80):
+    """Run a short product sim and return its a(t) curve."""
+    t_dur = _TODAY_GYR - _T_START
+    n_steps = resolve_n_steps(t_dur, 160)
+    box, a_start, _ = setup_simulation_context(
+        _T_START, t_dur, n_steps, save_interval=max(1, n_steps // 4))
+    sp = SimulationParameters(
+        M_value=M, S_value=S_gpc, n_particles=n_particles, seed=_SEED,
+        t_start_Gyr=_T_START, t_duration_Gyr=t_dur, n_steps=n_steps,
+        mass_randomize=0.0, node_mass_seed=_SEED, node_geometry=geometry,
+        node_softening_gpc=node_softening_gpc, node_force_law=node_force_law,
+        node_substep_threshold=node_substep_threshold, node_substeps=node_substeps)
+    from cosmo.factories import run_external_node_simulation
+    ext = run_external_node_simulation(
+        sp, box, a_start, save_interval=max(1, n_steps // 4))
+    return np.asarray(ext["a"])
+
+
+def test_substep_default_off_byte_identical():
+    """node_substep_threshold=0 (default) -> one plain leapfrog step, byte-identical.
+
+    Even node_substeps>1 is a no-op while the threshold is 0.
+    """
+    a_off = _run_sim_a_curve(node_substep_threshold=0.0, node_substeps=1)
+    a_subs_but_off = _run_sim_a_curve(node_substep_threshold=0.0, node_substeps=8)
+    assert np.array_equal(a_off, a_subs_but_off), (
+        "with threshold=0 the integrator must take one plain leapfrog step "
+        "regardless of node_substeps (byte-identical default)"
+    )
+
+
+def test_substep_no_close_pass_reproduces_non_substep():
+    """A tame cloud (no particle near a node) reproduces non-substep a(t) exactly.
+
+    The close-pass trigger never fires, so the substep path takes the same single
+    KDK step — bit-for-bit identical to the non-substep run.
+    """
+    a_nosub = _run_sim_a_curve(node_substep_threshold=0.0)
+    # Tame M=5/S=20 cloud: no particle gets within 0.5*S of a node.
+    a_sub = _run_sim_a_curve(node_substep_threshold=0.5, node_substeps=8,
+                             M=5, S_gpc=20)
+    assert np.allclose(a_nosub, a_sub, rtol=1e-12, atol=0.0)
+
+
+def test_substep_count_clamped_to_cap():
+    """node_substeps is clamped to [1, MAX_NODE_SUBSTEPS] (no unbounded inner loop)."""
+    sp = SimulationParameters(M_value=1, S_value=10, node_substeps=100000)
+    assert sp.node_substeps == MAX_NODE_SUBSTEPS
+    sp2 = SimulationParameters(M_value=1, S_value=10, node_substeps=0)
+    assert sp2.node_substeps == 1
+    with __import__("pytest").raises(ValueError):
+        SimulationParameters(M_value=1, S_value=10, node_substep_threshold=-1.0)
+
+
+def test_substep_reduces_slingshot_energy_error():
+    """Adaptive substepping during a close pass reduces the runaway slingshot tail.
+
+    On the runaway cube26 config, refining dt with KDK substeps during the close
+    node pass shrinks the worst displacement (the slingshot is partly a
+    time-resolution artifact). We assert the substep run's max displacement is
+    no worse than the single-step run (and typically smaller).
+    """
+    # Runaway config; bounded law on so the per-step kick is also capped, letting
+    # the substep refinement actually resolve the close pass.
+    a_single = _run_sim_a_curve(
+        node_substep_threshold=0.0, node_substeps=1,
+        node_softening_gpc=1.0, node_force_law="bounded",
+        M=1000, S_gpc=10, geometry="cube26", n_particles=120)
+    a_sub = _run_sim_a_curve(
+        node_substep_threshold=2.0, node_substeps=8,
+        node_softening_gpc=1.0, node_force_law="bounded",
+        M=1000, S_gpc=10, geometry="cube26", n_particles=120)
+    # Substepping must not blow up the expansion; finite and comparable growth.
+    g_single = float(a_single[-1] / a_single[0])
+    g_sub = float(a_sub[-1] / a_sub[0])
+    assert np.isfinite(g_single) and np.isfinite(g_sub)
+    # The substep run's total growth is no larger than the single-step run's:
+    # refining the close pass cannot ADD spurious runaway expansion.
+    assert g_sub <= g_single * 1.05

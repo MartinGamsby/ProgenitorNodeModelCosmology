@@ -141,7 +141,11 @@ class CosmologicalSimulation:
             use_dark_energy=self.use_dark_energy,
             force_method=force_method,
             barnes_hut_theta=barnes_hut_theta,
-            use_hubble_drag=use_hubble_drag
+            use_hubble_drag=use_hubble_drag,
+            # Adaptive KDK sub-stepping (Section 4). Default OFF (threshold 0.0)
+            # -> one plain leapfrog step (byte-identical).
+            node_substep_threshold=float(getattr(sim_params, 'node_substep_threshold', 0.0)),
+            node_substeps=int(getattr(sim_params, 'node_substeps', 1)),
         )
         
         # Simulation results

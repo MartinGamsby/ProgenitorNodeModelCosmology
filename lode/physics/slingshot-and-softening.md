@@ -59,6 +59,68 @@ numpy fallback (`HMEAGrid.calculate_tidal_acceleration_batch`):
 The fix is GEOMETRY-AGNOSTIC (it caps the per-node force regardless of layout), so
 it tames cube26 AND virialized.
 
+## Bounded close-range law + adaptive substepping (Section 4)
+
+The blunt 1 Gpc Plummer floor was flagged as a hack (sub-Gpc bodies barely
+interact) and the ~40 Myr/step timestep as too coarse. Two opt-in knobs add a
+more physical treatment; BOTH default OFF / byte-identical (no cache bump):
+
+- `node_force_law` (param on `SimulationParameters` + `ExternalNodeParameters`;
+  derived int `node_force_law_code`, 0 plummer / 1 bounded; codes mirrored in
+  `cosmo.tidal_forces_numba` + the numpy fallback):
+  - `"plummer"` (DEFAULT) = legacy/Plummer behaviour (hard floor at softening 0,
+    Plummer when >0). Byte-identical default.
+  - `"bounded"` = the "can't cross the midpoint" law: outside the softening
+    length it is EXACT Newtonian `1/r^2` (no Plummer offset); INSIDE it the
+    per-node accel MAGNITUDE is CAPPED at `a_cap = G m / softening_m^2` (its value
+    AT the softening radius), so the close-pass kick is bounded but sub-softening
+    bodies still feel the FULL softening-length attraction — unlike the Plummer
+    floor which softens the force toward zero. Only differs from plummer when
+    `node_softening_gpc>0`; with softening 0 it falls back to the legacy floor
+    (byte-identical). Far-field change <5%; M=0 still == EdS (vanishes at M_ext=0).
+- `node_substep_threshold` (default 0.0 OFF) + `node_substeps` (default 1, clamp
+  `[1, MAX_NODE_SUBSTEPS=64]`): adaptive KDK sub-stepping in `cosmo.integrator`.
+  On a global step where ANY particle is within `threshold * S_ref` of a node
+  (`S_ref` = node softening length, else median node NN spacing), the whole step
+  is integrated as `node_substeps` smaller KDK substeps (refines dt during the
+  close pass). Active only when `threshold>0 AND substeps>1`; Hubble drag + time
+  advance applied ONCE per global step, so a no-close-pass step is bit-identical
+  to the non-substep run.
+
+### Measured comparison (`_generate_ws8_close_encounter.py` -> ws8/close_encounter_compare.{csv,png})
+
+Runaway config M=1000/S=10, N=300, t_start=2.9, n_steps=273 (~40 Myr/step). Rows
+= {legacy floor, Plummer 1 Gpc, Plummer 0.1 Gpc, bounded 1 Gpc, adaptive substep,
+bounded+substep} x {cube26, virialized}; chi2/dof from the SAME scorer the sweep
+uses (`compute_pantheon_metrics`, growth-anchor gated):
+
+| cube26 method | max/median | tail | growth | chi2/dof |
+|---|---:|---:|---:|---:|
+| legacy hard floor | 844 | 0.187 | 6927 | inf (anchor reject) |
+| Plummer 1 Gpc | 2.8 | 0.000 | 3.04 | 29.0 |
+| Plummer 0.1 Gpc | 10.9 | 0.087 | 363 | inf |
+| bounded 1 Gpc | 6.7 | 0.003 | 5.23 | inf (just over anchor) |
+| adaptive substep (no soft) | 93 | 0.080 | 1559 | inf |
+| bounded+substep | 2.4 | 0.000 | 3.38 | 48.7 |
+
+HONEST verdict:
+- **Adaptive substep ALONE does NOT tame the tail** (93x on cube26) — re-confirms
+  PF9 that finer time resolution alone is insufficient; the force law is the lever.
+- **The bounded law tames the close-pass tail** (844x -> 6.7x, tail_frac ~0) and,
+  crucially, pulls growth from 6927 down to ~5 (near the LCDM 3.30) — far better
+  than the Plummer floor's behaviour, but at this extreme config it's still just
+  outside the 20% growth anchor until paired with substeps.
+- **bounded+substep** is the best combination on cube26 (tail 2.4x, growth 3.38 in
+  the anchor window, finite chi2). So the bounded law CAN replace the blunt 1 Gpc
+  Plummer on cube26 when paired with substep refinement.
+- **virialized** (mass spread, no single near-point node) does NOT have a clean
+  single-node slingshot at M=1000/S=10, so NONE of the laws tame it well there —
+  an honest negative result; its runaway is geometric, not a close-pass artifact.
+
+The chi2 values are mostly `inf` because these are deliberately EXTREME runaway
+configs (to expose the slingshot) that the growth anchor rejects; the finite cube26
+entries show the tail-vs-fit trade.
+
 ## "Doubly tamed"
 
 At `node_softening_gpc=1.0` (matches the 1 Gpc internal particle softening):

@@ -5,6 +5,34 @@ Handles both standard ΛCDM and External-Node Model parameters
 
 import numpy as np
 
+# Close-range node force-law identifiers (Section 4).
+#   "plummer" (default): the legacy hard-floor / Plummer law (byte-identical at
+#       node_softening_gpc == 0). The blunt 1 Gpc Plummer floor lives here.
+#   "bounded": the regularized "can't cross the midpoint" law — below the
+#       softening length the per-node acceleration MAGNITUDE is capped at its
+#       value at r == softening_m, so the close-pass kick is bounded but
+#       sub-softening bodies still feel the FULL softening-length attraction.
+# The integer codes are passed into the numba kernel (cosmo.tidal_forces_numba)
+# and mirrored by the numpy fallback; keep these three in lock-step.
+NODE_FORCE_LAW_CODES = {"plummer": 0, "bounded": 1}
+NODE_FORCE_LAW_DEFAULT = "plummer"
+
+# Maximum KDK substeps a single close node pass may request (Section 4 adaptive
+# sub-stepping). Bounded so a malformed config cannot ask for an unbounded inner
+# loop (security: the substep count is a config-supplied int).
+MAX_NODE_SUBSTEPS = 64
+
+
+def node_force_law_code(name: str) -> int:
+    """Map a node_force_law NAME to its integer kernel code (default 'plummer').
+
+    Unknown names fall back to the default ('plummer', code 0) so a stray config
+    value can never silently change the physics to an unintended law; the caller
+    that constructs SimulationParameters validates the name up front.
+    """
+    return NODE_FORCE_LAW_CODES.get(str(name), NODE_FORCE_LAW_CODES[NODE_FORCE_LAW_DEFAULT])
+
+
 class CosmologicalConstants:
     """Fundamental physical constants in SI units"""
     
@@ -98,7 +126,8 @@ class ExternalNodeParameters:
                  vir_mass_rule: str = "radial", vir_mass_spread: float = 0.0,
                  vir_segregation: float = 1.0, vir_s_metric: str = "median",
                  vir_relax_steps: int = 1,
-                 node_softening_gpc: float = 0.0):
+                 node_softening_gpc: float = 0.0,
+                 node_force_law: str = NODE_FORCE_LAW_DEFAULT):
         """Initialize External-Node parameters (M_ext_kg in kg, S in meters).
 
         Args:
@@ -155,6 +184,13 @@ class ExternalNodeParameters:
                 change). M_ext=0 -> zero node mass -> zero tidal force regardless
                 of this knob, so M=0 == EdS is preserved. Stored in meters as the
                 derived attribute node_softening_m.
+            node_force_law: Close-range tidal force law (Section 4). "plummer"
+                (default) keeps the legacy hard-floor / Plummer behaviour above
+                (byte-identical at node_softening_gpc == 0). "bounded" switches the
+                sub-softening regime to the regularized "can't cross the midpoint"
+                law (per-node accel capped at its r==softening_m value), which only
+                differs from "plummer" when node_softening_gpc > 0. Stored as the
+                integer derived attribute node_force_law_code (0 plummer, 1 bounded).
         """
         # Default values - S is tuned to give Ω_Λ_eff ≈ 0.7 with M_ext_kg = 5e55
         self.M_ext_kg = M_ext_kg if M_ext_kg is not None else 5e55  # kg
@@ -175,6 +211,8 @@ class ExternalNodeParameters:
         # Node Plummer softening length in Gpc (Section 4 slingshot fix).
         # 0.0 (default) -> legacy hard 1e10 m floor (byte-identical).
         self.node_softening_gpc = node_softening_gpc
+        # Close-range force law name (Section 4). "plummer" default == legacy.
+        self.node_force_law = str(node_force_law)
 
         # Calculate derived parameters
         self._calculate_derived()
@@ -218,6 +256,10 @@ class ExternalNodeParameters:
         # Node Plummer softening length in meters (Section 4 slingshot fix).
         # 0.0 -> the tidal path keeps the legacy hard 1e10 m floor (byte-identical).
         self.node_softening_m = self.node_softening_gpc * const.Gpc_to_m
+        # Integer code for the close-range force law (0 plummer, 1 bounded). The
+        # numba kernel + numpy fallback both branch on this. Unknown names map to
+        # the default (plummer) so a stray value can never silently change physics.
+        self.node_force_law_code = node_force_law_code(self.node_force_law)
 
         # Mass ratio to observable universe
         self.M_ratio = self.M_ext_kg / const.M_observable_kg
@@ -325,6 +367,9 @@ class SimulationParameters:
                  vir_segregation: float = 1.0, vir_s_metric: str = "median",
                  vir_relax_steps: int = 1,
                  node_softening_gpc: float = 0.0,
+                 node_force_law: str = NODE_FORCE_LAW_DEFAULT,
+                 node_substep_threshold: float = 0.0,
+                 node_substeps: int = 1,
                  start_size_scale: float = 1.0):
         """
         Initialize simulation parameters.
@@ -433,6 +478,36 @@ class SimulationParameters:
                             a geometry-agnostic force-path change). VANISHES at
                             M_ext=0 (no node mass -> no tidal force), so M=0 == EdS
                             is preserved. Recommended ~1.0 for the final sweep.
+            node_force_law: Close-range tidal force law (Section 4). "plummer"
+                            (default) = legacy/Plummer (byte-identical at
+                            node_softening_gpc == 0). "bounded" = the regularized
+                            "can't cross the midpoint" law: below the softening
+                            length the per-node acceleration is CAPPED at its
+                            r==softening_m value instead of being softened toward
+                            zero, so sub-softening bodies still attract at full
+                            softening-length strength but the close-pass kick stays
+                            bounded. It only differs from "plummer" when
+                            node_softening_gpc > 0, and VANISHES at M_ext=0 (no node
+                            mass -> no tidal force), so M=0 == EdS holds for both
+                            laws. An unknown name is treated as "plummer".
+            node_substep_threshold: Adaptive KDK sub-stepping trigger (Section 4),
+                            in units of the node softening length (or, if softening
+                            is 0, of the node spacing S). 0.0 (default) DISABLES
+                            sub-stepping -> the integrator takes one plain leapfrog
+                            step (byte-identical). > 0.0 means: on any global step
+                            where a particle is within node_substep_threshold *
+                            S_ref of a node, that whole step is integrated as
+                            node_substeps smaller KDK substeps, refining dt during
+                            the close pass so a coarse step cannot fling a particle
+                            across the node (a TIME-RESOLUTION cure complementary to
+                            the force-law cap). Steps with no close pass run as a
+                            single step regardless, so the cost is paid only during
+                            encounters.
+            node_substeps:  Number of KDK substeps per triggered close pass (>= 1,
+                            clamped to MAX_NODE_SUBSTEPS = 64). 1 (default) is a
+                            no-op even if node_substep_threshold > 0 (a single
+                            substep == the original step). Active only when
+                            node_substep_threshold > 0 AND node_substeps > 1.
             start_size_scale: Multiplier on the LCDM-implied INITIAL cloud size
                             (the box passed to CosmologicalSimulation is scaled by
                             this factor BEFORE particles are built). 1.0 (default)
@@ -495,6 +570,23 @@ class SimulationParameters:
         # Node Plummer softening length in Gpc (Section 4 slingshot fix).
         # 0.0 (default) -> legacy hard 1e10 m floor (byte-identical).
         self.node_softening_gpc = node_softening_gpc
+        # Close-range force law (Section 4). Validate up front so a typo is loud
+        # rather than silently falling back to the default law.
+        if str(node_force_law) not in NODE_FORCE_LAW_CODES:
+            raise ValueError(
+                f"node_force_law must be one of {sorted(NODE_FORCE_LAW_CODES)} "
+                f"(got {node_force_law!r})."
+            )
+        self.node_force_law = str(node_force_law)
+        # Adaptive KDK sub-stepping (Section 4). threshold 0.0 (default) -> OFF
+        # (byte-identical single leapfrog step). node_substeps clamped to a sane
+        # range so a config can never request an unbounded inner loop.
+        self.node_substep_threshold = float(node_substep_threshold)
+        if self.node_substep_threshold < 0.0:
+            raise ValueError(
+                f"node_substep_threshold must be >= 0 (got {node_substep_threshold})."
+            )
+        self.node_substeps = int(max(1, min(int(node_substeps), MAX_NODE_SUBSTEPS)))
         # Start-size lever: multiplier on the LCDM-implied initial box size.
         # 1.0 (default) -> byte-identical. Must be strictly positive: a zero or
         # negative cloud size is unphysical (and would divide by zero in the
@@ -543,6 +635,7 @@ class SimulationParameters:
             vir_s_metric=self.vir_s_metric,
             vir_relax_steps=self.vir_relax_steps,
             node_softening_gpc=self.node_softening_gpc,
+            node_force_law=self.node_force_law,
         )
 
     def __str__(self):

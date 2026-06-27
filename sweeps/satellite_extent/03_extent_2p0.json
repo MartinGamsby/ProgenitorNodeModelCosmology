@@ -33,7 +33,7 @@
   "vir_n_nodes": 150,
   "vir_extent": 2.0,
   "vir_mass_rule": "massfunc",
-  "vir_mass_spread": 0.8,
+  "vir_mass_spread": 2.0,
   "vir_segregation": 1.0,
   "vir_s_metric": "median",
   "vir_relax_steps": 1,

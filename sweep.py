@@ -239,35 +239,51 @@ def expand_grid(cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
     # Config-wide virialized mass-function knobs (mirror _make_sweep_config_for_cell
     # defaults). Only when massfunc + spread>0 does the seed matter at amp=0.
     vir_mass_rule   = cfg.get("vir_mass_rule", "radial")
-    vir_mass_spread = cfg.get("vir_mass_spread", 0.0)
-    seed_matters_at_amp0 = (vir_mass_rule == "massfunc" and vir_mass_spread > 0.0)
+    # vir_mass_spread (the node mass-function "distribution size") can be SWEPT via the
+    # plural "vir_mass_spreads" list; otherwise the scalar "vir_mass_spread" is used.
+    # Only virialized geometry consumes it, so the spread axis is applied to virialized
+    # cells ONLY (other geoms get the single scalar -> no redundant cells / no cache
+    # collisions). Each distinct spread keys the cache ("<spread>vsp") AND reaches the
+    # sim via _make_sweep_config_for_cell (keyed == run).
+    default_spread = cfg.get("vir_mass_spread", 0.0)
+    swept_spreads = cfg.get("vir_mass_spreads")  # optional list -> sweep this axis
 
     cells = []
     for M in M_list:
         for geom in geom_list:
-            for init in init_list:
-                for samp in samp_list:
-                    for amp in amp_list:
-                        if amp == 0.0:
-                            # The seed is a genuine no-op for non-virialized geoms,
-                            # the radial rule, or spread==0 -> collapse to seed 42.
-                            # For virialized+massfunc+spread>0 the seed reshapes the
-                            # grid -> emit one cell per seed (the B3a fix).
-                            if geom == "virialized" and seed_matters_at_amp0:
-                                for seed in seed_list:
-                                    cells.append(dict(M=M, amplitude=0.0,
-                                                      nm_seed=seed,
+            spread_vals = (list(swept_spreads)
+                           if (geom == "virialized" and swept_spreads)
+                           else [default_spread])
+            for spread in spread_vals:
+                # The seed matters (drives the log-normal mass draw) only for the
+                # virialized massfunc rule with THIS spread > 0.
+                seed_matters_at_amp0 = (geom == "virialized"
+                                        and vir_mass_rule == "massfunc"
+                                        and spread > 0.0)
+                for init in init_list:
+                    for samp in samp_list:
+                        for amp in amp_list:
+                            cell_extra = dict(geometry=geom, vir_spread=spread)
+                            if amp == 0.0:
+                                # The seed is a genuine no-op for non-virialized geoms,
+                                # the radial rule, or spread==0 -> collapse to seed 42.
+                                # For virialized+massfunc+spread>0 the seed reshapes the
+                                # grid -> emit one cell per seed (the B3a fix).
+                                if seed_matters_at_amp0:
+                                    for seed in seed_list:
+                                        cells.append(dict(M=M, amplitude=0.0,
+                                                          nm_seed=seed,
+                                                          s_amplitude=samp, init=init,
+                                                          **cell_extra))
+                                else:
+                                    cells.append(dict(M=M, amplitude=0.0, nm_seed=42,
                                                       s_amplitude=samp, init=init,
-                                                      geometry=geom))
+                                                      **cell_extra))
                             else:
-                                cells.append(dict(M=M, amplitude=0.0, nm_seed=42,
-                                                  s_amplitude=samp, init=init,
-                                                  geometry=geom))
-                        else:
-                            for seed in seed_list:
-                                cells.append(dict(M=M, amplitude=amp, nm_seed=seed,
-                                                  s_amplitude=samp, init=init,
-                                                  geometry=geom))
+                                for seed in seed_list:
+                                    cells.append(dict(M=M, amplitude=amp, nm_seed=seed,
+                                                      s_amplitude=samp, init=init,
+                                                      **cell_extra))
     return cells
 
 
@@ -316,7 +332,10 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
         vir_n_nodes=cfg.get("vir_n_nodes", 26),
         vir_extent=cfg.get("vir_extent", 1.0),
         vir_mass_rule=cfg.get("vir_mass_rule", "radial"),
-        vir_mass_spread=cfg.get("vir_mass_spread", 0.0),
+        # Swept per-cell when "vir_mass_spreads" is given (expand_grid puts it in the
+        # cell as vir_spread); else the config-wide scalar. Keys the cache ("<>vsp")
+        # and reaches build_virialized_grid -> keyed == run.
+        vir_mass_spread=cell.get("vir_spread", cfg.get("vir_mass_spread", 0.0)),
         vir_segregation=cfg.get("vir_segregation", 1.0),
         vir_s_metric=cfg.get("vir_s_metric", "median"),
         vir_relax_steps=cfg.get("vir_relax_steps", 1),

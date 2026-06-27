@@ -1336,13 +1336,14 @@ class TestCoreV3Family(unittest.TestCase):
         self.assertEqual(uniform_geoms, {"cube26"})
 
     def test_virialized_arms_use_finer_deeper_node_count(self):
-        """vir_n_nodes bumped above 80 (=150) for a finer mass function + deeper
-        interior (decisions-v2)."""
+        """vir_n_nodes bumped to 300 (finer mass function + deeper interior) AND a
+        WIDER mass distribution vir_mass_spread=2.0 (bigger 'distribution size' -> a
+        few big nodes + many small ones, which avoids the small-S cloud collapse and
+        reaches the accelerating corner). decisions-v2 + the wide-spread finding."""
         for c in self._core_cfgs():
             if "virialized" in c["node_geometries"]:
-                self.assertGreater(c["vir_n_nodes"], 80,
-                                   "virialized core arms must use vir_n_nodes>80")
-                self.assertEqual(c["vir_n_nodes"], 150)
+                self.assertEqual(c["vir_n_nodes"], 300)
+                self.assertEqual(c["vir_mass_spread"], 2.0)
 
     def test_core_arms_have_distinct_cache_keys(self):
         """keyed==run across arms: every core arm yields a DISTINCT cache key at a
@@ -1468,7 +1469,8 @@ class TestSatelliteFamilies(unittest.TestCase):
             self.assertEqual(cfg["s_min_gpc"], 3)
             self.assertEqual(cfg["s_max_gpc"], 35)
             self.assertEqual(cfg["M_values"], [35, 100, 300])
-            self.assertEqual(cfg["vir_n_nodes"], 150)
+            self.assertEqual(cfg["vir_n_nodes"], 300)
+            self.assertEqual(cfg["vir_mass_spread"], 2.0)
 
     def test_startsize_is_keyed_eq_run_in_cache(self):
         """The swept axis (start_size_scale) must reach the cache key when != 1.0 and
@@ -1703,6 +1705,60 @@ class TestGRFSupportKeyedEqualsRun(unittest.TestCase):
         sim_params, _ = self._capture(cfg, self._uniform_cell())
         # init_kwargs is None -> SimulationParameters stores {} (no support injected).
         self.assertEqual(sim_params.init_kwargs, {})
+
+
+class TestVirMassSpreadAxis(unittest.TestCase):
+    """`vir_mass_spread` (the node mass-function 'distribution size') is a SWEEPABLE
+    axis via the plural `vir_mass_spreads` list. A wider spread (a few big nodes +
+    many small ones) avoids the small-S cloud collapse and reaches the accelerating
+    corner — so we want to sweep it to find good values. Each swept spread must key
+    the cache AND reach the sim (keyed == run)."""
+
+    def _base(self, **over):
+        cfg = dict(
+            node_mass_amplitudes=[0.0], node_mass_seeds=[42], node_s_amplitudes=[0.0],
+            init_distributions=["grf"], node_geometries=["virialized"], M_values=[100],
+            vir_mass_rule="massfunc", vir_n_nodes=300, particle_count=2000, n_steps=546,
+            t_start_Gyr=2.9, s_min_gpc=3, s_max_gpc=35, objective="pantheon",
+        )
+        cfg.update(over)
+        return cfg
+
+    def test_spreads_list_expands_one_cell_per_spread(self):
+        cfg = self._base(M_values=[10, 100], vir_mass_spreads=[0.8, 2.0, 3.0])
+        cells = expand_grid(cfg)
+        # 2 M x 3 spreads = 6 cells, each tagged with its spread.
+        self.assertEqual(len(cells), 6)
+        self.assertEqual({c["vir_spread"] for c in cells}, {0.8, 2.0, 3.0})
+
+    def test_each_spread_is_keyed_eq_run(self):
+        cfg = self._base(vir_mass_spreads=[0.8, 2.0, 3.0])
+        keys = set()
+        for c in expand_grid(cfg):
+            sc = _make_sweep_config_for_cell(c, cfg)
+            # The spread reaches the sim config...
+            self.assertEqual(sc.vir_mass_spread, c["vir_spread"])
+            k = build_cache_name(sc, c["M"], 10, 1, [c["nm_seed"]])
+            # ...and the cache key (so two spreads can't collide).
+            self.assertIn(f"{c['vir_spread']}vsp", k)
+            keys.add(k)
+        self.assertEqual(len(keys), 3, "each swept spread must yield a DISTINCT key")
+
+    def test_scalar_spread_backward_compatible(self):
+        """No `vir_mass_spreads` -> the scalar `vir_mass_spread` is used (one value)."""
+        cfg = self._base(vir_mass_spread=0.8)
+        cells = expand_grid(cfg)
+        self.assertEqual(len(cells), 1)
+        self.assertEqual(cells[0]["vir_spread"], 0.8)
+        sc = _make_sweep_config_for_cell(cells[0], cfg)
+        self.assertEqual(sc.vir_mass_spread, 0.8)
+
+    def test_spread_axis_virialized_only(self):
+        """cube26 ignores the spread axis -> no redundant cells (it would only
+        recompute the same cube26 sim under colliding keys)."""
+        cfg = self._base(node_geometries=["cube26"], vir_mass_spreads=[0.8, 2.0, 3.0])
+        cells = expand_grid(cfg)
+        self.assertEqual(len(cells), 1, "cube26 must not fan out over the spread axis")
 
 
 if __name__ == "__main__":

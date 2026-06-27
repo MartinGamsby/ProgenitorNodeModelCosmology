@@ -205,8 +205,11 @@ init are factorial).
 old 273-step 40 Myr), S co-fit `[3..35]` `s_cofit_method="ternary"` (the B4 validation found
 LINEAR was broken on pantheon — it pinned near s_max because `compute_pantheon_metrics`
 zero-fills the match keys; ternary == brute; the linear early-stop is also fixed now),
-`objective="pantheon"`, `vir_n_nodes=150` (above the 80 floor → finer mass function + deeper
-interior).
+`objective="pantheon"`. Virialized arms: `vir_n_nodes=300` + `vir_mass_spread=2.0` (a WIDER
+mass function — few big nodes + many small — that avoids the small-S cloud collapse and reaches
+the accelerating ~0.51 corner; PF15). `vir_mass_spread` is now a SWEEPABLE axis
+(`vir_mass_spreads` list, keyed==run via the `vsp` slug); `sweeps/explore_vir_spread.json` sweeps
+σ{0.8..4} × M{10..500} × S{10..30} to find good params for the focused final sweep.
 
 **12 core arms** = 3 GRF geometries {cube26 control, virialized Option A lattice, Option B
 gradient} × 3 MATCHED close-range treatments {none (plummer, no substep) / bounded+substep

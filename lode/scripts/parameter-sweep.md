@@ -383,8 +383,12 @@ init/particles are config-WIDE scalars in the driver (only M/geometry/init are f
   co-fit `[3..35]` with `s_cofit_method="ternary"` (the B4 validation found LINEAR was
   broken on the pantheon objective — it pinned near s_max because `compute_pantheon_metrics`
   zero-fills `USED_MATCH_METRIC_KEYS`; ternary == brute, and the linear early-stop is now
-  fixed too — see the co-fit section above), `objective="pantheon"`, `vir_n_nodes=150`
-  (above the 80 floor for a finer mass function + deeper interior).
+  fixed too — see the co-fit section above), `objective="pantheon"`. Virialized arms now
+  `vir_n_nodes=300` + `vir_mass_spread=2.0` (a WIDER mass function — a few big nodes + many
+  small ones — which avoids the small-S cloud collapse and reaches the accelerating corner;
+  PF15). `vir_mass_spread` is now a SWEEPABLE axis (`vir_mass_spreads` list → one cell per
+  spread, keyed==run via the `vsp` slug); `sweeps/explore_vir_spread.json` sweeps it
+  (sigma{0.8,1.5,2,3,4} × M{10..500} × S{10..30}) to find good params for the focused final sweep.
 - **12 core arms** = 3 GRF geometries {cube26 control, virialized Option A lattice, Option B
   gradient} × 3 MATCHED close-range treatments {none (plummer, no substep) / bounded+substep
   (1 Gpc cap, threshold=2.0, substeps=8 — the Section-4 validated combo) / Plummer 1 Gpc}

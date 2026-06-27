@@ -342,20 +342,57 @@ no-op; keyed==run through the sweep path. Source:
 The claim that the virialized grid "fits worse" than cube26 is UNVERIFIED and must stay so
 until the detached `sweeps/core_v3/` sweep runs cube26 as a control AT THE SAME softening /
 force-law in the SAME family (item 9 attribution). The 13-arm family (FEWER but HIGHER quality
-than the deleted comparison_v2: 2000p/546, M{1..1000}, S co-fit [3..35] ternary, vir_n_nodes=
-150; 12 core arms = 3 GRF geometries × 3 MATCHED treatments + cube26-uniform control × 3 = 84
-cells; arm 13 = the B3a seed sweep, 15 cells) + the secondary satellites (start_size 6/conv
-3/extent 3) + the detached, resumable launcher (`launch_sweep_detached.ps1`, Start-Process,
-core-only default / `-IncludeSatellites`) are BUILT and the keyed==run wiring is verified.
-The runtime is CALIBRATED (`_calibrate_runtime.py`, NO blind launch): measured at 2000p/546,
-cube26 bounded+substep ~88 s/sim, virA (150 nodes) bounded ~243 s, virB (gradient) bounded
-~65 s; none/plummer arms ~22-36 s (no substep). PROJECTION: CORE ~9.5 h + SEED ~7 h = ~16.5 h
-(~0.7 day); + satellites ~+11 h ⇒ ~27 h (~1.1 day) total (results/runtime_projection.csv).
+than the deleted comparison_v2: 2000p/546, M{1,5,10,50,100,500} (regular ×5/×2 grid), S co-fit
+[3..35] ternary; virialized arms now vir_n_nodes=300 + vir_mass_spread=2.0 (a WIDER mass
+function — see PF15); 12 core arms = 3 GRF geometries × 3 MATCHED treatments + cube26-uniform
+control × 3 = 72 cells; arm 13 = the B3a seed sweep, 15 cells) + the secondary satellites
+(start_size 6/conv 3/extent 3) + the detached, resumable, PARALLEL-capable launcher
+(`launch_sweep_detached.ps1`, Start-Process, core-only default / `-IncludeSatellites` /
+`-Parallel N` with the concurrency-safe shared cache) are BUILT and the keyed==run wiring is
+verified. The runtime CALIBRATOR (`_calibrate_runtime.py`, NO blind launch) measured (at the OLD
+vir_n_nodes=150): cube26 bounded+substep ~88 s/sim, virA bounded ~243 s, virB ~65 s; none/plummer
+~22-36 s. NOTE those are now STALE — the bumped 300-node virialized arms are ~2× slower; re-run
+the calibrator. `-Parallel N` divides wall-time by ~N.
 But the multi-day RESULTS are a flagged follow-on. Until that sweep COMPLETES, do NOT pin:
 cube26-vs-virialized attribution, the low/fine M/S landscape, start-size/convergence/extent
 results, or any final headline chi2 band for virialized. Source:
 [overarching-sweep.md](./overarching-sweep.md),
 [../scripts/parameter-sweep.md](../scripts/parameter-sweep.md).
+
+## PF15 — Node mass-function WIDTH (vir_mass_spread) is a key lever: a wide distribution avoids the small-S collapse and reaches the accelerating corner
+
+`vir_mass_spread` is the σ of the per-shell log-normal node mass draw (`exp(σ·N(0,1))`,
+mean-preserving). It is now a SWEEPABLE axis (`vir_mass_spreads` list in a sweep config →
+`expand_grid` emits one cell per spread; keyed==run via the `<>vsp` cache slug).
+
+**The growth anchor assumes nothing about node placement or the mass distribution.** It
+(`cosmo/parameter_sweep.py::compute_pantheon_metrics`, `GROWTH_ANCHOR_TOL=0.20`) gates ONLY the
+total realized expansion `a[-1]/a[0]` against the ΛCDM growth (`expected_growth_factor` ≈ 3.30×
+at t_start=2.9; admissible window ≈ [2.64, 3.97]). So a config is admissible iff its expansion
+lands there — nothing forbids small or nearby or sub-M nodes.
+
+**Findings (virialized lattice, GRF, 600p probe, single seed — probe-scale, NOT converged):**
+- NARROW spread (σ=0.8, the OLD default): at small S the dense shell of comparable-mass nodes
+  sits inside the observable cloud and its net gravity OVERWHELMS expansion → the CLOUD collapses
+  (growth → ~1; e.g. M=10/S≤10 → growth 0.97–1.5, anchor-rejected). This is the real failure
+  mode — NOT "M too weak." **Corrects the stale "M=1–2 → no anchor_ok" claim** (the narrow
+  outer-mass grid, see §the small-M note above): M=1 IS admissible at S≥10 (growth ~2.68); the
+  nodes are static (the GRID never collapses) — it is the particle cloud whose expansion is
+  suppressed.
+- WIDE spread (σ=3, 500 nodes): a few HUGE nodes (segregated to large radius) + many tiny ones →
+  negligible nearby pull → NO collapse (rejections 6/12 → 1/12); M=10/50/100/300/500 become
+  admissible. **M=100 / S=10 / σ=3 → growth 3.03 (genuinely ACCELERATING) and chi2/dof ≈ 0.510 —
+  the model's best-known floor (~0.52), now in a REALISTIC wide-mass FORCE-BALANCED virialized
+  structure** (lattice per-shell antipodal cancellation holds at any σ). A band M~100–500 / S~10–20
+  sits at 0.51–0.61; small S (≤5) still runs away (the few giant nodes too close).
+
+**Default bumped accordingly:** virialized core/seed/startsize arms now `vir_n_nodes=300` +
+`vir_mass_spread=2.0` (a "bigger distribution, more nodes" baseline — deliberately NOT the
+extreme), with `sweeps/explore_vir_spread.json` sweeping σ∈{0.8,1.5,2,3,4} × M{10..500} × S{10..30}
+to FIND the best (σ,M,S) region for the focused final sweep. **CAVEAT:** probe-scale (600–1000p,
+1 seed); the converged result + best defaults await the exploration sweep. Source:
+`cosmo/parameter_sweep.py` (expand_grid `vir_mass_spreads`; build_cache_name `vsp`),
+`sweeps/explore_vir_spread.json`; tests `TestVirMassSpreadAxis`.
 
 ## What is NOT yet pinned (the job of this phase)
 

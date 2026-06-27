@@ -42,6 +42,7 @@ from sweep import (
     load_config, DEFAULT_CONFIG, expand_grid,
     SWEEP_CSV_COLS, BEST_ISO_COLS,
     _FixedSweepConfig, run_plots_only,
+    _make_sweep_config_for_cell, _make_sim_callback,
 )
 from cosmo.parameter_sweep import build_cache_name
 
@@ -264,6 +265,111 @@ class TestCacheKeyUniqueness(unittest.TestCase):
         k1 = build_cache_name(self._cfg(0.0, 42), 100,  30, 1, [42])
         k2 = build_cache_name(self._cfg(0.0, 42), 1000, 30, 1, [42])
         self.assertNotEqual(k1, k2)
+
+
+# ---------------------------------------------------------------------------
+# 5b. vir_* threading: cache key and sim must agree (keyed-AND-run guard)
+# ---------------------------------------------------------------------------
+
+class TestVirializedThreading(unittest.TestCase):
+    """Lock the contract that anything which distinguishes the cache key (vir_*)
+    ALSO reaches the actual SimulationParameters. Without this, a virialized
+    sweep with non-default vir_* would key on the requested values but RUN with
+    SimulationParameters defaults (silent physics/cache mismatch, poisoned cache).
+    """
+
+    # A non-default vir_* config that differs from every default.
+    _NONDEFAULT = dict(
+        node_geometries=["virialized"],
+        vir_n_nodes=54,
+        vir_extent=2.0,
+        vir_mass_rule="massfunc",
+        vir_mass_spread=0.5,
+        vir_segregation=0.3,
+        vir_s_metric="mean",
+    )
+
+    def _cfg(self, **overrides):
+        cfg = dict(DEFAULT_CONFIG)
+        cfg.update(overrides)
+        return cfg
+
+    def _vir_cell(self):
+        return dict(M=100, amplitude=0.0, nm_seed=42, s_amplitude=0.0,
+                    init="uniform_sphere", geometry="virialized")
+
+    def _capture_sim_params(self, cfg, cell):
+        """Run the sim path and capture the SimulationParameters object that
+        _make_sim_callback._sim hands to run_external_node_simulation."""
+        sweep_cfg = _make_sweep_config_for_cell(cell, cfg)
+        sim_cb = _make_sim_callback(sweep_cfg, box_size_Gpc=10.0, a_start=0.1)
+        captured = {}
+
+        def fake_run(sim_params, box_size_Gpc, a_start, save_interval):
+            captured["params"] = sim_params
+            return {"dummy": True}
+
+        with patch("sweep.run_external_node_simulation", side_effect=fake_run), \
+             patch("sweep.results_to_sim_result", return_value="ok"):
+            sim_cb(M_factor=cell["M"], S_gpc=30, centerM=1, seeds=[42])
+        return captured["params"], sweep_cfg
+
+    def test_nondefault_vir_reaches_sim_params(self):
+        """The SimulationParameters built by the sim path carries the requested vir_*."""
+        cfg = self._cfg(**self._NONDEFAULT)
+        sim_params, _ = self._capture_sim_params(cfg, self._vir_cell())
+        self.assertEqual(sim_params.node_geometry, "virialized")
+        self.assertEqual(sim_params.vir_n_nodes, 54)
+        self.assertEqual(sim_params.vir_extent, 2.0)
+        self.assertEqual(sim_params.vir_mass_rule, "massfunc")
+        self.assertEqual(sim_params.vir_mass_spread, 0.5)
+        self.assertEqual(sim_params.vir_segregation, 0.3)
+        self.assertEqual(sim_params.vir_s_metric, "mean")
+
+    def test_sweep_config_carries_nondefault_vir(self):
+        """_make_sweep_config_for_cell threads vir_* onto the SweepConfig that
+        build_cache_name keys off of."""
+        cfg = self._cfg(**self._NONDEFAULT)
+        _, sweep_cfg = self._capture_sim_params(cfg, self._vir_cell())
+        self.assertEqual(sweep_cfg.vir_n_nodes, 54)
+        self.assertEqual(sweep_cfg.vir_extent, 2.0)
+        self.assertEqual(sweep_cfg.vir_mass_rule, "massfunc")
+        self.assertEqual(sweep_cfg.vir_mass_spread, 0.5)
+        self.assertEqual(sweep_cfg.vir_segregation, 0.3)
+        self.assertEqual(sweep_cfg.vir_s_metric, "mean")
+
+    def test_cache_key_encodes_nondefault_vir(self):
+        """The cache key must encode the SAME vir_* the sim will use."""
+        cfg = self._cfg(**self._NONDEFAULT)
+        sim_params, sweep_cfg = self._capture_sim_params(cfg, self._vir_cell())
+        key = build_cache_name(sweep_cfg, 100, 30, 1, [42])
+        # Slugs (see build_cache_name): vn / vx / vr / vsp / vsg / vsm
+        for slug in ("54vn", "2.0vx", "massfuncvr", "0.5vsp", "0.3vsg", "meanvsm"):
+            self.assertIn(slug, key, f"cache key missing vir slug {slug!r}: {key}")
+        # And the sim params agree with what the key encoded.
+        self.assertEqual(sim_params.vir_n_nodes, sweep_cfg.vir_n_nodes)
+        self.assertEqual(sim_params.vir_mass_rule, sweep_cfg.vir_mass_rule)
+
+    def test_nonvirialized_default_vir_unchanged(self):
+        """INVARIANT: a cube26 (non-virialized) config still gets default vir_*
+        in both the SweepConfig and the SimulationParameters, and its cache key
+        carries NO vir slug — byte-identical to before this threading."""
+        cfg = self._cfg()  # plain defaults: node_geometries=["cube26"]
+        cell = dict(M=100, amplitude=0.0, nm_seed=42, s_amplitude=0.0,
+                    init="uniform_sphere", geometry="cube26")
+        sim_params, sweep_cfg = self._capture_sim_params(cfg, cell)
+        # Defaults preserved on both objects.
+        self.assertEqual(sweep_cfg.vir_n_nodes, 26)
+        self.assertEqual(sweep_cfg.vir_extent, 1.0)
+        self.assertEqual(sweep_cfg.vir_mass_rule, "radial")
+        self.assertEqual(sim_params.vir_n_nodes, 26)
+        self.assertEqual(sim_params.vir_mass_spread, 0.0)
+        self.assertEqual(sim_params.vir_segregation, 1.0)
+        self.assertEqual(sim_params.vir_s_metric, "median")
+        # No vir slug on a cube26 key.
+        key = build_cache_name(sweep_cfg, 100, 30, 1, [42])
+        for slug in ("vn", "vx", "vr", "vsp", "vsg", "vsm"):
+            self.assertNotIn(slug, key, f"cube26 key must not carry vir slug {slug!r}: {key}")
 
 
 # ---------------------------------------------------------------------------

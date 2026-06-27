@@ -243,6 +243,17 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
         node_geometry=cell["geometry"],
         geometry_kwargs=cfg.get("geometry_kwargs", {}),
         outer_density_ceiling=cfg.get("outer_density_ceiling", 1.0),
+        # Virialized COUPLED-grid params. Consumed only when node_geometry ==
+        # "virialized"; threaded here so build_cache_name (which reads them off the
+        # SweepConfig) and the actual sim (SimulationParameters, see _make_sim_callback)
+        # agree. Defaults mirror SweepConfig / SimulationParameters exactly, so
+        # non-virialized configs are byte-identical.
+        vir_n_nodes=cfg.get("vir_n_nodes", 26),
+        vir_extent=cfg.get("vir_extent", 1.0),
+        vir_mass_rule=cfg.get("vir_mass_rule", "radial"),
+        vir_mass_spread=cfg.get("vir_mass_spread", 0.0),
+        vir_segregation=cfg.get("vir_segregation", 1.0),
+        vir_s_metric=cfg.get("vir_s_metric", "median"),
     )
 
 
@@ -268,6 +279,16 @@ def _make_sim_callback(sweep_cfg: _FixedSweepConfig, box_size_Gpc: float, a_star
             init_distribution=sweep_cfg.init_distribution,
             node_geometry=getattr(sweep_cfg, "node_geometry", "cube26"),
             geometry_kwargs=getattr(sweep_cfg, "geometry_kwargs", {}),
+            # Virialized COUPLED-grid params: read from the same SweepConfig that
+            # build_cache_name keys off, so the sim sees exactly what the cache key
+            # encodes. Defaults mirror SimulationParameters/SweepConfig, so
+            # non-virialized runs are unaffected.
+            vir_n_nodes=getattr(sweep_cfg, "vir_n_nodes", 26),
+            vir_extent=getattr(sweep_cfg, "vir_extent", 1.0),
+            vir_mass_rule=getattr(sweep_cfg, "vir_mass_rule", "radial"),
+            vir_mass_spread=getattr(sweep_cfg, "vir_mass_spread", 0.0),
+            vir_segregation=getattr(sweep_cfg, "vir_segregation", 1.0),
+            vir_s_metric=getattr(sweep_cfg, "vir_s_metric", "median"),
         )
         ext_results = run_external_node_simulation(
             sim_params, box_size_Gpc, a_start, sweep_cfg.save_interval

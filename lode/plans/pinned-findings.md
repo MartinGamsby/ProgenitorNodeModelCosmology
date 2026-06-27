@@ -77,9 +77,10 @@ not a single "best M" number.
 **Runaway boundary** (PF5): S_crit ∝ M^(1/3). At M=3000, all S≤45 amp=0.5 runaway.
 At M=1500, S=20-25 runaway for both amp=0 and amp=0.5. The boundary is real.
 
-GRF-vs-uniform sensitivity (from prior work at M=1500/S=30): uniform_sphere gives
-chi2~0.52, GRF gives chi2~1.56 — large swing. Not re-run here; still an open question
-(WS5). Do NOT claim 0.52 for GRF init.
+GRF-vs-uniform sensitivity (at M=1500/S=30): uniform_sphere chi2~0.526; the swing is now
+RESOLVED (PF12) — grf-sphere (fixed default) 0.84, grf-box (legacy cube) 1.14. The
+sphere-support fix cuts ~half the swing; the residual Δ~+0.32 is real clustering physics.
+Do NOT claim 0.52 for GRF init (it reads ~0.84 in this strong-field cell).
 
 ## PF5 — Runaway boundary is real physics
 
@@ -140,25 +141,40 @@ near-field), not how the perturbation acts. Source:
 [../physics/node-placement-vs-perturbation.md](../physics/node-placement-vs-perturbation.md),
 [node-geometries.md](./node-geometries.md).
 
-## PF8 — Force balance requires LATTICE symmetry (a random blob can't virialize)
+## PF8 — Only the analytic lattice reaches center force-balance; iterative relaxation (Option B) does NOT
 
-The user's criterion ("inner nodes of a big-enough virialized grid should not move")
-is measurable via `virialization_residual` (dimensionless inner-node net force / one
-neighbour pull; criterion `max_residual <= 0.25`). MEASURED: the REALISTIC virialized
-layout (`vir_relax_steps=0`, Fibonacci segregated) is NOT virialized — big-grid (n=100)
-inner residual O(20–30) for BOTH mass rules. The FORCE-BALANCED lattice
-(`vir_relax_steps>=1`, the DEFAULT: cubic-lattice ball, node at origin, masses by shell)
-drops it to MACHINE PRECISION (~1e-30) for BOTH `radial` and `massfunc`.
+RE-GROUNDED on the CENTER-ONLY metric of a LARGE grid + REAL Option-B numbers (the
+disputed "irreducible central monopole" hand-wave is DROPPED; the conclusion is now
+empirical, not asserted).
 
-FINDING: a continuous position relaxation CANNOT reach net-zero inner force on a finite
-canvas (an irreducible central monopole), so a random mass-segregated blob can never be
-force-balanced — only LATTICE SYMMETRY cancels opposing pulls. HMEA nodes are STATIC
-boundary conditions (a frozen virialized meta-structure), so the exact symmetric lattice
-is the physically correct realization of "virialized". Hence `vir_relax_steps` is a
-balance LEVEL (lattice on/off), not a relaxation-step count, and BOTH mass rules are
-virialized once balanced. Source:
+The user's criterion ("the DEEP-INTERIOR nodes of a big-enough virialized grid should
+not move") is measurable via `virialization_residual`, now with a CENTER-ONLY selector:
+`center_k` (the K nodes closest to the centroid, size-INDEPENDENT so a bigger grid
+genuinely deepens the interior) or `center_frac`, in addition to the legacy `inner_frac`
+(byte-identical default 0.5). The residual is DIMENSIONLESS = |net node accel| / a_ref
+(a_ref = one characteristic neighbour pull, `reference="mean_pairwise"`); criterion
+`max_residual <= VIRIALIZATION_TOL = 0.25` — NOT 25% of total force (the user asked).
+
+MEASURED at the deep center (S=30 Gpc, both mass rules, grid sizes n=26/100/500):
+- **Option A (analytic lattice, `vir_relax_mode="lattice"`, DEFAULT):** center max
+  residual ~1e-28..1e-31 at EVERY size → PASSES TOL=0.25 (opposing lattice pulls cancel).
+- **Realistic un-relaxed (Fibonacci segregated):** residual 25..275, GROWING with grid
+  size → fails.
+- **Option B (TRUE iterative relaxation, `vir_relax_mode="gradient"`):** genuinely
+  descends the force-residual objective f=Σ|a_i|² (analytic gradient validated vs finite
+  diff ~3e-6, monotone backtracking) — radial n=500: 275→**95**; massfunc n=500: 96→**32**.
+  It REDUCES the residual but BOTTOMS OUT ~O(100×) ABOVE TOL.
+
+FINDING: Option B does NOT reach center force-balance at the deep interior of even the
+largest grid, for BOTH mass rules — a realistic blob relaxed by position descent gets
+~95/32 vs the lattice's ~1e-29. So the analytic lattice is the one perfectly-balanced
+realization. HMEA nodes are STATIC boundary conditions (a frozen virialized
+meta-structure), so the symmetric lattice is the physically correct realization of
+"virialized". `vir_relax_mode` selects A (lattice) vs B (gradient), and `vir_relax_steps`
+is the gradient step COUNT in mode B (a balance LEVEL in mode A). Source:
 [../physics/node-placement-vs-perturbation.md](../physics/node-placement-vs-perturbation.md),
-[node-geometries.md](./node-geometries.md); tests `test_virialization_validation.py`.
+[node-geometries.md](./node-geometries.md); tests `test_virialization_validation.py`,
+`test_virialized_grid.py`, `test_virialization_figs.py`.
 
 ## PF9 — Slingshot cause is the node close-pass; node softening is the only lever
 
@@ -171,7 +187,33 @@ default 0.0 = legacy hard floor = BYTE-IDENTICAL (no PHYSICS_CACHE_VERSION bump)
 =1.0 caps the close-pass kick. "DOUBLY TAMED": the force-balanced virialized geometry
 already lowers the tail (~23x vs ~514x) AND softening collapses it further (cube26
 514→~2.8, virialized ~23→~7). Vanishes at M_ext=0 (PF1 preserved); far-field < 5%
-change. Source: [../physics/slingshot-and-softening.md](../physics/slingshot-and-softening.md);
+change.
+
+CLOSE-ENCOUNTER LAW COMPARISON (Section 4, all opt-in / default OFF / byte-identical, no
+PHYSICS_CACHE_VERSION bump): two alternatives to the blunt Plummer floor were built and
+measured on a deliberately runaway config (cube26, M=1000/S=10, N=300, 273 steps),
+chi2/dof from the authoritative `compute_pantheon_metrics` (max/median displacement,
+growth, chi2/dof):
+
+| close-range treatment | max | median | growth | chi2/dof |
+|-----------------------|-----|--------|--------|----------|
+| legacy hard floor | 844× | 6927 | — | inf |
+| Plummer 1 Gpc | 2.8× | 3.04 | — | 29.0 |
+| bounded "can't cross midpoint" 1 Gpc | 6.7× | 5.23 | — | inf |
+| adaptive KDK substep alone | 93× | 1559 | — | inf |
+| bounded + substep | 2.4× | 3.38 | in-anchor | **48.7** |
+
+`node_force_law="bounded"` CAPS the per-node accel at its value at the softening radius
+(G·m/soft²) below the softening length (distinct from Plummer softening force → 0);
+adaptive substep (`node_substep_threshold`/`node_substeps`, KDK subdivision near a node)
+refines dt during close passes. VERDICT: substep ALONE does NOT tame the tail
+(re-confirms the "more steps won't help" part of this PF); the bounded law tames it and
+pulls growth toward LCDM; bounded+substep is the only cube26 combo landing growth in the
+anchor window with finite chi2. The VIRIALIZED runaway at this extreme config is
+GEOMETRIC (mass spread, no single near-point node) and is NOT tamed by any law — an
+honest negative result. The mostly-inf chi2 are the growth anchor correctly rejecting
+deliberately extreme runaways. Source:
+[../physics/slingshot-and-softening.md](../physics/slingshot-and-softening.md);
 tests `tests/test_slingshot.py`.
 
 ## PF10 — start_size_scale is a REAL a(t)-shape lever, not a normalization offset
@@ -187,13 +229,126 @@ way to vary the tidal-to-self-gravity ratio without changing M or S. Source:
 [../physics/initial-conditions.md](../physics/initial-conditions.md); tests
 `tests/test_start_size.py`.
 
+## PF11 — The figure↔CSV chi2 conflict was a real keyed-but-not-run bug; ONE authoritative chi2 now
+
+The reported 0.903 (CSV) vs ~0.52 (figure) for `virialized_final` was NOT a normalization
+nuance — it was a BUG in the FIGURE path. `_generate_mu_z_panel` (sweep.py) hand-rolled a
+`SimulationParameters` that OMITTED `node_geometry`, `geometry_kwargs`, all `vir_*`,
+`node_softening_gpc`, and `start_size_scale`, so the figure re-ran a cube26/no-softening
+sim (a DIFFERENT a(t) → ~0.52) while the CSV held the true virialized score (~0.90). The
+classic keyed-but-not-run bug, in the figure path.
+
+FIX: a single source of truth — `_build_sim_params(sweep_cfg, M, S, centerM, seed)` is now
+called by BOTH the sim-callback and the panel; the panel rebuilds the cell from the CSV row
+(`_cell_from_best_row` → `_make_sweep_config_for_cell` → `_build_sim_params`), the IDENTICAL
+machinery the real run uses, so the panel can never drift from the cell.
+`_emit_chi2_reconciliation` prints/writes CSV chi2_dof (AUTHORITATIVE) vs figure-recomputed
+chi2_dof + |diff|, requiring <0.01. Verified end-to-end on the real virialized_final knobs:
+CSV = figure = 0.824771, |diff| = 0.000000. No physics changed → no PHYSICS_CACHE_VERSION
+bump; cube26-default figures byte-identical. CONSEQUENCE: every chi2 quoted before this fix
+for a NON-default-geometry cell must use the CSV (authoritative) value, not the figure
+annotation. Source: [../scripts/parameter-sweep.md](../scripts/parameter-sweep.md),
+[overarching-sweep.md](./overarching-sweep.md); tests
+`tests/test_overarching_sweep.py::TestMuZPanelParamsMatchSim`.
+
+## PF12 — GRF is NOT broken; the swing was half a cube-vs-sphere setup bug + half real clustering
+
+The GRF density field is healthy (mean δ~5e-22, no NaN/Inf, P(k) decays large→small scale,
+Zel'dovich displacement RMS-controlled to 0.5 cell, RMS-norm exact, COM~0). The chi2 swing
+was real and decomposed (authoritative `compute_pantheon_metrics`, 3 seeds, N∈{1000,2000,4000})
+into H4 (setup, ~half) + H1 (real physics, residual) — NOT near-runaway (growth ~2.76 vs
+anchor 3.30), NOT N-noise (seed spread ~0.01-0.04).
+
+ROOT CAUSE (H4): the GRF sampler filled a CUBE (linspace³ Lagrangian grid), not a sphere, so
+the cloud had a fat radial tail (~11% of particles beyond 1.3R vs uniform's 0.1%); those
+corner particles changed the bulk a(t) in the strong tidal field. FIX: `sample_grf(support=
+"sphere")` (new DEFAULT) masks the Lagrangian grid to the same `(box/2)/sqrt(3/5)` radius
+uniform_sphere uses, so the ONLY remaining difference vs uniform is clustering. Legacy
+`support="box"` kept for comparison; uniform_sphere byte-identical; GRF entries are separate
+cache keys (no PHYSICS_CACHE_VERSION bump).
+
+KEY NUMBERS (chi2/dof): swing cell M=1500/S=30 — uniform 0.526, grf-sphere (fixed) 0.84
+(Δ=+0.32 = genuine clustering), grf-box (legacy) 1.14 (Δ=+0.61): the sphere fix cuts ~half
+the swing; the residual +0.32 is REAL clustering physics (flat across N). Weak cell
+M=100/S=60 — uniform 0.61, grf-sphere 0.61 (Δ=+0.002): GRF == uniform in the isotropic
+regime, confirming the clustering-insensitive expectation there. M=0==EdS holds for GRF.
+**A Section-7 GRF row reads ~0.84 (not ~0.53) in the strong-field band because that residual
+is real clustering, not a bug — do NOT claim 0.52 for GRF init.** Source:
+[../physics/realistic-initial-conditions.md](../physics/realistic-initial-conditions.md),
+[grf-vs-uniform.md](./grf-vs-uniform.md); tests `tests/test_realistic_init.py` (GRF field
+stats, support, GRF-EdS).
+
+## PF13 — Observer-from-a-particle: best observer is a cherry-pick, NOT a model win (but reveals anisotropy spread)
+
+The user's hypothesis ("we're not in the centre — compute mu(z) from EACH particle and take
+the best") was prototyped (`cosmo/observer_distance.py`, two observer defs: `local_rms` k-NN
+RMS growth, `hubble_flow` local-Hubble integral; centre-observer limit reproduces the centre
+a(t) exactly; scored with the SAME authoritative chi2). It is a PURE ADD-ON off the default
+path and is NOT pinned as a fit improvement.
+
+NUMBERS (M=1000, S=30, t_start=2.9, N=120, real Pantheon+): cube26 — centre 0.515, BEST
+observer 0.436 (= LCDM floor), MEDIAN 0.535, p10/p90 0.45/0.74. virialized — centre 15.22
+(centre runs away here, growth ~32× vs physical ~3.2×), best observer 0.90-0.93, MEDIAN
+8.7-9.6, p10/p90 ~5/42.
+
+VERDICT: the BEST observer beats the centre in every config (cube26 +15%, virialized +94%),
+but this is the MIN over 120 observers — a SELECTION EFFECT, not a model win. The fair
+statistic is the DISTRIBUTION, and the MEDIAN is WORSE than the centre. So "take the best
+particle" does NOT honestly improve the fit. What it DOES reveal is a large per-observer
+SPREAD = a PF2-style anisotropy signal (off-centre observers infer materially different
+expansions). Prototype scale N=120. Source:
+[../physics/observer-from-particle.md](../physics/observer-from-particle.md); tests
+`tests/test_observer_distance.py`.
+
+## PF14 — vir_extent can drive node count (opt-in) to keep the ball density constant
+
+`vir_extent_couples_nodes` (default False = byte-identical) makes `vir_extent` DRIVE the
+virialized node count to hold the ball density constant — which also makes `vir_extent`
+meaningful again in the force-balanced lattice mode (where it was a NO-OP, since the lattice
+ball radius derives from node count). Density law: volume-filling ball (ρ=N/V, V=4/3·π·R³);
+realized reach R grows ~linearly with extent, so holding ρ constant under R~extent requires
+N~extent³ (`extent_coupled_n_nodes(N0,extent)=max(1,round(N0·extent³))`). Reference extent
+1.0 → factor 1.0 → node count UNCHANGED even when the flag is on.
+
+NUMBERS (base N0=64, lattice mode, coupling ON): extent 1.0→n 64 (reach/S 2.45, density 4.35,
+center residual 2.4e-07); 1.5→n 216 (reach/S 3.74, density 4.12); 2.0→n 512 (reach/S 5.10,
+density 3.86); 3.0→n 1728 (reach/S 7.81, density 3.63). Node count rises as extent³, reach
+grows (knob now meaningful), NN spacing stays == S, density holds in a ~3.6-4.4 band (vs a
+~27× collapse a fixed-count grid would suffer over 1→3), center stays force-balanced
+(residual << 0.25). Default OFF byte-identical (no slug); ON at extent=1 is a byte-identical
+no-op; keyed==run through the sweep path. Source:
+[node-geometries.md](./node-geometries.md); tests
+`tests/test_virialized_grid.py::TestExtentNodeCoupling`,
+`tests/test_overarching_sweep.py`.
+
+## PF-PENDING — "virialized fits worse/better than cube26": NOT YET PINNED (awaiting the comparison_v2 sweep)
+
+The claim that the virialized grid "fits worse" than cube26 is UNVERIFIED and must stay so
+until the detached `sweeps/comparison_v2/` sweep runs cube26 as a control AT THE SAME
+softening / force-law / start-size in the SAME sweep (item 9 attribution). The config + the
+detached, resumable launcher (`launch_sweep_detached.ps1`, Start-Process, 19 arms isolating
+one variable each, 222 cells) are BUILT and the keyed==run wiring is verified (Section 7
+threaded four previously keyed-but-not-run axes: `node_force_law`, `node_substep_threshold`,
+`node_substeps`, and especially `vir_relax_mode` — Option B was ENTIRELY UNREACHABLE from any
+sweep config before this). But the multi-day RESULTS are a flagged follow-on. Until that
+sweep COMPLETES, do NOT pin: cube26-vs-virialized attribution, the low/fine M/S landscape,
+start-size/co-fit/convergence results, or any final headline chi2 band for virialized. Smoke
+(4 cells) confirmed the pipeline (best cube26 M=100/S=19 chi2/dof 0.4993, anchor_ok; chi2
+reconciliation passed) but is NOT a result. Source:
+[overarching-sweep.md](./overarching-sweep.md),
+[../scripts/parameter-sweep.md](../scripts/parameter-sweep.md).
+
 ## What is NOT yet pinned (the job of this phase)
 
-- The single consistent chi2/dof for the nominal + best configs on one kernel/anchor.
+- The cube26-vs-virialized attribution and the final headline chi2 band for virialized
+  (PENDING the detached `comparison_v2` sweep — see PF-PENDING above). The chi2 DEFINITION
+  is now authoritative (PF11), but the multi-day comparison numbers are not in yet.
 - Whether ANY node geometry yields a larger net isotropic effect (WS3).
-- Whether the GRF chi2 swing is real physics, near-runaway sensitivity, particle-count
-  noise, or a GRF setup issue (WS5).
-- Whether all conclusions survive high N (WS6).
+- Whether all conclusions survive high N (WS6) — the comparison_v2 convergence ladder
+  (1000p/2000p/4000p) addresses this once it runs.
 - A fuller WS4 centerM sweep INCLUDING the M~50/S~20 corner (the reduced grid that
   produced PF6 omitted it). centerM-as-outer-mass semantics are now IMPLEMENTED (PF6);
   whether outer mass helps at the model's actual best-fit corner is still open.
+
+(RESOLVED since the last edit: the GRF chi2 swing is now attributed — PF12, the cube-vs-
+sphere setup bug + real clustering; and the figure↔CSV chi2 conflict is fixed — PF11.)

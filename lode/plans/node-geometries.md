@@ -153,7 +153,10 @@ other geometry gets positions from `build_node_positions` and masses INDEPENDENT
 | `vir_mass_spread` | amplitude of the node-mass distribution. **THE falsifiable knob**: 0 → uniform masses | 0.0 |
 | `vir_segregation` | mass↔radius coupling strength [0,1]; 0 → decoupled | 1.0 |
 | `vir_s_metric` | `"median"` or `"mean"` — which NN-spacing statistic the layout targets as S | `"median"` |
-| `vir_relax_steps` | BALANCE LEVEL (see below). 0 → realistic Fibonacci layout; >=1 → force-balanced cubic-lattice ball | 1 |
+| `vir_relax_steps` | balance LEVEL in lattice mode (0 → realistic Fibonacci; >=1 → force-balanced lattice) OR the literal step COUNT in gradient mode (see below) | 1 |
+| `vir_relax_mode` | `"lattice"` (Option A, analytic balance) or `"gradient"` (Option B, true iterative relaxation toward force equilibrium) | `"lattice"` |
+| `vir_relax_rate` | gradient-descent step as a fraction of NN spacing (Option B only) | 0.1 |
+| `vir_hold_outer_frac` | fraction of OUTERMOST nodes pinned during gradient descent (Option B only) | 0.3 |
 | `vir_extent_couples_nodes` | item-10 coupling (see below). When True, `vir_extent` DRIVES `vir_n_nodes` (density-preserving `N = round(N0·extent³)`), making `vir_extent` meaningful in the force-balanced lattice mode. False = byte-identical; no-op at `vir_extent==1.0` | False |
 | seed | `np.random.default_rng(node_mass_seed)` (one-seed coherence, like node_s_amplitude) | node_mass_seed |
 
@@ -191,31 +194,41 @@ changes how far the lattice ball reaches, via node count).
   untouched (NO `PHYSICS_CACHE_VERSION` bump). M_ext=0 == EdS preserved (node count
   doesn't matter when all masses are 0).
 
-### vir_relax_steps — REALISTIC vs FORCE-BALANCED (the virialization criterion)
+### vir_relax_mode + vir_relax_steps — Option A (lattice) vs Option B (gradient)
 
-`vir_relax_steps` is a BALANCE LEVEL, not a count of relaxation iterations:
+`vir_relax_mode` selects the balance approach (DEFAULT `"lattice"` = Option A,
+byte-identical); `vir_relax_steps` is a BALANCE LEVEL in lattice mode and a literal STEP
+COUNT in gradient mode.
 
-- **`vir_relax_steps=0` (REALISTIC):** the Fibonacci-sphere segregated layout above
-  (directions on a Fibonacci sphere, radii `[0.5S,(0.5+extent)S]`, NN-rescaled to S).
-  It is a plausible *snapshot* of a relaxed cluster but is NOT force-balanced — the
-  inner-node net force residual is O(20–30)×a_ref (massfunc slightly the lesser
-  offender). vir_extent / vir_s_metric (median vs mean) only shape THIS mode.
-- **`vir_relax_steps>=1` (FORCE-BALANCED, DEFAULT):** an exact cubic-lattice ball with
-  a node AT the origin and masses assigned by radius shell (antipodal nodes share a
-  mass to keep the balance). Inner-node residual is at MACHINE PRECISION (~1e-30) for
-  BOTH `radial` AND `massfunc` rules → satisfies the user's criterion. This mode puts
-  ONE node at r=0, so tests that need every node at non-zero radius use relax_steps=0.
+- **Option A — `vir_relax_mode="lattice"` (DEFAULT):**
+  - `vir_relax_steps=0` (REALISTIC): the Fibonacci-sphere segregated layout above
+    (directions on a Fibonacci sphere, radii `[0.5S,(0.5+extent)S]`, NN-rescaled to S).
+    A plausible *snapshot* of a relaxed cluster but NOT force-balanced — the CENTER-node
+    residual is 25..275 and GROWS with grid size (massfunc slightly the lesser offender).
+    vir_extent / vir_s_metric only shape THIS mode.
+  - `vir_relax_steps>=1` (FORCE-BALANCED): an exact cubic-lattice ball, node AT the origin,
+    masses by radius shell (antipodal nodes share a mass). CENTER residual ~1e-29 for BOTH
+    `radial` AND `massfunc` → satisfies the criterion. Puts ONE node at r=0, so tests that
+    need every node at non-zero radius use relax_steps=0.
+- **Option B — `vir_relax_mode="gradient"`:** a TRUE iterative relaxation. Start from the
+  realistic segregated blob and move each node down the net-force gradient — descend
+  f=Σ|a_i|² (analytic gradient validated vs finite diff ~3e-6) via monotone backtracking
+  over `vir_relax_steps` steps, with `vir_relax_rate` (step as a fraction of NN spacing,
+  default 0.1) and `vir_hold_outer_frac` (fraction of OUTERMOST nodes pinned, default 0.3).
+  Descending the POTENTIAL instead collapses the blob, which is why a naive "+a" step
+  diverges.
 
-**PHYSICS FINDING (why a lattice, not iterative relaxation):** a continuous position
-relaxation provably CANNOT reach net-zero inner force on a finite canvas — the cloud of
-inner mass always presents an irreducible central monopole, so a random mass-segregated
-blob can never be force-balanced. Only LATTICE SYMMETRY makes opposing pulls cancel to
-~0. And the HMEA nodes are STATIC boundary conditions (a frozen virialized
-meta-structure feeding the Progenitor node), so an exact symmetric lattice is the
-PHYSICALLY RIGHT realization of "virialized" — not a dynamically-relaxed random draw.
-Hence "balance level" (lattice on/off), not "relaxation steps". BOTH mass rules are
-virialized when balanced. Metric + criterion:
-[../physics/node-placement-vs-perturbation.md](../physics/node-placement-vs-perturbation.md).
+**PHYSICS FINDING (re-grounded — the "irreducible monopole" hand-wave is DROPPED; this is
+now empirical, measured with the CENTER-ONLY metric on a LARGE grid):** Option B genuinely
+REDUCES the residual monotonically but does NOT reach center force-balance — radial n=500
+275→**95**, massfunc n=500 96→**32**, both ~O(100×) above TOL=0.25, vs Option A's ~1e-29.
+So a realistic relaxed blob is NOT virialized at the deep center; only the analytic lattice
+is. The HMEA nodes are STATIC boundary conditions (a frozen virialized meta-structure
+feeding the Progenitor node), so the symmetric lattice is the physically right realization
+of "virialized". BOTH mass rules pass once on the lattice. Center-only metric + criterion +
+the full Option A/B table:
+[../physics/node-placement-vs-perturbation.md](../physics/node-placement-vs-perturbation.md),
+[../plans/pinned-findings.md](../plans/pinned-findings.md) PF8.
 
 ### nearest_neighbour_spacing — the S definition
 
@@ -253,11 +266,12 @@ cloud, both numba + numpy paths, both rules).
 
 `build_cache_name` appends `virializedgeo` (via the existing `!= "cube26"` branch) PLUS
 virialized-only sub-slugs (`{vir_n_nodes}vn`, `{vir_extent}vx`, `{rule}vr`,
-`{spread}vsp`, `{seg}vsg`, `{metric}vsm`, `{vir_relax_steps}vrx`), plus `1vxcouple`
+`{spread}vsp`, `{seg}vsg`, `{metric}vsm`, `{vir_relax_steps}vrx`), the Option-B slugs
+(`{vir_relax_mode}vrm`, `{vir_relax_rate}vrr`, `{vir_hold_outer_frac}vho`) appended only
+when NON-DEFAULT (so a default lattice-mode run keeps its existing key), plus `1vxcouple`
 ONLY when `vir_extent_couples_nodes` is True. These are appended ONLY for virialized,
 so every existing cube26/cube_dense/fcc/bcc key is UNTOUCHED and virialized lives at a
-brand-new key → `PHYSICS_CACHE_VERSION` stays `v3`. The `1vxcouple` slug is gated on the
-flag too, so a DEFAULT (coupling-off) virialized run keeps its existing key as well.
+brand-new key → `PHYSICS_CACHE_VERSION` stays `v3`.
 
 ### Tests (all green)
 

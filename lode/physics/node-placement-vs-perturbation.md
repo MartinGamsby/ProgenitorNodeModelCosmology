@@ -52,38 +52,51 @@ This lets us probe whether a segregated, controlled-extent structure changes the
 near-field / growth story that the far-parked lattice nodes cannot. Implementation +
 parameters: [../plans/node-geometries.md](../plans/node-geometries.md).
 
-## The virialization criterion — and why it needs a LATTICE, not relaxation
+## The virialization criterion — CENTER-ONLY metric, Option A (lattice) vs Option B (gradient)
 
-The user's physical test: *"the inner nodes of a big enough virialized grid should not
-move; if they do, it's not virialized."* Made measurable by two pure helpers in
-`cosmo/node_geometry.py`:
+The user's physical test: *"make a LARGE structure and check the forces only in the nodes
+near the CENTER; the DEEP-INTERIOR nodes of a truly virialized grid should not move."*
+The OUTER nodes obviously feel a net inward pull (they are at the boundary), so the metric
+must isolate the deep interior of a BIG grid — not "inner 50% of a small grid." Made
+measurable by two pure helpers in `cosmo/node_geometry.py`:
 
 - `node_net_accelerations(positions, masses, *, center_mass_kg, G)` — the net
   gravitational accel on each node from all OTHER nodes + a central node of mass
   `center_mass_kg` (= centerM, 1 by default). Mirrors the sim's tidal law incl. the
   1e10 m floor.
-- `virialization_residual(...)` → a DIMENSIONLESS per-inner-node residual
-  `|net_accel| / a_ref` (a_ref = one characteristic neighbour pull). An inner node is
-  "virialized" when `max_residual <= VIRIALIZATION_TOL = 0.25`.
+- `virialization_residual(...)` → a DIMENSIONLESS per-node residual `|net_accel| / a_ref`
+  (a_ref = one characteristic neighbour pull, `reference="mean_pairwise"`). A node is
+  "virialized" when `max_residual <= VIRIALIZATION_TOL = 0.25`. The CENTER-ONLY selector
+  is `center_k` (the K nodes closest to the centroid — SIZE-INDEPENDENT, so a bigger grid
+  genuinely deepens the interior) or `center_frac`; the legacy `inner_frac=0.5` default is
+  byte-identical. "0.25" is a dimensionless ratio (net force / one neighbour pull), NOT 25%
+  of total force.
 
-**Empirical result:** the REALISTIC layout (`vir_relax_steps=0`, Fibonacci segregated)
-is NOT virialized — big-grid (n=100) inner residual is O(20–30) for BOTH rules. The
-FORCE-BALANCED lattice (`vir_relax_steps>=1`, DEFAULT) drops the inner residual to
-MACHINE PRECISION (~1e-30) for BOTH `radial` and `massfunc`.
+**Empirical result (center-only, deep interior; S=30 Gpc; both mass rules; n=26/100/500):**
 
-**The physics finding (decision):** a continuous position relaxation CANNOT reach
-net-zero inner force on a finite canvas. Any inner node sees the surrounding mass as an
-irreducible central monopole, so a random mass-segregated BLOB can never be
-force-balanced. Only LATTICE SYMMETRY (opposing pulls cancel) reaches ~0. And the HMEA
-nodes are STATIC boundary conditions — a frozen virialized meta-structure — so the
-exact symmetric lattice is the physically correct realization of "virialized", not a
-dynamically-relaxed random draw. Hence `vir_relax_steps` is a balance LEVEL (lattice
-on/off), and BOTH mass rules are virialized once balanced.
+| realization | center max residual | virialized? |
+|-------------|---------------------|-------------|
+| Option A (analytic lattice, `vir_relax_mode="lattice"`, DEFAULT) | ~1e-28..1e-31 at every size | YES |
+| realistic un-relaxed (Fibonacci segregated) | 25..275, GROWS with grid size | no |
+| Option B (TRUE relaxation, `vir_relax_mode="gradient"`) | radial n=500 275→**95**; massfunc n=500 96→**32** | no (bottoms ~O(100×) above TOL) |
+
+**The physics finding (re-grounded, empirical — the old "irreducible monopole" hand-wave
+is DROPPED):** Option B is a genuine iterative relaxation — it descends the force-residual
+objective f=Σ|a_i|² (analytic gradient validated vs finite diff ~3e-6, monotone
+backtracking; descending the POTENTIAL instead collapses the blob, which is why a naive
+"+a" step diverges). It REDUCES the residual monotonically but does NOT reach center
+force-balance: a realistic blob relaxed by position descent bottoms out at ~95/32 vs the
+lattice's ~1e-29. So the analytic lattice is the ONE perfectly-balanced realization, and
+the HMEA nodes are STATIC boundary conditions (a frozen virialized meta-structure), so the
+symmetric lattice is the physically correct realization of "virialized". `vir_relax_mode`
+selects A (lattice) vs B (gradient); in mode B `vir_relax_steps` is the gradient step
+COUNT (a balance LEVEL in mode A).
 
 ```mermaid
 graph TD
-    BLOB[random mass-segregated blob] -->|irreducible central monopole| NOBAL[inner net force O(20-30) >> TOL]
-    LAT[symmetric cubic-lattice ball<br/>node at origin, masses by shell] -->|opposing pulls cancel| BAL[inner residual ~1e-30 << TOL=0.25]
+    REAL[realistic segregated blob] -->|center residual 25..275, grows with size| NOBAL[not virialized]
+    GRAD[Option B: gradient relaxation<br/>descend f=sum a_i squared] -->|monotone descent, bottoms 95/32| PART[reduced but >> TOL]
+    LAT[Option A: symmetric cubic-lattice ball<br/>node at origin, masses by shell] -->|opposing pulls cancel| BAL[center residual ~1e-29 << TOL=0.25]
     BC[HMEA nodes = STATIC boundary conditions] --> LAT
 ```
 
@@ -113,9 +126,9 @@ the cube on the isotropic fit (PF3 / node-geometries.md).
 
 ## References
 
-- [../plans/node-geometries.md](../plans/node-geometries.md) — WS3 factory + virialized geometry + vir_relax_steps balance level (IMPLEMENTED)
-- [../plans/pinned-findings.md](../plans/pinned-findings.md) — PF1 (M=0==EdS), PF2 (anisotropy), PF3 (M/S³), PF8 (force-balance-requires-lattice)
+- [../plans/node-geometries.md](../plans/node-geometries.md) — WS3 factory + virialized geometry + vir_relax_mode (lattice/gradient) (IMPLEMENTED)
+- [../plans/pinned-findings.md](../plans/pinned-findings.md) — PF1 (M=0==EdS), PF2 (anisotropy), PF3 (M/S³), PF8 (center-only: only the lattice balances, Option B does not)
 - [force-calculations.md](./force-calculations.md) — tidal 1/r³, per-node mass/position knobs
 - [slingshot-and-softening.md](./slingshot-and-softening.md) — node close-pass slingshot + node_softening_gpc taming
 - [observable-mask-and-outer-mass.md](./observable-mask-and-outer-mass.md) — WS4 outer-mass (related "horizon" framing)
-- Tests: `tests/test_virialization_validation.py` (the metric + criterion), `tests/test_virialized_grid.py::TestRelaxBalanceLevel` (balance level)
+- Tests: `tests/test_virialization_validation.py` (the metric + center-only criterion), `tests/test_virialized_grid.py` (balance level + Option B gradient), `tests/test_virialization_figs.py` (residual-vs-gridsize + Option-B descent figures)

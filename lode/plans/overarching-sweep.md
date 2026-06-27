@@ -45,8 +45,12 @@ graph TD
 | particle count | `particle_count` | pinned via `_FixedSweepConfig` |
 | node_geometry | `node_geometries` | `"cube26"` default; others add slug to cache key |
 | virialized knobs | `vir_n_nodes`/`vir_extent`/`vir_mass_rule`/`vir_mass_spread`/`vir_segregation`/`vir_s_metric`/`vir_relax_steps` | consumed only when geometry=="virialized"; keyed==run guarded |
+| virialized relax mode | `vir_relax_mode` (lattice/gradient) + `vir_relax_rate`/`vir_hold_outer_frac` | Option A vs Option B (gradient); keyed==run (Option B was UNREACHABLE before Section 7) |
+| extent⇒node count | `vir_extent_couples_nodes` | default False; when on, vir_extent drives node count ~extent³ (PF14) |
 | node softening | `node_softening_gpc` | 0.0 default (legacy floor, byte-identical); slingshot taming |
+| close-encounter law | `node_force_law` (plummer/bounded) + `node_substep_threshold`/`node_substeps` | bounded "can't-cross-midpoint" + adaptive KDK substep; default OFF/byte-identical (PF9) |
 | start size | `start_size_scale` | 1.0 default (byte-identical); initial-size/density lever |
+| co-fit method | `s_cofit_method` (linear/ternary) | per-M S search; linear can pin at the S boundary |
 
 ## CLI
 
@@ -79,7 +83,10 @@ python sweep.py --tag my_run                        # custom CSV/figure prefix
   "vir_segregation":     1.0,
   "vir_s_metric":        "median",
   "vir_relax_steps":     1,
+  "vir_relax_mode":      "lattice",
+  "vir_extent_couples_nodes": false,
   "node_softening_gpc":  0.0,
+  "node_force_law":      "plummer",
   "start_size_scale":    1.0,
   "s_cofit_method":      "linear",
   "objective":           "pantheon",
@@ -144,9 +151,12 @@ match_avg_pct, diff_pct
 | `sweeps/knob_grf.json` | GRF 2-knob factorial (replaces deleted pantheon_knob_sweep.py) |
 | `sweeps/knob_grf.json` etc. | (other exploration configs as authored) |
 | `sweeps/virialized_final.json` | **WS1/W6 HEADLINE** — see below |
+| `sweeps/comparison_v2/` (19 arms) + `comparison_v2_smoke.json` | the ALL-OPTIONS attribution sweep — see below (results PENDING) |
 
 `tests/test_overarching_sweep.py::TestAllSweepConfigsLoadAndExpand` asserts every
-committed `sweeps/*.json` loads via `load_config` + `expand_grid` to >=1 cell.
+committed top-level `sweeps/*.json` loads via `load_config` + `expand_grid` to >=1 cell
+(it globs only top-level; the `comparison_v2/` subdir arms are covered by the dedicated
+`TestComparisonV2Family`, and `_manifest.json` is excluded via the `[0-9]*` glob).
 
 ## sweeps/virialized_final.json — the WS1/W6 headline "doubly tamed" run
 
@@ -154,10 +164,12 @@ The big-enough force-balanced virialized + node-softened headline sweep. Selecti
 min chi2/dof vs REAL Pantheon+ among anchor_ok rows (objective="pantheon"); chi2_lcdm
 ≈0.436 / chi2_eds ≈0.843 stamped per row as REFERENCE only.
 
-- geometry `virialized`, `vir_relax_steps=1` (FORCE-BALANCED lattice; inner residual
-  ~1e-30, both rules virialized), `vir_mass_rule="massfunc"` (log-normal draw +
-  segregate-by-rank), `vir_mass_spread=0.8`, `vir_n_nodes=80`, `vir_extent=2.5`,
-  `vir_segregation=1.0`, `vir_s_metric="median"`.
+- geometry `virialized`, `vir_relax_steps=1` (FORCE-BALANCED lattice; CENTER residual
+  ~1e-29, both rules virialized), `vir_mass_rule="massfunc"` (log-normal draw +
+  segregate-by-rank), `vir_mass_spread=0.8`, `vir_n_nodes=80`, `vir_segregation=1.0`,
+  `vir_s_metric="median"`. (`vir_extent` is OMITTED — it is a NO-OP in the force-balanced
+  lattice mode; the radial layering comes from `vir_n_nodes`. Use
+  `vir_extent_couples_nodes` if you want extent to drive node count instead — PF14.)
 - `node_softening_gpc=1.0` → "DOUBLY TAMED" (force-balanced geometry + 1 Gpc Plummer
   node softening collapses the runaway tail). `start_size_scale=1.0`, `centerM=1`.
 - TIGHT near-LCDM band (PF4): M∈{200,500,1000,1500,3000}, S co-fit (linear) [20,45]
@@ -167,6 +179,45 @@ min chi2/dof vs REAL Pantheon+ among anchor_ok rows (objective="pantheon"); chi2
 
 Command: `python sweep.py --config sweeps/virialized_final.json` (the orchestrator runs
 this; numerical chi2/dof results to be pinned in pinned-findings.md once the run lands).
+
+## Authoritative chi2 — figure == CSV (PF11)
+
+The mu(z) figure annotation and the CSV chi2/dof are now the SAME number. A single
+`_build_sim_params` builds SimulationParameters for BOTH the sim-callback and
+`_generate_mu_z_panel` (which rebuilds the cell from the CSV row via `_cell_from_best_row`).
+Previously the panel omitted node_geometry/vir_*/node_softening/start_size and re-ran a
+cube26-no-softening sim, so a virialized cell annotated ~0.52 while the CSV held ~0.90 — a
+keyed-but-not-run bug in the figure path. `_emit_chi2_reconciliation` requires CSV==figure
+to <0.01 (verified |diff|=0.000000). ALWAYS quote the CSV value. Guarded by
+`TestMuZPanelParamsMatchSim`.
+
+## sweeps/comparison_v2/ — the ALL-OPTIONS attribution sweep (config BUILT, results PENDING)
+
+Answers the user's items 2/8/9/10 (try ALL options, isolate variables, include a cube26
+control). A 19-arm FAMILY (`NN_*.json` + `_manifest.json`) — one variable isolated per arm
+against a cube26/no-softening control, because geometry/softening/force-law/relax-mode/
+start-size/particles/co-fit are config-WIDE scalars in the driver (only M/geometry/init are
+factorial), so a single factorial config could not vary them cleanly.
+
+Arms cover: cube26 control vs virialized Option A (lattice) vs Option B (gradient);
+`node_softening_gpc` in {0, 1.0} + the bounded "can't-cross-midpoint" force law; M much
+lower+finer {20..3000}; S co-fit `s_min=8` (vs the old "no way" 20); linear AND ternary
+co-fit; `start_size_scale` in {0.5,0.8,1.2,1.5,2.0}; `vir_extent=1.5` coupled to node count
+(80→270); particle/step convergence ladder {1000p/273, 2000p/546, 4000p/1092}. 222 cells →
+~2664 sims → ~4 h est.
+
+Launch DETACHED + RESUMABLE: `powershell -ExecutionPolicy Bypass -File
+.\launch_sweep_detached.ps1` runs all arms in sequence via `Start-Process` (orphaned from
+Claude, survives a restart), static argument vector `@('sweep.py','--config',$cfg)`, per-arm
+logs in `results/logs/` (gitignored). Resume = relaunch the same command; `-NoResume` forces
+recompute.
+
+**Results are a FLAGGED FOLLOW-ON (multi-day).** Until this completes, the cube26-vs-
+virialized attribution, the low/fine M/S landscape, start-size/co-fit/convergence results,
+and the final virialized chi2 band are PENDING — do NOT pin "virialized fits worse/better"
+(see pinned-findings PF-PENDING). The 4-cell smoke (3.5 s) confirmed the pipeline only
+(best cube26 M=100/S=19 chi2/dof 0.4993, anchor_ok; chi2 reconciliation passed; resume
+verified), NOT a result.
 
 ## First-exploration results (first_exploration tag, 2026-06-25)
 
@@ -252,7 +303,7 @@ wired into the geometry sweep.
 
 ## Tests
 
-`tests/test_overarching_sweep.py` — 52 fast unit tests (no sims):
+`tests/test_overarching_sweep.py` — fast unit tests (no sims):
 - Config loading + JSON override
 - Grid expansion: amp=0 collapse, total count, required keys
 - CSV column contract: SWEEP_CSV_COLS ⊇ BEST_ISO_COLS
@@ -260,10 +311,16 @@ wired into the geometry sweep.
 - `_FixedSweepConfig`: particle_count and n_steps pinned
 - Cache-key uniqueness across geometry/init/amplitude/seed
 - vir_* keyed==run threading (SweepConfig + SimulationParameters agree; slugs present)
-- node_softening_gpc keyed==run threading (default no-slug byte-identical)
+- node_softening_gpc / start_size_scale keyed==run threading (default no-slug byte-identical)
+- `TestForceLawSubstepRelaxModeThreading`: node_force_law / node_substep_* / vir_relax_mode
+  (Option B) / vir_extent_couples_nodes keyed==run — incl. "Option B builds a different grid
+  than Option A" (these four were keyed-but-not-run before Section 7)
+- `TestMuZPanelParamsMatchSim`: the mu(z) panel params == the sim-callback params field by
+  field for a virialized cell (every dropped knob non-default) — the PF11 figure↔CSV fix
+- `TestComparisonV2Family`: 19 arms, 222-cell count, required axes (M≤50/S<15, smoke knobs)
 - objective config key + `_select_best_row` (pantheon=min chi2, lcdm=max match)
 - knob-grf migration (ported from deleted test_pantheon_knob_sweep.py)
-- every committed sweeps/*.json loads + expands (smoke)
+- every committed top-level sweeps/*.json loads + expands (smoke)
 - S co-fit vs explicit list selection
 - --plots-only wiring
 - load_best_config compatibility + reference chi2 (LCDM > 0.3, < 0.6; EdS > LCDM)

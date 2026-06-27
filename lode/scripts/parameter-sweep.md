@@ -58,7 +58,12 @@ class SweepConfig:
     # virialized-geometry knobs (consumed only when node_geometry=="virialized"):
     vir_n_nodes / vir_extent / vir_mass_rule / vir_mass_spread / vir_segregation /
     vir_s_metric / vir_relax_steps   # see node-geometries.md
+    vir_relax_mode: str = "lattice"  # "lattice" (Option A) or "gradient" (Option B)
+    vir_relax_rate / vir_hold_outer_frac      # gradient-descent knobs (Option B)
+    vir_extent_couples_nodes: bool = False    # extent⇒node count (PF14); default off
     node_softening_gpc: float = 0.0  # Plummer node softening (0.0 = legacy hard floor)
+    node_force_law: str = "plummer"  # "plummer" or "bounded" close-range law (PF9)
+    node_substep_threshold / node_substeps    # adaptive KDK substep (default OFF)
     start_size_scale: float = 1.0    # initial-size/density lever (1.0 = byte-identical)
 
 @dataclass
@@ -80,8 +85,8 @@ class MatchWeights:  # USED by compute_avg (additive aggregate). Field names map
     end: float              # = 10 * SIZE_WEIGHT_VS_HUBBLE
     hubble_end: float = 10
 # NOTE: the old field names (size_curve/size_half_curve/endpoint/max_radius) are
-# GONE — stale tests in test_parameter_sweep.py still reference them (pre-existing
-# failure, out of scope).
+# GONE; test_parameter_sweep.py was reconciled to these current fields (the 3
+# formerly-stale tests now pass).
 
 @dataclass
 class SimResult:
@@ -253,8 +258,11 @@ config. See [../physics/pantheon-comparison-results.md](../physics/pantheon-comp
 `SimulationParameters` by `sweep.py::_make_sim_callback`. `build_cache_name` appends `<init>init` slug ONLY when
 `init_distribution != "uniform_sphere"`, so existing uniform_sphere cache keys are
 unchanged. `"grf"` runs get distinct keys and NEVER collide with uniform_sphere.
-Expected physics: chi2/dof is clustering-insensitive at 400p (isotropic chi2 is
-shape-driven, not sampling-driven), so grf and uniform_sphere give ~same chi2/dof.
+Physics (now characterized, PF12): chi2/dof is clustering-INSENSITIVE in the WEAK-field
+regime (grf==uniform at M=100/S=60), but in the STRONG-field band clustering genuinely
+shifts the bulk a(t) (M=1500/S=30: uniform 0.526 vs grf-sphere 0.84). GRF defaults to
+`support="sphere"` so the only difference vs uniform is clustering, not cube-corner mass.
+Do NOT claim grf==uniform unconditionally.
 
 ### Sweepable node_geometry (WS3) — MUST be threaded into the sim, not just the key
 `SweepConfig.node_geometry` / `geometry_kwargs` and `node_s_amplitude` are passed into
@@ -291,6 +299,48 @@ Both are guarded keyed==run in
 `tests/test_overarching_sweep.py::TestNodeSofteningThreading` /
 `tests/test_start_size.py::TestThreading`.
 
+### Sweepable close-encounter / relaxation / extent axes (Section 7 — fixed keyed-but-not-run)
+Four axes were keyed-but-not-run before Section 7 (slugs/fields existed but no sweep cell
+could SET them — `vir_relax_mode`=Option B was ENTIRELY UNREACHABLE from any config).
+Now threaded end-to-end through `SweepConfig → _make_sweep_config_for_cell →
+_build_sim_params → SimulationParameters`, slug appended only for non-default (no
+PHYSICS_CACHE_VERSION bump):
+- `node_force_law` ("plummer"|"bounded"), `node_substep_threshold`, `node_substeps` — the
+  close-encounter law / adaptive substep (PF9); lower layers already had them.
+- `vir_relax_mode` ("lattice"|"gradient"), `vir_relax_rate`, `vir_hold_outer_frac` — Option
+  B; cache sub-slugs `vrm`/`vrr`/`vho` appended only for virialized+non-default.
+- `vir_extent_couples_nodes` — extent⇒node count (PF14); sub-slug `1vxcouple`.
+Guarded keyed==run (incl. "Option-B builds a genuinely different grid than Option A") in
+`tests/test_overarching_sweep.py::TestForceLawSubstepRelaxModeThreading`.
+
+### Authoritative chi2 — the figure path == the sim path (PF11)
+The chi2/dof in the CSV and the chi2/dof annotated on the mu(z) figure are now the SAME
+number by construction. A module-level `_build_sim_params(sweep_cfg, M, S, centerM, seed)`
+is the SINGLE place SimulationParameters is built; it is called by BOTH the sim-callback
+AND `_generate_mu_z_panel` (via `_cell_from_best_row` → `_make_sweep_config_for_cell` →
+`_build_sim_params`). Previously the panel hand-rolled a SimulationParameters that omitted
+node_geometry/geometry_kwargs/vir_*/node_softening_gpc/start_size_scale, so for a
+non-default-geometry cell it re-ran cube26-no-softening and annotated a DIFFERENT chi2
+(~0.52) than the CSV held (~0.90) — the keyed-but-not-run bug in the FIGURE path.
+`_emit_chi2_reconciliation` prints/writes CSV chi2_dof (AUTHORITATIVE) vs figure-recomputed
+chi2_dof + |diff| and requires <0.01 (verified |diff|=0.000000). ALWAYS quote the CSV
+value. Guarded by `tests/test_overarching_sweep.py::TestMuZPanelParamsMatchSim`.
+
+### The comparison_v2 sweep family (Section 7 — config built, results PENDING)
+`sweeps/comparison_v2/` is a 19-arm family (`NN_*.json` + `_manifest.json`) that ISOLATES
+one variable per arm against a cube26/no-softening control, because
+geometry/softening/force-law/relax-mode/start-size/particles/co-fit are config-WIDE
+scalars in the driver (only M/geometry/init are factorial). Arms: cube26 control vs
+virialized Option A vs Option B; node_softening_gpc in {0,1.0} + bounded law; M much
+lower+finer {20..3000}; S co-fit s_min=8; linear AND ternary co-fit; start_size_scale in
+{0.5,0.8,1.2,1.5,2.0}; vir_extent=1.5 coupled to node count (80→270); particle/step
+convergence ladder {1000p/273, 2000p/546, 4000p/1092}; 222 cells. Launched DETACHED +
+RESUMABLE via `launch_sweep_detached.ps1` (Start-Process, static argument vector). The
+multi-day RESULTS are a FLAGGED FOLLOW-ON — the cube26-vs-virialized attribution and the
+final virialized chi2 band stay PENDING until it completes (see PF-PENDING). Family
+contract tested in `tests/test_overarching_sweep.py::TestComparisonV2Family` (19 arms,
+222-cell count, required axes).
+
 ## From-data sweep results (Stage 3, anchored, 2000p/300steps, t_start=2.9, seed=42)
 LINEAR_SEARCH on S per M, full z to ~2.1. All 98 configs passed the growth anchor
 (the per-M S-search already co-adjusts S to keep growth physical, so nothing was
@@ -326,8 +376,13 @@ WORSE than LCDM (0.43), and under-constrained by SN data alone. (The earlier
 **sweep.py (the driver):**
 - `expand_grid(cfg)` - factorial grid expansion (amp=0 collapses to a single nm_seed)
 - `_make_sweep_config_for_cell(cell, cfg)` - builds the SweepConfig (keys the cache)
+- `_build_sim_params(sweep_cfg, M, S, centerM, seed)` - the SINGLE source of truth for the
+  SimulationParameters; called by BOTH the sim-callback AND the mu(z) figure panel (PF11)
 - `_make_sim_callback(sweep_cfg, box, a_start)` - `(M,S,centerM,seeds) → [SimResult]`,
-  builds the actual SimulationParameters (must agree with the cache key — keyed==run)
+  uses `_build_sim_params` (must agree with the cache key — keyed==run)
+- `_cell_from_best_row(best_row)` - rebuild the cell from a CSV row so the figure panel
+  re-runs the EXACT cell the CSV scored (feeds `_build_sim_params` via the same machinery)
+- `_emit_chi2_reconciliation(...)` - asserts CSV chi2_dof == figure chi2_dof to <0.01
 - `_select_best_row(rows, objective)` - pantheon: min chi2_dof; lcdm: max match_avg_pct
 - `_compute_reference_chi2(pantheon_data, t_start)` - analytic LCDM + EdS chi2/dof refs
 
@@ -349,12 +404,18 @@ uniqueness (geometry/init/amplitude/seed + vir_* + node_softening keyed==run), S
 vs explicit, --plots-only wiring, objective key + `_select_best_row`, knob-grf migration,
 and a smoke test that EVERY `sweeps/*.json` loads + expands.
 
-`tests/test_parameter_sweep.py` - 36 tests using dummy callbacks (lcdm objective) for the
-LIBRARY `cosmo/parameter_sweep.py`:
+`tests/test_parameter_sweep.py` - 36/36 tests using dummy callbacks (lcdm objective) for
+the LIBRARY `cosmo/parameter_sweep.py`:
 - Parameter space builders
 - Match metric computation
 - Search algorithm correctness with unimodal callbacks
 - Early stopping, adaptive skipping, boundary handling
+RECONCILED (Section 3, code = source of truth): `TestMatchWeights::test_defaults` now
+asserts the current MatchWeights fields/defaults (curve=250, half_curve=125.0, end=2500,
+max=62.5, hubble_curve=1, hubble_half_curve=0.5, hubble_end=10);
+`test_weights_sum_to_one` was replaced by `test_weights_are_positive` (weights are
+relative, scaled by SIZE_WEIGHT_VS_HUBBLE=250, not summing to 1); `test_build_s_list_range`
+expects `len(build_s_list(15,60))==41` (first=20, last=60).
 
 `tests/test_parameter_sweep_pantheon.py` - 18 hermetic tests (pantheon objective,
 synthetic fixture + analytic-LCDM a_curve, no real sim):
@@ -369,13 +430,7 @@ synthetic fixture + analytic-LCDM a_curve, no real sim):
 
 Dummy callbacks create SimResult with predictable quality based on distance from optimal point, enabling search algorithm testing without real simulations.
 
-NOTE (pre-existing, OUT OF SCOPE): `tests/test_parameter_sweep.py` has 3 known
-failing tests unrelated to the objectives work — `TestMatchWeights.test_defaults`
-and `test_weights_sum_to_one` reference old MatchWeights field names
-(size_curve/endpoint/max_radius) that were renamed (curve/curve_r2/end/...), and
-`test_build_s_list_range` asserts len 46 while `build_s_list(15,60)` now returns
-41. These predate the Stage-3 work (which did not touch this test file).
-Hermetic-cache caveat: those tests set a module-LOCAL `SKIP_CACHE = True` which
+Hermetic-cache caveat: some library tests set a module-LOCAL `SKIP_CACHE = True` which
 does NOT disable the real cache (worst_callback reads the module global), so they
 do read/write `data/metrics_2000_s42*.csv`; the pantheon tests instead set
 `cosmo.parameter_sweep.SKIP_CACHE` on the module object to stay truly hermetic.

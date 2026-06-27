@@ -264,6 +264,18 @@ shifts the bulk a(t) (M=1500/S=30: uniform 0.526 vs grf-sphere 0.84). GRF defaul
 `support="sphere"` so the only difference vs uniform is clustering, not cube-corner mass.
 Do NOT claim grf==uniform unconditionally.
 
+**GRF support is its own cache axis (keyed==run).** Because the `sample_grf` default
+changed box->sphere (a(t) CHANGED for the fixed tuple `init_distribution="grf"`),
+`SweepConfig.grf_support` (default `"sphere"`, JSON key `grf_support`) is threaded into the
+sim via `_build_sim_params` as `init_kwargs={"support": ...}` (grf runs only; uniform_sphere
+keeps `init_kwargs=None` -> byte-identical). `build_cache_name` encodes support ONLY for grf
+AND ONLY for the NEW `"sphere"` support: it appends a `sphsup` token. The LEGACY `"box"`
+keeps the pre-existing BARE `..._grfinit_...` key, so any pre-fix on-disk cache (computed
+with box support) stays correctly addressed AS box and is NOT served for the new sphere
+default; sphere gets a distinct key and recomputes. `PHYSICS_CACHE_VERSION` stays `"v3"` (NO
+bump — bumping would needlessly invalidate the byte-identical uniform_sphere caches). The
+support value that keys the cache is the SAME value the sampler uses (keyed==run).
+
 ### Sweepable node_geometry (WS3) — MUST be threaded into the sim, not just the key
 `SweepConfig.node_geometry` / `geometry_kwargs` and `node_s_amplitude` are passed into
 `SimulationParameters` by `sweep.py::_make_sim_callback`. `build_cache_name` appends a

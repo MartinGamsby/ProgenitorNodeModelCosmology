@@ -1114,5 +1114,142 @@ class TestComparisonV2Family(unittest.TestCase):
         self.assertLessEqual(cfg["particle_count"], 200)
 
 
+# ---------------------------------------------------------------------------
+# 14. GRF support cache key + keyed==run (WS5 §8 box->sphere default fix)
+# ---------------------------------------------------------------------------
+
+class TestGRFSupportCacheKey(unittest.TestCase):
+    """The sample_grf default changed box->sphere (confine the GRF cloud to the
+    uniform_sphere radius). That changed a(t) for the fixed tuple
+    init_distribution="grf", so the grf cache key MUST distinguish the two supports
+    or a pre-fix box cache would be served stale for the new sphere default. The fix
+    encodes support ONLY for grf runs and ONLY for the NEW "sphere" support:
+
+      - support="box"    -> bare pre-existing "grfinit" token (old caches stay box)
+      - support="sphere" -> adds a "sphsup" discriminator (new default recomputes)
+
+    PHYSICS_CACHE_VERSION stays "v3" (no bump) and uniform_sphere / non-grf keys are
+    completely unchanged.
+    """
+
+    def _cfg(self, init="grf", grf_support="sphere"):
+        return _FixedSweepConfig(
+            particle_count=400, n_steps=273,
+            t_start_Gyr=2.9, t_duration_Gyr=10.9,
+            objective="pantheon",
+            s_min_gpc=20, s_max_gpc=80,
+            init_distribution=init,
+            grf_support=grf_support,
+        )
+
+    def test_grf_box_key_is_the_preexisting_bare_grf_key(self):
+        """REGRESSION: a grf-box key equals the bare grf key that existed BEFORE the
+        sphere discriminator (so any pre-fix on-disk cache stays correctly addressed
+        as box). The bare key carries the 'grfinit' init slug and NO support token."""
+        k_box = build_cache_name(self._cfg(grf_support="box"), 100, 30, 1, [42])
+        self.assertIn("grfinit", k_box)
+        self.assertNotIn("sphsup", k_box)
+
+    def test_grf_sphere_key_differs_from_box_key(self):
+        """The new sphere default MUST force a recompute (distinct key) vs box, so the
+        old box cache is never reused for the sphere a(t)."""
+        k_box = build_cache_name(self._cfg(grf_support="box"), 100, 30, 1, [42])
+        k_sph = build_cache_name(self._cfg(grf_support="sphere"), 100, 30, 1, [42])
+        self.assertNotEqual(k_box, k_sph)
+        self.assertIn("sphsup", k_sph)
+        # The sphere key is the box key + the discriminator (box is the bare baseline).
+        self.assertNotIn("sphsup", k_box)
+
+    def test_uniform_sphere_key_unchanged_no_support_token(self):
+        """uniform_sphere (and every non-grf) key is COMPLETELY unchanged: no grf
+        init slug, and the support discriminator never leaks onto a non-grf key."""
+        k_uni = build_cache_name(self._cfg(init="uniform_sphere"), 100, 30, 1, [42])
+        self.assertNotIn("grfinit", k_uni)
+        self.assertNotIn("sphsup", k_uni)
+        # grf_support is irrelevant for uniform_sphere: key invariant to it.
+        k_uni_box = build_cache_name(
+            self._cfg(init="uniform_sphere", grf_support="box"), 100, 30, 1, [42])
+        self.assertEqual(k_uni, k_uni_box)
+
+    def test_uniform_sphere_key_byte_identical_to_no_grf_support_field(self):
+        """The uniform_sphere key must be byte-identical to a config that predates the
+        grf_support field entirely (defaults round-trip). Build a SweepConfig WITHOUT
+        passing grf_support to confirm the default 'sphere' adds nothing for non-grf."""
+        cfg_default = _FixedSweepConfig(
+            particle_count=400, n_steps=273, t_start_Gyr=2.9, t_duration_Gyr=10.9,
+            objective="pantheon", s_min_gpc=20, s_max_gpc=80,
+            init_distribution="uniform_sphere",
+        )
+        k_default = build_cache_name(cfg_default, 100, 30, 1, [42])
+        k_explicit = build_cache_name(self._cfg(init="uniform_sphere"), 100, 30, 1, [42])
+        self.assertEqual(k_default, k_explicit)
+
+    def test_physics_cache_version_unchanged_v3(self):
+        """The fix must NOT bump PHYSICS_CACHE_VERSION (that would invalidate the
+        byte-identical uniform_sphere v3 caches)."""
+        from cosmo.parameter_sweep import PHYSICS_CACHE_VERSION
+        self.assertEqual(PHYSICS_CACHE_VERSION, "v3")
+
+
+class TestGRFSupportKeyedEqualsRun(unittest.TestCase):
+    """keyed == run: the grf_support value that goes into the cache key MUST be the
+    SAME value the sampler actually uses. The sweep threads grf_support into the sim
+    via init_kwargs={"support": ...}, and build_cache_name keys off the same field.
+    """
+
+    def _cfg(self, **overrides):
+        cfg = dict(DEFAULT_CONFIG)
+        cfg.update(overrides)
+        return cfg
+
+    def _grf_cell(self):
+        return dict(M=100, amplitude=0.0, nm_seed=42, s_amplitude=0.0,
+                    init="grf", geometry="cube26")
+
+    def _uniform_cell(self):
+        return dict(M=100, amplitude=0.0, nm_seed=42, s_amplitude=0.0,
+                    init="uniform_sphere", geometry="cube26")
+
+    def _capture(self, cfg, cell):
+        sweep_cfg = _make_sweep_config_for_cell(cell, cfg)
+        sim_cb = _make_sim_callback(sweep_cfg, box_size_Gpc=10.0, a_start=0.1)
+        captured = {}
+
+        def fake_run(sim_params, box_size_Gpc, a_start, save_interval):
+            captured["params"] = sim_params
+            return {"dummy": True}
+
+        with patch("sweep.run_external_node_simulation", side_effect=fake_run), \
+             patch("sweep.results_to_sim_result", return_value="ok"):
+            sim_cb(M_factor=cell["M"], S_gpc=30, centerM=1, seeds=[42])
+        return captured["params"], sweep_cfg
+
+    def test_grf_sphere_support_reaches_sim_init_kwargs_and_key(self):
+        cfg = self._cfg(init_distributions=["grf"], grf_support="sphere")
+        sim_params, sweep_cfg = self._capture(cfg, self._grf_cell())
+        # Sampler sees the SAME support that keys the cache.
+        self.assertEqual(sim_params.init_kwargs.get("support"), "sphere")
+        self.assertEqual(sweep_cfg.grf_support, "sphere")
+        key = build_cache_name(sweep_cfg, 100, 30, 1, [42])
+        self.assertIn("sphsup", key)
+
+    def test_grf_box_support_reaches_sim_init_kwargs_and_bare_key(self):
+        cfg = self._cfg(init_distributions=["grf"], grf_support="box")
+        sim_params, sweep_cfg = self._capture(cfg, self._grf_cell())
+        self.assertEqual(sim_params.init_kwargs.get("support"), "box")
+        self.assertEqual(sweep_cfg.grf_support, "box")
+        key = build_cache_name(sweep_cfg, 100, 30, 1, [42])
+        self.assertIn("grfinit", key)
+        self.assertNotIn("sphsup", key)
+
+    def test_uniform_sphere_init_kwargs_untouched(self):
+        """For uniform_sphere the run must be byte-identical: init_kwargs stays empty
+        (the sampler ignores support), regardless of grf_support."""
+        cfg = self._cfg(init_distributions=["uniform_sphere"], grf_support="box")
+        sim_params, _ = self._capture(cfg, self._uniform_cell())
+        # init_kwargs is None -> SimulationParameters stores {} (no support injected).
+        self.assertEqual(sim_params.init_kwargs, {})
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -17,6 +17,14 @@ CLUSTERED SPHERE and the ONLY difference vs uniform is clustering. The legacy `s
 The box variant has a fat radial tail (max ~1.64 R, ~11% of particles beyond 1.3 R vs uniform's
 ~0.1%), which is what produced the WS5 swing (below).
 
+**Cache axis (keyed==run).** Because the default changed box->sphere, the two supports get
+DISTINCT sweep cache keys so a pre-fix box cache is never served for the new sphere a(t):
+`SweepConfig.grf_support` (JSON `grf_support`, default `"sphere"`) threads into the sim via
+`init_kwargs={"support": ...}` (grf only; uniform_sphere unaffected) AND into
+`build_cache_name`, which appends a `sphsup` token ONLY for grf+sphere. Legacy `"box"` keeps
+the bare `grfinit` key (old caches stay valid as box). `PHYSICS_CACHE_VERSION` stays `"v3"`
+(no bump). See [../scripts/parameter-sweep.md](../scripts/parameter-sweep.md).
+
 **Is GRF broken? NO — diagnosed (WS5, item 11).** The GRF density field is healthy: mean(delta)
 ~1e-21, no NaN, P(k) decays large->small scale, Zel'dovich displacement RMS-controlled to exactly
 0.5 cell, RMS-norm exact, COM~0. The handover's "swing" (uniform ~0.52 vs grf ~1.56 chi2/dof at

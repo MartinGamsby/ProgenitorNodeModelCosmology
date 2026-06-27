@@ -36,6 +36,7 @@ Config shape (JSON, all keys optional; omit to use defaults)
   "node_s_amplitudes":   [0.0],
   "node_mass_seeds":     [42],
   "init_distributions":  ["uniform_sphere"],
+  "grf_support":         "sphere",          // GRF cloud geometry: "sphere" (default) or "box" (legacy)
   "particle_count":      400,
   "n_steps":             273,
   "t_start_Gyr":         2.9,
@@ -131,6 +132,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "node_s_amplitudes": [0.0],
     "node_mass_seeds": [42],
     "init_distributions": ["uniform_sphere"],
+    # GRF cloud support geometry (consumed only for init_distribution "grf"):
+    # "sphere" (default, WS5 §8 fix: confine to the uniform_sphere radius so only
+    # clustering differs) or "box" (legacy GRF-perturbed cube). Keys the grf cache
+    # ("sphsup" token for sphere; box keeps the bare grfinit key) -> keyed == run.
+    "grf_support": "sphere",
     "node_geometries": ["cube26"],
     "geometry_kwargs": {},
     # Fixed physics
@@ -266,6 +272,14 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
         node_mass_amplitude=cell["amplitude"],
         node_s_amplitude=cell["s_amplitude"],
         init_distribution=cell["init"],
+        # GRF support geometry (WS5 §8). Consumed only when init_distribution ==
+        # "grf"; threaded here so build_cache_name (keys off the SweepConfig) and the
+        # actual sim (SimulationParameters init_kwargs, see _build_sim_params) agree
+        # -> keyed == run. Default "sphere" mirrors the sample_grf default and adds NO
+        # cache token for the legacy "box" support (so a pre-fix box cache stays valid
+        # as box); "sphere" appends the "sphsup" discriminator so the new default
+        # recomputes instead of reusing the old box cache.
+        grf_support=cfg.get("grf_support", "sphere"),
         node_geometry=cell["geometry"],
         geometry_kwargs=cfg.get("geometry_kwargs", {}),
         outer_density_ceiling=cfg.get("outer_density_ceiling", 1.0),
@@ -344,6 +358,14 @@ def _build_sim_params(
     Defaults mirror SimulationParameters/SweepConfig, so non-virialized,
     default-knob cells stay byte-identical.
     """
+    # GRF support (WS5 §8): for grf runs, EXPLICITLY thread the support that keys the
+    # cache into the sampler via init_kwargs={"support": ...} so the value the cache
+    # encodes is the value the sampler actually uses (keyed == run, no reliance on the
+    # sample_grf implicit default). For uniform_sphere, leave init_kwargs as None so
+    # the run is byte-identical (the sampler ignores support).
+    init_kwargs = None
+    if sweep_cfg.init_distribution == "grf":
+        init_kwargs = {"support": getattr(sweep_cfg, "grf_support", "sphere")}
     return SimulationParameters(
         M_value=M_factor,
         S_value=S_gpc,
@@ -360,6 +382,9 @@ def _build_sim_params(
         node_mass_amplitude=sweep_cfg.node_mass_amplitude,
         node_s_amplitude=getattr(sweep_cfg, "node_s_amplitude", 0.0),
         init_distribution=sweep_cfg.init_distribution,
+        # GRF support reaches the sampler via init_kwargs (None for uniform_sphere ->
+        # byte-identical; {"support": grf_support} for grf -> keyed == run).
+        init_kwargs=init_kwargs,
         node_geometry=getattr(sweep_cfg, "node_geometry", "cube26"),
         geometry_kwargs=getattr(sweep_cfg, "geometry_kwargs", {}),
         # Virialized COUPLED-grid params: read from the same SweepConfig that

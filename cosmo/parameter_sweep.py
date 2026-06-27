@@ -228,6 +228,18 @@ class SweepConfig:
     # Particle initial-condition sampler. "uniform_sphere" keeps backward-compatible
     # cache keys; "grf" appends a slug to the cache key so the two never collide.
     init_distribution: str = "uniform_sphere"
+    # GRF support geometry (consumed only when init_distribution == "grf"). The
+    # sample_grf default changed box->sphere (WS5 §8 bug fix: confine the GRF cloud
+    # to the uniform_sphere radius so the ONLY difference vs uniform is clustering).
+    # That changed a(t) for the fixed tuple init_distribution="grf", so the cache
+    # key MUST distinguish the two supports or a pre-fix box cache would be served
+    # stale for the new sphere default. Default "sphere" mirrors the sampler default;
+    # its sub-slug is appended ONLY for grf AND only for the NEW "sphere" support, so
+    # the LEGACY "box" keeps the pre-existing bare "grfinit" token (any pre-fix
+    # on-disk cache is correctly addressed AS box and is NOT reused for sphere). See
+    # build_cache_name. Threaded into init_kwargs={"support": ...} for grf runs so
+    # the value that keys the cache is the value the sampler actually uses (keyed==run).
+    grf_support: str = "sphere"
     # Node geometry (WS3). "cube26" is the default/backward-compatible value and
     # does NOT add a slug to the cache key. Any other geometry appends a slug.
     node_geometry: str = "cube26"
@@ -745,6 +757,23 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     # keep their existing cache keys and grf runs get distinct keys.
     if init_distribution != "uniform_sphere":
         parts.append(f"{init_distribution}init")
+    # GRF support discriminator (WS5 §8): the sample_grf default changed box->sphere,
+    # which changed a(t) for the fixed tuple init_distribution="grf". To avoid serving
+    # a pre-fix box cache for the new sphere default WITHOUT a PHYSICS_CACHE_VERSION
+    # bump (which would needlessly invalidate the byte-identical uniform_sphere "v3"
+    # caches), encode support ONLY for grf runs, and ONLY for the NEW "sphere" support:
+    #   - support="box"    -> NO extra token: key stays the pre-existing bare
+    #                         "..._grfinit_..." so any on-disk pre-fix cache (computed
+    #                         with box support) remains addressed AS box (NOT reused).
+    #   - support="sphere" -> append "sphsup": the new default gets a DISTINCT key and
+    #                         MUST recompute rather than reuse the old box cache.
+    # Non-grf runs (uniform_sphere) are completely untouched. Suffix is purely
+    # alphabetic ("sphsup") so cache._split_key round-trips it. The value here is the
+    # SAME grf_support threaded into init_kwargs={"support": ...} (keyed == run).
+    if init_distribution == "grf":
+        grf_support = getattr(config, "grf_support", "sphere")
+        if grf_support == "sphere":
+            parts.append("sphsup")
     # node_geometry slug: append only when non-default so cube26 runs keep their
     # existing cache keys and alternative geometries get distinct keys.
     if node_geometry != "cube26":

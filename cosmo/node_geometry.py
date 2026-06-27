@@ -174,6 +174,190 @@ def nearest_neighbour_spacing(positions: np.ndarray, metric: str = "median") -> 
     raise ValueError(f"Unknown vir_s_metric {metric!r}; use 'median' or 'mean'.")
 
 
+def node_net_accelerations(
+    positions: np.ndarray,
+    masses: np.ndarray,
+    *,
+    center_mass_kg: float | None = None,
+    G: float | None = None,
+) -> np.ndarray:
+    """Net gravitational acceleration on each node from all OTHER nodes + a centre.
+
+    Mirrors the simulation's tidal law (``calculate_tidal_forces_numba``) EXACTLY,
+    including the ``|r| < 1e10 m -> 1e10`` singularity floor, so the residual this
+    feeds is consistent with the integrator. Pure numpy node-node sum (no particle
+    cloud, no RNG, no I/O).
+
+    For node ``i`` the acceleration from source ``j`` (every other node + one
+    central node at the origin) is the attractive
+        ``a_i += G * m_j * (x_j - x_i) / |x_j - x_i|^3``.
+    A central node of mass ``center_mass_kg`` is added at the origin (the user's
+    "centerM being a node"); its default is ``mean(masses)`` (one unit node).
+
+    Args:
+        positions: (N, 3) node positions in meters.
+        masses:    (N,) node masses in kg (same order as positions).
+        center_mass_kg: Mass of the extra central node at the origin. Defaults to
+            ``mean(masses)`` (the natural "one unit node" central mass).
+        G: Gravitational constant. Defaults to ``CosmologicalConstants.G``.
+
+    Returns:
+        (N, 3) net accelerations in m/s^2 (one row per input node; the central
+        node is a SOURCE only and has no output row).
+
+    Raises:
+        ValueError: if N < 1 or positions/masses lengths disagree.
+    """
+    pos = np.asarray(positions, dtype=np.float64)
+    m = np.asarray(masses, dtype=np.float64)
+    if pos.ndim != 2 or pos.shape[1] != 3:
+        raise ValueError(f"positions must be (N,3), got {pos.shape}")
+    n = pos.shape[0]
+    if n < 1:
+        raise ValueError("node_net_accelerations needs at least 1 node.")
+    if m.shape != (n,):
+        raise ValueError(
+            f"masses shape {m.shape} does not match {n} positions."
+        )
+
+    if G is None:
+        from .constants import CosmologicalConstants
+        G = CosmologicalConstants.G
+    if center_mass_kg is None:
+        center_mass_kg = float(np.mean(m))
+
+    # Source set = the N nodes + one central node at the origin.
+    src_pos = np.vstack([pos, np.zeros((1, 3), dtype=np.float64)])
+    src_mass = np.concatenate([m, np.array([float(center_mass_kg)], dtype=np.float64)])
+
+    # Vector from target i to source j: (N, S, 3). Diagonal (i==j among nodes)
+    # is excluded by the 1e10 floor making self-pull ~0 AND by zeroing it below.
+    diff = src_pos[None, :, :] - pos[:, None, :]
+    r = np.sqrt(np.sum(diff * diff, axis=2))  # (N, S)
+    # Singularity floor — identical to the numba kernel.
+    r = np.where(r < 1e10, 1e10, r)
+    inv_r3 = 1.0 / (r * r * r)  # (N, S)
+    # Exclude a node's pull on itself (i==j for the first N sources).
+    eye = np.eye(n, dtype=bool)
+    self_mask = np.zeros((n, n + 1), dtype=bool)
+    self_mask[:, :n] = eye
+    inv_r3 = np.where(self_mask, 0.0, inv_r3)
+    # a_i = G * sum_j m_j * diff_ij / r_ij^3
+    weights = (G * src_mass)[None, :, None] * inv_r3[:, :, None]
+    accel = np.sum(weights * diff, axis=1)
+    return accel.astype(np.float64)
+
+
+def virialization_residual(
+    positions: np.ndarray,
+    masses: np.ndarray,
+    *,
+    inner_frac: float = 0.5,
+    center_mass_kg: float | None = None,
+    G: float | None = None,
+    reference: str = "mean_pairwise",
+) -> dict:
+    """Dimensionless per-INNER-node force-balance residual for a node grid.
+
+    Physical criterion (the user's): the INNER nodes of a *truly virialized* grid
+    feel ~NET-ZERO gravity from all the other nodes plus a central node, so they
+    would not move. This returns, per inner node, the DIMENSIONLESS residual
+        ``residual_i = |net_accel_i| / a_ref``
+    where ``a_ref`` is a characteristic single-neighbour pull (see ``reference``).
+    A well-virialized inner node has residual << 1 (its directional pulls cancel);
+    an UN-balanced grid has residual ~O(1) or larger.
+
+    "Inner" nodes (the only ones the criterion applies to — edge nodes obviously
+    feel a net inward pull on a finite canvas, which is expected and NOT a failure)
+    are those with ``radius < inner_frac * r_max``. At least one node is always
+    returned: if none qualify, the single innermost node is used.
+
+    Args:
+        positions: (N, 3) node positions in meters.
+        masses:    (N,) node masses in kg.
+        inner_frac: Inner-radius fraction in (0, 1]; inner nodes are those with
+            radius below ``inner_frac * r_max`` (default 0.5).
+        center_mass_kg: Central-node mass (see node_net_accelerations); defaults
+            to ``mean(masses)`` (one unit node).
+        G: Gravitational constant (defaults to CosmologicalConstants.G).
+        reference: Normalization scale for the residual:
+            "mean_pairwise" (default) — a_ref = mean over ALL nodes i of the mean
+                single-source pull magnitude ``mean_j G m_j / |x_j - x_i|^2``
+                (incl. centre): "how big a typical single-neighbour pull is".
+            "max_pairwise" — a_ref = mean over inner nodes of the STRONGEST single
+                -source pull on that node (the nearest/heaviest neighbour).
+
+    Returns:
+        dict with:
+          'residual_per_node' (array over inner nodes, dimensionless),
+          'inner_idx'   (indices into the input arrays of the inner nodes),
+          'max_residual', 'median_residual' (floats),
+          'a_ref'       (the normalization scale, m/s^2),
+          'n_inner'     (number of inner nodes).
+
+    Raises:
+        ValueError: for N < 2 or unknown ``reference``.
+    """
+    pos = np.asarray(positions, dtype=np.float64)
+    m = np.asarray(masses, dtype=np.float64)
+    n = pos.shape[0]
+    if n < 2:
+        raise ValueError("virialization_residual needs at least 2 nodes.")
+    if reference not in ("mean_pairwise", "max_pairwise"):
+        raise ValueError(
+            f"Unknown reference {reference!r}; use 'mean_pairwise' or 'max_pairwise'."
+        )
+    if G is None:
+        from .constants import CosmologicalConstants
+        G = CosmologicalConstants.G
+    if center_mass_kg is None:
+        center_mass_kg = float(np.mean(m))
+
+    radius = np.linalg.norm(pos, axis=1)
+    r_max = float(radius.max())
+    inner_idx = np.nonzero(radius < float(inner_frac) * r_max)[0]
+    if inner_idx.size == 0:
+        # Fall back to the single innermost node.
+        inner_idx = np.array([int(np.argmin(radius))])
+
+    accel = node_net_accelerations(
+        pos, m, center_mass_kg=center_mass_kg, G=G
+    )
+    net_mag = np.linalg.norm(accel, axis=1)  # (N,)
+
+    # ---- Characteristic single-source pull magnitudes (reference scale) ----
+    src_pos = np.vstack([pos, np.zeros((1, 3), dtype=np.float64)])
+    src_mass = np.concatenate([m, np.array([float(center_mass_kg)], dtype=np.float64)])
+    diff = src_pos[None, :, :] - pos[:, None, :]
+    r = np.sqrt(np.sum(diff * diff, axis=2))
+    r = np.where(r < 1e10, 1e10, r)
+    pull = (G * src_mass)[None, :] / (r * r)  # (N, S) single-source |a|
+    # Mask self-pull (i==j among the first N sources).
+    self_mask = np.zeros((n, n + 1), dtype=bool)
+    self_mask[:, :n] = np.eye(n, dtype=bool)
+    pull = np.where(self_mask, np.nan, pull)
+
+    if reference == "mean_pairwise":
+        # Mean single-source pull per node, then mean over ALL nodes.
+        a_ref = float(np.nanmean(np.nanmean(pull, axis=1)))
+    else:  # "max_pairwise"
+        # Strongest single-source pull on each inner node, averaged.
+        a_ref = float(np.nanmean(np.nanmax(pull[inner_idx], axis=1)))
+
+    if not np.isfinite(a_ref) or a_ref <= 0.0:
+        a_ref = 1.0  # degenerate guard; residuals then equal raw |net accel|
+
+    residual_per_node = net_mag[inner_idx] / a_ref
+    return {
+        "residual_per_node": residual_per_node,
+        "inner_idx": inner_idx,
+        "max_residual": float(np.max(residual_per_node)),
+        "median_residual": float(np.median(residual_per_node)),
+        "a_ref": a_ref,
+        "n_inner": int(inner_idx.size),
+    }
+
+
 def _fibonacci_sphere(n: int) -> np.ndarray:
     """n roughly-isotropic unit direction vectors (Fibonacci sphere).
 

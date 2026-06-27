@@ -63,6 +63,8 @@ from cosmo.node_geometry import (
     build_node_positions,
     build_virialized_grid,
     nearest_neighbour_spacing,
+    node_net_accelerations,
+    virialization_residual,
 )
 from cosmo.factories import run_external_node_simulation, setup_simulation_context
 from cosmo.plots import figure_path, _footer, _DPI, _BBOX
@@ -288,6 +290,49 @@ def mass_radius_stats(positions: np.ndarray, masses: np.ndarray,
         "nn_mean": float(nn_mean),
         "n": n,
     }
+
+
+_VIR_RESIDUAL_SIZES: Tuple[int, ...] = (26, 40, 80, 120)
+_VIR_RESIDUAL_EXTENT: float = 2.5  # multi-layer so "inner" nodes really are inner
+
+
+def virialization_residual_curve(
+    sizes: Tuple[int, ...], rule: str, S_gpc: float, seed: int,
+    *, spread: float = _DEFAULT_VIR_SPREAD, segregation: float = _DEFAULT_VIR_SEGREGATION,
+    extent: float = _VIR_RESIDUAL_EXTENT, inner_frac: float = 0.5,
+    M_ext_kg: float = 1.0,
+) -> Dict[str, np.ndarray]:
+    """max/median inner-node virialization residual vs grid size for one rule.
+
+    For each n in ``sizes`` build the virialized grid and run
+    cosmo.node_geometry.virialization_residual; collect max & median residuals.
+    A virialized structure's residual should FALL as the grid grows; the current
+    generator's typically does NOT (it is not force-balanced). Pure: no I/O.
+
+    The grid is built at the REAL physical scale (S in METERS = S_gpc * Gpc_to_m)
+    so node spacings sit well ABOVE the metric's 1e10 m singularity floor and the
+    GEOMETRY (not the floor) drives the residual. The residual is dimensionless
+    (a force ratio), so the absolute scale only matters via the floor.
+
+    Returns dict of float arrays (same length as sizes):
+      'sizes', 'max_residual', 'median_residual'.
+    """
+    S_m = float(S_gpc) * CosmologicalConstants.Gpc_to_m
+    sizes_arr = np.asarray(sizes, dtype=np.int64)
+    maxr = np.empty(sizes_arr.size, dtype=np.float64)
+    medr = np.empty(sizes_arr.size, dtype=np.float64)
+    for i, n in enumerate(sizes_arr):
+        pos, masses = build_virialized_grid(
+            S_m, n_nodes=int(n), M_ext_kg=M_ext_kg, vir_mass_rule=rule,
+            vir_mass_spread=spread, vir_segregation=segregation,
+            vir_extent=extent, seed=seed,
+        )
+        res = virialization_residual(
+            pos, masses, inner_frac=inner_frac, center_mass_kg=M_ext_kg)
+        maxr[i] = res["max_residual"]
+        medr[i] = res["median_residual"]
+    return {"sizes": sizes_arr.astype(np.float64),
+            "max_residual": maxr, "median_residual": medr}
 
 
 # ===========================================================================
@@ -621,6 +666,141 @@ def generate_fig3(S_gpc: float, vir_n_nodes: int, seed: int,
 
 
 # ===========================================================================
+# Fig 4 — virialization (force-balance) residual: radial vs massfunc
+# ===========================================================================
+
+def generate_fig4_virialization(
+    S_gpc: float, vir_n_nodes: int, seed: int,
+    *, extent: float = _VIR_RESIDUAL_EXTENT,
+) -> Tuple[str, Dict[str, Dict[str, float]]]:
+    """Fig 4: inner-node FORCE-BALANCE (virialization) residual diagnostic.
+
+    Three panels expose whether the inner nodes of a "big enough" virialized grid
+    feel ~net-zero force (would not move) — the user's actual virialization test:
+
+      (1) Per-inner-node residual scatter for radial vs massfunc on the BIG grid
+          (residual = |net force| / characteristic single-neighbour pull; the
+          dashed line is the target tolerance — points below it are "virialized").
+      (2) max & median residual vs grid size (n in {26,40,80,120}) for both rules
+          — should FALL as the grid grows IF the grid is virialized.
+      (3) 3D node scatter coloured by net-force MAGNITUDE (red = big residual =
+          "would move"), for the big radial grid.
+
+    Returns (path, {'radial': {...}, 'massfunc': {...}}) where each dict carries
+    the big-grid max_residual / median_residual.
+    """
+    M_ext_kg = 1.0
+    inner_frac = 0.5
+    # "Big enough" so inner nodes have a near-symmetric surround; default CLI
+    # vir_n_nodes (26) is too small for a meaningful inner population.
+    big_n = max(int(vir_n_nodes), 100)
+    # Build at the REAL scale (meters) so spacings clear the 1e10 m floor.
+    S_m = float(S_gpc) * CosmologicalConstants.Gpc_to_m
+
+    def _big(rule, n=big_n):
+        return build_virialized_grid(
+            S_m, n_nodes=n, M_ext_kg=M_ext_kg, vir_mass_rule=rule,
+            vir_mass_spread=_DEFAULT_VIR_SPREAD,
+            vir_segregation=_DEFAULT_VIR_SEGREGATION,
+            vir_extent=extent, seed=seed,
+        )
+
+    pos_a, mass_a = _big("radial")
+    pos_b, mass_b = _big("massfunc")
+    res_a = virialization_residual(pos_a, mass_a, inner_frac=inner_frac,
+                                   center_mass_kg=M_ext_kg)
+    res_b = virialization_residual(pos_b, mass_b, inner_frac=inner_frac,
+                                   center_mass_kg=M_ext_kg)
+
+    curve_a = virialization_residual_curve(
+        _VIR_RESIDUAL_SIZES, "radial", S_gpc, seed, extent=extent,
+        inner_frac=inner_frac, M_ext_kg=M_ext_kg)
+    curve_b = virialization_residual_curve(
+        _VIR_RESIDUAL_SIZES, "massfunc", S_gpc, seed, extent=extent,
+        inner_frac=inner_frac, M_ext_kg=M_ext_kg)
+
+    # Match the test's tolerance knob (informational dashed line only).
+    tol = 0.25
+
+    print("\n[Fig 4] virialization (force-balance) residual — radial vs massfunc")
+    print(f"  big grid N={big_n}, extent={extent}, inner_frac={inner_frac}")
+    print(f"  radial  : max={res_a['max_residual']:.4f} median={res_a['median_residual']:.4f}")
+    print(f"  massfunc: max={res_b['max_residual']:.4f} median={res_b['median_residual']:.4f}")
+
+    fig = plt.figure(figsize=(15, 5.2))
+
+    # Panel 1 — per-inner-node residual scatter, both rules.
+    ax1 = fig.add_subplot(1, 3, 1)
+    ax1.scatter(np.arange(res_a["n_inner"]), res_a["residual_per_node"],
+                s=22, alpha=0.8, c="#d62728", label="radial")
+    ax1.scatter(np.arange(res_b["n_inner"]), res_b["residual_per_node"],
+                s=22, alpha=0.8, c="#1f77b4", label="massfunc")
+    ax1.axhline(tol, color="green", ls="--", lw=1.4,
+                label=f"target tol={tol}")
+    ax1.set_yscale("log")
+    ax1.set_xlabel("inner node index", fontsize=9)
+    ax1.set_ylabel("residual |net force| / a_ref (log)", fontsize=9)
+    ax1.set_title(f"Per-inner-node residual (N={big_n})\n"
+                  "below the line = virialized (would not move)", fontsize=9)
+    ax1.legend(fontsize=7)
+    ax1.grid(True, alpha=0.3)
+
+    # Panel 2 — residual vs grid size, both rules.
+    ax2 = fig.add_subplot(1, 3, 2)
+    ax2.plot(curve_a["sizes"], curve_a["max_residual"], "o-", color="#d62728",
+             label="radial max")
+    ax2.plot(curve_a["sizes"], curve_a["median_residual"], "o--", color="#d62728",
+             alpha=0.5, label="radial median")
+    ax2.plot(curve_b["sizes"], curve_b["max_residual"], "s-", color="#1f77b4",
+             label="massfunc max")
+    ax2.plot(curve_b["sizes"], curve_b["median_residual"], "s--", color="#1f77b4",
+             alpha=0.5, label="massfunc median")
+    ax2.axhline(tol, color="green", ls="--", lw=1.2, label=f"target tol={tol}")
+    ax2.set_yscale("log")
+    ax2.set_xlabel("grid size (n_nodes)", fontsize=9)
+    ax2.set_ylabel("inner residual (log)", fontsize=9)
+    ax2.set_title("Residual vs grid size\n(virialized => falls as grid grows)",
+                  fontsize=9)
+    ax2.legend(fontsize=7)
+    ax2.grid(True, alpha=0.3)
+
+    # Panel 3 — 3D node scatter coloured by net-force magnitude (radial big grid).
+    # Positions are in meters (real scale); show axes in Gpc.
+    ax3 = fig.add_subplot(1, 3, 3, projection="3d")
+    accel = node_net_accelerations(pos_a, mass_a, center_mass_kg=M_ext_kg)
+    net_mag = np.linalg.norm(accel, axis=1)
+    pos_a_gpc = pos_a / CosmologicalConstants.Gpc_to_m
+    sc = ax3.scatter(pos_a_gpc[:, 0], pos_a_gpc[:, 1], pos_a_gpc[:, 2], c=net_mag,
+                     cmap="inferno", s=34, edgecolors="k", linewidths=0.2,
+                     depthshade=True)
+    ax3.scatter([0], [0], [0], c="cyan", marker="*", s=140, zorder=10)
+    fig.colorbar(sc, ax=ax3, fraction=0.045, pad=0.02).set_label(
+        "|net force| [m/s^2] (red = would move)", fontsize=7)
+    ax3.set_title("radial grid: nodes by net-force magnitude", fontsize=9)
+    ax3.set_xlabel("x [Gpc]", fontsize=7); ax3.set_ylabel("y [Gpc]", fontsize=7)
+    ax3.set_zlabel("z [Gpc]", fontsize=7); ax3.tick_params(labelsize=6)
+
+    fig.suptitle(
+        "WS8 Fig 4 — VIRIALIZATION (inner-node force-balance) residual: "
+        "radial vs massfunc\n"
+        "Inner nodes of a TRUE virialized grid feel ~net-zero force; "
+        "the current generator does NOT (residuals >> tol) — Section 2 fixes it.",
+        fontsize=12, y=0.99,
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.92))
+    out = figure_path(_WS, "virialization_residual")
+    fig.savefig(out, dpi=_DPI, bbox_inches=_BBOX)
+    plt.close(fig)
+    print(f"[Fig 4] Saved: {out}")
+    return out, {
+        "radial": {"max_residual": res_a["max_residual"],
+                   "median_residual": res_a["median_residual"]},
+        "massfunc": {"max_residual": res_b["max_residual"],
+                     "median_residual": res_b["median_residual"]},
+    }
+
+
+# ===========================================================================
 # CLI
 # ===========================================================================
 
@@ -677,6 +857,10 @@ def main(argv=None) -> int:
     # Fig 3 — mass-rule A vs B (no sim).
     p3, _ = generate_fig3(args.S_gpc, args.vir_n_nodes, args.seed, args.vir_extent)
     paths.append(p3)
+
+    # Fig 4 — virialization (force-balance) residual (no sim).
+    p4, _ = generate_fig4_virialization(args.S_gpc, args.vir_n_nodes, args.seed)
+    paths.append(p4)
 
     print("\n[ws8] Figures written:")
     for p in paths:

@@ -26,6 +26,7 @@ from _generate_ws8_figs import (
     displacement_magnitudes,
     slingshot_metrics,
     mass_radius_stats,
+    virialization_residual_curve,
     _pearson,
     _spearman,
 )
@@ -189,3 +190,35 @@ class TestMassRadiusStats:
         # spread=0 -> all masses equal -> std ~ 0, correlation NaN (constant y).
         assert s["mass_std"] < 1e-9
         assert math.isnan(s["pearson"])
+
+
+# ---------------------------------------------------------------------------
+# 6. virialization_residual_curve (Fig 4 data helper, on real grids)
+# ---------------------------------------------------------------------------
+
+class TestVirializationResidualCurve:
+    def test_shapes_and_keys(self):
+        sizes = (26, 40, 80)
+        c = virialization_residual_curve(
+            sizes, "radial", 20.0, seed=12, spread=0.8, segregation=1.0,
+            extent=2.5, inner_frac=0.5, M_ext_kg=1.0,
+        )
+        for key in ("sizes", "max_residual", "median_residual"):
+            assert key in c
+            assert c[key].shape == (len(sizes),)
+        np.testing.assert_array_equal(c["sizes"], np.array(sizes, dtype=float))
+
+    def test_residuals_positive_and_max_ge_median(self):
+        c = virialization_residual_curve(
+            (40, 80), "massfunc", 20.0, seed=12, spread=0.8, extent=2.5,
+        )
+        assert np.all(c["max_residual"] > 0.0)
+        assert np.all(c["median_residual"] > 0.0)
+        assert np.all(c["max_residual"] >= c["median_residual"])
+
+    def test_deterministic(self):
+        kw = dict(spread=0.8, segregation=1.0, extent=2.5, inner_frac=0.5)
+        c1 = virialization_residual_curve((26, 40), "radial", 20.0, seed=7, **kw)
+        c2 = virialization_residual_curve((26, 40), "radial", 20.0, seed=7, **kw)
+        np.testing.assert_array_equal(c1["max_residual"], c2["max_residual"])
+        np.testing.assert_array_equal(c1["median_residual"], c2["median_residual"])

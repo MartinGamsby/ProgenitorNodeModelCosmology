@@ -601,6 +601,16 @@ class HMEAGrid:
         """
         Calculate tidal acceleration for multiple positions.
 
+        Node softening (Section 4 slingshot fix)
+        ----------------------------------------
+        The softening length comes from self.params.node_softening_m (derived from
+        node_softening_gpc; defaults to 0.0). When it is 0.0 BOTH paths use the
+        LEGACY hard ``r < 1e10 m`` floor (byte-identical to the pre-softening
+        force, so cube26 a(t) and every existing cache stay unchanged). When it is
+        > 0.0 BOTH paths use a Plummer softening ``r_soft^2 = r^2 + eps^2`` that
+        caps the close-pass node kick and tames the runaway slingshot. This force
+        path is GEOMETRY-AGNOSTIC, so the softening tames cube26 AND virialized.
+
         Args:
             positions: (N, 3) particle positions in meters
             use_numba: If True, use Numba JIT for speedup
@@ -609,6 +619,9 @@ class HMEAGrid:
             Accelerations array with shape (N, 3) in m/s².
         """
         const = CosmologicalConstants()
+        # Node Plummer softening length (meters). Default 0.0 -> legacy floor.
+        softening_m = float(getattr(self.params, 'node_softening_m', 0.0))
+        eps2 = softening_m * softening_m
 
         if use_numba:
             # Use Numba JIT-compiled version (much faster)
@@ -621,7 +634,8 @@ class HMEAGrid:
                 positions,
                 node_positions,
                 node_masses,
-                const.G
+                const.G,
+                softening_m,
             )
         else:
             # Original NumPy vectorized version (fallback)
@@ -634,10 +648,15 @@ class HMEAGrid:
 
                 # Vector from position to node (attractive force toward node)
                 r_vec_m = node_pos - positions  # Broadcasting
-                r_m = np.linalg.norm(r_vec_m, axis=1, keepdims=True)
 
-                # Avoid singularities
-                r_m = np.maximum(r_m, 1e10)
+                if eps2 > 0.0:
+                    # Plummer softening: r_soft^2 = r^2 + eps^2 (finite at r->0).
+                    r2 = np.sum(r_vec_m * r_vec_m, axis=1, keepdims=True) + eps2
+                    r_m = np.sqrt(r2)
+                else:
+                    # LEGACY hard floor (byte-identical default).
+                    r_m = np.linalg.norm(r_vec_m, axis=1, keepdims=True)
+                    r_m = np.maximum(r_m, 1e10)
 
                 # Tidal acceleration for all particles (attractive toward node)
                 a_tidal = const.G * M_ext_kg * r_vec_m / r_m**3

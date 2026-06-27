@@ -748,3 +748,24 @@ class TestCacheSlug:
                 # Guard against substring collisions by checking the suffix tokens.
                 assert not any(part.endswith(slug) for part in key.split("_")), \
                     f"{geo}: unexpected vir sub-slug {slug!r} in key {key!r}"
+
+    # --- Node softening (Section 4) cache slug ---
+
+    def test_node_softening_default_has_no_slug(self):
+        """node_softening_gpc=0.0 (default) => NO nsoft slug (byte-identical key)."""
+        key = self._key()  # default node_softening_gpc == 0.0
+        assert "nsoft" not in key
+
+    def test_node_softening_nonzero_has_slug(self):
+        """node_softening_gpc != 0 => the value appears as a {value}nsoft slug."""
+        key = self._key(node_softening_gpc=1.0)
+        assert "1.0nsoft" in key
+
+    def test_node_softening_distinct_keys(self):
+        """Different node_softening_gpc values yield distinct cache keys; 0.0 == default."""
+        k0 = self._key()  # default 0.0 (no slug)
+        k_half = self._key(node_softening_gpc=0.5)
+        k_one = self._key(node_softening_gpc=1.0)
+        assert k0 != k_half != k_one and k0 != k_one
+        # The explicit 0.0 must equal the default (no slug either way).
+        assert self._key(node_softening_gpc=0.0) == k0

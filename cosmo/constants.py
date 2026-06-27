@@ -97,7 +97,8 @@ class ExternalNodeParameters:
                  vir_n_nodes: int = 26, vir_extent: float = 1.0,
                  vir_mass_rule: str = "radial", vir_mass_spread: float = 0.0,
                  vir_segregation: float = 1.0, vir_s_metric: str = "median",
-                 vir_relax_steps: int = 1):
+                 vir_relax_steps: int = 1,
+                 node_softening_gpc: float = 0.0):
         """Initialize External-Node parameters (M_ext_kg in kg, S in meters).
 
         Args:
@@ -143,6 +144,17 @@ class ExternalNodeParameters:
                 cosmo.node_geometry.build_virialized_grid.
             Note: the virialized RNG reuses node_mass_seed (one-seed coherence,
                 like node_s_amplitude); there is no separate vir_seed field.
+            node_softening_gpc: Plummer NODE-softening length in Gpc applied on the
+                tidal force path (the Section 4 slingshot taming knob). 0.0
+                (default) keeps the LEGACY hard ``r < 1e10 m`` floor on the tidal
+                force, so the tidal acceleration is byte-identical to before
+                (cube26 a(t) unchanged, all existing caches valid). > 0.0 applies
+                ``r_soft^2 = r^2 + (node_softening_gpc*Gpc_to_m)^2`` to the node
+                force, capping the close-pass kick and taming the runaway
+                slingshot for ALL geometries (it is a geometry-agnostic force-path
+                change). M_ext=0 -> zero node mass -> zero tidal force regardless
+                of this knob, so M=0 == EdS is preserved. Stored in meters as the
+                derived attribute node_softening_m.
         """
         # Default values - S is tuned to give Ω_Λ_eff ≈ 0.7 with M_ext_kg = 5e55
         self.M_ext_kg = M_ext_kg if M_ext_kg is not None else 5e55  # kg
@@ -160,6 +172,9 @@ class ExternalNodeParameters:
         self.vir_segregation = vir_segregation
         self.vir_s_metric = vir_s_metric
         self.vir_relax_steps = vir_relax_steps
+        # Node Plummer softening length in Gpc (Section 4 slingshot fix).
+        # 0.0 (default) -> legacy hard 1e10 m floor (byte-identical).
+        self.node_softening_gpc = node_softening_gpc
 
         # Calculate derived parameters
         self._calculate_derived()
@@ -199,6 +214,10 @@ class ExternalNodeParameters:
 
         # Grid spacing in Gpc
         self.S_Gpc = self.S / const.Gpc_to_m
+
+        # Node Plummer softening length in meters (Section 4 slingshot fix).
+        # 0.0 -> the tidal path keeps the legacy hard 1e10 m floor (byte-identical).
+        self.node_softening_m = self.node_softening_gpc * const.Gpc_to_m
 
         # Mass ratio to observable universe
         self.M_ratio = self.M_ext_kg / const.M_observable_kg
@@ -304,7 +323,8 @@ class SimulationParameters:
                  vir_n_nodes: int = 26, vir_extent: float = 1.0,
                  vir_mass_rule: str = "radial", vir_mass_spread: float = 0.0,
                  vir_segregation: float = 1.0, vir_s_metric: str = "median",
-                 vir_relax_steps: int = 1):
+                 vir_relax_steps: int = 1,
+                 node_softening_gpc: float = 0.0):
         """
         Initialize simulation parameters.
 
@@ -401,6 +421,17 @@ class SimulationParameters:
                             force-balanced) Fibonacci layout; >= 1 (default) ->
                             force-balanced cubic-lattice ball (inner nodes ~ zero net
                             force). The virialized RNG reuses node_mass_seed.
+            node_softening_gpc: Plummer NODE-softening length in Gpc on the tidal
+                            force path (Section 4 slingshot taming knob). 0.0
+                            (default) keeps the LEGACY hard 1e10 m floor -> the
+                            tidal force (and cube26 a(t)) is byte-identical to
+                            before; every existing cache stays valid. > 0.0 applies
+                            r_soft^2 = r^2 + (node_softening_gpc*Gpc_to_m)^2 to the
+                            node force, capping the close-pass kick and taming the
+                            runaway slingshot for BOTH cube26 AND virialized (it is
+                            a geometry-agnostic force-path change). VANISHES at
+                            M_ext=0 (no node mass -> no tidal force), so M=0 == EdS
+                            is preserved. Recommended ~1.0 for the final sweep.
         """
         self.M_value = M_value
         self.S_value = S_value
@@ -442,6 +473,9 @@ class SimulationParameters:
         self.vir_segregation = vir_segregation
         self.vir_s_metric = vir_s_metric
         self.vir_relax_steps = vir_relax_steps
+        # Node Plummer softening length in Gpc (Section 4 slingshot fix).
+        # 0.0 (default) -> legacy hard 1e10 m floor (byte-identical).
+        self.node_softening_gpc = node_softening_gpc
 
         # Calculate derived quantities
         self._calculate_derived()
@@ -479,6 +513,7 @@ class SimulationParameters:
             vir_segregation=self.vir_segregation,
             vir_s_metric=self.vir_s_metric,
             vir_relax_steps=self.vir_relax_steps,
+            node_softening_gpc=self.node_softening_gpc,
         )
 
     def __str__(self):

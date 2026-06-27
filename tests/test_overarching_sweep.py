@@ -373,6 +373,58 @@ class TestVirializedThreading(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# 5c. node_softening_gpc threading: cache key and sim must agree (keyed==run)
+# ---------------------------------------------------------------------------
+
+class TestNodeSofteningThreading(unittest.TestCase):
+    """Section 4: node_softening_gpc must reach BOTH the cache key (build_cache_name
+    keys off the SweepConfig) AND the actual SimulationParameters the sim runs, so
+    a softened sweep keys on exactly the softening it runs (no silent mismatch)."""
+
+    def _cfg(self, **overrides):
+        cfg = dict(DEFAULT_CONFIG)
+        cfg.update(overrides)
+        return cfg
+
+    def _cell(self):
+        return dict(M=100, amplitude=0.0, nm_seed=42, s_amplitude=0.0,
+                    init="uniform_sphere", geometry="cube26")
+
+    def _capture_sim_params(self, cfg, cell):
+        sweep_cfg = _make_sweep_config_for_cell(cell, cfg)
+        sim_cb = _make_sim_callback(sweep_cfg, box_size_Gpc=10.0, a_start=0.1)
+        captured = {}
+
+        def fake_run(sim_params, box_size_Gpc, a_start, save_interval):
+            captured["params"] = sim_params
+            return {"dummy": True}
+
+        with patch("sweep.run_external_node_simulation", side_effect=fake_run), \
+             patch("sweep.results_to_sim_result", return_value="ok"):
+            sim_cb(M_factor=cell["M"], S_gpc=30, centerM=1, seeds=[42])
+        return captured["params"], sweep_cfg
+
+    def test_nondefault_softening_reaches_sim_and_key(self):
+        cfg = self._cfg(node_softening_gpc=1.0)
+        sim_params, sweep_cfg = self._capture_sim_params(cfg, self._cell())
+        # Sim runs the requested softening.
+        self.assertEqual(sim_params.node_softening_gpc, 1.0)
+        # SweepConfig (what the cache keys off) carries it too.
+        self.assertEqual(sweep_cfg.node_softening_gpc, 1.0)
+        # Cache key encodes the SAME value.
+        key = build_cache_name(sweep_cfg, 100, 30, 1, [42])
+        self.assertIn("1.0nsoft", key)
+
+    def test_default_softening_no_slug_and_byte_identical(self):
+        cfg = self._cfg()  # node_softening_gpc defaults to 0.0
+        sim_params, sweep_cfg = self._capture_sim_params(cfg, self._cell())
+        self.assertEqual(sim_params.node_softening_gpc, 0.0)
+        self.assertEqual(sweep_cfg.node_softening_gpc, 0.0)
+        key = build_cache_name(sweep_cfg, 100, 30, 1, [42])
+        self.assertNotIn("nsoft", key)
+
+
+# ---------------------------------------------------------------------------
 # 6. S co-fit vs explicit list selection
 # ---------------------------------------------------------------------------
 

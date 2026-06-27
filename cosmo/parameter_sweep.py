@@ -249,6 +249,12 @@ class SweepConfig:
     # Outer-region density ceiling (WS4). Default 1.0 = outer density == inner density
     # (EdS critical). Clipped in SimulationParameters to MAX_OUTER_DENSITY_CEILING.
     outer_density_ceiling: float = 1.0
+    # Node Plummer softening length in Gpc on the tidal force path (Section 4
+    # slingshot taming knob). 0.0 (default) keeps the legacy hard 1e10 m floor ->
+    # tidal force is byte-identical, so its cache sub-slug is appended ONLY when
+    # != 0.0 (all existing keys untouched -> NO PHYSICS_CACHE_VERSION bump). > 0.0
+    # tames the runaway slingshot for both cube26 and virialized.
+    node_softening_gpc: float = 0.0
     # Physics-affecting IC flags (mirror SimulationParameters defaults). These are
     # NOT otherwise encoded in the cache key, so they are folded into the physics
     # token (physics_cache_token) — a legacy run with these turned off gets a
@@ -726,6 +732,14 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     outer_density_ceiling = getattr(config, 'outer_density_ceiling', 1.0)
     if outer_density_ceiling != 1.0:
         parts.append(f"{outer_density_ceiling}ceil")
+    # Node-softening slug: append ONLY when != 0.0 so the default (legacy hard
+    # 1e10 m floor, byte-identical tidal force) keeps its existing cache key and
+    # NO PHYSICS_CACHE_VERSION bump is needed. Non-zero softening (the slingshot
+    # taming knob) gets a distinct key per value. Suffix is purely alphabetic so
+    # cache._split_key round-trips it ("1.0nsoft" -> value "1.0", suffix "nsoft").
+    node_softening_gpc = getattr(config, 'node_softening_gpc', 0.0)
+    if node_softening_gpc != 0.0:
+        parts.append(f"{node_softening_gpc}nsoft")
     # Physics-version token (ALWAYS appended): invalidates entries computed under a
     # different simulation-physics version (e.g. pre-EdS-ICs / pre-boost), so a
     # physics change can never silently reuse a stale parameter-only cache entry.

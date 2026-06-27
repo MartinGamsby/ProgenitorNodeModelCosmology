@@ -117,6 +117,15 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
                              'force-balanced cubic-lattice ball (inner nodes feel '
                              '~zero net force).')
 
+    # Node softening (Section 4 slingshot taming knob)
+    parser.add_argument('--node-softening-gpc', type=float, default=0.0,
+                        help='Plummer NODE-softening length in Gpc on the tidal '
+                             'force path. 0.0 (default) keeps the legacy hard '
+                             '1e10 m floor (byte-identical, cube26 a(t) unchanged). '
+                             '> 0.0 (e.g. ~1.0) caps the close-pass node kick and '
+                             'tames the runaway slingshot for BOTH cube26 and '
+                             'virialized. Vanishes at M_ext=0 (M=0 == EdS preserved).')
+
     # Mode flags
     parser.add_argument('--compare', action='store_true',
                         help='Enable comparison mode (External-Node vs Matter-only vs LCDM)')
@@ -182,4 +191,5 @@ def args_to_sim_params(args: argparse.Namespace) -> SimulationParameters:
         vir_segregation=getattr(args, 'vir_segregation', 1.0),
         vir_s_metric=getattr(args, 'vir_s_metric', 'median'),
         vir_relax_steps=getattr(args, 'vir_relax_steps', 1),
+        node_softening_gpc=getattr(args, 'node_softening_gpc', 0.0),
     )

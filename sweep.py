@@ -134,6 +134,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "t_start_Gyr": 2.9,
     "centerM": 1,             # float or list of floats — outer-mass multiplier (WS4)
     "outer_density_ceilings": [1.0],   # list of outer density ceilings to sweep (WS4)
+    # Node Plummer softening length in Gpc (Section 4 slingshot taming knob).
+    # 0.0 (default) keeps the legacy hard 1e10 m floor (byte-identical, no cache
+    # slug). Set ~1.0 to tame the runaway slingshot for both cube26 and virialized.
+    "node_softening_gpc": 0.0,
     # S co-fit method (when S_values=="co-fit")
     "s_cofit_method": "linear",   # "linear" or "ternary"
     # Output
@@ -255,6 +259,11 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
         vir_segregation=cfg.get("vir_segregation", 1.0),
         vir_s_metric=cfg.get("vir_s_metric", "median"),
         vir_relax_steps=cfg.get("vir_relax_steps", 1),
+        # Node-softening (Section 4 slingshot taming knob). Threaded here so
+        # build_cache_name (keys off the SweepConfig) and the actual sim
+        # (SimulationParameters, see _make_sim_callback) agree -> keyed == run.
+        # Default 0.0 mirrors SweepConfig/SimulationParameters (byte-identical).
+        node_softening_gpc=cfg.get("node_softening_gpc", 0.0),
     )
 
 
@@ -291,6 +300,9 @@ def _make_sim_callback(sweep_cfg: _FixedSweepConfig, box_size_Gpc: float, a_star
             vir_segregation=getattr(sweep_cfg, "vir_segregation", 1.0),
             vir_s_metric=getattr(sweep_cfg, "vir_s_metric", "median"),
             vir_relax_steps=getattr(sweep_cfg, "vir_relax_steps", 1),
+            # Node-softening: read from the same SweepConfig that build_cache_name
+            # keys off, so the sim runs exactly what the cache key encodes.
+            node_softening_gpc=getattr(sweep_cfg, "node_softening_gpc", 0.0),
         )
         ext_results = run_external_node_simulation(
             sim_params, box_size_Gpc, a_start, sweep_cfg.save_interval

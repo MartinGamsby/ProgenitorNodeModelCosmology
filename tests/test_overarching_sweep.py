@@ -399,6 +399,202 @@ class TestVirializedThreading(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# 5b2. Virialized GEOMETRY-SEED axis (B3a): the node_mass_seed cache-collision
+# bug + the expand_grid amp=0 seed-collapse bug.
+# ---------------------------------------------------------------------------
+
+class TestVirializedSeedAxis(unittest.TestCase):
+    """B3a REGRESSION GUARD for a real bug.
+
+    THE BUG (now fixed): for a virialized + massfunc + spread>0 run with
+    node_mass_amplitude==0, the geometry seed (node_mass_seed) MATERIALLY changes
+    the realized grid (it drives the log-normal mass draw + segregation
+    permutation, cosmo/node_geometry.py:583-586), yet:
+      (a) build_cache_name only put the seed in the cache key when an anisotropy
+          amplitude was non-zero, so two seeds COLLIDED on one cache entry and
+          silently returned the SAME a(t) (run-but-not-keyed inversion); and
+      (b) expand_grid COLLAPSED the seed list to a single nm_seed=42 at amp=0, so a
+          multi-seed config never even emitted distinct cells.
+    Together these made any virialized seed comparison a silent no-op.
+
+    The fix gates a "virseed" cache token + a no-collapse expand_grid branch on
+    EXACTLY node_geometry=="virialized" AND vir_mass_rule=="massfunc" AND
+    vir_mass_spread>0 — every genuine no-op case (radial rule, spread==0,
+    non-virialized) stays byte-identical.
+    """
+
+    # ---- build_cache_name ----
+
+    def _key(self, nm_seed, *, geometry="virialized", vir_mass_rule="massfunc",
+             vir_mass_spread=0.8):
+        sweep_cfg = _FixedSweepConfig(
+            particle_count=400, n_steps=273,
+            t_start_Gyr=2.9, t_duration_Gyr=10.9,
+            objective="pantheon", s_min_gpc=20, s_max_gpc=80,
+            node_mass_seed=nm_seed,
+            node_mass_amplitude=0.0,   # the bug case: anisotropy OFF
+            node_s_amplitude=0.0,
+            init_distribution="uniform_sphere",
+            node_geometry=geometry,
+            vir_n_nodes=80,
+            vir_mass_rule=vir_mass_rule,
+            vir_mass_spread=vir_mass_spread,
+        )
+        return build_cache_name(sweep_cfg, 100, 30, 1, [42])
+
+    def test_virialized_massfunc_spread_distinct_keys_per_seed(self):
+        """THE BUG: two virialized massfunc (spread>0) runs differing ONLY by
+        node_mass_seed must get DISTINCT cache keys. (Before B3a they were EQUAL.)"""
+        k42 = self._key(42)
+        k7 = self._key(7)
+        self.assertNotEqual(
+            k42, k7,
+            "virialized massfunc spread>0 runs differing only by node_mass_seed "
+            "MUST get distinct cache keys (regression: the seed-collision bug)")
+        self.assertIn("42virseed", k42)
+        self.assertIn("7virseed", k7)
+
+    def test_virialized_radial_keys_unchanged_across_seeds(self):
+        """No-op case: radial rule is deterministic (no RNG) -> seed must NOT change
+        the key (byte-identical, no virseed token)."""
+        k42 = self._key(42, vir_mass_rule="radial")
+        k7 = self._key(7, vir_mass_rule="radial")
+        self.assertEqual(k42, k7)
+        self.assertNotIn("virseed", k42)
+
+    def test_virialized_spread_zero_keys_unchanged_across_seeds(self):
+        """No-op case: spread==0 draws raw_masses=ones (no RNG) -> seed must NOT
+        change the key (byte-identical, no virseed token)."""
+        k42 = self._key(42, vir_mass_spread=0.0)
+        k7 = self._key(7, vir_mass_spread=0.0)
+        self.assertEqual(k42, k7)
+        self.assertNotIn("virseed", k42)
+
+    def test_nonvirialized_keys_unchanged_across_seeds(self):
+        """No-op case: non-virialized (cube26) at amp=0 -> seed must NOT change the
+        key (byte-identical, no virseed token). Guards against the new token leaking
+        out of the virialized branch."""
+        k42 = self._key(42, geometry="cube26")
+        k7 = self._key(7, geometry="cube26")
+        self.assertEqual(k42, k7)
+        self.assertNotIn("virseed", k42)
+
+    # ---- expand_grid ----
+
+    def _cfg(self, **overrides):
+        cfg = dict(DEFAULT_CONFIG)
+        cfg.update(overrides)
+        return cfg
+
+    def test_expand_grid_emits_one_cell_per_seed_virialized_massfunc(self):
+        """expand_grid must emit one cell per seed for virialized+massfunc+spread>0
+        even at node_mass_amplitude==0 (before B3a it collapsed to a single seed=42)."""
+        cfg = self._cfg(
+            M_values=[100], node_mass_amplitudes=[0.0],
+            node_mass_seeds=[42, 7, 123], node_s_amplitudes=[0.0],
+            init_distributions=["uniform_sphere"],
+            node_geometries=["virialized"],
+            vir_mass_rule="massfunc", vir_mass_spread=0.8,
+        )
+        cells = expand_grid(cfg)
+        self.assertEqual(len(cells), 3)
+        self.assertEqual({c["nm_seed"] for c in cells}, {42, 7, 123})
+
+    def test_expand_grid_collapses_radial_to_one_seed(self):
+        """No-op: radial rule still collapses to a single seed=42 cell at amp=0."""
+        cfg = self._cfg(
+            M_values=[100], node_mass_amplitudes=[0.0],
+            node_mass_seeds=[42, 7, 123], node_s_amplitudes=[0.0],
+            init_distributions=["uniform_sphere"],
+            node_geometries=["virialized"],
+            vir_mass_rule="radial", vir_mass_spread=0.8,
+        )
+        cells = expand_grid(cfg)
+        self.assertEqual(len(cells), 1)
+        self.assertEqual(cells[0]["nm_seed"], 42)
+
+    def test_expand_grid_collapses_spread_zero_to_one_seed(self):
+        """No-op: spread==0 still collapses to a single seed=42 cell at amp=0."""
+        cfg = self._cfg(
+            M_values=[100], node_mass_amplitudes=[0.0],
+            node_mass_seeds=[42, 7, 123], node_s_amplitudes=[0.0],
+            init_distributions=["uniform_sphere"],
+            node_geometries=["virialized"],
+            vir_mass_rule="massfunc", vir_mass_spread=0.0,
+        )
+        cells = expand_grid(cfg)
+        self.assertEqual(len(cells), 1)
+        self.assertEqual(cells[0]["nm_seed"], 42)
+
+    def test_expand_grid_collapses_nonvirialized_to_one_seed(self):
+        """No-op: a non-virialized geometry still collapses to seed=42 even if the
+        config carries massfunc/spread>0 (the bypass is virialized-only)."""
+        cfg = self._cfg(
+            M_values=[100], node_mass_amplitudes=[0.0],
+            node_mass_seeds=[42, 7, 123], node_s_amplitudes=[0.0],
+            init_distributions=["uniform_sphere"],
+            node_geometries=["cube26"],
+            vir_mass_rule="massfunc", vir_mass_spread=0.8,
+        )
+        cells = expand_grid(cfg)
+        self.assertEqual(len(cells), 1)
+        self.assertEqual(cells[0]["nm_seed"], 42)
+
+    # ---- keyed == run: the seed in the key == the seed the grid actually uses ----
+
+    def _capture_sim_params(self, cfg, cell):
+        """Capture the SimulationParameters the sim path runs (same pattern as
+        TestVirializedThreading / TestForceLawSubstepRelaxModeThreading)."""
+        sweep_cfg = _make_sweep_config_for_cell(cell, cfg)
+        sim_cb = _make_sim_callback(sweep_cfg, box_size_Gpc=10.0, a_start=0.1)
+        captured = {}
+
+        def fake_run(sim_params, box_size_Gpc, a_start, save_interval):
+            captured["params"] = sim_params
+            return {"dummy": True}
+
+        with patch("sweep.run_external_node_simulation", side_effect=fake_run), \
+             patch("sweep.results_to_sim_result", return_value="ok"):
+            sim_cb(M_factor=cell["M"], S_gpc=30, centerM=1, seeds=[42])
+        return captured["params"], sweep_cfg
+
+    def test_keyed_equals_run_seed_in_key_is_seed_in_grid(self):
+        """The seed encoded in the cache key is the SAME seed the sim/grid uses.
+
+        For each of two seeds: (i) build the params via the sim path and assert
+        SimulationParameters.node_mass_seed == the requested seed; (ii) assert the
+        cache key contains '<seed>virseed'; (iii) assert the two realized grids
+        actually DIFFER (the seed reshapes the grid, not just the key)."""
+        cfg = self._cfg(
+            node_geometries=["virialized"], vir_n_nodes=80,
+            vir_mass_rule="massfunc", vir_mass_spread=0.8,
+        )
+        cell42 = dict(M=100, amplitude=0.0, nm_seed=42, s_amplitude=0.0,
+                      init="uniform_sphere", geometry="virialized")
+        cell7 = dict(cell42, nm_seed=7)
+
+        p42, sc42 = self._capture_sim_params(cfg, cell42)
+        p7, sc7 = self._capture_sim_params(cfg, cell7)
+
+        # (i) the sim runs the requested seed (keyed == run on the seed value).
+        self.assertEqual(p42.node_mass_seed, 42)
+        self.assertEqual(p7.node_mass_seed, 7)
+
+        # (ii) the cache key encodes the SAME seed the sim runs.
+        self.assertIn("42virseed", build_cache_name(sc42, 100, 30, 1, [42]))
+        self.assertIn("7virseed", build_cache_name(sc7, 100, 30, 1, [42]))
+
+        # (iii) the realized grids actually differ -> the seed is run-but-WAS-not-keyed.
+        pos42, mass42 = p42.external_params.build_virialized()
+        pos7, mass7 = p7.external_params.build_virialized()
+        self.assertEqual(mass42.shape, mass7.shape)
+        self.assertFalse(
+            np.allclose(np.sort(mass42), np.sort(mass7)),
+            "different node_mass_seeds must realize different virialized masses "
+            "(the grid the cache key now correctly distinguishes)")
+
+
+# ---------------------------------------------------------------------------
 # 5c. node_softening_gpc threading: cache key and sim must agree (keyed==run)
 # ---------------------------------------------------------------------------
 

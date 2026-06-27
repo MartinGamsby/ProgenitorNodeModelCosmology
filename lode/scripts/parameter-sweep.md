@@ -250,8 +250,15 @@ chi2/dof are flat across amplitude — there `amplitude` does select shear/dipol
 orientation only. So for the Pantheon objective amplitude is **degenerate with M/S via
 growth**, not an independent fit knob; the headline number must stay the best ISOTROPIC
 config. See [../physics/pantheon-comparison-results.md](../physics/pantheon-comparison-results.md).
-**Cache key:** `worst_callback` appends `<seed>nmseed_<amp>nmamp` slugs ONLY when
+**Cache key:** `build_cache_name` appends `<seed>nmseed_<amp>nmamp` slugs ONLY when
 `amplitude != 0.0`, so uniform runs keep their existing cache keys.
+**Virialized geometry-seed (B3a):** for `node_geometry=="virialized"` AND
+`vir_mass_rule=="massfunc"` AND `vir_mass_spread>0`, `node_mass_seed` ALSO drives the
+log-normal mass draw + segregation permutation, so the key gets a `<seed>virseed` slug
+EVEN at `amplitude==0` (otherwise two seeds collided on one cache entry and silently
+returned the same a(t)). The radial rule, `spread==0`, and non-virialized geometries
+add NO virseed slug (deterministic / no RNG -> byte-identical keys). The matching
+`expand_grid` branch emits one cell per seed for exactly this case (no amp=0 collapse).
 
 ### Sweepable init_distribution
 `SweepConfig.init_distribution` (default `"uniform_sphere"`) is threaded into
@@ -386,7 +393,8 @@ WORSE than LCDM (0.43), and under-constrained by SN data alone. (The earlier
 - `run_sweep(config, method, callback, baseline, weights, pantheon_data)` - main entry
 
 **sweep.py (the driver):**
-- `expand_grid(cfg)` - factorial grid expansion (amp=0 collapses to a single nm_seed)
+- `expand_grid(cfg)` - factorial grid expansion (amp=0 collapses to a single nm_seed,
+  EXCEPT virialized+massfunc+spread>0 emits one cell per seed — see Cache key above)
 - `_make_sweep_config_for_cell(cell, cfg)` - builds the SweepConfig (keys the cache)
 - `_build_sim_params(sweep_cfg, M, S, centerM, seed)` - the SINGLE source of truth for the
   SimulationParameters; called by BOTH the sim-callback AND the mu(z) figure panel (PF11)

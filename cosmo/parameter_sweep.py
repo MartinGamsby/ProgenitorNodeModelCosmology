@@ -789,6 +789,24 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
         parts.append(f"{getattr(config, 'vir_segregation', 1.0)}vsg")
         parts.append(f"{getattr(config, 'vir_s_metric', 'median')}vsm")
         parts.append(f"{getattr(config, 'vir_relax_steps', 1)}vrx")
+        # Geometry-seed slug (B3a bug fix): for the virialized massfunc rule with a
+        # NON-ZERO mass spread, node_mass_seed drives the log-normal mass draw AND the
+        # segregation permutation (cosmo/node_geometry.py:583-586), so the seed
+        # MATERIALLY changes the realized grid -> two seeds MUST get distinct cache
+        # keys. Before this fix the seed only entered the key when an anisotropy
+        # amplitude was non-zero (node_mass_amplitude/node_s_amplitude), so amp=0
+        # virialized runs that differed ONLY by seed COLLIDED on one cache entry and
+        # silently returned the same a(t) (run-but-not-keyed inversion). Gated tightly
+        # so the radial rule (deterministic, no RNG) and spread==0 (raw_masses=ones,
+        # no RNG) keys stay BYTE-IDENTICAL -> no existing key changes, no
+        # PHYSICS_CACHE_VERSION bump. Suffix is purely alphabetic ("virseed") so
+        # cache._split_key round-trips it. The value keyed here is the SAME
+        # node_mass_seed threaded into SimulationParameters and forwarded to
+        # build_virialized_grid (keyed == run).
+        vir_mass_rule = getattr(config, 'vir_mass_rule', 'radial')
+        vir_mass_spread = getattr(config, 'vir_mass_spread', 0.0)
+        if vir_mass_rule == "massfunc" and vir_mass_spread > 0.0:
+            parts.append(f"{node_mass_seed}virseed")
         # Extent->node-count coupling slug (item 10): append ONLY when the coupling
         # is ON (and only for virialized), so default virialized runs keep their
         # existing keys (NO PHYSICS_CACHE_VERSION bump) and a coupled run gets a

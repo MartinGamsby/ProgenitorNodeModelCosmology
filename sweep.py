@@ -212,7 +212,16 @@ def load_config(path: Optional[str]) -> Dict[str, Any]:
 def expand_grid(cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     Expand the full factorial grid from cfg, collapsing amplitude=0 runs to a
-    SINGLE nm_seed=42 run (seed is a no-op when amplitude==0).
+    SINGLE nm_seed=42 run (seed is a no-op when amplitude==0)...
+
+    ... EXCEPT for the virialized massfunc rule with a non-zero mass spread, where
+    node_mass_seed MATERIALLY changes the realized grid even at amplitude==0 (it
+    drives the log-normal mass draw + segregation permutation in
+    cosmo/node_geometry.py:583-586). For that case we do NOT collapse: one cell is
+    emitted per seed so a multi-seed config actually sweeps distinct realizations
+    (paired with the matching virseed cache token in build_cache_name -> keyed ==
+    run). The collapse is preserved for every genuine no-op case (radial rule,
+    spread==0, non-virialized geometry) so those keys/cells are byte-identical.
 
     Each element of the returned list is a 'cell' dict with keys:
         M, amplitude, nm_seed, s_amplitude, init, geometry.
@@ -227,6 +236,11 @@ def expand_grid(cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
     init_list  = cfg["init_distributions"]
     geom_list  = cfg["node_geometries"]
     M_list     = cfg["M_values"]
+    # Config-wide virialized mass-function knobs (mirror _make_sweep_config_for_cell
+    # defaults). Only when massfunc + spread>0 does the seed matter at amp=0.
+    vir_mass_rule   = cfg.get("vir_mass_rule", "radial")
+    vir_mass_spread = cfg.get("vir_mass_spread", 0.0)
+    seed_matters_at_amp0 = (vir_mass_rule == "massfunc" and vir_mass_spread > 0.0)
 
     cells = []
     for M in M_list:
@@ -235,9 +249,20 @@ def expand_grid(cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
                 for samp in samp_list:
                     for amp in amp_list:
                         if amp == 0.0:
-                            cells.append(dict(M=M, amplitude=0.0, nm_seed=42,
-                                              s_amplitude=samp, init=init,
-                                              geometry=geom))
+                            # The seed is a genuine no-op for non-virialized geoms,
+                            # the radial rule, or spread==0 -> collapse to seed 42.
+                            # For virialized+massfunc+spread>0 the seed reshapes the
+                            # grid -> emit one cell per seed (the B3a fix).
+                            if geom == "virialized" and seed_matters_at_amp0:
+                                for seed in seed_list:
+                                    cells.append(dict(M=M, amplitude=0.0,
+                                                      nm_seed=seed,
+                                                      s_amplitude=samp, init=init,
+                                                      geometry=geom))
+                            else:
+                                cells.append(dict(M=M, amplitude=0.0, nm_seed=42,
+                                                  s_amplitude=samp, init=init,
+                                                  geometry=geom))
                         else:
                             for seed in seed_list:
                                 cells.append(dict(M=M, amplitude=amp, nm_seed=seed,

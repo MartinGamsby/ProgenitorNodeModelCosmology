@@ -43,10 +43,15 @@ Config shape (JSON, all keys optional; omit to use defaults)
   "node_geometries":     ["cube26"],
   "geometry_kwargs":     {},
   "s_cofit_method":      "linear",          // "linear" or "ternary"
+  "objective":           "pantheon",        // "pantheon" (chi2 vs SNe) or "lcdm" (R^2 vs LCDM)
   "figures_dir":         "results/figures/ws1",
   "results_dir":         "results",
   "tag":                 "ws1"
 }
+
+This is the SINGLE sweep driver. The retired root scripts map onto JSON configs:
+  parameter_sweep.py  (lcdm exploration) -> sweeps/lcdm_example.json ("objective":"lcdm")
+  pantheon_knob_sweep.py (grf knob grid) -> sweeps/knob_grf.json
 
 Columns emitted (CSV superset of _BEST_ISO_COLS)
 ------------------------------------------------
@@ -140,6 +145,15 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "node_softening_gpc": 0.0,
     # S co-fit method (when S_values=="co-fit")
     "s_cofit_method": "linear",   # "linear" or "ternary"
+    # Scoring objective for the per-cell worst_callback:
+    #   "pantheon" (default) -> chi2/dof vs the REAL Pantheon+ SNe (headline mode).
+    #   "lcdm"               -> R^2-style match vs the analytic LCDM baseline
+    #                           (compute_match_metrics; match_avg_pct / diff_pct).
+    # The objective is threaded onto the SweepConfig, so build_cache_name stamps a
+    # "<objective>obj" slug (lcdm and pantheon caches never collide) and
+    # worst_callback picks the right scorer. Folded in from the retired root
+    # parameter_sweep.py so its lcdm exploration mode is not lost.
+    "objective": "pantheon",
     # Output
     "results_dir": "results",
     "tag": "ws1",
@@ -239,7 +253,10 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
         s_min_gpc=cfg["s_min_gpc"],
         s_max_gpc=cfg["s_max_gpc"],
         save_interval=10,
-        objective="pantheon",
+        # Objective threaded from config (default "pantheon"). When "lcdm" the
+        # per-cell worst_callback scores against the analytic LCDM baseline; the
+        # cache slug includes "<objective>obj" so the two never collide.
+        objective=cfg.get("objective", "pantheon"),
         node_mass_seed=cell["nm_seed"],
         node_mass_amplitude=cell["amplitude"],
         node_s_amplitude=cell["s_amplitude"],
@@ -779,6 +796,28 @@ def _parse_csv_row(raw: Dict) -> Dict:
     return row
 
 
+def _select_best_row(all_rows: List[Dict], objective: str) -> Optional[Dict]:
+    """Pick the best row for the configured objective.
+
+    pantheon -> minimize finite chi2/dof (prefer anchor_ok rows).
+    lcdm     -> maximize match_avg_pct (compute_match_metrics emits no chi2_dof,
+                so chi2_dof is inf for every lcdm row; selecting on it would be
+                meaningless). anchor_ok still gates when available.
+    """
+    if objective == "lcdm":
+        scored = [r for r in all_rows
+                  if math.isfinite(r.get("match_avg_pct", float("nan")))]
+        bound = [r for r in scored if r.get("anchor_ok", False)]
+        pool = bound or scored
+        return max(pool, key=lambda r: r.get("match_avg_pct", 0.0)) if pool else None
+    # pantheon (default)
+    finite_rows = [r for r in all_rows if math.isfinite(r["chi2_dof"])]
+    bound_rows = [r for r in finite_rows if r.get("anchor_ok", False)]
+    if bound_rows:
+        return min(bound_rows, key=lambda r: r["chi2_dof"])
+    return min(finite_rows, key=lambda r: r["chi2_dof"]) if finite_rows else None
+
+
 def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]:
     """
     Run the full overarching sweep.
@@ -1028,12 +1067,13 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
         writer.writerows(iso_rows)
     print(f"[out] Best-iso CSV: {best_iso_csv}  ({len(iso_rows)} rows)")
 
-    # Best config: objective = minimize chi2/dof vs the real Pantheon+ points.
-    # chi2_lcdm / chi2_eds are reference benchmarks only, NOT the selection target.
-    finite_rows = [r for r in all_rows if math.isfinite(r["chi2_dof"])]
-    bound_rows  = [r for r in finite_rows if r.get("anchor_ok", False)]
-    best_row    = min(bound_rows, key=lambda r: r["chi2_dof"]) if bound_rows else (
-                  min(finite_rows, key=lambda r: r["chi2_dof"]) if finite_rows else None)
+    # Best config selection depends on the objective:
+    #   pantheon -> minimize chi2/dof vs the real Pantheon+ points
+    #               (chi2_lcdm / chi2_eds are reference benchmarks only).
+    #   lcdm     -> maximize match_avg_pct vs the analytic LCDM baseline
+    #               (chi2_dof is not produced by compute_match_metrics).
+    objective = cfg.get("objective", "pantheon")
+    best_row = _select_best_row(all_rows, objective)
 
     _print_summary(all_rows, chi2_lcdm, chi2_eds, t_start)
 

@@ -584,5 +584,159 @@ class TestReferenceChI2(unittest.TestCase):
         self.assertGreater(chi2_lcdm, 0.3)
 
 
+# ---------------------------------------------------------------------------
+# 10. Objective config key (folded in from the retired root parameter_sweep.py)
+# ---------------------------------------------------------------------------
+
+class TestObjectiveConfigKey(unittest.TestCase):
+    """sweep.py exposes an 'objective' config key (default 'pantheon') and threads
+    it onto the SweepConfig so worst_callback picks the right scorer and
+    build_cache_name stamps a '<objective>obj' slug."""
+
+    def _cell(self):
+        return dict(M=100, amplitude=0.0, nm_seed=42, s_amplitude=0.0,
+                    init="uniform_sphere", geometry="cube26")
+
+    def test_default_objective_is_pantheon(self):
+        cfg = load_config(None)
+        self.assertEqual(cfg["objective"], "pantheon")
+
+    def test_default_cfg_threads_pantheon_objective(self):
+        sweep_cfg = _make_sweep_config_for_cell(self._cell(), load_config(None))
+        self.assertEqual(sweep_cfg.objective, "pantheon")
+
+    def test_lcdm_objective_threaded_onto_sweep_config(self):
+        cfg = dict(DEFAULT_CONFIG)
+        cfg["objective"] = "lcdm"
+        sweep_cfg = _make_sweep_config_for_cell(self._cell(), cfg)
+        self.assertEqual(sweep_cfg.objective, "lcdm")
+
+    def test_objective_in_cache_key(self):
+        """build_cache_name appends '<objective>obj' so lcdm/pantheon never collide."""
+        cfg_p = dict(DEFAULT_CONFIG); cfg_p["objective"] = "pantheon"
+        cfg_l = dict(DEFAULT_CONFIG); cfg_l["objective"] = "lcdm"
+        k_p = build_cache_name(_make_sweep_config_for_cell(self._cell(), cfg_p),
+                               100, 30, 1, [42])
+        k_l = build_cache_name(_make_sweep_config_for_cell(self._cell(), cfg_l),
+                               100, 30, 1, [42])
+        self.assertIn("pantheonobj", k_p)
+        self.assertIn("lcdmobj", k_l)
+        self.assertNotEqual(k_p, k_l)
+
+
+class TestSelectBestRow(unittest.TestCase):
+    """_select_best_row is objective-aware: pantheon minimizes chi2_dof, lcdm
+    maximizes match_avg_pct (compute_match_metrics emits no chi2_dof)."""
+
+    def _row(self, chi2_dof=float("inf"), match=0.0, anchor_ok=True):
+        return {"chi2_dof": chi2_dof, "match_avg_pct": match, "anchor_ok": anchor_ok}
+
+    def test_pantheon_picks_min_chi2_dof(self):
+        from sweep import _select_best_row
+        rows = [self._row(chi2_dof=0.6), self._row(chi2_dof=0.48), self._row(chi2_dof=0.55)]
+        best = _select_best_row(rows, "pantheon")
+        self.assertAlmostEqual(best["chi2_dof"], 0.48)
+
+    def test_lcdm_picks_max_match(self):
+        from sweep import _select_best_row
+        rows = [self._row(match=90.0), self._row(match=97.5), self._row(match=92.0)]
+        best = _select_best_row(rows, "lcdm")
+        self.assertAlmostEqual(best["match_avg_pct"], 97.5)
+
+    def test_lcdm_prefers_anchor_ok(self):
+        from sweep import _select_best_row
+        rows = [self._row(match=99.0, anchor_ok=False), self._row(match=95.0, anchor_ok=True)]
+        best = _select_best_row(rows, "lcdm")
+        self.assertAlmostEqual(best["match_avg_pct"], 95.0)
+
+    def test_empty_returns_none(self):
+        from sweep import _select_best_row
+        self.assertIsNone(_select_best_row([], "pantheon"))
+        self.assertIsNone(_select_best_row([], "lcdm"))
+
+
+# ---------------------------------------------------------------------------
+# 11. Migrated knob-grf grid (was pantheon_knob_sweep._expand_grid)
+# ---------------------------------------------------------------------------
+
+class TestKnobGrfMigration(unittest.TestCase):
+    """The retired pantheon_knob_sweep.py grid is now sweeps/knob_grf.json. Its
+    amplitude=0 collapse + cell count must match the old _expand_grid contract:
+    per (M): 1 (amp=0) + (n_amp-1)*n_seed cells. (Ported from the deleted
+    tests/test_pantheon_knob_sweep.py::TestGridExpansion.)"""
+
+    def _sweeps_dir(self):
+        return os.path.join(_repo_root, "sweeps")
+
+    def test_knob_grf_config_loads(self):
+        cfg = load_config(os.path.join(self._sweeps_dir(), "knob_grf.json"))
+        self.assertEqual(cfg["init_distributions"], ["grf"])
+        self.assertEqual(cfg["node_mass_amplitudes"], [0.0, 0.25, 0.5, 0.75])
+        self.assertEqual(cfg["node_mass_seeds"], [42, 7])
+
+    def test_knob_grf_cell_count_matches_old_expand_grid(self):
+        """The old user grid: per (M): 1 amp=0 cell + 3 amp x 2 seeds = 7 cells."""
+        cfg = load_config(os.path.join(self._sweeps_dir(), "knob_grf.json"))
+        cells = expand_grid(cfg)
+        n_M = len(cfg["M_values"])
+        n_amp = len(cfg["node_mass_amplitudes"])
+        n_seed = len(cfg["node_mass_seeds"])
+        expected = n_M * (1 + (n_amp - 1) * n_seed)
+        self.assertEqual(len(cells), expected)
+        self.assertEqual(len(cells), n_M * 7)
+
+    def test_knob_grf_amp0_collapsed_to_seed_42(self):
+        cfg = load_config(os.path.join(self._sweeps_dir(), "knob_grf.json"))
+        cells = expand_grid(cfg)
+        amp0 = [c for c in cells if c["amplitude"] == 0.0]
+        # One amp=0 cell per M, all collapsed to nm_seed=42
+        self.assertEqual(len(amp0), len(cfg["M_values"]))
+        self.assertTrue(all(c["nm_seed"] == 42 for c in amp0))
+
+    def test_knob_grf_cache_keys_unique_across_amp_seed(self):
+        """Distinct (amplitude, nm_seed) cells get distinct cache keys (no collision).
+        (Ported from the deleted test_pantheon_knob_sweep cache-key coverage.)"""
+        cfg = load_config(os.path.join(self._sweeps_dir(), "knob_grf.json"))
+        cells = expand_grid(cfg)
+        keys = set()
+        for cell in cells:
+            sc = _make_sweep_config_for_cell(cell, cfg)
+            keys.add(build_cache_name(sc, cell["M"], 30, 1, [42]))
+        # Every cell at a fixed (M, S) differs only by (amp, seed); within a single M
+        # there must be no key collisions.
+        for M in cfg["M_values"]:
+            m_cells = [c for c in cells if c["M"] == M]
+            m_keys = {build_cache_name(_make_sweep_config_for_cell(c, cfg), M, 30, 1, [42])
+                      for c in m_cells}
+            self.assertEqual(len(m_keys), len(m_cells),
+                             f"cache key collision among amp/seed cells at M={M}")
+
+
+# ---------------------------------------------------------------------------
+# 12. Every committed sweeps/*.json loads and expands without error
+# ---------------------------------------------------------------------------
+
+class TestAllSweepConfigsLoadAndExpand(unittest.TestCase):
+    """Smoke test: every JSON in sweeps/ must load_config + expand_grid cleanly.
+    Guards against a committed config that the single driver can no longer parse."""
+
+    def test_all_configs(self):
+        import glob
+        sweeps_dir = os.path.join(_repo_root, "sweeps")
+        paths = sorted(glob.glob(os.path.join(sweeps_dir, "*.json")))
+        self.assertTrue(paths, "no sweeps/*.json configs found")
+        for path in paths:
+            with self.subTest(config=os.path.basename(path)):
+                cfg = load_config(path)
+                cells = expand_grid(cfg)
+                self.assertIsInstance(cells, list)
+                self.assertGreater(len(cells), 0,
+                                   f"{os.path.basename(path)} expanded to 0 cells")
+                for c in cells:
+                    for k in ("M", "amplitude", "nm_seed", "s_amplitude",
+                              "init", "geometry"):
+                        self.assertIn(k, c)
+
+
 if __name__ == "__main__":
     unittest.main()

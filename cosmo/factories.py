@@ -2,7 +2,7 @@
 Simulation Utility Functions
 
 Shared functions for running simulations and computing baselines.
-Used by both run_simulation.py and parameter_sweep.py for consistency.
+Used by both run_simulation.py and sweep.py for consistency.
 """
 
 from typing import Dict, Tuple
@@ -146,7 +146,7 @@ def setup_simulation_context(t_start_Gyr: float, t_duration_Gyr: float,
     Calculate initial conditions and LCDM baseline for a simulation run.
 
     Combines calculate_initial_conditions + solve_lcdm_baseline into one call.
-    This is the standard setup for both run_simulation.py and parameter_sweep.py.
+    This is the standard setup for both run_simulation.py and sweep.py.
 
     Args:
         t_start_Gyr: Start time in Gyr

@@ -25,7 +25,7 @@ python run_simulation.py ./my_results/
 .
 ├── README.md                      # This file
 ├── run_simulation.py              # Main script to reproduce final results
-├── parameter_sweep.py             # Systematic parameter exploration with R² metrics
+├── sweep.py                       # Single config-driven sweep driver (JSON configs in sweeps/)
 │
 └── cosmo/                         # Core simulation code
     ├── constants.py               # Physical constants and parameters
@@ -109,7 +109,7 @@ v(t=-dt/2) = v(t=0) - a(t=0) × dt/2
 - **Last-half R² (5 Gyr)**: Isolates late-time acceleration, avoiding early-universe inflation of scores
 - Separate R² for size evolution and expansion rate H(t) evolution
 
-**Automated Quality Checks** (via `parameter_sweep.py`):
+**Automated Quality Checks** (via `sweep.py`):
 - Center-of-mass drift monitoring (ensures symmetric grid produces negligible bulk motion)
 - Runaway particle detection (flags numerical instability: max_radius / RMS > 2.0)
 - Matter-only comparison (validates external-node mechanism provides genuine acceleration)
@@ -153,11 +153,14 @@ python run_simulation.py ./output/
 
 ### Parameter Exploration
 ```bash
-python parameter_sweep.py
-# Systematic LINEAR_SEARCH with adaptive step-skipping
-# Tests multiple (M, S) combinations with R² metrics
-# Reports: endpoint match, size R², expansion rate R², Hubble parameter match
-# Output: results/best_config.pkl with optimal parameters
+python sweep.py                                 # built-in default config
+python sweep.py --config sweeps/first_exploration.json
+python sweep.py --config sweeps/lcdm_example.json   # R^2 vs LCDM ("objective":"lcdm")
+python sweep.py --config sweeps/knob_grf.json       # GRF node-mass knob grid
+# sweep.py is the SINGLE config-driven sweep driver (resumable per-cell checkpoint).
+# Per-M co-fit S with LINEAR/TERNARY search; tests (M, S, amplitude, seed, init,
+# geometry, vir_*) axes. Objective is "pantheon" (chi2 vs real SNe) or "lcdm" (R^2).
+# Output: results/ws1_sweep_<tag>.csv + results/sweep_results_pantheon_<tag>.csv
 ```
 
 **Interpreting R² Scores**:

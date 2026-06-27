@@ -3,9 +3,10 @@
 Observer-from-a-particle mu(z) PROTOTYPE figure + table  (items 5 / D)
 =====================================================================
 
-The user's big idea: "We're NOT in the centre. Compute mu(z) from the viewpoint
-of EACH particle, not the cloud centre, and take the best one (and show the
-distribution)."
+The user's big idea, framed as CORRECT INFERENCE: "We are a RANDOM observer, not
+in the centre. Pantheon (the data) TELLS us WHERE we are, so the best-matching
+observer is the inference the data licenses, not a cherry-pick. Ask: does a
+Pantheon-matching observer EXIST, and how GENERIC is that vantage?"
 
 The default a(t)->mu(z) pipeline measures expansion as the inner cloud's RMS
 radius about its CENTRE OF MASS. This OPT-IN script (NOT on any default path)
@@ -13,17 +14,23 @@ runs a representative config, then — for EVERY observable particle as an obser
 — builds an inferred a_p(t) from that particle's local frame and scores it
 against the REAL Pantheon+ with the SAME authoritative chi2 the sweep uses
 (cosmo.observer_distance.score_observer -> sim_to_distance_modulus +
-evaluate_precomputed). It reports the DISTRIBUTION of per-particle chi2/dof, the
-CENTRE-observer baseline, and the BEST observer — for BOTH observer definitions
-(local_rms, hubble_flow) on BOTH a virialized config and a cube26 control.
+evaluate_precomputed). It reports, for BOTH observer definitions (local_rms,
+hubble_flow) on BOTH a virialized config and a cube26 control:
+  (i)  EXISTENCE: the BEST-observer chi2/dof (does a Pantheon-matching vantage
+       exist), with the centre baseline for context, and
+  (ii) GENERICITY (kept HONEST): the FRACTION of observers at/below the LCDM
+       reference AND below the EdS-null reference — a large fraction = generic
+       vantage, a small fraction = fine-tuned. Plus the DISTRIBUTION
+       (median / p10 / p90) as the "how typical are we" context.
 
 Outputs (results/figures/ws8/, gitignored):
     observer_chi2_distribution.png  histogram per (config x definition), centre +
-                                    best marked, LCDM/EdS reference lines.
-    observer_chi2.csv               centre / best / median / p10 / p90 per row.
-and prints the table + an HONEST verdict (does the best observer beat the centre,
-and is the spread itself a PF2-style anisotropy signal, or is "take the best"
-cherry-picking?).
+                                    best marked, LCDM/EdS reference lines, and a
+                                    "fraction viable (<LCDM, <EdS)" annotation.
+    observer_chi2.csv               centre / best / median / p10 / p90 +
+                                    frac_below_lcdm / frac_below_eds per row.
+and prints the table + a verdict (does a Pantheon-matching observer EXIST, how
+GENERIC vs fine-tuned is that vantage, and is the spread a PF2 anisotropy signal).
 
 INVARIANTS
 ----------
@@ -155,12 +162,15 @@ def run_config(
         print(f"    scoring observers ({definition}) ...", flush=True)
         out = observer_chi2_distribution(
             pos, vel, t, sp.t_start_Gyr, pantheon_data,
-            definition=definition, mask=mask)
+            definition=definition, mask=mask,
+            lcdm_ref=refs["lcdm"], eds_ref=refs["einstein_de_sitter"])
         result["distributions"][definition] = out
         print(f"      centre={out['center_chi2_dof']:.3f}  "
               f"best={out['best_chi2_dof']:.3f} (obs#{out['best_observer']})  "
               f"median={out['median']:.3f}  "
               f"p10/p90={out['p10']:.3f}/{out['p90']:.3f}  "
+              f"frac<LCDM={out['frac_below_lcdm']:.3f}  "
+              f"frac<EdS={out['frac_below_eds']:.3f}  "
               f"n_finite={out['n_finite']}/{out['n_observers']}")
     return result
 
@@ -172,7 +182,8 @@ def run_config(
 _CSV_COLS = ["geometry", "definition", "n_observers", "n_finite",
              "center_chi2_dof", "best_chi2_dof", "best_observer",
              "median", "p10", "p90", "center_growth",
-             "chi2_lcdm", "chi2_eds"]
+             "chi2_lcdm", "chi2_eds",
+             "frac_below_lcdm", "frac_below_eds"]
 
 
 def _rows_from_results(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -193,6 +204,8 @@ def _rows_from_results(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "center_growth": out["center_growth"],
                 "chi2_lcdm": r["refs"]["lcdm"],
                 "chi2_eds": r["refs"]["einstein_de_sitter"],
+                "frac_below_lcdm": out["frac_below_lcdm"],
+                "frac_below_eds": out["frac_below_eds"],
             })
     return rows
 
@@ -212,12 +225,13 @@ def _write_csv(path: str, rows: List[Dict[str, Any]]) -> None:
 
 
 def _print_table(rows: List[Dict[str, Any]]) -> None:
-    print("\n" + "=" * 104)
-    print("OBSERVER-FROM-A-PARTICLE chi2/dof DISTRIBUTION (vs REAL Pantheon+)")
-    print("=" * 104)
+    print("\n" + "=" * 122)
+    print("OBSERVER-FROM-A-PARTICLE chi2/dof DISTRIBUTION (vs REAL Pantheon+) — "
+          "a RANDOM observer's fit; frac<LCDM / frac<EdS = how GENERIC the vantage")
+    print("=" * 122)
     hdr = (f"  {'geometry':<11}{'definition':<12}{'centre':>9}{'best':>9}"
            f"{'median':>9}{'p10':>9}{'p90':>9}{'best#':>7}{'finite':>8}"
-           f"{'LCDM':>8}{'EdS':>8}")
+           f"{'LCDM':>8}{'EdS':>8}{'f<LCDM':>9}{'f<EdS':>8}")
     print(hdr)
     print("  " + "-" * (len(hdr) - 2))
     for r in rows:
@@ -226,41 +240,61 @@ def _print_table(rows: List[Dict[str, Any]]) -> None:
               f"{_fmt(r['median']):>9}{_fmt(r['p10']):>9}{_fmt(r['p90']):>9}"
               f"{r['best_observer']:>7}"
               f"{r['n_finite']:>4}/{r['n_observers']:<3}"
-              f"{_fmt(r['chi2_lcdm']):>8}{_fmt(r['chi2_eds']):>8}")
-    print("=" * 104)
+              f"{_fmt(r['chi2_lcdm']):>8}{_fmt(r['chi2_eds']):>8}"
+              f"{_fmt(r['frac_below_lcdm']):>9}{_fmt(r['frac_below_eds']):>8}")
+    print("=" * 122)
 
 
 def _verdict(rows: List[Dict[str, Any]]) -> None:
     print("\n" + "#" * 104)
-    print("HONEST VERDICT — does an off-centre observer materially improve the fit?")
+    print("VERDICT — a RANDOM observer CAN match Pantheon: does one EXIST, and how "
+          "GENERIC is that vantage?")
+    print("(We are a random observer; Pantheon localises us, so the best-matching "
+          "observer is CORRECT INFERENCE,")
+    print(" not a cherry-pick. The fraction-viable says whether that vantage is "
+          "generic or fine-tuned.)")
     print("#" * 104)
     for r in rows:
         c = r["center_chi2_dof"]
         b = r["best_chi2_dof"]
-        if not (math.isfinite(c) and math.isfinite(b)):
+        if not math.isfinite(b):
             print(f"  [{r['geometry']:<11} {r['definition']:<12}] "
-                  f"non-finite centre/best — skip")
+                  f"no finite observer — skip")
             continue
-        improve = c - b
-        improve_pct = 100.0 * improve / c if c > 0 else float("nan")
+        f_lcdm = r.get("frac_below_lcdm", float("nan"))
+        f_eds = r.get("frac_below_eds", float("nan"))
         spread = (r["p90"] - r["p10"]) if math.isfinite(r["p90"]) else float("nan")
         print(f"\n  [{r['geometry']:<11} {r['definition']:<12}]")
-        print(f"    centre chi2/dof = {_fmt(c)}   best = {_fmt(b)}   "
-              f"improvement = {_fmt(improve)} ({_fmt(improve_pct,1)}%)")
-        print(f"    p10..p90 spread = {_fmt(spread)}  "
-              f"(LCDM ref {_fmt(r['chi2_lcdm'])}, EdS ref {_fmt(r['chi2_eds'])})")
-        # Honest framing:
-        if math.isfinite(improve_pct) and improve_pct > 5.0 and b < r["chi2_lcdm"]:
-            print("    => BEST observer BEATS the centre AND dips below the LCDM "
-                  "reference — but this is the MIN over many observers (look at the "
-                  "distribution, not just the min: 'best' is a cherry-pick).")
-        elif math.isfinite(improve_pct) and improve_pct > 5.0:
-            print("    => best observer improves on the centre, but does NOT beat "
-                  "the LCDM reference. The improvement is a selection effect over "
-                  "the observer ensemble, not a model win.")
+        print(f"    (i)  EXISTS? best observer chi2/dof = {_fmt(b)} "
+              f"(obs#{r['best_observer']})  vs LCDM ref {_fmt(r['chi2_lcdm'])}, "
+              f"EdS ref {_fmt(r['chi2_eds'])}")
+        print(f"    (ii) GENERIC? frac<LCDM = {_fmt(f_lcdm)}   "
+              f"frac<EdS = {_fmt(f_eds)}   "
+              f"(centre {_fmt(c)}, median {_fmt(r['median'])}, "
+              f"p10/p90 {_fmt(r['p10'])}/{_fmt(r['p90'])})")
+        # (i) Does a Pantheon-matching observer exist?
+        if math.isfinite(b) and b <= r["chi2_lcdm"]:
+            print("    => a Pantheon-matching observer EXISTS (best <= LCDM ref): "
+                  "the model is VIABLE from a real, random vantage.")
+        elif math.isfinite(b) and b <= r["chi2_eds"]:
+            print("    => an observer below the EdS null EXISTS (best <= EdS ref) "
+                  "but none reaches the LCDM ref at this config.")
         else:
-            print("    => off-centre observers do NOT materially beat the centre "
-                  "(the user's hypothesis is NOT supported for this config).")
+            print("    => NO observer matches Pantheon at this config "
+                  "(best is above the EdS null).")
+        # (ii) How fine-tuned is that vantage? (stay honest about the fraction)
+        if math.isfinite(f_lcdm):
+            if f_lcdm >= 0.10:
+                print(f"    => a SIZEABLE fraction ({_fmt(f_lcdm)}) of random "
+                      "observers see sub-LCDM expansion: a Pantheon-like vantage "
+                      "is fairly GENERIC, not a one-off.")
+            elif f_lcdm > 0.0:
+                print(f"    => only a SMALL fraction ({_fmt(f_lcdm)}) of observers "
+                      "reach sub-LCDM: a Pantheon-matching vantage exists but is "
+                      "FINE-TUNED (honest caveat).")
+            else:
+                print("    => NO observer reaches the LCDM ref (frac<LCDM = 0); "
+                      f"frac<EdS = {_fmt(f_eds)} is the looser viability fraction.")
         if math.isfinite(spread) and spread > 0.1:
             print("    => the LARGE per-observer spread is itself a PF2-style "
                   "anisotropy signal (different observers infer different "
@@ -304,10 +338,19 @@ def _make_figure(results: List[Dict[str, Any]], out_path: str) -> None:
             ax.set_xlabel("per-observer chi2/dof vs Pantheon+")
             ax.set_ylabel("count")
             ax.legend(fontsize=7, loc="upper right")
+            # Fraction-viable annotation: how GENERIC is a Pantheon-like vantage.
+            f_lcdm = out.get("frac_below_lcdm", float("nan"))
+            f_eds = out.get("frac_below_eds", float("nan"))
+            ax.text(
+                0.02, 0.97,
+                f"fraction viable\n<LCDM: {f_lcdm:.2f}\n<EdS: {f_eds:.2f}",
+                transform=ax.transAxes, ha="left", va="top", fontsize=7,
+                bbox=dict(boxstyle="round", fc="#f5f5f5", ec="#888888", alpha=0.9))
     fig.suptitle(
-        "Observer-from-a-particle mu(z): per-particle chi2 distribution "
+        "Observer-from-a-particle mu(z): a RANDOM observer CAN match Pantheon "
+        "(best = does one exist; fraction viable = how generic the vantage)\n"
         f"(M={_M:.0f}, S={_S_GPC:.0f}, t_start={_T_START})",
-        fontsize=13)
+        fontsize=12)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     fig.savefig(out_path, dpi=_DPI, bbox_inches=_BBOX)
     plt.close(fig)

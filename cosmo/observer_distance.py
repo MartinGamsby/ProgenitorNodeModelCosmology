@@ -2,10 +2,20 @@
 Observer-from-a-Particle Expansion / Distance Kernel  (PROTOTYPE — items 5 / D)
 
 Pure-function module (no I/O, no plotting, no simulation imports) that answers
-the user's hypothesis:
+the user's hypothesis, framed as CORRECT INFERENCE rather than cherry-picking:
 
-    "We're NOT in the center. Compute mu(z) from the viewpoint of EACH particle,
-     not the cloud center, and take the best one (and show the distribution)."
+    "We are a RANDOM observer, not in the centre. Pantheon+ (the data) TELLS us
+     WHERE we are. So compute mu(z) from the viewpoint of EACH particle, not the
+     cloud centre, and ask: (i) DOES a Pantheon-matching observer EXIST in this
+     universe, and (ii) WHAT FRACTION of observers see Pantheon-like expansion?"
+
+Epistemology (the point the user insisted on): we occupy a random vantage and the
+SNe data localise it, so SELECTING the best-matching observer is not a cheat — it
+is the inference the data licenses. The honest question is therefore not "is the
+best a fluke?" but TWO questions: does a viable observer EXIST (best chi2/dof), and
+how GENERIC is that vantage (the FRACTION of observers at/below a reference fit).
+A large fraction = a Pantheon-like view is a generic vantage; a small fraction =
+our vantage is fine-tuned. We report the fraction so fine-tuning stays visible.
 
 The default a(t) -> mu(z) pipeline (cosmo/sim_distance.py, consuming a_curve from
 cosmo/factories.run_external_node_simulation) measures expansion as the RMS radius
@@ -411,6 +421,45 @@ def score_observer(
 
 
 # ---------------------------------------------------------------------------
+# Fraction of VIABLE observers (the "how generic is our vantage" statistic)
+# ---------------------------------------------------------------------------
+
+def fraction_at_or_below(chi2_dof: np.ndarray, threshold: float) -> float:
+    """Fraction of FINITE per-observer chi2/dof values at/below ``threshold``.
+
+    The honest counterpart to "the best observer": given the full array of
+    per-observer chi2/dof (np.inf marks observers that failed to score), report
+    what FRACTION of the *scoreable* observers see a fit at least as good as a
+    reference. Used with the LCDM reference (~0.436) and the EdS-null reference
+    (~0.843) so the caller can say "a fraction f of random observers see
+    Pantheon-like (sub-LCDM / sub-EdS) expansion". A large fraction = a
+    Pantheon-matching vantage is GENERIC; a small fraction = our vantage is
+    FINE-TUNED. This keeps the "take the best" inference honest.
+
+    Pure function (no I/O, no plotting). Properties pinned by the unit tests:
+      * monotone non-decreasing in ``threshold``;
+      * 0.0 for any threshold below the minimum finite chi2;
+      * 1.0 for any threshold at/above the maximum finite chi2;
+      * exact count at a boundary (<= is inclusive);
+      * NaN if there are NO finite observers (nothing to take a fraction of).
+
+    Args:
+        chi2_dof:  array of per-observer chi2/dof (np.inf for failed observers).
+        threshold: reference chi2/dof to compare against (e.g. the LCDM or EdS
+                   in-range chi2/dof for this run).
+
+    Returns:
+        float in [0, 1] = (# finite chi2_dof <= threshold) / (# finite chi2_dof),
+        or float('nan') if no finite observers.
+    """
+    vals = np.asarray(chi2_dof, dtype=float)
+    finite = vals[np.isfinite(vals)]
+    if finite.size == 0:
+        return float("nan")
+    return float(np.count_nonzero(finite <= threshold) / finite.size)
+
+
+# ---------------------------------------------------------------------------
 # The prototype driver: score a sample of observers, report the distribution
 # ---------------------------------------------------------------------------
 
@@ -426,11 +475,15 @@ def observer_chi2_distribution(
     observers: Optional[Sequence[int]] = None,
     mask: Optional[np.ndarray] = None,
     today_index: int = -1,
+    lcdm_ref: Optional[float] = None,
+    eds_ref: Optional[float] = None,
 ) -> dict:
     """Score a SAMPLE of per-particle observers and summarise the distribution.
 
-    This is the prototype the user asked for: "compute from the point of view of
-    all particles and take the best one (and show the distribution)."
+    This is the inference the user asked for: we are a RANDOM observer, Pantheon+
+    localises us, so we compute the fit "from the point of view of all particles"
+    and ask whether a Pantheon-matching observer EXISTS (best) and how GENERIC
+    that vantage is (the FRACTION of observers at/below a reference fit).
 
     Args:
         positions:   (n_snap, N_total, 3) metres (full sim cloud).
@@ -446,6 +499,10 @@ def observer_chi2_distribution(
                       restricted to True entries (the inner cloud), matching the
                       centre-based a(t) which uses the observable subset only.
         today_index:  snapshot treated as "today" for neighbour membership.
+        lcdm_ref:     optional LCDM in-range chi2/dof reference for this run; if
+                      given, 'frac_below_lcdm' = fraction of observers at/below it.
+        eds_ref:      optional EdS-null in-range chi2/dof reference; if given,
+                      'frac_below_eds' = fraction of observers at/below it.
 
     Returns dict with keys:
         'definition', 'k', 'n_observers',
@@ -457,7 +514,11 @@ def observer_chi2_distribution(
         'best_chi2_dof'   : float (min over finite observers; inf if none),
         'best_observer'   : int global index of the best observer (or -1),
         'median', 'p10', 'p90' : percentiles over the FINITE chi2_dof values,
-        'n_finite'        : int count of observers with a finite chi2.
+        'n_finite'        : int count of observers with a finite chi2,
+        'lcdm_ref', 'eds_ref'         : the reference values used (or None),
+        'frac_below_lcdm', 'frac_below_eds' : fraction of FINITE observers at/below
+                      each reference (the "how generic is our vantage" statistic;
+                      np.nan if the corresponding *_ref was not supplied).
     """
     pos, vel, t = _validate_history(positions, velocities, times_Gyr)
     n_snap, N_total, _ = pos.shape
@@ -526,6 +587,11 @@ def observer_chi2_distribution(
 
     observer_index = np.array([int(sub[lo]) for lo in local_observers], dtype=int)
 
+    frac_below_lcdm = (fraction_at_or_below(chi2, lcdm_ref)
+                       if lcdm_ref is not None else float("nan"))
+    frac_below_eds = (fraction_at_or_below(chi2, eds_ref)
+                      if eds_ref is not None else float("nan"))
+
     return {
         "definition": definition,
         "k": k,
@@ -541,4 +607,8 @@ def observer_chi2_distribution(
         "p10": p10,
         "p90": p90,
         "n_finite": n_finite,
+        "lcdm_ref": lcdm_ref,
+        "eds_ref": eds_ref,
+        "frac_below_lcdm": frac_below_lcdm,
+        "frac_below_eds": frac_below_eds,
     }

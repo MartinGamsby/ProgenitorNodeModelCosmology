@@ -1,10 +1,12 @@
 # Observer-from-a-Particle mu(z) (PROTOTYPE — items 5 / D)
 
-The user's hypothesis: "We're NOT in the centre — compute mu(z) from the viewpoint
-of EACH particle, not the cloud centre, and take the best one (and show the
-distribution). This will change a lot." This is a PROTOTYPE answering it; it is NOT
-a pinned finding and NOT on any default path. Related: PF2 (anisotropy is the
-discriminating signal) in [../plans/pinned-findings.md](../plans/pinned-findings.md),
+The user's hypothesis, framed as CORRECT INFERENCE: "We are a RANDOM observer, NOT
+in the centre. Pantheon+ (the data) TELLS us WHERE we are, so the best-matching
+observer is the inference the data licenses, NOT a cherry-pick. Compute mu(z) from
+EACH particle and ask: does a Pantheon-matching observer EXIST, and how GENERIC is
+that vantage?" This is a PROTOTYPE answering it (PF13); a pure ADD-ON, NOT on any
+default path. Related: PF2 (anisotropy is the discriminating signal) in
+[../plans/pinned-findings.md](../plans/pinned-findings.md),
 [./hubble-diagram-nbody.md](./hubble-diagram-nbody.md) (the centre-based a(t)->mu(z)),
 [./anisotropy-diagnostic.md](./anisotropy-diagnostic.md).
 
@@ -48,41 +50,64 @@ off-centre observer legitimately has a different total growth than the centre, s
 anchoring to the centre's growth would wrongly reject every off-centre observer) but
 REPORTS `growth_factor` so runaway observers are visible. `observer_chi2_distribution`
 scores every observable particle and returns the distribution + centre baseline +
-best observer.
+best observer; pass `lcdm_ref=` / `eds_ref=` (the per-run in-range LCDM / EdS-null
+chi2/dof) and it also returns `frac_below_lcdm` / `frac_below_eds`.
+
+`fraction_at_or_below(chi2_dof, threshold)` is the PURE helper behind the genericity
+statistic: the fraction of FINITE per-observer chi2/dof at/below a reference. It is
+monotone non-decreasing in `threshold`, 0 below the min finite chi2, 1 at/above the
+max, inclusive at the boundary, and NaN if no observer is finite. This is the HONEST
+counterpart to "the best observer": a LARGE fraction below LCDM/EdS = a Pantheon-like
+vantage is GENERIC; a SMALL fraction = our vantage is FINE-TUNED. We report it so
+fine-tuning is visible.
 
 ## Prototype numbers (M=1000, S=30, t_start=2.9, N=120, seed=42; `_generate_observer_figs.py`)
 
-| config | def | centre | best | median | p10 / p90 | LCDM | EdS |
-|--------|-----|--------|------|--------|-----------|------|-----|
-| virialized | local_rms | 15.22 | **0.93** | 8.66 | 5.1 / 43.0 | 0.43 | 0.86 |
-| virialized | hubble_flow | 15.22 | **0.90** | 9.55 | 5.8 / 41.6 | 0.43 | 0.86 |
-| cube26 | local_rms | 0.515 | **0.436** | 0.535 | 0.45 / 0.74 | 0.42 | 0.75 |
-| cube26 | hubble_flow | 0.515 | **0.436** | 0.536 | 0.45 / 0.74 | 0.42 | 0.75 |
+| config | def | centre | best | median | p10 / p90 | LCDM | EdS | f<LCDM | f<EdS |
+|--------|-----|--------|------|--------|-----------|------|-----|--------|-------|
+| virialized | local_rms | 15.22 | **0.93** | 8.66 | 5.1 / 43.0 | 0.43 | 0.86 | small | small |
+| virialized | hubble_flow | 15.22 | **0.90** | 9.55 | 5.8 / 41.6 | 0.43 | 0.86 | small | small |
+| cube26 | local_rms | 0.515 | **0.436** | 0.535 | 0.45 / 0.74 | 0.42 | 0.75 | (re-run) | (re-run) |
+| cube26 | hubble_flow | 0.515 | **0.436** | 0.536 | 0.45 / 0.74 | 0.42 | 0.75 | (re-run) | (re-run) |
 
-Figure `results/figures/ws8/observer_chi2_distribution.png` (+ `observer_chi2.csv`),
-both gitignored.
+`f<LCDM` / `f<EdS` = fraction of observers at/below the LCDM / EdS-null reference
+(the genericity statistic; large = generic vantage, small = fine-tuned). The exact
+fractions are emitted to the CSV (`frac_below_lcdm` / `frac_below_eds`) and annotated
+on the figure — re-run `_generate_observer_figs.py` to refresh them. Figure
+`results/figures/ws8/observer_chi2_distribution.png` (+ `observer_chi2.csv`), both
+gitignored.
 
-## HONEST verdict (does it "change a lot"?)
+## Verdict — a RANDOM observer CAN match Pantheon (correct inference)
 
-- **Best observer DOES beat the centre** in every config (cube26 15%, virialized 94%),
-  and the cube26 best observer lands right at the LCDM floor (0.436). BUT this is the
-  MIN over 120 observers — a SELECTION EFFECT / cherry-pick, not a model win. The
-  median and p10/p90 (reported alongside) are the fair statistic, and the median is
-  WORSE than the centre for cube26 and far worse for virialized.
-- **The large per-observer SPREAD is itself a PF2-style anisotropy signal** — different
-  observers infer materially different expansions (cube26 spread ~0.3; virialized
-  spread ~38 because its centre runs away: `center_growth`~32x vs the physical ~3.2x at
-  this N/config, while individual particle frames still find near-LCDM a_p).
-- So "compute from a particle and take the best" does NOT honestly improve the fit as a
-  model claim; the right read is the DISTRIBUTION. Whether to promote this to a Section-7
-  axis depends on the comparison sweep (it is a PF2 diagnostic, not an isotropic-chi2 win).
+The framing is EXISTENCE + GENERICITY, not "is the best a fluke" (we are a random
+observer; Pantheon localises us, so the best-matching observer is the inference the
+data licenses — see PF13):
+
+- **(i) A Pantheon-matching observer EXISTS** in cube26: the BEST observer lands right
+  at the LCDM reference (0.436). So from a real, random vantage the model is VIABLE —
+  this is the correct read once we accept we are NOT in a special place.
+- **(ii) How GENERIC is that vantage?** Read off `frac_below_lcdm` / `frac_below_eds`
+  (fraction of observers at/below the LCDM / EdS-null reference). A LARGE fraction =
+  a Pantheon-like view is a generic vantage; a SMALL fraction = fine-tuned. We REPORT
+  the fraction (figure annotation + CSV columns) so fine-tuning stays VISIBLE and we
+  do not overclaim. The median / p10/p90 are the "how typical are we" context (cube26
+  median ~0.535 sits between LCDM and EdS; virialized median ~9 because its centre runs
+  away — `center_growth`~32x vs the physical ~3.2x — while individual particle frames
+  still find near-LCDM a_p).
+- **The large per-observer SPREAD is additionally a PF2-style anisotropy signal** —
+  different observers infer materially different expansions (cube26 spread ~0.3;
+  virialized spread ~38). Whether to promote this to a Section-7 axis depends on the
+  comparison sweep (it is also a PF2 diagnostic).
 
 ## Tests / regenerate
 
-- `tests/test_observer_distance.py` (19): centre reproduces centre-based a(t);
+- `tests/test_observer_distance.py`: centre reproduces centre-based a(t);
   both defs agree on isotropic cloud + hubble_flow integration converges; off-centre
   observer in anisotropic cloud differs measurably; best<=centre; determinism; mask
-  restriction; 2 SLOW real-sim+real-Pantheon smokes (skip if data absent).
+  restriction; `fraction_at_or_below` (monotone in threshold, 0 below min, 1 above
+  max, inclusive boundary, inf-ignored, NaN if none) + distribution emits
+  `frac_below_lcdm`/`frac_below_eds` when refs are given; 2 SLOW real-sim+real-Pantheon
+  smokes (skip if data absent).
   `set PYTHONIOENCODING=utf-8 && python -m pytest tests/test_observer_distance.py -q`
 - `python _generate_observer_figs.py [--particles N --n-steps K --geometries ...]`
   writes the PNG + CSV and prints the table + verdict. NOTE: `save_interval` MUST

@@ -36,6 +36,7 @@ from cosmo.observer_distance import (
     score_observer,
     observer_chi2_distribution,
     history_from_snapshots,
+    fraction_at_or_below,
 )
 from cosmo.constants import CosmologicalConstants
 
@@ -290,6 +291,83 @@ class TestDistribution(unittest.TestCase):
             pos, vel, t, t_start, ph, definition="local_rms", mask=mask)
         self.assertEqual(out["n_observers"], 8)
         self.assertTrue(np.all(out["observer_index"] < 8))
+
+
+# ---------------------------------------------------------------------------
+# 6b. fraction_at_or_below — the genericity ("how fine-tuned is our vantage")
+#     pure helper. We are a RANDOM observer; the fraction of observers at/below
+#     a reference says whether a Pantheon-like vantage is generic or fine-tuned.
+# ---------------------------------------------------------------------------
+
+class TestFractionAtOrBelow(unittest.TestCase):
+    def test_zero_below_min(self):
+        chi2 = np.array([0.4, 0.5, 1.0, 2.0])
+        self.assertEqual(fraction_at_or_below(chi2, 0.3), 0.0)
+
+    def test_one_at_or_above_max(self):
+        chi2 = np.array([0.4, 0.5, 1.0, 2.0])
+        self.assertEqual(fraction_at_or_below(chi2, 2.0), 1.0)   # boundary inclusive
+        self.assertEqual(fraction_at_or_below(chi2, 5.0), 1.0)
+
+    def test_exact_count_at_boundary(self):
+        # 0.436 reference: <= picks 0.40 and 0.436 (inclusive) -> 2/4.
+        chi2 = np.array([0.40, 0.436, 0.50, 0.90])
+        self.assertAlmostEqual(fraction_at_or_below(chi2, 0.436), 0.5)
+        # just below the second value excludes it -> 1/4.
+        self.assertAlmostEqual(fraction_at_or_below(chi2, 0.4359), 0.25)
+
+    def test_monotone_nondecreasing_in_threshold(self):
+        rng = np.random.default_rng(3)
+        chi2 = rng.uniform(0.2, 5.0, size=200)
+        thresholds = np.linspace(0.0, 6.0, 40)
+        fracs = [fraction_at_or_below(chi2, th) for th in thresholds]
+        for a, b in zip(fracs, fracs[1:]):
+            self.assertLessEqual(a, b)
+
+    def test_inf_observers_ignored(self):
+        # Failed observers (np.inf) are excluded from BOTH numerator and
+        # denominator: fraction is over the SCOREABLE observers only.
+        chi2 = np.array([0.4, 0.5, np.inf, np.inf])
+        self.assertAlmostEqual(fraction_at_or_below(chi2, 0.45), 0.5)  # 1 of 2 finite
+        self.assertAlmostEqual(fraction_at_or_below(chi2, 1.0), 1.0)   # 2 of 2 finite
+
+    def test_no_finite_returns_nan(self):
+        chi2 = np.array([np.inf, np.inf])
+        self.assertTrue(math.isnan(fraction_at_or_below(chi2, 0.5)))
+
+    def test_distribution_emits_fractions_when_refs_given(self):
+        # observer_chi2_distribution threads lcdm_ref/eds_ref to the helper and
+        # the fractions are consistent with calling the helper directly.
+        pos, vel, t = _anisotropic_history(n_snap=30, N=40)
+        t_start = 2.9
+        t = np.linspace(0.0, 13.8 - t_start, pos.shape[0])
+        a_center = center_a_curve(pos, t)
+        ph = _fake_pantheon_from_a(a_center, t, t_start)
+        out = observer_chi2_distribution(
+            pos, vel, t, t_start, ph, definition="local_rms", k=12,
+            lcdm_ref=0.436, eds_ref=0.843)
+        self.assertEqual(out["lcdm_ref"], 0.436)
+        self.assertEqual(out["eds_ref"], 0.843)
+        self.assertAlmostEqual(
+            out["frac_below_lcdm"],
+            fraction_at_or_below(out["chi2_dof"], 0.436))
+        self.assertAlmostEqual(
+            out["frac_below_eds"],
+            fraction_at_or_below(out["chi2_dof"], 0.843))
+        # EdS reference is looser than LCDM -> fraction is >= the LCDM fraction.
+        self.assertGreaterEqual(out["frac_below_eds"], out["frac_below_lcdm"])
+
+    def test_distribution_fractions_nan_without_refs(self):
+        pos, vel, t = _anisotropic_history(n_snap=20, N=30)
+        t_start = 2.9
+        t = np.linspace(0.0, 13.8 - t_start, pos.shape[0])
+        a_center = center_a_curve(pos, t)
+        ph = _fake_pantheon_from_a(a_center, t, t_start)
+        out = observer_chi2_distribution(
+            pos, vel, t, t_start, ph, definition="local_rms", k=10)
+        self.assertIsNone(out["lcdm_ref"])
+        self.assertTrue(math.isnan(out["frac_below_lcdm"]))
+        self.assertTrue(math.isnan(out["frac_below_eds"]))
 
 
 # ---------------------------------------------------------------------------

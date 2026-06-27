@@ -253,8 +253,32 @@ class CosmologicalSimulation:
             print(f"[Velocity Calibration] Applied velocity scaling: {damping:.6f}")
             return
 
+        # Velocity-calibration cache key.
+        # NOTE: this whole method is the LEGACY non-EdS calibration path. It is only
+        # reached from run() when NOT (eds_consistent and damping is None) — i.e. for
+        # eds_consistent=False runs without an explicit damping override. Under the
+        # default eds_consistent=True it is NEVER called, so the headline/pinned runs
+        # never touch this cache. generate_output_filename omits start_size_scale,
+        # node_softening_gpc and node_geometry, but those knobs DO change the
+        # calibrated velocity scale (start size changes density/expansion; softening
+        # and geometry change the tidal field measured during the test). We thread
+        # them into the key (only when non-default, to keep existing keys stable) so a
+        # keyed value always matches the run that produced it — closing the
+        # "keyed-but-not-run" foot-gun on this legacy path.
         calib_name = generate_output_filename('', self.sim_params, '', '', include_timestamp=False,
                                                include_S=False, include_M=False, include_D=False)
+        _calib_extra = []
+        _start_size_scale = float(getattr(self.sim_params, 'start_size_scale', 1.0))
+        if _start_size_scale != 1.0:
+            _calib_extra.append(f"{_start_size_scale}ss")
+        _node_softening_gpc = float(getattr(self.sim_params, 'node_softening_gpc', 0.0))
+        if _node_softening_gpc != 0.0:
+            _calib_extra.append(f"{_node_softening_gpc}soft")
+        _node_geometry = getattr(self.sim_params, 'node_geometry', 'cube26')
+        if _node_geometry != 'cube26':
+            _calib_extra.append(f"{_node_geometry}geom")
+        if _calib_extra:
+            calib_name = calib_name + "_" + "_".join(_calib_extra)
         cached_velocity = velocity_cache.get_cached_value(calib_name, CacheType.VELOCITY)
         if cached_velocity:
             self.particles.set_velocities(self.particles.get_velocities()*cached_velocity)

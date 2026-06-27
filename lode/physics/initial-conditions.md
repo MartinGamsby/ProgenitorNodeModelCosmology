@@ -124,6 +124,27 @@ consistent ICs ... no calibration"). `_calibrate_velocity_for_lcdm_match` still
 exists and runs only if `eds_consistent=False` OR an explicit `damping` override
 is passed to `run()`. The auto-damping formula `(t_start/13.8)^0.135` lives there.
 
+### "Skipped calibration" does NOT drop the physical initial velocity
+What is skipped is ONLY the legacy velocity-RESCALING fudge above. The PHYSICAL
+Hubble-flow velocity `v = H_EdS·r` is ALWAYS set during particle generation,
+independent of the skip:
+- `cosmo/particles.py:389` sets `v_hubble = H_start * pos` for every particle.
+- On the EdS path `H_start = lcdm.H_eds_at_time(t_start)` = 2/(3 t_start)
+  (`cosmo/particles.py:222`); COM velocity is then removed (L399-404).
+- The skip lives in `cosmo/simulation.py::run()` (~L458-463) and only bypasses
+  `_calibrate_velocity_for_lcdm_match` — it cannot touch the ICs above.
+So `M_ext=0 == EdS` holds (tests/test_matter_only_consistency.py): the initial
+velocity is real physics, not a fudge.
+
+### Velocity-calibration cache key (legacy path only)
+`_calibrate_velocity_for_lcdm_match`'s cache key (`calib_name`,
+`cosmo/simulation.py` ~L256) is built from `generate_output_filename(...)`, which
+omits `start_size_scale` / `node_softening_gpc` / `node_geometry`. Those knobs DO
+affect the calibrated scale, so they are now threaded into `calib_name` (appended
+only when non-default, keeping existing keys stable) to keep keyed==run. This key
+is reached ONLY on the legacy `eds_consistent=False` path, so the default headline
+runs never touch it; the fix just removes a latent foot-gun for non-EdS users.
+
 ## Selectable init_distribution
 
 `SimulationParameters.init_distribution` (default `"uniform_sphere"`) selects the position sampler.

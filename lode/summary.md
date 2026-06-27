@@ -8,7 +8,7 @@ Parameter exploration finds MULTIPLE balanced-optimization configs across wide m
 - M=92 S=15: 98.67% endpoint, R²_size=0.9966, R²_rate=0.9565
 Size-only optimization can reach R²_size=0.9991 (M=800 S=22) but distorts expansion rate—expected tradeoff: size is integrated quantity, rate is derivative (Section 4.3).
 
-Matter-only comparison validates mechanism: N-body matter-only NEVER exceeds LCDM (physics constraint enforced via velocity calibration at sim.run()). Velocity calibration scales initial velocities to compensate for N-body's ~65-80% deceleration compared to Friedmann; auto-calculated from t_start or passed as explicit damping parameter. Without external-nodes, matter-only has R²_rate=0.835 vs external-node 0.963, and R²_size=0.989 vs 0.995.
+Matter-only comparison validates mechanism. DEFAULT path is `eds_consistent=True`: the physical Hubble-flow velocity `v = H_EdS·r` (H_EdS = 2/(3 t_start)) is set at IC time (cosmo/particles.py:389/222) with EdS-critical cloud mass, so `M_ext=0 == EdS` exactly and NO velocity calibration runs (run() prints "Skipped"). The legacy `_calibrate_velocity_for_lcdm_match` FUDGE (scaled initial velocities so N-body never exceeds LCDM; auto-damping `(t_start/13.8)^0.135` or explicit damping) runs ONLY on the non-default `eds_consistent=False` path or with an explicit damping override — see lode/physics/initial-conditions.md. Without external-nodes, matter-only has R²_rate=0.835 vs external-node 0.963, and R²_size=0.989 vs 0.995.
 
 The project also includes a separate, data-anchored Hubble-diagram test (hubble_diagram.py + cosmo/distances.py, cosmo/pantheon.py, cosmo/hubble_diagram.py): it turns each model's semi-analytic H(z) into a distance-modulus mu(z) curve, overlays REAL Pantheon+SH0ES supernovae, and reports per-model chi^2/R^2 after marginalizing an additive magnitude offset. This is model-vs-real-data (distinct from the N-body model-vs-LCDM-theory R^2) and leaves the N-body path untouched. Open issue: the (M,S) matching real SNe (Omega_Lambda_eff~=0.70, near M=855,S=37.8) differs from the paper's primary N-body config (M=9000,S=38 -> Omega_Lambda_eff~=7.24, a closed universe) — see lode/physics/hubble-diagram.md.
 
@@ -30,13 +30,13 @@ Toy model scope: late-time acceleration (t=5.8->13.8 Gyr, 8 Gyr period); doesn't
 
 Key technical insights:
 1. Initial velocities: model-appropriate Hubble parameter (H_lcdm for LCDM, H_matter for matter-only); COM removal; RMS radius normalization ensures identical starting size
-2. Velocity calibration at sim.run(damping=None): scales initial velocities for non-LCDM models, auto-calculated from t_start via formula (t_start/13.8)^0.135
+2. Velocity calibration (legacy, eds_consistent=False path ONLY): _calibrate_velocity_for_lcdm_match scales initial velocities to track LCDM, auto-damping (t_start/13.8)^0.135 or explicit damping. The default eds_consistent=True path SKIPS this fudge but still sets the physical v=H_EdS·r at IC time. Its cache key now includes start_size_scale/node_softening_gpc/node_geometry (keyed==run on the legacy path)
 3. Leapfrog pre-kick eliminates "initial bump" artifact by properly initializing velocity staggering at t=-dt/2
 4. solve_friedmann_at_times computes LCDM baseline at exact N-body snapshot times for precise alignment
 5. Timestep validation enforces dt_s < 0.05 Gyr to prevent leapfrog instability
 6. Unit-aware variable naming (_m, _s, _kg, _si, _mps2 suffixes) throughout codebase
 7. Three force methods: 'direct' (NumPy O(N^2)), 'numba_direct' (Numba JIT O(N^2), 14-17x speedup), 'barnes_hut' (real octree O(N log N))
 8. R² metrics for both size and expansion rate; balanced configs achieve R²_size>0.99 R²_rate>0.95
-9. Validation: ~1055 tests (3 pre-existing test_parameter_sweep.py failures targeting the LIBRARY MatchWeights/build_s_list, out of scope) including matter-only never-exceeds-LCDM, Numba verification, reproducibility, virialization force-balance criterion, slingshot root-cause + softening taming, start_size_scale shape lever, and keyed==run sweep-knob threading
+9. Validation: 1093 tests passing (the 3 formerly-stale test_parameter_sweep.py tests are reconciled to the current library — MatchWeights field names/defaults and build_s_list length) including matter-only never-exceeds-LCDM, Numba verification, reproducibility, virialization force-balance criterion, slingshot root-cause + softening taming, start_size_scale shape lever, and keyed==run sweep-knob threading
 10. Paper predictions: dipole anisotropy deltaH0/H0 ~ 4.6-11.3% (comparable to Hubble Tension 8.6%); dark flow ~320-790 km/s; predictions robust across M/S configs
 11. Sweep CSV metric note: match_curve_rmse_pct = 100−RMSE×100; actual RMSE = 1−(match_curve_rmse_pct/100)

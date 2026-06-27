@@ -11,7 +11,7 @@
   "particle_count": 2000,
   "n_steps": 273,
   "t_start_Gyr": 2.9,
-  "centerM": [1.0, 2.0],
+  "centerM": [1.0],
   "outer_density_ceilings": [1.0],
   "results_dir": "results",
   "figures_dir": "results/figures/ws4",

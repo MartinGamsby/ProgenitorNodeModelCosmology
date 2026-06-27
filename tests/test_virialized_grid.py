@@ -409,6 +409,33 @@ class TestHMEAGridThreading:
         assert len(grid.nodes) == 26
         np.testing.assert_allclose(grid.get_masses().sum(), 0.0, atol=0.0)
 
+    @pytest.mark.parametrize("rule", RULES)
+    def test_m_ext_zero_gives_zero_tidal_force_eds_invariant(self, rule):
+        """M_ext=0 == EdS for virialized: with all node masses 0 the virialized grid
+        exerts EXACTLY zero tidal acceleration on any cloud, so the dynamics reduce
+        to pure matter (Einstein-de Sitter) just like every other geometry (PF1).
+
+        This asserts the invariant at the force-path level (fast, no full sim): the
+        tidal sum is the only channel through which the nodes act, and it vanishes
+        identically when M_ext_kg=0, independent of segregation/spread/rule.
+        """
+        params = ExternalNodeParameters(
+            M_ext_kg=0.0, S=S_DEFAULT_M, node_mass_seed=1,
+            node_geometry="virialized", vir_n_nodes=26,
+            vir_mass_rule=rule, vir_mass_spread=0.5, vir_segregation=1.0,
+        )
+        grid = HMEAGrid(node_params=params)
+        # A small off-centre test cloud (meters).
+        cloud = np.array([
+            [0.0, 0.0, 0.0],
+            [1.0e24, -2.0e24, 3.0e24],
+            [-4.0e24, 5.0e24, -6.0e24],
+        ], dtype=np.float64)
+        for use_numba in (True, False):
+            accel = grid.calculate_tidal_acceleration_batch(cloud, use_numba=use_numba)
+            assert accel.shape == cloud.shape
+            np.testing.assert_array_equal(accel, np.zeros_like(cloud))
+
 
 # ---------------------------------------------------------------------------
 # L. cube26 opt-in invariant (virialized never the default; cube26 unchanged)

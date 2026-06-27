@@ -120,6 +120,26 @@ Reduced sweep (M∈{1,2,5,20}, centerM∈{1.0,1.5,2.0,3.0}, S co-fit 18–40 Gpc
   Do NOT overstate — and do not use 0.68 as the model's isotropic baseline (PF4's
   ~0.52 low-S band remains the near-LCDM headline).
 
+## PF7 — Node PLACEMENT, not perturbation; multi-layer "S" is not comparable
+
+Tidal stretch ~1/r³ is near-field dominated. The dense multi-layer lattices (fcc/bcc)
+park MOST of their nodes 4–6× beyond the ~14 Gpc horizon (verified: fcc out to ~86 Gpc,
+bcc ~386 nodes out to ~83 Gpc at S=20), where they are effectively inert. So a single
+parameter "S" is NOT comparable across geometries; `cube26` is the clean single-shell
+case where S means what it says. This is the placement reason no volume-filling lattice
+beats the cube on the isotropic fit (consistent with PF2/PF3), and the motivation for the
+`virialized` geometry (exact node count + controlled radial extent + NN-spacing-pinned S
++ mass segregation).
+
+HONEST corollary (section-1 generalization, `tests/test_node_geometry_anisotropy.py`,
+128 tests): the per-node `node_mass_amplitude` / `node_s_amplitude` PERTURBATION machinery
+is CORRECT on EVERY geometry — mean-preserving for any N, ray-preserving, seeded,
+separate-RNG, global-RNG-independent. **There is NO multi-layer perturbation bug.** What
+differs between geometries is the unperturbed PLACEMENT (and hence the 1/r³-weighted
+near-field), not how the perturbation acts. Source:
+[../physics/node-placement-vs-perturbation.md](../physics/node-placement-vs-perturbation.md),
+[node-geometries.md](./node-geometries.md).
+
 ## What is NOT yet pinned (the job of this phase)
 
 - The single consistent chi2/dof for the nominal + best configs on one kernel/anchor.

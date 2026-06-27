@@ -19,7 +19,9 @@ The cube lattice is the simplest such approximation. **Hollow spherical SHELLS a
 explicitly excluded** — concentrating all mass on a sphere surface with an empty interior
 is the OPPOSITE of a virialized structure (and, by Birkhoff, a continuous shell exerts no
 interior force at all; see [../physics/theoretical-framework.md](../physics/theoretical-framework.md)).
-Valid geometries: `cube26` (default), `cube_dense`, `fcc`, `bcc` — all volume-filling.
+Valid geometries: `cube26` (default), `cube_dense`, `fcc`, `bcc`, `virialized` —
+all volume-filling. `virialized` is a NEW coupled (positions, masses) mass-segregated
+generator (see "Virialized geometry" section below).
 
 **Honesty constraint up front:** for masses in vacuum the tidal tensor is traceless for
 ANY arrangement, so no geometry will magically produce a large net isotropic
@@ -115,10 +117,100 @@ graph TD
 | `cube_dense` | (n³-1), default n=5 → 124 | `n_per_side` (odd ≥3) |
 | `fcc` | ~86 (n_shells=2) | `n_shells` |
 | `bcc` | ~386 (n_shells=2) | `n_shells` |
+| `virialized` | exact `vir_n_nodes` (default 26) | `vir_*` (coupled positions+masses, mass-segregated — see Virialized section) |
 
 `shell` / `shell_multi` were implemented then REMOVED: a hollow sphere of nodes is the
 opposite of a virialized meta-structure (and Birkhoff → no interior force). Geometries
 must fill the volume.
+
+## Virialized geometry — COUPLED (positions, masses), mass-segregated (IMPLEMENTED)
+
+`node_geometry="virialized"` is fundamentally different from the four lattices above:
+it is the ONE geometry that returns POSITIONS AND MASSES TOGETHER, already paired
+(mass i ↔ radius i), so it models a relaxed cluster where **more massive nodes sit
+FURTHER from the centre** (mass segregation) and small nodes cluster near it. Every
+other geometry gets positions from `build_node_positions` and masses INDEPENDENTLY from
+`node_masses(n)`; virialized cannot use that path (it would lose the coupling), so:
+
+- **`cosmo/node_geometry.py::build_virialized_grid(S, *, n_nodes, M_ext_kg, vir_extent,
+  vir_mass_rule, vir_mass_spread, vir_segregation, vir_s_metric, seed) -> (positions
+  (N,3), masses (N,))`** is the entry point. `build_node_positions("virialized", ...)`
+  RAISES a `ValueError` pointing callers here (positions-only would be un-coupled).
+- **`HMEAGrid._create_grid` branches** on `geometry == "virialized"`: it calls
+  `params.build_virialized()` → uses the returned masses DIRECTLY (`node_masses()` /
+  `node_mass_amplitude` are IGNORED on this branch; `vir_mass_spread` owns the mass
+  distribution). `node_scale_factors()` (the `node_s_amplitude` radial jitter) STILL
+  composes on top, mean-preserving, exactly as for every geometry.
+- `list_geometries()` includes `"virialized"` (a sentinel builder registers the name).
+
+### Parameters (on ExternalNodeParameters + SimulationParameters + SweepConfig + CLI)
+
+| param | meaning | default |
+|-------|---------|---------|
+| `vir_n_nodes` | exact node count (NOT derived from lattice radius bounds) | 26 |
+| `vir_extent` | continuous radial-RANGE multiplier: radii span `[0.5S, (0.5+extent)·S]` before the NN rescale, so range ratio = `1+2·extent` (extent=1→3, extent=2→5) | 1.0 |
+| `vir_mass_rule` | `"radial"` (mass ~ f(r)) or `"massfunc"` (log-normal draw + segregate by rank) | `"radial"` |
+| `vir_mass_spread` | amplitude of the node-mass distribution. **THE falsifiable knob**: 0 → uniform masses | 0.0 |
+| `vir_segregation` | mass↔radius coupling strength [0,1]; 0 → decoupled | 1.0 |
+| `vir_s_metric` | `"median"` or `"mean"` — which NN-spacing statistic the layout targets as S | `"median"` |
+| seed | `np.random.default_rng(node_mass_seed)` (one-seed coherence, like node_s_amplitude) | node_mass_seed |
+
+### nearest_neighbour_spacing — the S definition
+
+`nearest_neighbour_spacing(positions, metric)` (in `node_geometry.py`) = for each node
+the distance to its CLOSEST other node, reduced by `metric` ("median"/"mean"). The
+generator builds the raw radial profile then applies a SINGLE global factor so the
+realized `nearest_neighbour_spacing(positions, vir_s_metric) == S` exactly. So `S` is the
+TARGET characteristic spacing per the chosen metric (a pure global factor would cancel —
+which is WHY `vir_extent` widens the RANGE rather than scaling it).
+
+### Mean-preservation + falsifiable reductions (the contracts)
+
+- **Mean-preserving:** raw masses are normalized `masses *= M_ext_kg / masses.mean()` so
+  `mean(masses) == M_ext_kg` exactly (rtol 1e-12) → total = `N·M_ext_kg`, Ω_Λ_eff
+  comparable (same contract as `node_masses`). `effective_M_ext_kg` is available for
+  26·M_ref total parity but not forced.
+- **Falsifiable:** `vir_mass_spread == 0` → all masses == M_ext_kg (uniform, both rules);
+  `vir_segregation == 0` → mass/radius DECOUPLED (~0 correlation). With both 0 the grid is
+  a clean "uniform masses, isotropic-ish positions" null. With spread>0 + segregation>0
+  the mass-radius correlation is strongly POSITIVE (bigger mass → larger radius).
+- **Directions** are a deterministic Fibonacci sphere (volume-filling, ≥2 distinct radii —
+  never a hollow shell).
+- **RNG isolation / determinism:** uses `default_rng(seed)` only; independent of global
+  np.random and of the particle realization. Same (seed, params) → identical positions AND
+  masses; different seed differs.
+
+### M=0 == EdS (PF1) for virialized
+
+Holds: geometry only sets node positions/masses, and at `M_ext_kg=0` all node masses are 0
+(mean-preserving of 0), so the tidal sum is identically zero → pure-matter EdS. Asserted at
+the force-path level in `tests/test_virialized_grid.py` (zero tidal acceleration on a test
+cloud, both numba + numpy paths, both rules).
+
+### Cache slug (NO PHYSICS_CACHE_VERSION bump)
+
+`build_cache_name` appends `virializedgeo` (via the existing `!= "cube26"` branch) PLUS
+virialized-only sub-slugs (`{vir_n_nodes}vn`, `{vir_extent}vx`, `{rule}vr`,
+`{spread}vsp`, `{seg}vsg`, `{metric}vsm`). These are appended ONLY for virialized, so every
+existing cube26/cube_dense/fcc/bcc key is UNTOUCHED and virialized lives at a brand-new key
+→ `PHYSICS_CACHE_VERSION` stays `v3`.
+
+### Tests (all green)
+
+- `tests/test_virialized_grid.py` (70) — generator shapes/dtype/count, mean-preservation
+  (both rules, several N), falsifiable reductions, positive segregation correlation,
+  vir_extent range scaling, median/mean NN metric, determinism + global-RNG isolation,
+  volume-filling, positions-only raises, NN-helper sanity, HMEAGrid coupled-branch
+  threading (count, mean-preserving masses, masses-not-from-node_masses, node_s composition,
+  M=0 zero-tidal EdS invariant), cube26 byte-identical opt-in, SimulationParameters /
+  SweepConfig threading, cache-slug distinctness + non-virialized-key regression.
+- `tests/test_node_geometry_anisotropy.py` (128) — generalizes node POSITIONS + node MASSES
+  + node_mass_amplitude + node_s_amplitude invariants (mean-preservation for ANY N, ray
+  preservation, seeded determinism, separate-RNG-draw cross-knob independence) across
+  cube26/cube_dense/fcc/bcc with each geometry's ACTUAL N, tightly checking the
+  AFTER-amplitude node state (the previous tests were cube26-only).
+- WS8 figures: `_generate_ws8_figs.py` + `tests/test_ws8_figs.py` (18) — see
+  [../scripts/visualization.md](../scripts/visualization.md#ws8--virialized-grid-figures-_generate_ws8_figspy).
 
 ### Fair-comparison normalization (DECIDED: per-node mass fixed + nearest node at S)
 `M_ext_kg` is the per-node mass; it is held FIXED across geometries (NOT rescaled to equal

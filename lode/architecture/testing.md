@@ -53,6 +53,12 @@ Ensures ΛCDM baseline computed at exact N-body snapshot times, eliminating "bum
 
 **test_cache.py**: Cache module with JSON/CSV/Pickle format support + CacheLock. 61 tests covering EnhancedJSONEncoder, JSON CRUD, CSV CRUD (flattened dict columns, split key columns), Pickle CRUD, cross-format fallback (all 6 pairwise directions + dict preservation), primary format precedence, CacheLock (acquire/release, PID in lock, stale lock auto-break, corrupt lock auto-break, owner_pid property), lifetime lock (lock held while alive, released on close, read-only on conflict via EOFError/OSError fallback, read-only skips saves, separate names don't conflict, saves on close), edge cases (corrupted files for all 3 formats, empty files, real key round-trip, special characters in keys). All 61 tests passing.
 
+**test_node_geometry_anisotropy.py**: 128 tests. Generalizes the (previously cube26-only) node POSITION + MASS + node_mass_amplitude + node_s_amplitude invariants across ALL geometries (cube26/cube_dense/fcc/bcc), each with its ACTUAL node count N, tightly checking the AFTER-amplitude node state: mean-preservation for any N, ray (unit-direction) preservation, mean radial scale preserved, seeded determinism, global-RNG independence, separate-RNG cross-knob independence, effective_M_ext_kg parity. Tests only; no production code touched. See lode/physics/node-placement-vs-perturbation.md.
+
+**test_virialized_grid.py**: 70 tests. The coupled `virialized` geometry: generator shapes/dtype/count, mean-preservation (both rules, several N; sum==N·M_ext_kg), falsifiable reductions (spread=0→uniform; segregation=0→decoupled), positive mass-radius correlation when segregated, vir_extent radial-range scaling, median/mean NN-metric targeting, determinism + global-RNG isolation, volume-filling (≥2 radii), build_node_positions("virialized") raises, NN-helper sanity, HMEAGrid coupled-branch threading (count, mean-preserving masses, masses-not-from-node_masses, node_s composition, M=0 zero-tidal EdS invariant), cube26 byte-identical opt-in, SimulationParameters/SweepConfig threading, cache-slug distinctness + non-virialized-key regression. See lode/plans/node-geometries.md.
+
+**test_ws8_figs.py**: 18 tests. PURE (no-sim, no-I/O) helpers of `_generate_ws8_figs.py`: resolve_n_steps (dt<0.05 Gyr ceiling), displacement_magnitudes, slingshot_metrics (tail detection + edge cases), mass_radius_stats (correlation/slope/NN/mean-preservation on real virialized grids), _pearson/_spearman. See lode/scripts/visualization.md.
+
 ## Running
 
 ```bash

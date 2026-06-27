@@ -215,6 +215,8 @@ output/
 
 # Generated simulation data (sweep metrics, velocity dumps) - churn, never committed
 data/*.csv
+# Cache PID-lock files (left behind by force-killed runs)
+data/*.lock
 
 # 1. Ignore all .png files everywhere in the repository
 *.png

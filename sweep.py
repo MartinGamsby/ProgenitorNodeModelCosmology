@@ -125,6 +125,9 @@ BEST_ISO_COLS = [
     "chi2_dof", "chi2", "R2",
     "n_sne_used", "growth_factor", "anchor_ok",
     "node_mass_amplitude", "node_mass_seed", "init_distribution",
+    # Needed so a standalone re-run reconstructs the cell's grid (not the default).
+    "node_geometry", "vir_mass_spread",
+    "best_observer_chi2", "center_chi2_dof",
     "match_avg_pct", "diff_pct",
 ]
 
@@ -1225,6 +1228,18 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
     os.makedirs(cfg["results_dir"], exist_ok=True)
     tag = cfg.get("tag", "ws1")
     csv_path = os.path.join(cfg["results_dir"], f"ws1_sweep_{tag}.csv")
+
+    # Sidecar config: write the FULL run config next to the results so a standalone
+    # re-run (hubble_diagram_nbody.py --from-best-config) can reconstruct the EXACT
+    # sim a cell ran (geometry, vir_*, softening, force-law, init, particles, ...).
+    # Without it the re-run only knows M/S and silently uses DEFAULT physics -> a
+    # different (often runaway) a(t). Best-effort; never abort the sweep on failure.
+    try:
+        _sidecar = os.path.join(cfg["results_dir"], f"ws1_sweep_{tag}.config.json")
+        with open(_sidecar, "w", encoding="utf-8") as _sf:
+            json.dump({k: v for k, v in cfg.items() if k != "resume"}, _sf, indent=2)
+    except Exception as _sc_exc:
+        print(f"[setup] WARNING: could not write sidecar config: {_sc_exc}")
 
     all_rows: List[Dict] = []
 

@@ -265,6 +265,9 @@ def load_best_config(csv_path: str) -> dict:
         "chi2_dof": _float("chi2_dof"),
         "chi2":     _float("chi2"),
         "R2":       _float("R2"),
+        # The FULL best row, so the caller can reconstruct the exact cell (geometry,
+        # vir_mass_spread, init, seed, ...) — not just M/S/centerM.
+        "row":      dict(best),
     }
 
     if result["M"] is None or result["S"] is None:
@@ -274,6 +277,32 @@ def load_best_config(csv_path: str) -> dict:
         )
 
     return result
+
+
+def _load_sweep_config_for(csv_path: str):
+    """Find + load the sweep's sidecar config JSON for a results CSV.
+
+    The sweep writes ``results/ws1_sweep_<tag>.config.json`` next to its CSV. Given
+    either the BEST_ISO csv (``sweep_results_pantheon_<tag>.csv``) or the full csv
+    (``ws1_sweep_<tag>.csv``), derive ``<tag>`` and load the sidecar so the re-run can
+    reconstruct the EXACT cell config (geometry, vir_*, softening, force-law, init,
+    particles). Returns the config dict, or None if no sidecar is found.
+    """
+    base = os.path.basename(csv_path)
+    stem = base[:-4] if base.endswith(".csv") else base
+    tag = None
+    for pref in ("sweep_results_pantheon_", "ws1_sweep_"):
+        if stem.startswith(pref):
+            tag = stem[len(pref):]
+            break
+    if tag is None:
+        return None
+    sidecar = os.path.join(os.path.dirname(csv_path), f"ws1_sweep_{tag}.config.json")
+    try:
+        with open(sidecar, encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -935,6 +964,52 @@ if __name__ == "__main__":
         if not _flag_given("--center-node-mass") and cfg["centerM"] is not None:
             args.center_node_mass = cfg["centerM"]
 
+        # Reconstruct the EXACT cell config (geometry, vir_*, softening, force-law,
+        # init, particles) from the sweep's sidecar, so the re-run is the SAME sim the
+        # cell ran -- NOT default physics (which silently runs a different, often
+        # runaway, a(t) -> the famous chi2~26 "bad curve").
+        _reconstructed_sim_params = None
+        _sidecar_cfg = _load_sweep_config_for(args.from_best_config)
+        best_row = cfg.get("row", {})
+        if _sidecar_cfg is not None:
+            try:
+                from sweep import (_cell_from_best_row, _make_sweep_config_for_cell,
+                                   _build_sim_params)
+                # The BEST_ISO csv may omit node_geometry; fill it from the sidecar
+                # (geometry is config-wide for an arm). vir_mass_spread, when swept,
+                # rides in the full-csv row; for a scalar-spread arm it comes from the
+                # sidecar via _make_sweep_config_for_cell's fallback.
+                if not best_row.get("node_geometry"):
+                    _geos = _sidecar_cfg.get("node_geometries") or ["cube26"]
+                    best_row["node_geometry"] = _geos[0]
+                _cell = _cell_from_best_row(best_row)
+                _sc = _make_sweep_config_for_cell(_cell, _sidecar_cfg)
+                _M = float(best_row["M_factor"])
+                _S = float(best_row["S_gpc"])
+                _cM = float(best_row.get("centerM", 1.0) or 1.0)
+                _seed = int(float(best_row.get("node_mass_seed", 42) or 42))
+                _reconstructed_sim_params = _build_sim_params(_sc, _M, _S, _cM, seed=_seed)
+                print(f"  [from-best-config] reconstructed FULL config from sidecar: "
+                      f"geom={_cell['geometry']}, vir_spread={_cell.get('vir_spread')}, "
+                      f"force={_sidecar_cfg.get('node_force_law')}, "
+                      f"nodes={_sidecar_cfg.get('vir_n_nodes')}, init={_cell.get('init')}, "
+                      f"particles={_sidecar_cfg.get('particle_count')}")
+                if best_row.get("best_observer_chi2") not in (None, ""):
+                    print(f"  [from-best-config] NOTE: the sweep headline chi2_dof is the "
+                          f"BEST OBSERVER ({best_row.get('best_observer_chi2')}); the global "
+                          f"mu(z) curve here is the CENTRE "
+                          f"(center_chi2_dof={best_row.get('center_chi2_dof')}).")
+            except Exception as _rec_exc:
+                print(f"  [from-best-config] WARNING: could not reconstruct full config "
+                      f"({_rec_exc}); falling back to CLI/defaults.", file=sys.stderr)
+                _reconstructed_sim_params = None
+        else:
+            print("  [from-best-config] WARNING: no sidecar config found next to the CSV. "
+                  "Re-running with DEFAULT physics (geometry/vir_*/softening/init NOT "
+                  "reconstructed) -- the curve will NOT match the sweep unless the cell was "
+                  "all-default. Re-run the sweep (it now writes ws1_sweep_<tag>.config.json) "
+                  "to enable exact reconstruction.", file=sys.stderr)
+
     t_start = args.t_start
     t_duration = _TODAY_GYR - t_start
 
@@ -953,7 +1028,11 @@ if __name__ == "__main__":
     # Override t_duration with the t_start-derived value (argparse's --t-duration is
     # ignored in this tool because t_end is pinned to today).
     args.t_duration = t_duration
-    sim_params = args_to_sim_params(args)
+    if args.from_best_config is not None and _reconstructed_sim_params is not None:
+        # Use the EXACT sim the sweep cell ran (full config from the sidecar).
+        sim_params = _reconstructed_sim_params
+    else:
+        sim_params = args_to_sim_params(args)
 
     try:
         run(

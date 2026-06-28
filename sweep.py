@@ -823,12 +823,12 @@ def _cell_from_best_row(best_row: Dict) -> Dict:
     """Reconstruct the `expand_grid` cell dict that produced `best_row`.
 
     The CSV row carries every cell-identifying axis (geometry, amplitudes, seed,
-    init); the config-wide knobs (geometry_kwargs, vir_*, softening, start-size)
-    are NOT per-cell and stay in `cfg`. Feeding this cell to
-    `_make_sweep_config_for_cell` reproduces the EXACT SweepConfig the run used,
-    so the mu(z) panel re-runs the same a(t) the CSV chi2 was scored on.
+    init, AND the swept vir_mass_spread); the config-wide knobs (geometry_kwargs,
+    other vir_*, softening, start-size) are NOT per-cell and stay in `cfg`. Feeding
+    this cell to `_make_sweep_config_for_cell` reproduces the EXACT SweepConfig the
+    run used, so the mu(z) panel re-runs the same a(t) the CSV chi2 was scored on.
     """
-    return dict(
+    cell = dict(
         M=int(best_row["M_factor"]),
         amplitude=float(best_row.get("node_mass_amplitude", 0.0)),
         nm_seed=int(best_row.get("node_mass_seed", 42)),
@@ -836,6 +836,16 @@ def _cell_from_best_row(best_row: Dict) -> Dict:
         init=str(best_row.get("init_distribution", "uniform_sphere")),
         geometry=str(best_row.get("node_geometry", "cube26")),
     )
+    # The swept mass-function width MUST be reconstructed (the figure ran spread=0
+    # otherwise -> a DIFFERENT grid/a(t) -> figure<->CSV chi2 mismatch). Only set it
+    # when the CSV carries it, so a no-spread sweep falls back to cfg's scalar.
+    sp = best_row.get("vir_mass_spread", "")
+    if sp not in ("", None):
+        try:
+            cell["vir_spread"] = float(sp)
+        except (TypeError, ValueError):
+            pass
+    return cell
 
 
 def _generate_mu_z_panel(
@@ -877,6 +887,41 @@ def _generate_mu_z_panel(
         ext = run_external_node_simulation(sim_params, box_size_Gpc, a_start, 10)
         a_curve = ext["a"]
         t_Gyr   = ext["t_Gyr"]
+
+        # If the sweep scored observers, the CSV headline chi2_dof is the BEST
+        # OBSERVER's value, so the panel must plot THAT observer's mu(z) (not the
+        # centre) for the figure<->CSV reconciliation to hold. Re-derive the best
+        # observer from this run's snapshots with the SAME observer params + strided
+        # sample the scorer used (deterministic at seed 42 -> same best observer).
+        # Falls back to the centre curve on any issue.
+        if cfg.get("score_observers", False):
+            try:
+                from cosmo.observer_distance import (
+                    history_from_snapshots, observer_chi2_distribution,
+                    observer_a_curve_local_rms, observer_a_curve_hubble_flow,
+                    strided_observer_sample, ALL_NEIGHBOURS)
+                snaps = getattr(ext.get("sim"), "snapshots", None)
+                if snaps and len(snaps) >= 2:
+                    o_pos, o_vel, o_t = history_from_snapshots(snaps)
+                    defn = cfg.get("observer_definition", "local_rms")
+                    kk = cfg.get("observer_k", -1) or ALL_NEIGHBOURS
+                    obs = strided_observer_sample(o_pos.shape[1],
+                                                  cfg.get("observer_sample", 128))
+                    dist = observer_chi2_distribution(
+                        o_pos, o_vel, o_t, t_start, pantheon_data,
+                        definition=defn, k=kk, observers=obs,
+                        lcdm_ref=cfg.get("lcdm_ref"), eds_ref=cfg.get("eds_ref"))
+                    bi = dist.get("best_observer", -1)
+                    if bi is not None and bi >= 0:
+                        if defn == "hubble_flow":
+                            a_curve = observer_a_curve_hubble_flow(o_pos, o_vel, o_t, bi, k=kk)
+                        else:
+                            a_curve = observer_a_curve_local_rms(o_pos, o_t, bi, k=kk)
+                        t_Gyr = o_t
+                        print(f"  [mu_z] panel uses BEST OBSERVER #{bi} "
+                              f"(chi2/dof={dist.get('best_chi2_dof', float('nan')):.4f})")
+            except Exception as _obs_exc:
+                print(f"  [mu_z] observer panel fell back to centre: {_obs_exc}")
 
         z = pantheon_data["z"]
         mu_obs = pantheon_data["mu"]

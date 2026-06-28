@@ -606,12 +606,10 @@ def _observer_metrics(sim_result, pantheon_data, t_start_Gyr, *, definition, sam
         return None
     try:
         from .observer_distance import (history_from_snapshots,
-                                        observer_chi2_distribution, ALL_NEIGHBOURS)
+                                        observer_chi2_distribution, ALL_NEIGHBOURS,
+                                        strided_observer_sample)
         pos, vel, t = history_from_snapshots(snaps)
-        n = pos.shape[1]
-        observers = None
-        if sample and 0 < sample < n:
-            observers = np.unique(np.linspace(0, n - 1, int(sample)).astype(int))
+        observers = strided_observer_sample(pos.shape[1], sample)
         dist = observer_chi2_distribution(
             pos, vel, t, t_start_Gyr, pantheon_data,
             definition=definition,

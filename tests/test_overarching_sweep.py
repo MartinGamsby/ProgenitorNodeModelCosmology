@@ -1802,6 +1802,17 @@ class TestObserverInSweep(unittest.TestCase):
                   "frac_below_lcdm", "frac_below_eds"):
             self.assertIn(c, SWEEP_CSV_COLS)
 
+    def test_cell_from_best_row_reconstructs_vir_spread(self):
+        """REGRESSION: the mu(z) panel must re-run the cell's SWEPT spread, not spread=0
+        (else the figure runs a different grid -> figure<->CSV chi2 mismatch)."""
+        from sweep import _cell_from_best_row
+        base = dict(M_factor="100", node_geometry="virialized",
+                    node_mass_amplitude="0.0", node_mass_seed="42",
+                    node_s_amplitude="0.0", init_distribution="grf")
+        self.assertEqual(_cell_from_best_row(dict(base, vir_mass_spread="3.0"))["vir_spread"], 3.0)
+        # Missing/blank -> not set, so _make_sweep_config_for_cell falls back to cfg's scalar.
+        self.assertNotIn("vir_spread", _cell_from_best_row(dict(base, vir_mass_spread="")))
+
     def test_no_snapshots_falls_back_to_center(self):
         """compute_pantheon_metrics with score_observers but a snapshot-less SimResult
         must not crash and must leave chi2_dof as the centre value (no observer keys)."""

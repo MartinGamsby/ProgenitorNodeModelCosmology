@@ -89,6 +89,18 @@ from .hubble_diagram import evaluate_precomputed
 ALL_NEIGHBOURS = -1
 
 
+def strided_observer_sample(n_total: int, sample: int):
+    """The strided observer index sample used to score a cell.
+
+    Shared by the sweep scorer (which picks the BEST observer) and the mu(z) figure
+    (which must re-derive the SAME best observer to plot it), so both agree. Returns
+    None (= score every particle) when sample is unset or >= n_total.
+    """
+    if sample and 0 < int(sample) < n_total:
+        return np.unique(np.linspace(0, n_total - 1, int(sample)).astype(int))
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Snapshot-history extraction (the ONLY place that touches a live sim object)
 # ---------------------------------------------------------------------------

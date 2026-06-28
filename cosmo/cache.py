@@ -370,11 +370,22 @@ class Cache:
                     merged.update(self.cache[k])
                     self.cache[k] = merged
             self._write_atomic()
+        except Exception:
+            # A cache save is BEST-EFFORT: it must NEVER crash the caller (a sweep
+            # worker). The in-memory cache is retried on the next interval / at close.
+            pass
         finally:
             self._lock.release()
 
     def _write_atomic(self):
-        """Write the cache to a per-PID temp file, then os.replace into place."""
+        """Write to a per-PID temp file, then os.replace into place.
+
+        Retries the replace: on Windows os.replace raises PermissionError (WinError 5)
+        if ANOTHER process has the destination open at that instant (e.g. a concurrent
+        reader loading the shared cache). The colliding handle is brief, so a short
+        retry resolves it; if it never does, drop the temp and keep the existing file
+        (the in-memory cache is retried later) rather than crashing the worker.
+        """
         tmp = "{}.tmp{}".format(self.filepath, os.getpid())
         if self.format == CacheFormat.CSV:
             self._write_csv(tmp)
@@ -383,7 +394,16 @@ class Cache:
                 json.dump(self.cache, f, indent=4, cls=EnhancedJSONEncoder)
         else:
             self._write_pickle_to(tmp)
-        os.replace(tmp, self.filepath)
+        for _ in range(20):
+            try:
+                os.replace(tmp, self.filepath)
+                return
+            except PermissionError:
+                time.sleep(0.05 * (1.0 + random.random()))
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
 
     def _save_json(self):
         with open(self.filepath, 'w') as f:

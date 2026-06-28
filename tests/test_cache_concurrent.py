@@ -150,6 +150,45 @@ def test_exclusive_heterogeneous_accumulation_roundtrip(tmp_path):
     fresh.close()
 
 
+def test_write_atomic_retries_os_replace(tmp_path, monkeypatch):
+    """Windows: os.replace raises PermissionError if a concurrent reader has the
+    destination open. _write_atomic must RETRY rather than crash the worker."""
+    import os as _os
+    c = Cache("retry", _data_dir=str(tmp_path), concurrent=True)
+    c.add_cached_value("k", CacheType.VELOCITY, 1.0)
+    real = _os.replace
+    calls = {"n": 0}
+
+    def flaky(src, dst):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise PermissionError(5, "Access is denied")
+        return real(src, dst)
+
+    monkeypatch.setattr(_os, "replace", flaky)
+    c._write_atomic()                 # must retry and eventually succeed
+    monkeypatch.setattr(_os, "replace", real)
+    assert calls["n"] >= 3
+    c.close()
+    fresh = Cache("retry", _data_dir=str(tmp_path), concurrent=True)
+    assert fresh.get_cached_value("k", CacheType.VELOCITY) == 1.0
+    fresh.close()
+
+
+def test_merge_save_never_raises(tmp_path, monkeypatch):
+    """A cache-save failure must be best-effort, never propagate (it would crash a
+    sweep worker — the bug that killed 2 arms of the parallel run)."""
+    import os as _os
+    c = Cache("noraise", _data_dir=str(tmp_path), concurrent=True)
+    c.add_cached_value("k", CacheType.VELOCITY, 1.0)
+    monkeypatch.setattr(_os, "replace",
+                        lambda s, d: (_ for _ in ()).throw(PermissionError(5, "denied")))
+    c._merge_save()     # must NOT raise even though os.replace always fails
+    c.close()           # must NOT raise
+    # no leftover temp files
+    assert [n for n in os.listdir(str(tmp_path)) if ".tmp" in n] == []
+
+
 def test_concurrent_mode_csv_roundtrip_matches_exclusive(tmp_path):
     """Concurrent and exclusive modes produce the same on-disk content for the same data."""
     ex = Cache("rt_excl", _data_dir=str(tmp_path))

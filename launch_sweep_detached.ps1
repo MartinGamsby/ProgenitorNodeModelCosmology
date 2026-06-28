@@ -238,7 +238,8 @@ $SatelliteArms = @(
 # satellites under -IncludeSatellites. STATIC literal list (no disk glob).
 $ExploreArms = @(
     "sweeps/explore_vir_spread.json",
-    "sweeps/explore_vir_spread_hi.json"
+    "sweeps/explore_vir_spread_hi.json",
+    "sweeps/focused_observer.json"
 )
 
 # Select the run set by SWITCHING between the static arrays (core-only default).

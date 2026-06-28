@@ -1760,6 +1760,22 @@ class TestVirMassSpreadAxis(unittest.TestCase):
         cells = expand_grid(cfg)
         self.assertEqual(len(cells), 1, "cube26 must not fan out over the spread axis")
 
+    def test_resume_key_distinguishes_spreads(self):
+        """REGRESSION: the per-cell CSV/resume key must include vir_mass_spread, else
+        swept spreads at the same (M,S) collapse to one row (the bug that made the
+        first explore run produce ~7 rows instead of ~210)."""
+        from sweep import _resume_key
+        a = dict(M_factor=100, S_gpc=10, centerM=1, outer_density_ceiling=1.0,
+                 node_mass_amplitude=0.0, node_s_amplitude=0.0, node_mass_seed=42,
+                 init_distribution="grf", node_geometry="virialized",
+                 vir_mass_spread=0.8)
+        b = dict(a, vir_mass_spread=3.0)
+        self.assertNotEqual(_resume_key(a, include_S=True), _resume_key(b, include_S=True),
+                            "two spreads at the same (M,S) must get DISTINCT resume keys")
+        # A legacy row missing the column must still produce a key (no crash).
+        c = dict(a); c.pop("vir_mass_spread")
+        _resume_key(c, include_S=True)
+
 
 if __name__ == "__main__":
     unittest.main()

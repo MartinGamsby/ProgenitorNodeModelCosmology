@@ -233,9 +233,17 @@ $SatelliteArms = @(
     "sweeps/satellite_extent/03_extent_2p0.json"
 )
 
-# Select the run set by SWITCHING between the two static arrays (core-only default).
+# $ExploreArms = the EXPLORATION (parameter-finding) sweeps that sweep the node
+# mass-function distribution-size axis (vir_mass_spreads). Appended with the
+# satellites under -IncludeSatellites. STATIC literal list (no disk glob).
+$ExploreArms = @(
+    "sweeps/explore_vir_spread.json",
+    "sweeps/explore_vir_spread_hi.json"
+)
+
+# Select the run set by SWITCHING between the static arrays (core-only default).
 if ($IncludeSatellites) {
-    $Arms = $CoreArms + $SatelliteArms
+    $Arms = $CoreArms + $SatelliteArms + $ExploreArms
 } else {
     $Arms = $CoreArms
 }
@@ -360,7 +368,7 @@ for ($i = 0; $i -lt 12 -and $pyPids.Count -lt $Parallel; $i++) {
     } | Select-Object -ExpandProperty ProcessId)
 }
 
-if ($IncludeSatellites) { $Mode = "CORE + SEED + SATELLITES" } else { $Mode = "CORE + SEED (core-only)" }
+if ($IncludeSatellites) { $Mode = "CORE + SEED + SATELLITES + EXPLORE(vir_mass_spread)" } else { $Mode = "CORE + SEED (core-only)" }
 if ($Parallel -gt 1) { $Mode = "$Mode  [parallel=$Parallel, shared cache concurrency-safe]" }
 
 Write-Host ""

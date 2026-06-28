@@ -1,6 +1,6 @@
 {
-  "M_values": [10, 50, 100, 300, 500],
-  "S_values": [10, 15, 20, 30],
+  "M_values": [1, 5, 10, 50, 100, 300, 500],
+  "S_values": [1, 5, 10, 15, 20, 30],
   "vir_mass_spreads": [0.8, 1.5, 2.0, 3.0, 4.0],
   "node_mass_amplitudes": [0.0],
   "node_s_amplitudes": [0.0],

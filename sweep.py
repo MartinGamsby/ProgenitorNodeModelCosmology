@@ -103,6 +103,10 @@ SWEEP_CSV_COLS = [
     "M_factor", "S_gpc", "centerM", "outer_density_ceiling",
     "node_mass_amplitude", "node_s_amplitude",
     "node_mass_seed", "init_distribution", "node_geometry",
+    # vir_mass_spread is an IDENTITY column: when swept (vir_mass_spreads) it
+    # distinguishes cells that share (M,S) but differ in the mass-function width,
+    # so it must be recorded AND keyed (else the spreads collide on resume).
+    "vir_mass_spread",
     "chi2_dof", "chi2", "chi2_lcdm", "chi2_eds",
     "R2", "n_sne_used",
     "growth_factor", "growth_target", "anchor_ok", "runaway",
@@ -967,10 +971,12 @@ def run_plots_only(csv_path: str, cfg: Dict) -> List[str]:
 # and independent of the metrics cache.
 
 _RESUME_NUM_COLS = ("M_factor", "S_gpc", "centerM", "outer_density_ceiling",
-                    "node_mass_amplitude", "node_s_amplitude", "node_mass_seed")
+                    "node_mass_amplitude", "node_s_amplitude", "node_mass_seed",
+                    "vir_mass_spread")
 _RESUME_TXT_COLS = ("init_distribution", "node_geometry")
 _ROW_FLOAT_COLS = ("centerM", "outer_density_ceiling", "node_mass_amplitude",
-                   "node_s_amplitude", "chi2_dof", "chi2", "chi2_lcdm", "chi2_eds",
+                   "node_s_amplitude", "vir_mass_spread", "chi2_dof", "chi2",
+                   "chi2_lcdm", "chi2_eds",
                    "R2", "growth_factor", "growth_target", "match_avg_pct", "diff_pct")
 _ROW_INT_COLS = ("M_factor", "S_gpc", "node_mass_seed", "n_sne_used")
 _ROW_BOOL_COLS = ("anchor_ok", "runaway")
@@ -1144,6 +1150,11 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
         with open(csv_path, newline="", encoding="utf-8") as _rf:
             for _raw in csv.DictReader(_rf):
                 _pr = _parse_csv_row(_raw)
+                # Old CSVs (written before the vir_mass_spread column existed) default
+                # to the config's scalar spread, so their resume key matches new cells
+                # of that same spread -> a fixed-spread sweep (e.g. core_v3) still
+                # resumes correctly across the schema change.
+                _pr.setdefault("vir_mass_spread", cfg.get("vir_mass_spread", 0.0))
                 all_rows.append(_pr)
                 done_keys.add(_resume_key(_pr, include_S=not cofit))
         print(f"[resume] {len(done_keys)} cell(s) already in {csv_path} -> skipping them")
@@ -1152,9 +1163,18 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
         csv_existed = False  # force a fresh header below
 
     # Per-cell checkpoint writer: append each finished cell immediately (flushed)
-    # so an interruption loses at most the single in-flight cell.
+    # so an interruption loses at most the single in-flight cell. When APPENDING to an
+    # existing CSV, reuse ITS header columns: a file written before the vir_mass_spread
+    # column existed stays in its old schema (no ragged rows / corruption mid-file).
+    # A FRESH file gets the full SWEEP_CSV_COLS (with vir_mass_spread).
+    _writer_cols = SWEEP_CSV_COLS
+    if csv_existed:
+        with open(csv_path, newline="", encoding="utf-8") as _hf:
+            _hdr = next(csv.reader(_hf), None)
+        if _hdr:
+            _writer_cols = _hdr
     _ckpt_f = open(csv_path, "a" if csv_existed else "w", newline="", encoding="utf-8")
-    _ckpt_w = csv.DictWriter(_ckpt_f, fieldnames=SWEEP_CSV_COLS, extrasaction="ignore")
+    _ckpt_w = csv.DictWriter(_ckpt_f, fieldnames=_writer_cols, extrasaction="ignore")
     if not csv_existed:
         _ckpt_w.writeheader()
         _ckpt_f.flush()
@@ -1203,7 +1223,10 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
                                       node_s_amplitude=cell["s_amplitude"],
                                       node_mass_seed=cell["nm_seed"],
                                       init_distribution=cell["init"],
-                                      node_geometry=cell["geometry"])
+                                      node_geometry=cell["geometry"],
+                                      vir_mass_spread=cell.get(
+                                          "vir_spread",
+                                          cell_cfg.get("vir_mass_spread", 0.0)))
                         if _resume_key(_ident, include_S=False) in done_keys:
                             print(f"  [{cell_num}/{total_cells}] M={cell['M']:6d}  "
                                   f"centerM={centerM_val}  [skip: already done]")
@@ -1217,6 +1240,8 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
                         )
                         elapsed = time.perf_counter() - t0
                         prev_best_S = best_S
+                        row["vir_mass_spread"] = cell.get(
+                            "vir_spread", cell_cfg.get("vir_mass_spread", 0.0))
                         all_rows.append(row)
                         _checkpoint(row)
                         done_keys.add(_resume_key(_ident, include_S=False))
@@ -1243,7 +1268,10 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
                                       node_s_amplitude=cell["s_amplitude"],
                                       node_mass_seed=cell["nm_seed"],
                                       init_distribution=cell["init"],
-                                      node_geometry=cell["geometry"])
+                                      node_geometry=cell["geometry"],
+                                      vir_mass_spread=cell.get(
+                                          "vir_spread",
+                                          cell_cfg.get("vir_mass_spread", 0.0)))
                         if _resume_key(_ident, include_S=True) in done_keys:
                             print(f"  [{i}/{total}] M={cell['M']:6d} S={S:3d}  "
                                   f"centerM={centerM_val}  [skip: already done]")
@@ -1253,6 +1281,8 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
                             cell, S, cell_cfg, box_size_Gpc, a_start,
                             pantheon_data, baseline, weights, chi2_lcdm, chi2_eds,
                         )
+                        row["vir_mass_spread"] = cell.get(
+                            "vir_spread", cell_cfg.get("vir_mass_spread", 0.0))
                         elapsed = time.perf_counter() - t0
                         all_rows.append(row)
                         _checkpoint(row)

@@ -202,4 +202,8 @@ def results_to_sim_result(ext_results: Dict, sim_params: SimulationParameters):
         t_Gyr=ext_results['t_Gyr'],
         params=sim_params.external_params,
         a_curve=ext_results['a'],  # Full scale-factor array for from-data chi^2 scoring
+        # Per-particle snapshot history (positions/velocities over time) for the
+        # observer-from-particle scorer. A reference to the sim's already-saved
+        # snapshots (no copy); lives only as long as this transient SimResult.
+        snapshots=getattr(ext_results.get('sim'), 'snapshots', None),
     )

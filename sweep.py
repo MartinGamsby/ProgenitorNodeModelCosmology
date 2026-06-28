@@ -111,6 +111,12 @@ SWEEP_CSV_COLS = [
     "R2", "n_sne_used",
     "growth_factor", "growth_target", "anchor_ok", "runaway",
     "match_avg_pct", "diff_pct",
+    # Observer-from-particle columns (populated only when score_observers is on).
+    # When on, chi2_dof above IS the best-observer value (the headline); center_chi2_dof
+    # is the centre baseline for comparison; frac_below_* = fraction of observers
+    # at/below the LCDM / EdS references ("how typical a good vantage is").
+    "best_observer_chi2", "center_chi2_dof", "observer_median_chi2",
+    "frac_below_lcdm", "frac_below_eds",
 ]
 
 # Subset compatible with load_best_config (rows where node_mass_amplitude=0)
@@ -169,6 +175,16 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # worst_callback picks the right scorer. Folded in from the retired root
     # parameter_sweep.py so its lcdm exploration mode is not lost.
     "objective": "pantheon",
+    # Observer-from-particle scoring (opt-in). When True, each cell ALSO scores a
+    # sample of per-particle observers; the BEST observer becomes the headline
+    # chi2_dof (the co-fit + best-cell selection optimize on it), center_chi2_dof
+    # keeps the centre baseline, and frac_below_lcdm/eds report how typical a good
+    # vantage is. Default False (centre-only, byte-identical) so existing
+    # sweeps/tests are unaffected; the real sweep configs set it True.
+    "score_observers": False,
+    "observer_definition": "local_rms",  # or "hubble_flow"
+    "observer_sample": 128,              # observers scored per cell (strided sample)
+    "observer_k": -1,                    # neighbours per observer (-1 = whole cloud)
     # Output
     "results_dir": "results",
     "tag": "ws1",
@@ -309,6 +325,15 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
         s_min_gpc=cfg["s_min_gpc"],
         s_max_gpc=cfg["s_max_gpc"],
         save_interval=10,
+        # Observer-from-particle scoring (opt-in via the config). When on, the scorer
+        # makes the BEST observer the headline chi2_dof + reports the fraction of
+        # observers below the LCDM/EdS refs (set run-wide on cfg by the driver).
+        score_observers=cfg.get("score_observers", False),
+        observer_definition=cfg.get("observer_definition", "local_rms"),
+        observer_sample=cfg.get("observer_sample", 128),
+        observer_k=cfg.get("observer_k", -1),
+        lcdm_ref=cfg.get("lcdm_ref"),
+        eds_ref=cfg.get("eds_ref"),
         # Objective threaded from config (default "pantheon"). When "lcdm" the
         # per-cell worst_callback scores against the analytic LCDM baseline; the
         # cache slug includes "<objective>obj" so the two never collide.
@@ -570,6 +595,11 @@ def _run_cell_fixed_S(
         "runaway":               runaway,
         "match_avg_pct":         metrics.get("match_avg_pct", 0.0),
         "diff_pct":              metrics.get("diff_pct", 100.0),
+        "best_observer_chi2":    metrics.get("best_observer_chi2", float("nan")),
+        "center_chi2_dof":       metrics.get("center_chi2_dof", float("nan")),
+        "observer_median_chi2":  metrics.get("observer_median_chi2", float("nan")),
+        "frac_below_lcdm":       metrics.get("frac_below_lcdm", float("nan")),
+        "frac_below_eds":        metrics.get("frac_below_eds", float("nan")),
     }
 
 
@@ -660,6 +690,11 @@ def _cofit_S_for_cell(
         "runaway":               runaway,
         "match_avg_pct":         raw_metrics.get("match_avg_pct", 0.0),
         "diff_pct":              raw_metrics.get("diff_pct", 100.0),
+        "best_observer_chi2":    raw_metrics.get("best_observer_chi2", float("nan")),
+        "center_chi2_dof":       raw_metrics.get("center_chi2_dof", float("nan")),
+        "observer_median_chi2":  raw_metrics.get("observer_median_chi2", float("nan")),
+        "frac_below_lcdm":       raw_metrics.get("frac_below_lcdm", float("nan")),
+        "frac_below_eds":        raw_metrics.get("frac_below_eds", float("nan")),
     }
     return row, S
 
@@ -977,7 +1012,9 @@ _RESUME_TXT_COLS = ("init_distribution", "node_geometry")
 _ROW_FLOAT_COLS = ("centerM", "outer_density_ceiling", "node_mass_amplitude",
                    "node_s_amplitude", "vir_mass_spread", "chi2_dof", "chi2",
                    "chi2_lcdm", "chi2_eds",
-                   "R2", "growth_factor", "growth_target", "match_avg_pct", "diff_pct")
+                   "R2", "growth_factor", "growth_target", "match_avg_pct", "diff_pct",
+                   "best_observer_chi2", "center_chi2_dof", "observer_median_chi2",
+                   "frac_below_lcdm", "frac_below_eds")
 _ROW_INT_COLS = ("M_factor", "S_gpc", "node_mass_seed", "n_sne_used")
 _ROW_BOOL_COLS = ("anchor_ok", "runaway")
 
@@ -1109,6 +1146,10 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
     print("[setup] Computing LCDM / EdS reference chi2 ...")
     chi2_lcdm, chi2_eds = _compute_reference_chi2(pantheon_data, t_start)
     print(f"[setup] LCDM chi2/dof={chi2_lcdm:.4f},  EdS chi2/dof={chi2_eds:.4f}")
+    # Expose the references to per-cell SweepConfigs (used as the observer
+    # fraction-below thresholds when score_observers is on).
+    cfg["lcdm_ref"] = chi2_lcdm
+    cfg["eds_ref"] = chi2_eds
 
     # Probe timing
     sps = probe_timing(box_size_Gpc, a_start, pantheon_data, baseline, weights, cfg)

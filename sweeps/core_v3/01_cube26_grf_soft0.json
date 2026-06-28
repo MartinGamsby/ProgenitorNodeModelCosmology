@@ -35,5 +35,6 @@
     "cube26"
   ],
   "tag": "core3_01_cube26_grf_soft0",
-  "_comment": "core_v3 arm 01: cube26 (control), init=grf, close-range=no softening, plummer law (baseline). 2000p/546 steps, M down to 1, S co-fit [3..35] ternary. Compared at MATCHED treatment to isolate cube-vs-virialized-vs-softening cleanly."
+  "_comment": "core_v3 arm 01: cube26 (control), init=grf, close-range=no softening, plummer law (baseline). 2000p/546 steps, M down to 1, S co-fit [3..35] ternary. Compared at MATCHED treatment to isolate cube-vs-virialized-vs-softening cleanly.",
+  "score_observers": true
 }

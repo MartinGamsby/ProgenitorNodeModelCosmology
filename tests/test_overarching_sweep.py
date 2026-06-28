@@ -1777,5 +1777,76 @@ class TestVirMassSpreadAxis(unittest.TestCase):
         _resume_key(c, include_S=True)
 
 
+class TestObserverInSweep(unittest.TestCase):
+    """Observer-from-particle scoring wired into the sweep: when score_observers is on,
+    the BEST observer is the headline chi2_dof and the cell records center_chi2_dof +
+    frac_below_lcdm/eds ('always get the best one, and how many particles are good')."""
+
+    def test_score_observers_threads_to_config(self):
+        from sweep import _make_sweep_config_for_cell
+        cfg = dict(particle_count=500, n_steps=273, t_start_Gyr=2.9,
+                   s_min_gpc=3, s_max_gpc=35,
+                   score_observers=True, observer_definition="local_rms",
+                   observer_sample=64, observer_k=-1, lcdm_ref=0.44, eds_ref=0.84)
+        cell = dict(M=100, amplitude=0.0, nm_seed=42, s_amplitude=0.0,
+                    init="grf", geometry="virialized", vir_spread=2.0)
+        sc = _make_sweep_config_for_cell(cell, cfg)
+        self.assertIs(sc.score_observers, True)
+        self.assertEqual(sc.observer_sample, 64)
+        self.assertEqual(sc.lcdm_ref, 0.44)
+        self.assertEqual(sc.eds_ref, 0.84)
+
+    def test_observer_columns_in_csv_cols(self):
+        from sweep import SWEEP_CSV_COLS
+        for c in ("best_observer_chi2", "center_chi2_dof", "observer_median_chi2",
+                  "frac_below_lcdm", "frac_below_eds"):
+            self.assertIn(c, SWEEP_CSV_COLS)
+
+    def test_no_snapshots_falls_back_to_center(self):
+        """compute_pantheon_metrics with score_observers but a snapshot-less SimResult
+        must not crash and must leave chi2_dof as the centre value (no observer keys)."""
+        import numpy as np
+        from cosmo.parameter_sweep import compute_pantheon_metrics, SimResult, SimSimpleResult
+        from cosmo.pantheon import load_pantheon
+        pan = load_pantheon()
+        # A physical EdS-ish a(t) that passes the growth anchor (~3.3x over 2.9->13.8).
+        t = np.linspace(0.0, 10.9, 30)
+        a = (1.0 + t / 10.9 * 2.3)  # grows ~3.3x, monotonic
+        sr = SimResult(size_curve_Gpc=None, hubble_curve=None, t_Gyr=t,
+                       params=None, results=SimSimpleResult(1.0, 1.0, 1.0),
+                       a_curve=a, snapshots=None)
+        m = compute_pantheon_metrics(sr, pan, 2.9, score_observers=True,
+                                     lcdm_ref=0.44, eds_ref=0.84)
+        # No snapshots -> observer scoring skipped, no best_observer_chi2 injected.
+        self.assertNotIn("best_observer_chi2", m)
+        self.assertIn("chi2_dof", m)
+
+    def test_small_sweep_makes_best_observer_the_headline(self):
+        """End-to-end: a 1-cell virialized sweep with score_observers writes the observer
+        columns and sets chi2_dof == best_observer_chi2 (the centre kept separately)."""
+        import csv, tempfile, os as _os
+        from sweep import load_config, run_sweep
+        cfg = load_config(None)
+        cfg.update(dict(
+            M_values=[100], S_values=[10], vir_mass_spreads=[3.0],
+            node_mass_amplitudes=[0.0], node_s_amplitudes=[0.0], node_mass_seeds=[42],
+            particle_count=200, n_steps=273, t_start_Gyr=2.9, centerM=1,
+            objective="pantheon", init_distributions=["grf"], grf_support="sphere",
+            node_geometries=["virialized"], vir_n_nodes=120, vir_mass_rule="massfunc",
+            vir_segregation=1.0, node_softening_gpc=1.0, node_force_law="plummer",
+            score_observers=True, observer_sample=48, resume=False,
+            results_dir=tempfile.mkdtemp(), tag="test_obs_sweep",
+        ))
+        csv_path, _best, _figs = run_sweep(cfg)
+        rows = list(csv.DictReader(open(csv_path)))
+        self.assertEqual(len(rows), 1)
+        r = rows[0]
+        if r["anchor_ok"].lower() == "true":   # observer scoring only runs for admissible cells
+            self.assertNotEqual(r["best_observer_chi2"], "")
+            self.assertAlmostEqual(float(r["chi2_dof"]), float(r["best_observer_chi2"]), places=9)
+            self.assertNotEqual(r["center_chi2_dof"], "")
+            self.assertNotEqual(r["frac_below_eds"], "")
+
+
 if __name__ == "__main__":
     unittest.main()

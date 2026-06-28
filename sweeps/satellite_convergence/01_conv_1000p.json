@@ -34,5 +34,6 @@
   "node_substep_threshold": 2.0,
   "node_substeps": 8,
   "tag": "sat_conv_1000p",
-  "_comment": "SATELLITE convergence arm: cube26 GRF bounded+substep (MATCHED to core_v3 arm 02), ONE headline cell M=100, particle_count=1000, 546 steps, S co-fit [3..35] ternary. N IS the variable here (the convergence CHECK), so 2000 and 4000 run at the FULL production resolution -- this is the plateau test for chi2/dof (and, at N>=2000, the shear/dipole that PF2 calls the discriminating signal). NOT a ladder, a check."
+  "_comment": "SATELLITE convergence arm: cube26 GRF bounded+substep (MATCHED to core_v3 arm 02), ONE headline cell M=100, particle_count=1000, 546 steps, S co-fit [3..35] ternary. N IS the variable here (the convergence CHECK), so 2000 and 4000 run at the FULL production resolution -- this is the plateau test for chi2/dof (and, at N>=2000, the shear/dipole that PF2 calls the discriminating signal). NOT a ladder, a check.",
+  "score_observers": true
 }

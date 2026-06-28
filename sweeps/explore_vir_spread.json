@@ -1,10 +1,37 @@
 {
-  "M_values": [1, 5, 10, 50, 100, 300, 500],
-  "S_values": [1, 5, 10, 15, 20, 30],
-  "vir_mass_spreads": [0.8, 1.5, 2.0, 3.0, 4.0],
-  "node_mass_amplitudes": [0.0],
-  "node_s_amplitudes": [0.0],
-  "node_mass_seeds": [42],
+  "M_values": [
+    1,
+    5,
+    10,
+    50,
+    100,
+    300,
+    500
+  ],
+  "S_values": [
+    1,
+    5,
+    10,
+    15,
+    20,
+    30
+  ],
+  "vir_mass_spreads": [
+    0.8,
+    1.5,
+    2.0,
+    3.0,
+    4.0
+  ],
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_seeds": [
+    42
+  ],
   "particle_count": 1000,
   "n_steps": 273,
   "t_start_Gyr": 2.9,
@@ -12,9 +39,13 @@
   "objective": "pantheon",
   "results_dir": "results",
   "figures_dir": "results/figures/explore_vir_spread",
-  "init_distributions": ["grf"],
+  "init_distributions": [
+    "grf"
+  ],
   "grf_support": "sphere",
-  "node_geometries": ["virialized"],
+  "node_geometries": [
+    "virialized"
+  ],
   "vir_n_nodes": 300,
   "vir_mass_rule": "massfunc",
   "vir_segregation": 1.0,
@@ -24,5 +55,6 @@
   "node_softening_gpc": 1.0,
   "node_force_law": "plummer",
   "tag": "explore_vir_spread",
-  "_comment": "EXPLORATION (parameter-finding) sweep: sweeps the node mass-function DISTRIBUTION SIZE vir_mass_spreads = {0.8,1.5,2,3,4} (sigma of the log-normal) x M {10..500} x S {10..30}, virialized lattice (force-balanced), 300 nodes, Plummer 1 Gpc (fast). 100 cells. Goal: find the best (spread, M, S) region for the focused final sweep. The wide-spread probe found ~chi2 0.51 at M~100/S~10/sigma~3 (growth ~3.0, accelerating). 1000p/273 is exploration quality, not converged. Run: python sweep.py --config sweeps/explore_vir_spread.json"
+  "_comment": "EXPLORATION (parameter-finding) sweep: sweeps the node mass-function DISTRIBUTION SIZE vir_mass_spreads = {0.8,1.5,2,3,4} (sigma of the log-normal) x M {10..500} x S {10..30}, virialized lattice (force-balanced), 300 nodes, Plummer 1 Gpc (fast). 100 cells. Goal: find the best (spread, M, S) region for the focused final sweep. The wide-spread probe found ~chi2 0.51 at M~100/S~10/sigma~3 (growth ~3.0, accelerating). 1000p/273 is exploration quality, not converged. Run: python sweep.py --config sweeps/explore_vir_spread.json",
+  "score_observers": true
 }

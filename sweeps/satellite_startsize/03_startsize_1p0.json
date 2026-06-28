@@ -44,5 +44,6 @@
   "node_substeps": 8,
   "start_size_scale": 1.0,
   "tag": "sat_startsize_1p0",
-  "_comment": "SATELLITE start_size arm: virialized Option A (lattice) GRF bounded+substep (MATCHED to core_v3 arm 05), start_size_scale=1.0 (byte-identical PF10 reference, start_size_scale=1.0 == no-op). M in [35,100,300], S co-fit [3..35] ternary, 1000p/546 (LOWER quality than the 2000p production core -- a SHAPE study isolating a(t) vs start_size per PF10, NOT a converged chi2 band). vir_n_nodes=150."
+  "_comment": "SATELLITE start_size arm: virialized Option A (lattice) GRF bounded+substep (MATCHED to core_v3 arm 05), start_size_scale=1.0 (byte-identical PF10 reference, start_size_scale=1.0 == no-op). M in [35,100,300], S co-fit [3..35] ternary, 1000p/546 (LOWER quality than the 2000p production core -- a SHAPE study isolating a(t) vs start_size per PF10, NOT a converged chi2 band). vir_n_nodes=150.",
+  "score_observers": true
 }

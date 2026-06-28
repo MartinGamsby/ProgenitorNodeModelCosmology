@@ -44,5 +44,6 @@
   "node_substep_threshold": 2.0,
   "node_substeps": 8,
   "tag": "sat_extent_1p0",
-  "_comment": "SATELLITE extent arm: virialized Option A (lattice) GRF bounded+substep (MATCHED to core_v3 arm 05), vir_extent=1.0 with vir_extent_couples_nodes=true -> node count ~extent^3 per PF14 (n_nodes 150 -> 150 at this extent; base vir_n_nodes=150). M in [35,100], S co-fit [3..35] ternary, 1000p/546. SHAPE study (extent->node-count->chi2), NOT a converged band: the node-particle force is O(N_part x N_nodes) so extent=2.0 (150 nodes) is the EXPENSIVE end -- 1000p keeps it tractable."
+  "_comment": "SATELLITE extent arm: virialized Option A (lattice) GRF bounded+substep (MATCHED to core_v3 arm 05), vir_extent=1.0 with vir_extent_couples_nodes=true -> node count ~extent^3 per PF14 (n_nodes 150 -> 150 at this extent; base vir_n_nodes=150). M in [35,100], S co-fit [3..35] ternary, 1000p/546. SHAPE study (extent->node-count->chi2), NOT a converged band: the node-particle force is O(N_part x N_nodes) so extent=2.0 (150 nodes) is the EXPENSIVE end -- 1000p keeps it tractable.",
+  "score_observers": true
 }

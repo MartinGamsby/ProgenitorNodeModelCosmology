@@ -39,5 +39,6 @@
   "node_substep_threshold": 2.0,
   "node_substeps": 8,
   "tag": "core3_02_cube26_grf_bounded",
-  "_comment": "core_v3 arm 02: cube26 (control), init=grf, close-range=bounded close-range law + 1 Gpc cap + adaptive substep (threshold=2.0, substeps=8; Section-4 validated). 2000p/546 steps, M down to 1, S co-fit [3..35] ternary. Compared at MATCHED treatment to isolate cube-vs-virialized-vs-softening cleanly."
+  "_comment": "core_v3 arm 02: cube26 (control), init=grf, close-range=bounded close-range law + 1 Gpc cap + adaptive substep (threshold=2.0, substeps=8; Section-4 validated). 2000p/546 steps, M down to 1, S co-fit [3..35] ternary. Compared at MATCHED treatment to isolate cube-vs-virialized-vs-softening cleanly.",
+  "score_observers": true
 }

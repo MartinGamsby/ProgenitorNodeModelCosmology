@@ -205,7 +205,7 @@ class TestLinearSearchPantheonEarlyStop(unittest.TestCase):
         does — this is what trips the pre-fix early-stop. The bowl S is read off
         the SimResult's a_final, which the bowl callback below encodes.
         """
-        def fake_scorer(sim_result, pantheon_data, t_start_Gyr):
+        def fake_scorer(sim_result, pantheon_data, t_start_Gyr, **kwargs):
             S = float(sim_result.results.a_final)   # callback stores S here
             chi2_dof = 0.5 + 0.05 * abs(S - s_star)  # convex, min 0.5 at s_star
             match_avg_pct = 100.0 / (1.0 + chi2_dof)

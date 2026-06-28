@@ -292,12 +292,24 @@ NOT cheating. The honest question is therefore TWO statistics, not "is the best 
        fraction so fine-tuning stays visible — we do NOT overclaim.
 The median / p10 / p90 remain the "how typical are we" context.
 
-The prototype (`cosmo/observer_distance.py`, two observer defs: `local_rms` k-NN RMS growth,
+The scorer (`cosmo/observer_distance.py`, two observer defs: `local_rms` k-NN RMS growth,
 `hubble_flow` local-Hubble integral; centre-observer limit reproduces the centre a(t) exactly;
-scored with the SAME authoritative chi2) is a PURE ADD-ON off the default centre pipeline — no
-a(t)/cache change, no PHYSICS_CACHE_VERSION bump. `fraction_at_or_below(chi2_dof, threshold)`
-is the pure helper for stat (ii); `observer_chi2_distribution(..., lcdm_ref=, eds_ref=)` emits
+scored with the SAME authoritative chi2). `fraction_at_or_below(chi2_dof, threshold)` is the pure
+helper for stat (ii); `observer_chi2_distribution(..., lcdm_ref=, eds_ref=)` emits
 `frac_below_lcdm` / `frac_below_eds`.
+
+WIRED INTO THE SWEEP (the user's "always get the best one, for sweeps"): `SweepConfig.score_observers`
+(default False; set True in all the real sweep configs — core_v3, satellites, explore) makes
+`compute_pantheon_metrics` ALSO score a strided sample of `observer_sample` (default 128) per-particle
+observers and make the BEST observer the HEADLINE `chi2_dof` (so the S co-fit + the best-cell
+selection optimize on it), keeping the centre value as `center_chi2_dof`. New CSV columns:
+`best_observer_chi2`, `center_chi2_dof`, `observer_median_chi2`, `frac_below_lcdm`, `frac_below_eds`.
+It needs the per-cell SNAPSHOTS (now carried on `SimResult.snapshots` from the sim, populated in
+`results_to_sim_result`) — so a sweep must RE-RUN to gain observer columns (the cache-hit check also
+requires `best_observer_chi2`). Pure post-sim analysis: no a(t)/cache-KEY change, no
+PHYSICS_CACHE_VERSION bump; default-off is byte-identical. Verified end-to-end on a 1-cell virialized
+sweep: chi2_dof == best_observer (0.477) vs center_chi2_dof 0.718, frac_below_eds 0.66, frac_below_lcdm
+0 (500p probe). Tests: `tests/test_overarching_sweep.py::TestObserverInSweep`.
 
 NUMBERS (M=1000, S=30, t_start=2.9, N=120, real Pantheon+): cube26 — centre 0.515, BEST
 observer 0.436 (= the LCDM reference: a Pantheon-matching observer EXISTS), MEDIAN 0.535,

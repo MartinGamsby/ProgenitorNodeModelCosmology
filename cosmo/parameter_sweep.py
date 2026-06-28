@@ -306,6 +306,19 @@ class SweepConfig:
     # DISTINCT cache key from a current-physics run with the same parameters.
     eds_consistent: bool = True
     pre_start_tidal_boost: bool = True
+    # Observer-from-particle scoring (opt-in). When score_observers is True the
+    # pantheon scorer ALSO scores a sample of per-particle observers and makes the
+    # BEST observer the headline chi2_dof (the co-fit + best-cell selection optimize
+    # on it), keeping the centre value as center_chi2_dof, and reports the fraction
+    # of observers below the LCDM / EdS references. lcdm_ref/eds_ref are the run-wide
+    # reference chi2/dof (set by the sweep driver) used for those fractions. These do
+    # NOT affect the sim or the cache KEY (pure post-sim analysis), only the scoring.
+    score_observers: bool = False
+    observer_definition: str = "local_rms"   # or "hubble_flow"
+    observer_sample: int = 128               # observers scored per cell (strided)
+    observer_k: int = -1                     # neighbours per observer (-1 = whole cloud)
+    lcdm_ref: Optional[float] = None
+    eds_ref: Optional[float] = None
 
     @property
     def particle_count(self) -> int:
@@ -362,6 +375,7 @@ class SimResult:
     params: Any  # ExternalNodeParameters
     results: SimSimpleResult
     a_curve: Optional[np.ndarray] = None  # Full scale-factor array; populated by results_to_sim_result
+    snapshots: Optional[list] = None  # sim.snapshots (positions/velocities over time) for observer-from-particle scoring; None on the cache-hit path
 
 
 @dataclass
@@ -578,10 +592,55 @@ _PANTHEON_WORST_SCORE: Dict[str, float] = {
 }
 
 
+def _observer_metrics(sim_result, pantheon_data, t_start_Gyr, *, definition, sample,
+                      k, lcdm_ref, eds_ref):
+    """Score a sample of per-particle observers from a sim's snapshots.
+
+    The observer-from-particle inference (we are a RANDOM observer; Pantheon+
+    localises us): returns the BEST observer's chi2/dof and the FRACTION of
+    observers below the LCDM / EdS references. Returns None (so the caller falls
+    back to the centre score) if there are too few snapshots or anything raises.
+    """
+    snaps = getattr(sim_result, "snapshots", None)
+    if not snaps or len(snaps) < 2:
+        return None
+    try:
+        from .observer_distance import (history_from_snapshots,
+                                        observer_chi2_distribution, ALL_NEIGHBOURS)
+        pos, vel, t = history_from_snapshots(snaps)
+        n = pos.shape[1]
+        observers = None
+        if sample and 0 < sample < n:
+            observers = np.unique(np.linspace(0, n - 1, int(sample)).astype(int))
+        dist = observer_chi2_distribution(
+            pos, vel, t, t_start_Gyr, pantheon_data,
+            definition=definition,
+            k=(int(k) if k else ALL_NEIGHBOURS),
+            observers=observers, lcdm_ref=lcdm_ref, eds_ref=eds_ref,
+        )
+    except Exception:
+        return None
+    return {
+        'best_observer_chi2': dist.get('best_chi2_dof', float('inf')),
+        'best_observer': dist.get('best_observer', -1),
+        'observer_median_chi2': dist.get('median', float('nan')),
+        'frac_below_lcdm': dist.get('frac_below_lcdm', float('nan')),
+        'frac_below_eds': dist.get('frac_below_eds', float('nan')),
+        'n_observers': dist.get('n_observers', 0),
+    }
+
+
 def compute_pantheon_metrics(
     sim_result: "SimResult",
     pantheon_data: Dict[str, Any],
     t_start_Gyr: float,
+    *,
+    score_observers: bool = False,
+    observer_definition: str = "local_rms",
+    observer_sample: int = 128,
+    observer_k: int = -1,
+    lcdm_ref: Optional[float] = None,
+    eds_ref: Optional[float] = None,
 ) -> Dict[str, float]:
     """
     Score a SimResult against REAL Pantheon+ via its sim-derived mu(z).
@@ -684,6 +743,24 @@ def compute_pantheon_metrics(
     }
     for k in MATCH_METRIC_KEYS:
         metrics.setdefault(k, 0.0)
+
+    # Observer-from-particle (opt-in): score a sample of per-particle observers and
+    # make the BEST observer the HEADLINE chi2_dof (so the co-fit + best-cell
+    # selection optimize on it), keeping the centre value as center_chi2_dof. Also
+    # report the FRACTION of observers below the LCDM / EdS references.
+    if score_observers:
+        obs = _observer_metrics(
+            sim_result, pantheon_data, t_start_Gyr,
+            definition=observer_definition, sample=observer_sample, k=observer_k,
+            lcdm_ref=lcdm_ref, eds_ref=eds_ref)
+        if obs is not None:
+            metrics.update(obs)
+            best = obs.get('best_observer_chi2')
+            if best is not None and np.isfinite(best):
+                metrics['center_chi2_dof'] = chi2_dof          # the centre baseline
+                metrics['chi2_dof'] = best                     # headline = best observer
+                metrics['match_avg_pct'] = 100.0 / (1.0 + best)
+                metrics['diff_pct'] = 100.0 - metrics['match_avg_pct']
     return metrics
 
 
@@ -886,6 +963,10 @@ def worst_callback(
         if cached_metrics:
             has_all_keys = True
             check_keys = USED_MATCH_METRIC_KEYS if config.objective == "lcdm" else ('match_avg_pct',)
+            # If observer scoring is on, a cache entry must carry best_observer_chi2;
+            # otherwise a pre-observer entry would be reused without the new columns.
+            if getattr(config, "score_observers", False) and config.objective != "lcdm":
+                check_keys = tuple(check_keys) + ('best_observer_chi2',)
             for key in check_keys:
                 if not key in cached_metrics:
                     has_all_keys = False
@@ -924,7 +1005,15 @@ def worst_callback(
     worst_metrics = None
     for result in sim_results:
         if config.objective == "pantheon":
-            metrics = compute_pantheon_metrics(result, pantheon_data, config.t_start_Gyr)
+            metrics = compute_pantheon_metrics(
+                result, pantheon_data, config.t_start_Gyr,
+                score_observers=getattr(config, "score_observers", False),
+                observer_definition=getattr(config, "observer_definition", "local_rms"),
+                observer_sample=getattr(config, "observer_sample", 128),
+                observer_k=getattr(config, "observer_k", -1),
+                lcdm_ref=getattr(config, "lcdm_ref", None),
+                eds_ref=getattr(config, "eds_ref", None),
+            )
         else:
             metrics = compute_match_metrics(result, baseline, weights)
         if not worst_result:

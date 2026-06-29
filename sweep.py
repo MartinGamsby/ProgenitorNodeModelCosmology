@@ -327,7 +327,7 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
         damping_factor=None,
         s_min_gpc=cfg["s_min_gpc"],
         s_max_gpc=cfg["s_max_gpc"],
-        save_interval=10,
+        save_interval=cfg.get("save_interval", 10),
         # Observer-from-particle scoring (opt-in via the config). When on, the scorer
         # makes the BEST observer the headline chi2_dof + reports the fraction of
         # observers below the LCDM/EdS refs (set run-wide on cfg by the driver).
@@ -546,6 +546,61 @@ def _compute_reference_chi2(pantheon_data: dict, t_start_Gyr: float) -> Tuple[fl
 # Single-cell runner (one M + one fixed S)
 # ---------------------------------------------------------------------------
 
+def _save_run_snapshots(sim_result, cfg, M_factor, S, cell, metrics, pantheon_data):
+    """Save a run's MEDIAN-centred, downsampled particle snapshots + a(t) + best-observer
+    a(t) to results/hero/<tag>.npz, for the (no-rerun) image scripts. Opt-in via the config
+    key save_snapshots=true (the hero high-resolution runs). Folds the former _hero_run.py
+    into the single sweep driver so there is ONE runner. Best-effort: never aborts the sweep."""
+    try:
+        import numpy as _np, os as _os
+        from cosmo.constants import CosmologicalConstants as _C
+        from cosmo.observer_distance import (history_from_snapshots, observer_chi2_distribution,
+            observer_a_curve_local_rms, strided_observer_sample, ALL_NEIGHBOURS)
+        snaps = getattr(sim_result, "snapshots", None)
+        if not snaps or len(snaps) < 2:
+            print("[save_snapshots] no snapshots on sim_result; skipped"); return
+        gpc = _C().Gpc_to_m
+        tag = cfg.get("tag", "run")
+        t_start = cfg["t_start_Gyr"]
+        ns = len(snaps)
+        keep_s = _np.unique(_np.linspace(0, ns - 1, min(60, ns)).astype(int))
+        N = snaps[0]["positions"].shape[0]
+        rng = _np.random.default_rng(0)
+        keep_p = rng.choice(N, size=min(6000, N), replace=False)
+        com_med = _np.stack([_np.median(snaps[s]["positions"], 0) / gpc for s in keep_s])
+        com_mean = _np.stack([snaps[s]["positions"].mean(0) / gpc for s in keep_s])
+        pos = _np.stack([snaps[s]["positions"][keep_p] / gpc for s in keep_s]) - com_med[:, None, :]
+        times = _np.array([snaps[s]["time_s"] for s in keep_s]) / (1e9 * 365.25 * 24 * 3600)
+        a_best = _np.array([]); obs_t = _np.array([])
+        try:
+            op, ov, ot = history_from_snapshots(snaps)
+            oidx = strided_observer_sample(op.shape[1], min(int(cfg.get("observer_sample", 500)), op.shape[1]))
+            od = observer_chi2_distribution(op, ov, ot, t_start, pantheon_data, definition="local_rms",
+                k=ALL_NEIGHBOURS, observers=oidx, lcdm_ref=cfg.get("lcdm_ref"), eds_ref=cfg.get("eds_ref"))
+            bi = int(od.get("best_observer", -1))
+            if bi >= 0:
+                a_best = observer_a_curve_local_rms(op, ot, bi, k=ALL_NEIGHBOURS); obs_t = ot
+        except Exception as _e:
+            print(f"[save_snapshots] best-observer a(t) skipped: {_e!r}")
+        _os.makedirs("results/hero", exist_ok=True)
+        _np.savez_compressed(
+            f"results/hero/{tag}.npz", tag=tag, M=M_factor, S=S,
+            sigma=float(cell.get("vir_spread", 0.0)), n_particles=int(N),
+            n_steps=int(cfg["n_steps"]), t_start=t_start,
+            pos_centred=pos.astype(_np.float32), times_rel=(times - times[0]),
+            diameter_Gpc=_np.asarray(sim_result.size_curve_Gpc),
+            a_curve=_np.asarray(sim_result.a_curve), t_Gyr=_np.asarray(sim_result.t_Gyr),
+            a_best=a_best, obs_t=obs_t, com_med=com_med, com_mean=com_mean,
+            center_chi2_dof=float(metrics.get("center_chi2_dof", float("nan"))),
+            best_observer_chi2=float(metrics.get("best_observer_chi2", float("nan"))),
+            frac_below_lcdm=float(metrics.get("frac_below_lcdm", float("nan"))),
+            frac_below_eds=float(metrics.get("frac_below_eds", float("nan"))),
+            growth_factor=float(metrics.get("growth_factor", float("nan"))))
+        print(f"[save_snapshots] wrote results/hero/{tag}.npz (N={N}, {len(keep_s)} snapshots)")
+    except Exception as _e:
+        print(f"[save_snapshots] skipped: {_e!r}")
+
+
 def _run_cell_fixed_S(
     cell: Dict, S: int, cfg: Dict,
     box_size_Gpc: float, a_start: float,
@@ -566,6 +621,8 @@ def _run_cell_fixed_S(
         weights=weights,
         pantheon_data=pantheon_data,
     )
+    if cfg.get("save_snapshots", False):
+        _save_run_snapshots(sim_result, cfg, cell["M"], S, cell, metrics, pantheon_data)
 
     growth_factor  = metrics.get("growth_factor", float("nan"))
     growth_target  = metrics.get("growth_target") or expected_growth_factor(cfg["t_start_Gyr"])
@@ -739,6 +796,7 @@ def probe_timing(
     probe_cfg = dict(cfg)
     probe_cfg["centerM"] = probe_centerM
     probe_cfg["outer_density_ceiling"] = probe_ceil
+    probe_cfg["save_snapshots"] = False   # the probe is throwaway timing; never save its cube26 sims
 
     S_probe = cfg.get("s_min_gpc", 30)
     t0 = time.perf_counter()
@@ -1199,11 +1257,17 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
     cfg["lcdm_ref"] = chi2_lcdm
     cfg["eds_ref"] = chi2_eds
 
-    # Probe timing
-    sps = probe_timing(box_size_Gpc, a_start, pantheon_data, baseline, weights, cfg)
-    if probe_only:
-        print("[probe] --probe-only: exiting after timing.")
-        return "", "", []
+    # Probe timing. It runs 5 FULL cube26 sims at the config size to estimate s/sim — cheap
+    # at small N, but LETHAL at high N (e.g. 100k/12k -> ~5x the real run). skip_probe (config)
+    # bypasses it for the hero high-resolution runs (no timing estimate needed there).
+    if cfg.get("skip_probe", False) and not probe_only:
+        print("[probe] skipped (skip_probe=true)")
+        sps = float("nan")   # used only in the runtime-estimate prints below
+    else:
+        sps = probe_timing(box_size_Gpc, a_start, pantheon_data, baseline, weights, cfg)
+        if probe_only:
+            print("[probe] --probe-only: exiting after timing.")
+            return "", "", []
 
     # Expand grid (M / amplitude / geometry / init / s_amplitude combos; NOT centerM/ceiling)
     cells = expand_grid(cfg)
@@ -1427,9 +1491,15 @@ def run_sweep(cfg: Dict, probe_only: bool = False) -> Tuple[str, str, List[str]]
 
     _print_summary(all_rows, chi2_lcdm, chi2_eds, t_start)
 
-    # Figures
-    figs = generate_figures(csv_path, cfg, best_row,
-                            box_size_Gpc, a_start, pantheon_data)
+    # Figures. skip_figures (config) avoids the mu(z)-panel sim RE-RUN, which at high
+    # particle counts (the hero runs) would double the wall-time; hero runs save snapshots
+    # instead (save_snapshots) and are imaged by _generate_hero_figs.py.
+    if cfg.get("skip_figures", False):
+        figs = []
+        print("[figures] skipped (skip_figures=true)")
+    else:
+        figs = generate_figures(csv_path, cfg, best_row,
+                                box_size_Gpc, a_start, pantheon_data)
 
     return csv_path, best_iso_csv, figs
 

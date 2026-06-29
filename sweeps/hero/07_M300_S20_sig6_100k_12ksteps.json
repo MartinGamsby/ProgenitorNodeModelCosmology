@@ -8,8 +8,6 @@
   "node_mass_seeds": [
     42
   ],
-  "particle_count": 100000,
-  "n_steps": 3000,
   "t_start_Gyr": 2.9,
   "centerM": 1,
   "objective": "pantheon",
@@ -33,6 +31,9 @@
   "observer_definition": "local_rms",
   "observer_sample": 500,
   "observer_k": -1,
+  "save_snapshots": true,
+  "skip_figures": true,
+  "skip_probe": true,
   "M_values": [
     300
   ],
@@ -42,6 +43,9 @@
   "vir_mass_spreads": [
     6.0
   ],
-  "tag": "hero_M300_S20_sig6",
-  "_comment": "HERO run: M=300 S=20 sigma=6.0, 100k particles / 3000 steps (converged), virialized lattice 300 nodes, GRF sphere, Plummer 1 Gpc. v8-confirmed best-observer < LCDM. For great images + converged chi2."
+  "particle_count": 100000,
+  "n_steps": 12000,
+  "save_interval": 200,
+  "tag": "hero_M300_S20_sig6_100k_12ksteps",
+  "_comment": "HERO ladder rung 7: M=300 S=20 sigma=6.0, 100000 particles / 12000 steps (dt~0.9 Myr). Barnes-Hut, virialized lattice 300 nodes, GRF sphere, Plummer 1 Gpc. save_snapshots + skip_figures."
 }

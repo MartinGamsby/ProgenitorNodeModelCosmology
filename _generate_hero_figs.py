@@ -25,14 +25,20 @@ EXT_C, LCDM_C, EDS_C = "#1f77b4", "#d62728", "#2ca02c"
 
 
 def load_all():
+    """Load each results/hero/*.npz. The chi2 numbers are embedded in the npz by sweep.py
+    (save_snapshots), so no separate result JSON is needed."""
     runs = []
     for npz in sorted(glob.glob("results/hero/*.npz")):
         tag = os.path.splitext(os.path.basename(npz))[0]
-        rj = f"results/hero/{tag}_result.json"
-        if not os.path.exists(rj):
-            continue
         d = np.load(npz)
-        runs.append((tag, d, json.load(open(rj))))
+        def g(k, default=float("nan")):
+            return float(d[k]) if k in d.files else default
+        res = {"best_observer_chi2": g("best_observer_chi2"),
+               "center_chi2_dof": g("center_chi2_dof"),
+               "frac_below_lcdm": g("frac_below_lcdm"),
+               "frac_below_eds": g("frac_below_eds"),
+               "growth_factor": g("growth_factor")}
+        runs.append((tag, d, res))
     return runs
 
 

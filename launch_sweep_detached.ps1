@@ -128,7 +128,7 @@ param(
     # (2000p / 1092 steps, sigma 4-8, M 100-500, S 15-30). Selected by SWITCHING between
     # hardcoded static arrays below (never built from input) -- the flag cannot widen the
     # set beyond these literals.
-    [ValidateSet("corev3", "localized", "localized5", "localized6", "localized7", "localized8")]
+    [ValidateSet("corev3", "localized", "localized5", "localized6", "localized7", "localized8", "hero")]
     [string]$ArmSet = "corev3"
 )
 
@@ -300,8 +300,24 @@ $LocalizedV8Arms = @(
     "sweeps/localized_v8/03_M400_N4000.json"
 )
 
+# $HeroArms = the high-resolution HERO runs (a particles+steps LADDER, single config each).
+# These JSONs set save_snapshots=true + skip_figures=true so the SAME `python sweep.py
+# --config <cfg>` command produces the snapshot npz (imaged by _generate_hero_figs.py) without
+# the figure-rerun. STATIC literal list (no disk glob). Run with -ArmSet hero.
+$HeroArms = @(
+    "sweeps/hero/01_M300_S20_sig6_10k_5ksteps.json",
+    "sweeps/hero/02_M400_S22_sig5_20k_6ksteps.json",
+    "sweeps/hero/03_M200_S20_sig7_30k_7ksteps.json",
+    "sweeps/hero/04_M300_S20_sig5_50k_8ksteps.json",
+    "sweeps/hero/05_M300_S22_sig7_50k_10ksteps.json",
+    "sweeps/hero/06_M200_S22_sig6_75k_11ksteps.json",
+    "sweeps/hero/07_M300_S20_sig6_100k_12ksteps.json"
+)
+
 # Select the run set by SWITCHING between the static arrays (never built from input).
-if ($ArmSet -eq "localized8") {
+if ($ArmSet -eq "hero") {
+    $Arms = $HeroArms
+} elseif ($ArmSet -eq "localized8") {
     $Arms = $LocalizedV8Arms
 } elseif ($ArmSet -eq "localized7") {
     $Arms = $LocalizedV7Arms
@@ -437,7 +453,9 @@ for ($i = 0; $i -lt 12 -and $pyPids.Count -lt $Parallel; $i++) {
     } | Select-Object -ExpandProperty ProcessId)
 }
 
-if ($ArmSet -eq "localized8") {
+if ($ArmSet -eq "hero") {
+    $Mode = "HERO (high-resolution particles+steps ladder, 10k/5k -> 100k/12k, save_snapshots)"
+} elseif ($ArmSet -eq "localized8") {
     $Mode = "LOCALIZED_V8 (4000p converged-N multiplicity confirmation; observer_k=-1)"
 } elseif ($ArmSet -eq "localized7") {
     $Mode = "LOCALIZED_V7 (multiplicity + seed-robustness at observer_k=-1 + 4000p N-check)"

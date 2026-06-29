@@ -486,11 +486,12 @@ class LeapfrogIntegrator(Integrator):
             if (step + 1) % save_interval == 0:
                 snapshots.append(self._save_snapshot())
 
-            # Track energy (KE+PE). total_energy()'s PE term is O(N^2) in TIME, so SKIP it
-            # for large N (the hero/high-resolution runs) where it would dominate runtime;
-            # the energy_history is a diagnostic, not used by a(t)/chi2. Threshold 10000
-            # keeps every existing run (<=4000p sweeps) byte-identical.
-            if n_particles <= 10000 and (step + 1) % max(1, (n_steps // 10)) == 0:
+            # Track energy (KE+PE) over the run, at ALL N. potential_energy() is now CHUNKED
+            # (O(N) memory), so high-N runs KEEP their energy-conservation history. Its PE term
+            # is O(N^2) in TIME (~7 min/call at 100k), so sample FEWER points at high N to bound
+            # the overhead: ~10 points up to 20k, ~5 above (still a conservation history).
+            n_energy_pts = 10 if n_particles <= 20000 else 5
+            if (step + 1) % max(1, (n_steps // n_energy_pts)) == 0:
                 self.time_history.append(self.particles.time)
                 self.energy_history.append(self.total_energy())
 

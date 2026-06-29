@@ -381,30 +381,32 @@ class Integrator:
         return KE + PE
     
     def potential_energy(self) -> float:
-        """Calculate gravitational potential energy using vectorized operations in Joules."""
+        """Gravitational potential energy in Joules (CHUNKED: O(N) memory).
+
+        Computed in row-blocks so it never allocates the full (N, N, 3) pairwise array
+        (that OOMed at N~20k: 8.9 GiB). Still O(N^2) in TIME, so it is a diagnostic for
+        modest N only — the integration loop SKIPS it at large N (see integrate()).
+        Numerically identical (upper-triangle sum) to the old dense version.
+        """
         N = len(self.particles)
-        positions = self.particles.get_positions()  # Shape: (N, 3)
-        masses_kg = self.particles.get_masses()        # Shape: (N,)
-
-        # Vectorized pairwise distance calculation
-        r_vec_m = positions[np.newaxis, :, :] - positions[:, np.newaxis, :]  # Shape: (N, N, 3)
-        r_m = np.sqrt(np.sum(r_vec_m**2, axis=2))  # Shape: (N, N)
-        r_soft_m = np.sqrt(r_m**2 + self.softening_m**2)  # Shape: (N, N)
-
-        # Pairwise potential energy: -G * m_i * m_j / r_soft_m
-        # Use outer product for masses: masses_kg[:, np.newaxis] * masses_kg[np.newaxis, :]
-        mass_products = masses_kg[:, np.newaxis] * masses_kg[np.newaxis, :]  # Shape: (N, N)
-
-        # Avoid division by zero on diagonal
-        np.fill_diagonal(r_soft_m, np.inf)
-
-        # Calculate all pairwise potentials
-        PE_matrix = -self.const.G * mass_products / r_soft_m  # Shape: (N, N)
-
-        # Sum upper triangle only to avoid double counting
-        # Use np.triu with k=1 to get upper triangle excluding diagonal
-        PE = np.sum(np.triu(PE_matrix, k=1))
-
+        positions = self.particles.get_positions()  # (N, 3)
+        masses_kg = self.particles.get_masses()      # (N,)
+        soft2 = self.softening_m ** 2
+        G = self.const.G
+        j_idx = np.arange(N)
+        # Keep each block's working set ~1e7 elements (block*N*3 floats).
+        block = max(1, int(1e7 // max(1, N)))
+        PE = 0.0
+        for i0 in range(0, N, block):
+            i1 = min(i0 + block, N)
+            diff = positions[i0:i1, np.newaxis, :] - positions[np.newaxis, :, :]  # (b, N, 3)
+            r2 = np.einsum('ijk,ijk->ij', diff, diff)                              # (b, N)
+            r_soft = np.sqrt(r2 + soft2)
+            mp = masses_kg[i0:i1, np.newaxis] * masses_kg[np.newaxis, :]           # (b, N)
+            pe = -G * mp / r_soft
+            # Upper triangle only (count each pair once): keep columns j > global row i.
+            mask = j_idx[np.newaxis, :] > np.arange(i0, i1)[:, np.newaxis]
+            PE += float(np.sum(pe[mask]))
         return PE
 
 
@@ -484,8 +486,11 @@ class LeapfrogIntegrator(Integrator):
             if (step + 1) % save_interval == 0:
                 snapshots.append(self._save_snapshot())
 
-            # Track energy
-            if (step + 1) % (n_steps // 10) == 0:
+            # Track energy (KE+PE). total_energy()'s PE term is O(N^2) in TIME, so SKIP it
+            # for large N (the hero/high-resolution runs) where it would dominate runtime;
+            # the energy_history is a diagnostic, not used by a(t)/chi2. Threshold 10000
+            # keeps every existing run (<=4000p sweeps) byte-identical.
+            if n_particles <= 10000 and (step + 1) % max(1, (n_steps // 10)) == 0:
                 self.time_history.append(self.particles.time)
                 self.energy_history.append(self.total_energy())
 

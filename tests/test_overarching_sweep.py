@@ -1896,6 +1896,47 @@ class TestObserverInSweep(unittest.TestCase):
         self.assertEqual(sc.lcdm_ref, 0.44)
         self.assertEqual(sc.eds_ref, 0.84)
 
+    def test_observer_params_are_keyed_equals_run_in_cache(self):
+        """REGRESSION: the cached metrics include best_observer_chi2 / frac_below_*, which
+        depend on observer_k / observer_sample / observer_definition. Those MUST reach the
+        cache key when score_observers is on, else a re-run with a different observer_k
+        silently SERVES the stale cached observer score (the bug where 4 observer_k arms
+        all returned the SAME best_observer_chi2). score_observers=False stays byte-identical."""
+        from sweep import _make_sweep_config_for_cell
+        from cosmo.parameter_sweep import build_cache_name
+        from cosmo.cache import Cache
+        import copy
+        base = dict(particle_count=2000, n_steps=1092, t_start_Gyr=2.9,
+                    s_min_gpc=3, s_max_gpc=35, observer_sample=2000)
+        cell = dict(M=300, amplitude=0.0, nm_seed=42, s_amplitude=0.0,
+                    init="grf", geometry="virialized", vir_spread=6.0)
+        sc = _make_sweep_config_for_cell(cell, dict(base, score_observers=True, observer_k=-1))
+
+        def key_with(**over):
+            sc2 = copy.copy(sc)
+            for k, v in over.items():
+                setattr(sc2, k, v)
+            return build_cache_name(sc2, 300, 20, 1, [42])
+
+        # score_observers OFF -> no observer slug (byte-identical for non-observer runs)
+        off = key_with(score_observers=False)
+        self.assertNotIn("obsk", off)
+        self.assertNotIn("obsdef", off)
+        # distinct observer_k -> distinct keys (the bug fix)
+        keys = {k: key_with(score_observers=True, observer_k=k) for k in (-1, 64, 128, 256)}
+        self.assertEqual(len(set(keys.values())), 4,
+                         f"observer_k not keyed==run (keys collide): {keys}")
+        self.assertIn("allobsk", keys[-1])   # whole cloud encoded as 'all' (no minus sign)
+        self.assertIn("64obsk", keys[64])
+        # observer_sample and observer_definition also keyed
+        self.assertNotEqual(key_with(score_observers=True, observer_k=64, observer_sample=512),
+                            keys[64])
+        self.assertNotEqual(key_with(score_observers=True, observer_k=64,
+                                     observer_definition="hubble_flow"), keys[64])
+        # the slugs round-trip through the CSV key (_split_key/_join_key)
+        for v in list(keys.values()) + [off]:
+            self.assertEqual(Cache._join_key(Cache._split_key(v)), v)
+
     def test_observer_columns_in_csv_cols(self):
         from sweep import SWEEP_CSV_COLS
         for c in ("best_observer_chi2", "center_chi2_dof", "observer_median_chi2",

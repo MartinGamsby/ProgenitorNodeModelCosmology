@@ -937,6 +937,30 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     start_size_scale = getattr(config, 'start_size_scale', 1.0)
     if start_size_scale != 1.0:
         parts.append(f"{start_size_scale}ssz")
+    # Observer-scoring slug: when score_observers is ON, the cached metrics INCLUDE
+    # best_observer_chi2 / frac_below_* / observer_median_chi2, which depend on the
+    # observer PARAMETERS (definition, sample size, neighbour count k). Those params do
+    # NOT change the sim a(t), so they were previously absent from the key -> a re-run
+    # with a different observer_k/sample/definition would SERVE the stale cached observer
+    # score (a keyed != run bug: e.g. observer_k had no effect on a cache hit). Append a
+    # slug ONLY when score_observers is True so non-observer runs (default) keep their
+    # existing byte-identical keys (no PHYSICS_CACHE_VERSION bump). Purely-alphabetic
+    # suffixes (obsdef/obssamp/obsk) round-trip through cache._split_key; k=-1 (whole
+    # cloud) is encoded "all" to avoid a minus sign in the value. Observer scoring is
+    # post-sim, so distinct observer params correctly map to distinct cache entries
+    # (keyed == run); the sim is recomputed because the metrics cache stores sim + observer
+    # metrics together.
+    if getattr(config, 'score_observers', False):
+        # Strip underscores from the definition so each slug is ONE underscore-delimited
+        # key part (local_rms -> localrms); _split_key splits on '_'. obssamp carries a
+        # digit value -> ("256","obssamp"); obsk is "all" (whole cloud) or the int k.
+        obs_def = str(getattr(config, 'observer_definition', 'local_rms')).replace('_', '')
+        obs_sample = getattr(config, 'observer_sample', 128)
+        obs_k = getattr(config, 'observer_k', -1)
+        obs_k_tok = 'all' if obs_k == -1 else str(obs_k)
+        parts.append(f"{obs_def}obsdef")
+        parts.append(f"{obs_sample}obssamp")
+        parts.append(f"{obs_k_tok}obsk")
     # Physics-version token (ALWAYS appended): invalidates entries computed under a
     # different simulation-physics version (e.g. pre-EdS-ICs / pre-boost), so a
     # physics change can never silently reuse a stale parameter-only cache entry.

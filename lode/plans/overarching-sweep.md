@@ -275,6 +275,27 @@ and the final virialized chi2 band are PENDING — do NOT pin "virialized fits w
 only (virA M=100 chi2 reconciliation exact, keyed==run through bounded+substep + ternary),
 NOT a result.
 
+## localized_v4 / v5 — the high-σ ridge at production resolution (2026-06-28/29)
+
+The localized follow-on to core_v3 + explore, scored by BEST-OBSERVER (we are NOT at the
+centre — see memory observer-not-center.md, PF13). Generators `sweeps/_gen_localized_v4.py`
+/ `_gen_localized_v5.py`; launched via `launch_sweep_detached.ps1 -ArmSet localized|localized5
+-Parallel 7` (the `-ArmSet` switch picks a static arm array — corev3 | localized | localized5).
+
+- **localized_v4** (DONE): 8 arms, 2000p / **1092 steps**, virialized lattice 300 nodes, GRF
+  sphere, Plummer 1 Gpc, σ∈{4,5,6,7,8} × M{100–500} × S{15–30} EXPLICIT, observer_sample=256,
+  observer_k=-1; + a 500-node check + 1638/2184-step convergence arms. RESULT = PF16: best
+  observer BEATS LCDM (12 cells <0.436, frac_below_lcdm up to 5.1%, 78 cells ≤0.45 — strong
+  multiplicity); best 0.4317 at M=300/S=20/σ6. Caveat: not fully step-converged at 1092
+  (improving with steps, decelerating ~0.430; 1092 is conservative).
+- **localized_v5** (RUNNING): the observer_k (LOCAL observer) hunt + step-convergence
+  confirmation. 6 arms at observer_sample=**2000** (ALL particles → true min + exact
+  frac_below_lcdm): observer_k∈{64,128,256,-1} on v4's winning band (M{100,300,500} × S{20,25,30}
+  × σ{4,6,8}) — isolates observer_k — plus conv arms at n_steps 2730/3276 on M{100,300}/S20/σ{6,8}.
+  Goal: push best-observer below LCDM at a non-tiny fraction + confirm the step plateau.
+- Tests: `tests/test_overarching_sweep.py::TestLocalizedV4Family` (5 tests, the ≥2000p/≥1000-step
+  floor + grid + keyed==run). v5 validated by load+expand+observer_k-threading at launch.
+
 ## First-exploration results (first_exploration tag, 2026-06-25)
 
 Config: M=[100..50000], S=co-fit [20..90], amp=[0, 0.5], 400p/273steps/t_start=2.9.

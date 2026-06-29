@@ -128,7 +128,7 @@ param(
     # (2000p / 1092 steps, sigma 4-8, M 100-500, S 15-30). Selected by SWITCHING between
     # hardcoded static arrays below (never built from input) -- the flag cannot widen the
     # set beyond these literals.
-    [ValidateSet("corev3", "localized")]
+    [ValidateSet("corev3", "localized", "localized5", "localized6", "localized7", "localized8")]
     [string]$ArmSet = "corev3"
 )
 
@@ -265,8 +265,51 @@ $LocalizedArms = @(
     "sweeps/localized_v4/07_conv_2184steps.json"
 )
 
+# $LocalizedV5Arms = the observer_k (local-observer) hunt + step-convergence extension,
+# built on v4's sub-LCDM winning band. STATIC literal list (no disk glob). 2000p, virialized
+# lattice 300 nodes, Plummer 1 Gpc, GRF, observer_sample=2000. Selected by -ArmSet localized5.
+$LocalizedV5Arms = @(
+    "sweeps/localized_v5/01_obsk64.json",
+    "sweeps/localized_v5/02_obsk128.json",
+    "sweeps/localized_v5/03_obsk256.json",
+    "sweeps/localized_v5/04_obskall.json",
+    "sweeps/localized_v5/05_conv_2730steps.json",
+    "sweeps/localized_v5/06_conv_3276steps.json"
+)
+
+# $LocalizedV6Arms = the CORRECTED observer_k sweep (post cache-key fix). STATIC literal list.
+$LocalizedV6Arms = @(
+    "sweeps/localized_v6/01_obsk64.json",
+    "sweeps/localized_v6/02_obsk128.json",
+    "sweeps/localized_v6/03_obsk256.json",
+    "sweeps/localized_v6/04_obskall.json"
+)
+
+# $LocalizedV7Arms = multiplicity + seed-robustness at observer_k=-1 + a 4000p N-check.
+$LocalizedV7Arms = @(
+    "sweeps/localized_v7/01_seed42.json",
+    "sweeps/localized_v7/02_seed7.json",
+    "sweeps/localized_v7/03_seed123.json",
+    "sweeps/localized_v7/04_N4000.json"
+)
+
+# $LocalizedV8Arms = 4000-particle converged-N multiplicity confirmation (3 arms by M).
+$LocalizedV8Arms = @(
+    "sweeps/localized_v8/01_M200_N4000.json",
+    "sweeps/localized_v8/02_M300_N4000.json",
+    "sweeps/localized_v8/03_M400_N4000.json"
+)
+
 # Select the run set by SWITCHING between the static arrays (never built from input).
-if ($ArmSet -eq "localized") {
+if ($ArmSet -eq "localized8") {
+    $Arms = $LocalizedV8Arms
+} elseif ($ArmSet -eq "localized7") {
+    $Arms = $LocalizedV7Arms
+} elseif ($ArmSet -eq "localized6") {
+    $Arms = $LocalizedV6Arms
+} elseif ($ArmSet -eq "localized5") {
+    $Arms = $LocalizedV5Arms
+} elseif ($ArmSet -eq "localized") {
     $Arms = $LocalizedArms
 } elseif ($IncludeSatellites) {
     $Arms = $CoreArms + $SatelliteArms + $ExploreArms
@@ -394,7 +437,15 @@ for ($i = 0; $i -lt 12 -and $pyPids.Count -lt $Parallel; $i++) {
     } | Select-Object -ExpandProperty ProcessId)
 }
 
-if ($ArmSet -eq "localized") {
+if ($ArmSet -eq "localized8") {
+    $Mode = "LOCALIZED_V8 (4000p converged-N multiplicity confirmation; observer_k=-1)"
+} elseif ($ArmSet -eq "localized7") {
+    $Mode = "LOCALIZED_V7 (multiplicity + seed-robustness at observer_k=-1 + 4000p N-check)"
+} elseif ($ArmSet -eq "localized6") {
+    $Mode = "LOCALIZED_V6 (CORRECTED observer_k sweep, post cache-key fix; observer_sample=2000)"
+} elseif ($ArmSet -eq "localized5") {
+    $Mode = "LOCALIZED_V5 (observer_k local-observer hunt + step-convergence; observer_sample=2000)"
+} elseif ($ArmSet -eq "localized") {
     $Mode = "LOCALIZED_V4 (2000p/1092 steps, high-sigma ridge refinement)"
 } elseif ($IncludeSatellites) {
     $Mode = "CORE + SEED + SATELLITES + EXPLORE(vir_mass_spread)"

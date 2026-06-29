@@ -513,6 +513,30 @@ the metrics cache stores sim + observer metrics together. Regression test
 `tests/test_overarching_sweep.py::TestObserverInSweep::test_observer_params_are_keyed_equals_run_in_cache`;
 full file 117 pass. Source: cosmo/parameter_sweep.py build_cache_name.
 
+## PF18 — 4000p multiplicity confirmed; the center/COM/RMS are slingshot-OUTLIER-inflated (best-observer is the robust metric)
+
+CONVERGED MULTIPLICITY (localized_v8, 4000 particles, observer_k=-1, M{200,300,400}×S{20,22}×
+σ{5,6,7}): **11/15 anchor-ok configs have best-observer chi2/dof < LCDM (0.436)**, all clustered
+~0.433-0.434, growth 3.0-3.9. So MANY distinct configs match/slightly-beat LCDM at proper
+resolution — the paper's multiplicity claim, confirmed at high N. frac_below_lcdm stays small
+(~0.000-0.002) → the sub-LCDM vantage is rare (matches, doesn't robustly beat).
+
+COHERENT BULK DRIFT (figure diagnostics, _generate_paper_figs.py — CORRECTED): the headline
+config's cloud COM drifts ~30 Gpc over 10.9 Gyr. This is NOT an outlier artifact — the
+MEDIAN-centre drift (28.9 Gpc) ≈ the MEAN-COM drift (30.8 Gpc), so the WHOLE cloud coherently
+translates (the net-force / "dark-flow" signal from the asymmetric trans-horizon node field).
+The diagnostic across σ shows large drift/RMS (2.3-4.4) and >100% pre-start tidal boost are
+MODEL-WIDE (every viable config). Read literally the drift is ~9c, but a BULK translation of the
+whole observable cloud is UNOBSERVABLE from inside (no absolute frame) and does NOT affect a(t)
+(COM-relative) or the observer chi2 (LOCAL k-NN) — so the chi2 result is unaffected; the drift is
+a separate, large anisotropy/peculiar-flow feature to report, not hide. SEPARATELY, a residual
+PF9 slingshot tail (Plummer 1 Gpc tamed to ~7×, not eliminated) does inflate the mean-COM RMS
+"size" somewhat, so the CENTER-based size/growth are mildly outlier-sensitive; the BEST-OBSERVER
+chi2 (local) is the robust headline (and the user's chosen metric). Paper figures centre on the
+MEDIAN, drop the runaway tail, use one fixed scale. The large bulk drift + the superluminal-if-
+literal velocity are an OPEN physical question for the model (is the net-force regime realistic?).
+Source: _generate_paper_figs.py, results/figures/paper/, results/logs/diag_drift.out; PF9, PF16/PF17.
+
 ## What is NOT yet pinned (the job of this phase)
 
 - The cube26-vs-virialized attribution and the final headline chi2 band for virialized

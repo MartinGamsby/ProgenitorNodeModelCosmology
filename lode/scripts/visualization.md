@@ -126,6 +126,35 @@ PURE helpers (no sim, no I/O) are unit-tested in `tests/test_ws8_figs.py` (33):
 the virialization-residual curve, `mass_radius_stats`, `_pearson`, `_spearman`. See
 [../plans/node-geometries.md](../plans/node-geometries.md#virialized-geometry--coupled-positions-masses-mass-segregated-implemented).
 
+## Paper figures for the BEST config (`_generate_paper_figs.py` + `_generate_campaign_figs.py`)
+
+The candidate figure set for the `docs/VirializedMetaStructure.tex` UPDATE (we are updating the
+existing draft, not writing a new paper). Output → `results/figures/paper/` (gitignored).
+
+`_generate_paper_figs.py` — runs the BEST config (built via the sweep's own `_build_sim_params`
+so the figure config == the swept cell: virialized lattice 300 nodes, vir_mass_spread=6, M=300,
+S=20, GRF sphere, Plummer 1 Gpc, 2000p/1092, t_start=2.9) PLUS Matter-only(EdS) and the analytic
+LCDM baseline, then emits + a summary JSON:
+- `size_vs_time.png` / `rate_vs_time.png` — RMS diameter a(t) and H(t) vs time, External vs LCDM
+  vs Matter, with R² annotations. (R²_size 0.915, R²_rate 0.932 External-vs-LCDM.)
+- `hubble_diagram.png` — μ(z) vs REAL Pantheon+ (External/LCDM/EdS) + Δμ residual + χ²/dof per
+  model. HEADLINE NUMBERS: External-Node centre χ²/dof **0.442** ≈ LCDM **0.436**, EdS null
+  **0.843** (matter-only sim 0.816); R²_μ=0.997, n=1580 SNe.
+- `particles_3d.png` / `particles_3way.png` — the particle cloud over time (External alone; and
+  External vs Matter vs LCDM at 4 times). Axis frame = RMS-radius based (diameter/2/√(3/5)·1.15),
+  COMMON per time column for the 3-way, so the bulk cloud fills the frame and sizes are
+  comparable (NOT the 99th-percentile, which let slingshot outliers shrink the bulk to a dot).
+- `observer_distribution.png` — per-observer χ²/dof histogram (centre/best/median + LCDM/EdS
+  refs + frac_below). 93% of observers below EdS; ≈0 below LCDM at 1092 steps (matches LCDM).
+
+`_generate_campaign_figs.py` — CSV-only (no sims, fast), the MULTIPLICITY story:
+- `multiplicity_map.png` (best-observer χ² over (M,S) per σ, 85 cells, many ≤0.45 ≈LCDM),
+  `step_convergence.png`, `seed_robustness.png`, `chi2_ladder.png` (External vs LCDM vs EdS).
+
+Both reuse `cosmo.plots.figure_path`, `cosmo.factories`, `cosmo.observer_distance`,
+`cosmo.sim_distance`/`distances`/`pantheon`/`hubble_diagram`. See PF16/PF17 + the campaign
+headline in [../plans/pinned-findings.md](../plans/pinned-findings.md).
+
 ## Dependencies
 
 - matplotlib (3D projection, animation)

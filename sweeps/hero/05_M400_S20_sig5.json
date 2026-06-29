@@ -1,0 +1,47 @@
+{
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_seeds": [
+    42
+  ],
+  "particle_count": 100000,
+  "n_steps": 3000,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "init_distributions": [
+    "grf"
+  ],
+  "grf_support": "sphere",
+  "node_geometries": [
+    "virialized"
+  ],
+  "vir_n_nodes": 300,
+  "vir_mass_rule": "massfunc",
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "lattice",
+  "node_softening_gpc": 1.0,
+  "node_force_law": "plummer",
+  "score_observers": true,
+  "observer_definition": "local_rms",
+  "observer_sample": 500,
+  "observer_k": -1,
+  "M_values": [
+    400
+  ],
+  "S_values": [
+    20
+  ],
+  "vir_mass_spreads": [
+    5.0
+  ],
+  "tag": "hero_M400_S20_sig5",
+  "_comment": "HERO run: M=400 S=20 sigma=5.0, 100k particles / 3000 steps (converged), virialized lattice 300 nodes, GRF sphere, Plummer 1 Gpc. v8-confirmed best-observer < LCDM. For great images + converged chi2."
+}

@@ -121,7 +121,15 @@ param(
     [switch]$Stop,
     [switch]$Force,
     [ValidateRange(1, 8)]
-    [int]$Parallel = 1
+    [int]$Parallel = 1,
+    # Which overarching arm SET to run. "corev3" (default) = the original headline
+    # family (12 core + seed, + satellites/explore with -IncludeSatellites). "localized"
+    # = the localized_v4 production-resolution refinement of the high-sigma ridge
+    # (2000p / 1092 steps, sigma 4-8, M 100-500, S 15-30). Selected by SWITCHING between
+    # hardcoded static arrays below (never built from input) -- the flag cannot widen the
+    # set beyond these literals.
+    [ValidateSet("corev3", "localized")]
+    [string]$ArmSet = "corev3"
 )
 
 Set-StrictMode -Version Latest
@@ -242,8 +250,25 @@ $ExploreArms = @(
     "sweeps/focused_observer.json"
 )
 
-# Select the run set by SWITCHING between the static arrays (core-only default).
-if ($IncludeSatellites) {
+# $LocalizedArms = the localized_v4 PRODUCTION-resolution refinement of the high-sigma
+# ridge. STATIC literal list (no disk glob, no runtime path building). 2000p / 1092 steps,
+# virialized lattice 300 nodes, Plummer 1 Gpc, GRF. Five sigma arms (full M x S grid each),
+# a 500-node check, and two step-convergence cells. Selected by -ArmSet localized.
+$LocalizedArms = @(
+    "sweeps/localized_v4/01_sigma4.json",
+    "sweeps/localized_v4/02_sigma5.json",
+    "sweeps/localized_v4/03_sigma6.json",
+    "sweeps/localized_v4/04_sigma7.json",
+    "sweeps/localized_v4/05_sigma8.json",
+    "sweeps/localized_v4/06_nodes500.json",
+    "sweeps/localized_v4/07_conv_1638steps.json",
+    "sweeps/localized_v4/07_conv_2184steps.json"
+)
+
+# Select the run set by SWITCHING between the static arrays (never built from input).
+if ($ArmSet -eq "localized") {
+    $Arms = $LocalizedArms
+} elseif ($IncludeSatellites) {
     $Arms = $CoreArms + $SatelliteArms + $ExploreArms
 } else {
     $Arms = $CoreArms
@@ -369,7 +394,13 @@ for ($i = 0; $i -lt 12 -and $pyPids.Count -lt $Parallel; $i++) {
     } | Select-Object -ExpandProperty ProcessId)
 }
 
-if ($IncludeSatellites) { $Mode = "CORE + SEED + SATELLITES + EXPLORE(vir_mass_spread)" } else { $Mode = "CORE + SEED (core-only)" }
+if ($ArmSet -eq "localized") {
+    $Mode = "LOCALIZED_V4 (2000p/1092 steps, high-sigma ridge refinement)"
+} elseif ($IncludeSatellites) {
+    $Mode = "CORE + SEED + SATELLITES + EXPLORE(vir_mass_spread)"
+} else {
+    $Mode = "CORE + SEED (core-only)"
+}
 if ($Parallel -gt 1) { $Mode = "$Mode  [parallel=$Parallel, shared cache concurrency-safe]" }
 
 Write-Host ""

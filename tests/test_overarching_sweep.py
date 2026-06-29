@@ -1571,6 +1571,106 @@ class TestSatelliteFamilies(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# 13c. localized_v4: production-resolution refinement of the high-sigma ridge
+# ---------------------------------------------------------------------------
+
+class TestLocalizedV4Family(unittest.TestCase):
+    """sweeps/localized_v4/ re-runs the high-mass-spread ridge (sigma 4-8, M 100-500,
+    S 15-30) at PRODUCTION resolution (2000 particles / 1092 steps) where the cheap
+    exploration (explore_vir_spread_hi, 1000p/273) found the best HONEST centre
+    chi2/dof ~0.46 (near LCDM 0.436, decisively below EdS 0.843). 8 arms: 5 sigma
+    arms (full M x S grid each), a 500-node check, and two step-convergence cells.
+    Pins the family structure + quality knobs so a future edit cannot silently drop
+    the >=2000p / >=1000-step floor the user required.
+    """
+
+    _M_GRID = [100, 200, 300, 400, 500]
+    _S_GRID = [15, 18, 20, 25, 30]
+    _SIGMAS = [4.0, 5.0, 6.0, 7.0, 8.0]
+
+    def _arm_paths(self):
+        import glob
+        d = os.path.join(_repo_root, "sweeps", "localized_v4")
+        paths = sorted(glob.glob(os.path.join(d, "[0-9]*.json")))
+        return [p for p in paths if os.path.basename(p) != "_manifest.json"]
+
+    def _sigma_arm_paths(self):
+        return [p for p in self._arm_paths()
+                if os.path.basename(p).startswith(("01_", "02_", "03_", "04_", "05_"))]
+
+    def _cfgs(self):
+        return [(p, load_config(p)) for p in self._arm_paths()]
+
+    def test_eight_arms_load_and_expand(self):
+        paths = self._arm_paths()
+        self.assertEqual(len(paths), 8, f"expected 8 localized_v4 arms, found {len(paths)}")
+        # 5 sigma arms x 5 M = 25 cells (each runs the 5 S values internally) +
+        # node500 (2 M x 2 sigma = 4 cells) + 2 conv (1 cell each) = 31 cells.
+        total = sum(len(expand_grid(load_config(p))) for p in paths)
+        self.assertEqual(total, 31, f"localized_v4 cell total should be 31, got {total}")
+
+    def test_quality_knobs_meet_the_user_floor(self):
+        """>=2000 particles AND >=1000 steps on EVERY arm (the user's explicit floor),
+        plus the good-region knobs: virialized lattice, GRF sphere, massfunc, Plummer
+        1 Gpc, observer scoring, EXPLICIT S list (no co-fit)."""
+        for p, cfg in self._cfgs():
+            arm = os.path.basename(p)
+            with self.subTest(arm=arm):
+                self.assertGreaterEqual(cfg["particle_count"], 2000,
+                                        f"{arm}: must run >=2000 particles")
+                self.assertGreaterEqual(cfg["n_steps"], 1000,
+                                        f"{arm}: must run >=1000 steps")
+                self.assertEqual(cfg["node_geometries"], ["virialized"])
+                self.assertEqual(cfg["vir_relax_mode"], "lattice")
+                self.assertEqual(cfg["vir_mass_rule"], "massfunc")
+                self.assertEqual(cfg["init_distributions"], ["grf"])
+                self.assertEqual(cfg.get("grf_support"), "sphere")
+                self.assertEqual(cfg["node_softening_gpc"], 1.0)
+                self.assertEqual(cfg["node_force_law"], "plummer")
+                self.assertTrue(cfg.get("score_observers", False))
+                self.assertIsInstance(cfg["S_values"], list,
+                                      f"{arm}: localized_v4 uses an EXPLICIT S list, not co-fit")
+
+    def test_sigma_arms_cover_the_ridge_grid(self):
+        """The 5 sigma arms carry sigma {4,5,6,7,8}, each with the full M x S grid."""
+        seen_sigmas = []
+        for p in self._sigma_arm_paths():
+            cfg = load_config(p)
+            self.assertEqual(cfg["M_values"], self._M_GRID)
+            self.assertEqual(cfg["S_values"], self._S_GRID)
+            self.assertEqual(len(cfg["vir_mass_spreads"]), 1)
+            seen_sigmas.append(cfg["vir_mass_spreads"][0])
+        self.assertEqual(sorted(seen_sigmas), self._SIGMAS)
+
+    def test_convergence_arms_exceed_floor_and_are_the_headline_cell(self):
+        """The two convergence arms hold M=300/S=20/sigma=6 fixed and only raise
+        n_steps (1638, 2184) so they validate that >=1092 is converged."""
+        conv = [(p, c) for p, c in self._cfgs()
+                if "conv" in os.path.basename(p)]
+        self.assertEqual(len(conv), 2)
+        steps = sorted(c["n_steps"] for _, c in conv)
+        self.assertEqual(steps, [1638, 2184])
+        for _, c in conv:
+            self.assertEqual(c["M_values"], [300])
+            self.assertEqual(c["S_values"], [20])
+            self.assertEqual(c["vir_mass_spreads"], [6.0])
+
+    def test_unique_tags_and_distinct_cache_keys(self):
+        """Every arm has its own tag (its own CSV) and the swept axes (sigma, node
+        count, n_steps) reach the cache key -> keyed==run across arms at a common (M,S)."""
+        cfgs = self._cfgs()
+        tags = [c["tag"] for _, c in cfgs]
+        self.assertEqual(len(tags), len(set(tags)), "localized_v4 arm tags must be unique")
+        keys = {}
+        for p, cfg in cfgs:
+            cell = next(c for c in expand_grid(cfg) if c["M"] == 300)
+            keys[os.path.basename(p)] = build_cache_name(
+                _make_sweep_config_for_cell(cell, cfg), 300, 20, 1, [42])
+        self.assertEqual(len(set(keys.values())), len(keys),
+                         f"two localized_v4 arms share a cache key: {keys}")
+
+
+# ---------------------------------------------------------------------------
 # 14. GRF support cache key + keyed==run (WS5 §8 box->sphere default fix)
 # ---------------------------------------------------------------------------
 

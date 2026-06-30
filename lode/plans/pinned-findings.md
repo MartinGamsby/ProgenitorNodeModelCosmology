@@ -537,6 +537,31 @@ MEDIAN, drop the runaway tail, use one fixed scale. The large bulk drift + the s
 literal velocity are an OPEN physical question for the model (is the net-force regime realistic?).
 Source: _generate_paper_figs.py, results/figures/paper/, results/logs/diag_drift.out; PF9, PF16/PF17.
 
+## PF19 — HERO ladder: the ~0.44 best-observer result is converged in BOTH particles AND steps (10k->100k, 5k->12k)
+
+The high-resolution hero ladder (sweeps/hero/, run via sweep.py save_snapshots + -ArmSet hero;
+results/hero/*.npz, imaged by _generate_hero_figs.py) scales particles AND time-steps together
+(steps matter — finer dt resolves the denser structure high N exposes):
+
+| particles | steps | M/S/sigma | best-obs | centre | growth |
+|-----------|-------|-----------|----------|--------|--------|
+| 10k | 5k | 300/20/6 | 0.4424 | 0.453 | 3.63 |
+| 20k | 6k | 400/22/5 | 0.4476 | 0.453 | 3.50 |
+| 30k | 7k | 200/20/7 | 0.4464 | 0.466 | 3.33 |
+| 50k | 8k | 300/20/5 | 0.4449 | 0.457 | 3.39 |
+| 50k | 10k | 300/22/7 | 0.4458 | 0.452 | 3.58 |
+| 75k | 11k | 200/22/6 | 0.4491 | 0.541 | 3.09 |
+| **100k** | **12k** | **300/20/6** | **0.4465** | **0.453** | **3.64** |
+
+Best-observer chi2/dof is STABLE at **~0.442-0.449 ≈ LCDM (0.436)** across the entire ladder
+(10x particles, 2.4x steps) — the match is CONVERGED, not a low-resolution artifact, and the
+many distinct (M,S,sigma) configs all land on Pantheon+ ≈ LCDM (multiplicity; hero_hubble.png).
+All decisively reject the EdS null (frac_below_eds 0.76-0.94). frac_below_lcdm=0 at these
+well-sampled (k=-1) vantages -> MATCHES LCDM, does not robustly beat it (PF16/PF18 consistent).
+Infra: the timing probe (5 full cube26 sims at config size) is bypassed by skip_probe (it was
+lethal at 100k); energy history retained at high N via chunked PE. Figures: results/figures/hero/
+(7 cloud-evolution panels + hero_hubble + hero_chi2_summary). Source: sweeps/hero/, sweep.py.
+
 ## What is NOT yet pinned (the job of this phase)
 
 - The cube26-vs-virialized attribution and the final headline chi2 band for virialized

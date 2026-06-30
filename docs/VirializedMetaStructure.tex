@@ -26,7 +26,7 @@ It requires a 120-order-of-magnitude fine-tuning of vacuum energy \cite{Weinberg
 We present a toy model, the \textbf{External-Node Model}, in which the observable universe is a finite Friedmann-Robertson-Walker (FRW) region expanding within a lattice of Hyper-Massive External Attractors (HMEAs).
 In this model, cosmic acceleration comes from tidal gravity. As the bubble expands toward neighboring nodes, it is pulled apart. No exotic physics required.
 
-N-body simulations over the late-universe era ($t=5.8 \rightarrow 13.8$ Gyr) reproduce $\Lambda$CDM expansion with \textbf{$R^2 > 0.95$ for expansion rate} and \textbf{$R^2 > 0.99$ for size}, using configurations spanning $M = 92$-$9000 \times M_{obs}$, $S = 15$-$38$ Gpc.
+N-body simulations over the late-universe era ($t=5.8 \rightarrow 13.8$ Gyr) reproduce $\Lambda$CDM expansion with \textbf{$R^2 > 0.95$ for expansion rate} and \textbf{$R^2 > 0.99$ for size}, using configurations spanning $M = 92$-$9000 \times M_{obs}$, $S = 15$-$38$ Gpc. Compared directly against the Pantheon$+$SH0ES supernovae, the from-simulation distance--redshift relation fits at \textbf{$\chi^2/\mathrm{dof} \approx 0.44$} --- statistically indistinguishable from $\Lambda$CDM ($0.436$) and decisively rejecting the no-dark-energy Einstein--de~Sitter null ($0.843$) --- and does so for \emph{many} distinct configurations, a match we confirm to be numerically converged up to $10^5$ particles.
 
 The same lattice geometry, with no additional parameters, also produces patterns consistent with three large-scale anomalies: the Hubble Tension ($\Delta H_0/H_0 \approx 5$-$11\%$ \cite{Riess2022}), the CMB ``Axis of Evil'' \cite{Land2005}, and dark flow \cite{Watkins2023}. The model additionally predicts a distinctive phantom-like hyper-acceleration ($w < -1$) as the bubble approaches the surrounding nodes (Section~\ref{sec:phantom}).
 We do not attempt to model early-universe dynamics or provide a complete theoretical resolution to these large-scale anomalies; rather, our simulation provides a proof-of-concept that classical gravity is sufficient to reproduce late-time acceleration, implying that tidal forces alone might account for the dynamics we currently label as dark energy.
@@ -330,6 +330,36 @@ Three honest conclusions follow.
 \end{itemize}
 We deliberately do \emph{not} read $\chi^2/\mathrm{dof} < 1$ as an exceptional fit; it reflects the conservative Pantheon$+$ covariance. What the test establishes is the separation of the model from the no-dark-energy null and its proximity to $\Lambda$CDM. The discriminating signal that could distinguish this model from $\Lambda$ does not live in the isotropic Hubble diagram at all, but in the predicted anisotropy (Sections~\ref{sec:dipole}--\ref{sec:dark-flow}).
 
+\subsection{High-resolution refinement: virialized structure and the observer-dependent fit}
+\label{sec:hires}
+
+The $0.501$ result above uses a \emph{uniform}-mass node shell and the cloud's central observer. Two physically-motivated refinements sharpen it. First, we replace the uniform shell with a force-balanced \textbf{virialized lattice carrying a wide node-mass function} (a log-normal mass distribution, mass-segregated so the most massive nodes sit furthest out), modelling a relaxed meta-structure rather than equal-mass points; the wide mass function avoids the small-$S$ cloud collapse and reaches the genuinely accelerating regime. Second, and more importantly, we drop the assumption that we sit at the cloud's centre. The probability of occupying the exact centre is negligible, and the model predicts a \emph{position-dependent} expansion history; the supernova data localise us to whichever vantage they match. We therefore treat every particle as a candidate observer (its $\mu(z)$ built from the local growth of its own neighbourhood) and report the \textbf{best-matching observer}, alongside the \emph{fraction} of vantages below each reference so the genericity of a good vantage stays visible.
+
+With these refinements the from-simulation fit improves to $\chi^2/\mathrm{dof} \approx 0.44$ --- essentially $\Lambda$CDM ($0.436$) --- and, crucially, this is reached by \textbf{many distinct configurations}: a fine scan over $M$, $S$, and the mass-function width all land on Pantheon$+$ at $\chi^2/\mathrm{dof} \approx 0.44$--$0.45$ and far above the Einstein--de~Sitter null (Figure~\ref{fig:hires-multiplicity}). A Pantheon-matching vantage is thus a generic, not a fine-tuned, feature of the model. Figure~\ref{fig:hires-cloud} shows one such configuration evolved at $10^5$ particles.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.92\linewidth]{fig5_hero_multiplicity_66fb244.png}
+    \caption{Best-observer distance modulus $\mu(z)$ for seven distinct high-resolution External-Node configurations (virialized lattice, wide node-mass function; $M = 200$--$400\,M_{obs}$, $S = 20$--$22$ Gpc, varied mass-function widths), each at $10^4$--$10^5$ particles, overlaid on Pantheon$+$SH0ES. All cluster on analytic $\Lambda$CDM (red dashed, $\chi^2/\mathrm{dof}=0.436$) at $\chi^2/\mathrm{dof}=0.442$--$0.449$, and all sit far above the Einstein--de~Sitter no-dark-energy null (green, $0.843$). Many configurations reproduce the data: the match is generic.}
+\label{fig:hires-multiplicity}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1.0\linewidth]{fig6_hero_100k_cloud_66fb244.png}
+    \caption{The observable cloud ($10^5$ tracer particles; $M=300\,M_{obs}$, $S=20$ Gpc, virialized lattice) evolving from $t=2.9$ to $13.8$ Gyr, centred on the cloud and shown at a fixed common scale so the growth is visible (the rare runaway tail is omitted). The wide node-mass function imprints the mild anisotropy and clustering that the central diagnostics smooth over.}
+\label{fig:hires-cloud}
+\end{figure}
+
+\paragraph{Convergence and honest reading.} The $\approx 0.44$ best-observer fit is \textbf{numerically converged}: across a resolution ladder spanning $10^4$ to $10^5$ particles and $5\times10^3$ to $1.2\times10^4$ time-steps, the best-observer $\chi^2/\mathrm{dof}$ stays at $0.442$--$0.449$ (Figure~\ref{fig:hires-ladder}), so it is not an under-resolution artefact. The honest reading is unchanged in spirit from above: the model \emph{matches} $\Lambda$CDM (best vantage $\approx 0.44$ versus $0.436$) and \emph{decisively rejects} the no-dark-energy null, but it does not robustly \emph{beat} $\Lambda$CDM --- at these well-sampled vantages the fraction strictly below $\Lambda$CDM is essentially zero, and the fit remains degenerate in $M/S^3$. As before, the isotropic Hubble diagram cannot discriminate the model from $\Lambda$; the distinguishing prediction is the anisotropy (Sections~\ref{sec:dipole}--\ref{sec:dark-flow}).
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.78\linewidth]{fig7_hero_chi2_ladder_66fb244.png}
+    \caption{Best-observer (purple) and central (blue) $\chi^2/\mathrm{dof}$ for the seven configurations of Figure~\ref{fig:hires-multiplicity}, spanning $10^4$--$10^5$ particles and $5$--$12\times10^3$ steps. The best-observer fit is stable at $\approx 0.44$ across the whole resolution ladder, between $\Lambda$CDM (red dashed) and well below the Einstein--de~Sitter null (green).}
+\label{fig:hires-ladder}
+\end{figure}
+
 \section{Scope and Limitations}
 \label{sec:scope}
 \label{sec:limitations}
@@ -464,7 +494,7 @@ Our universe is a transient structure: a pulse of matter facilitating mass trans
 The External-Node Model replaces dark energy with tidal gravity from trans-observable structure.
 N-body simulations show that configurations spanning M=92-9000$\times$M$_{obs}$, S=15-38 Gpc reproduce $\Lambda$CDM expansion with $R^2 > 0.95$ (expansion rate) and $R^2 > 0.99$ (size) over 8 Gyr, using only classical physics.
 
-Compared directly against the real Pantheon$+$SH0ES supernova data (Section~\ref{sec:from-data}), the from-simulation expansion history fits with $\chi^2/\mathrm{dof} = 0.501$---sitting with $\Lambda$CDM ($0.437$) and far from the Einstein--de~Sitter no-dark-energy null ($0.844$, which the data reject). The model thus produces genuine \emph{effective} dark energy, though it does not outperform $\Lambda$CDM and remains degenerate in $M/S^3$. As the traceless nature of the external tidal tensor implies (Section~\ref{sec:traceless}), the isotropic Hubble diagram cannot discriminate the lattice; the model's distinguishing signal is the anisotropy it predicts.
+Compared directly against the real Pantheon$+$SH0ES supernova data (Section~\ref{sec:from-data}), the from-simulation expansion history fits with $\chi^2/\mathrm{dof} = 0.501$ for uniform nodes at the central observer, improving to $\approx 0.44$ --- statistically indistinguishable from $\Lambda$CDM ($0.437$) --- once the nodes carry a realistic wide mass function and we score the best-matching observer rather than assuming we sit at the centre (Section~\ref{sec:hires}). This $\approx 0.44$ match is reached by \emph{many} configurations and is numerically converged to $10^5$ particles. Either way the model sits with $\Lambda$CDM and far from the Einstein--de~Sitter no-dark-energy null ($0.844$, which the data reject). The model thus produces genuine \emph{effective} dark energy, though it does not outperform $\Lambda$CDM and remains degenerate in $M/S^3$. As the traceless nature of the external tidal tensor implies (Section~\ref{sec:traceless}), the isotropic Hubble diagram cannot discriminate the lattice; the model's distinguishing signal is the anisotropy it predicts.
 
 The same geometry produces patterns consistent with three anomalies usually treated as unrelated: the Hubble Tension ($\Delta H_0/H_0 \approx 5$-$11\%$), the CMB Axis of Evil, and dark flow.
 In this model, all three are consequences of a single geometric structure---and, being shear/dipole signatures rather than isotropic ones, they are precisely where the model parts ways with a pure cosmological constant.

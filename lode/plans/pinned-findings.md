@@ -553,6 +553,17 @@ results/hero/*.npz, imaged by _generate_hero_figs.py) scales particles AND time-
 | 75k | 11k | 200/22/6 | 0.4491 | 0.541 | 3.09 |
 | **100k** | **12k** | **300/20/6** | **0.4465** | **0.453** | **3.64** |
 
+SEED SENSITIVITY (cloud-visual investigation): at the wide-sigma headline cell M300/S20/σ6,
+node_mass_seed is NOT freely swappable for a rounder cloud — only a MINORITY of seeds are
+anchor-ok (seed 42 growth 3.64), while others (7/99/777) RUN AWAY (growth 5.7-6.2, anchor-fail,
+even at 20k/8000 so not a dt artefact). The runaway seeds only LOOK uniform because they
+over-expand (diffuse → low central concentration). So PF19's "seed-robust fit ±0.002" holds for
+the anchor-ok SUBSET, not all seeds. The anchor-ok realizations are centrally concentrated
+(traceless tidal COMPRESSION; core-fraction 0.38 at M300 vs 0.016 uniform). The route to a
+rounder Pantheon-matching cloud is LOWER external mass (weaker compression): M200/S22/σ6 (75k)
+is anchor-ok (growth 3.09), matches (best-obs 0.449), AND is the least concentrated (core 0.25)
+— used for the paper cloud figure (fig6). Not the seed.
+
 Best-observer chi2/dof is STABLE at **~0.442-0.449 ≈ LCDM (0.436)** across the entire ladder
 (10x particles, 2.4x steps) — the match is CONVERGED, not a low-resolution artifact, and the
 many distinct (M,S,sigma) configs all land on Pantheon+ ≈ LCDM (multiplicity; hero_hubble.png).

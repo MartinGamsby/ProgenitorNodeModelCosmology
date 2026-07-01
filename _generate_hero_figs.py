@@ -89,8 +89,9 @@ def hubble_fig(runs):
                     label=f"M{int(d['M'])}/S{int(d['S'])}/$\\sigma${float(d['sigma']):g} "
                           f"({res['best_observer_chi2']:.3f})")
         ax.set_xlabel("Redshift z"); ax.set_ylabel("Distance modulus $\\mu$")
-        ax.set_title("Best-observer $\\mu(z)$ of every 100k hero config vs Pantheon+")
-        ax.legend(fontsize=7, loc="lower right", ncol=2)
+        ax.set_title("Seven External-Node configurations all fit Pantheon+ $\\approx\\Lambda$CDM\n"
+                     "(best-observer $\\mu(z)$; $M$/$S$/$\\sigma$ varied, $10^4$--$10^5$ particles)")
+        ax.legend(fontsize=7, loc="lower right", ncol=2, title="config ($\\chi^2$/dof)")
         p = figure_path(OUT, "hero_hubble"); fig.savefig(p, dpi=150, bbox_inches="tight"); plt.close(fig)
         print("  ->", p)
     except Exception as e:

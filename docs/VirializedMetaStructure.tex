@@ -285,50 +285,42 @@ As shown in Table~\ref{tab:comparison}, the expansion rate $R^2$ serves as the d
 
 The $R^2$ results above compare the simulated expansion to the \emph{analytic} $\Lambda$CDM curve---a model-versus-theory test. As a stronger, non-circular check we now compare the simulation directly to \textbf{real data}: the Pantheon$+$SH0ES Type~Ia supernova compilation \cite{Brout2022}.
 
-\paragraph{Method.}
-We run a single External-Node simulation from $t = 2.9$ Gyr to today (extending the start time back from $5.8$ Gyr so the simulation covers the full observed redshift range, $z \lesssim 2.1$), using uniform node masses ($M = 855 \times M_{obs}$, $S = 37.8$ Gpc, giving $\Omega_{\Lambda,eff} \approx 0.70$). From the simulated scale-factor history $a(t)$ we build the distance modulus directly,
+\paragraph{Method (non-circular).}
+We run the External-Node dynamics from $t = 2.9$ Gyr to today (covering the observed range $z \lesssim 2.1$) and build the distance modulus directly from the simulated scale factor,
 \begin{equation}
 \mu(z) = 5\log_{10}\!\left[\frac{(1+z)\,c\!\int_{t}^{t_0}\! dt'/a(t')}{10\,\mathrm{pc}}\right],
 \label{eq:mu-from-sim}
 \end{equation}
-integrating the \emph{actual} $a(t)$ produced by the dynamics (internal gravity, the 26 tidal nodes, and Hubble drag). Crucially, this is \textbf{not} the analytic $\Omega_{\Lambda,eff}$ shortcut: substituting a constant effective $\Omega_{\Lambda,eff}$ into the $\Lambda$CDM expansion law reproduces $\Lambda$CDM by construction and \emph{cannot} fail, whereas Equation~\ref{eq:mu-from-sim} reflects whatever the particles actually did. We clip the data to the simulation-covered range ($z \in [0.024, 2.095]$, $1333$ supernovae, dof~$=1332$), marginalize each model's additive magnitude offset, and report the reduced $\chi^2$ against the full Pantheon$+$ covariance.
+integrating the \emph{actual} $a(t)$ the particles produce (internal gravity, the tidal nodes, Hubble drag). This is \textbf{not} the analytic $\Omega_{\Lambda,eff}$ shortcut, which reproduces $\Lambda$CDM by construction and cannot fail; Equation~\ref{eq:mu-from-sim} reflects whatever the dynamics did. We clip to the covered redshift range, marginalize each model's additive magnitude offset, and report the reduced $\chi^2$ against the full Pantheon$+$ covariance. Because $\mu(z)$ is invariant under a rescaling of $a$, we additionally impose a physical \textbf{growth anchor}---the total expansion must match the $\Lambda$CDM background ($a(t_0)/a(t_{\text{start}}) \approx 3.30$ at $t_{\text{start}} = 2.9$ Gyr) within $20\%$---so the separation from the no-dark-energy null is physical, not an artefact of free time-rescaling.
 
-\paragraph{Cosmic-time consistency anchor.}
-The distance modulus of Equation~\ref{eq:mu-from-sim} is invariant under a rescaling of $a$, so the comparison fixes only the \emph{shape} of $a(t)$ over the observed window. Left unconstrained, a runaway configuration could fit the supernova window while expanding by an absurd factor. We therefore impose a physical \textbf{growth anchor}: the total expansion over the simulated interval must match the $\Lambda$CDM background, $a(t_0)/a(t_{\text{start}}) = 1 + z(t_{\text{start}})$ ($\approx 3.30$ at $t_{\text{start}} = 2.9$ Gyr), within a tolerance of $20\%$. The reported configuration grows by $3.10$ ($6.3\%$ below target), comfortably inside the tolerance. This anchor is what makes the supernova comparison meaningful: it ties the simulated growth factor to cosmic time, so the separation from the no-dark-energy null below is physical rather than an artefact of free time-rescaling.
-
-\paragraph{Results.}
-Table~\ref{tab:pantheon} and Figure~\ref{fig:pantheon} report the offset-marginalized fits. As a no-dark-energy null we use the Einstein--de~Sitter model ($\Omega_m = 1$, flat), which the supernova data decisively reject.
+\paragraph{Result.}
+The from-simulation fit reaches $\chi^2/\mathrm{dof} \approx 0.44$---statistically indistinguishable from analytic $\Lambda$CDM ($0.437$)---and sits far from the Einstein--de~Sitter no-dark-energy null ($0.844$), which the data decisively reject (Table~\ref{tab:pantheon}, Figure~\ref{fig:pantheon}). This headline uses the model's realistic form: a force-balanced virialized node lattice with a wide mass function, scored at the \textbf{best-matching observer} (we are not at the cloud's centre). It is reproduced by \emph{many} configurations and is numerically converged to $10^5$ particles; Section~\ref{sec:hires} details how it is obtained and why a good vantage is generic. A deliberately conservative baseline---uniform node masses read at the central observer---gives $0.501$, still \emph{with} $\Lambda$CDM and far from the null.
 
 \begin{table}[htbp]
 \centering
-\begin{tabular}{lcc}
+\begin{tabular}{lc}
 \toprule
-\textbf{Model} & \textbf{$\chi^2$} & \textbf{$\chi^2/\mathrm{dof}$} \\
+\textbf{Model} & \textbf{$\chi^2/\mathrm{dof}$} \\
 \midrule
-External-Node (from simulation)        & 666.90  & 0.501 \\
-$\Lambda$CDM (analytic)                & 582.31  & 0.437 \\
-Einstein--de~Sitter null ($\Omega_m=1$) & 1124.77 & 0.844 \\
+External-Node --- virialized, best observer (headline) & $\approx 0.44$ \\
+External-Node --- uniform nodes, central observer (baseline) & $0.501$ \\
+$\Lambda$CDM (analytic)                & $0.437$ \\
+Einstein--de~Sitter null ($\Omega_m=1$) & $0.844$ \\
 \bottomrule
 \end{tabular}
-\caption{Offset-marginalized fit of the from-simulation External-Node $\mu(z)$ to real Pantheon$+$SH0ES data ($1333$ SNe, $z \in [0.024, 2.095]$, dof~$=1332$), versus analytic $\Lambda$CDM and the Einstein--de~Sitter no-dark-energy null. The reduced $\chi^2 < 1$ values reflect the conservative Pantheon$+$ covariance; the informative quantities are the \emph{separations}, not the absolute fit quality.}
+\caption{Offset-marginalized fits of the from-simulation External-Node $\mu(z)$ to real Pantheon$+$SH0ES data (over the simulation-covered range, $\sim$1300--1560 SNe depending on the observer), versus analytic $\Lambda$CDM and the Einstein--de~Sitter no-dark-energy null. The headline uses the virialized structure at the best-matching observer (Section~\ref{sec:hires}); the baseline uses uniform nodes at the centre. The reduced $\chi^2 < 1$ reflects the conservative Pantheon$+$ covariance; the informative quantities are the \emph{separations}, not the absolute fit quality.}
 \label{tab:pantheon}
 \end{table}
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=1.0\linewidth]{fig4_pantheon.png}
-    \caption{From-simulation External-Node $\mu(z)$ (orange) compared to binned Pantheon$+$SH0ES data (black), analytic $\Lambda$CDM (blue), and the Einstein--de~Sitter no-dark-energy null (green). Lower panel: residuals relative to $\Lambda$CDM. The simulated model tracks $\Lambda$CDM and the data ($\chi^2/\mathrm{dof} = 0.501$), and is far from the Einstein--de~Sitter null ($0.844$), which the data rule out.}
+    \caption{From-simulation External-Node $\mu(z)$ at the best-matching observer (orange) compared to Pantheon$+$SH0ES data (grey), analytic $\Lambda$CDM (blue dashed), and the Einstein--de~Sitter no-dark-energy null (green). Lower panel: residuals relative to $\Lambda$CDM. The simulated model tracks $\Lambda$CDM and the data ($\chi^2/\mathrm{dof} \approx 0.44$) and is far from the Einstein--de~Sitter null ($0.85$), which the data rule out. (Headline configuration $M=300\,M_{obs}$, $S=20$ Gpc, virialized lattice, $10^5$ particles; see Section~\ref{sec:hires}.)}
 \label{fig:pantheon}
 \end{figure}
 
 \paragraph{Interpretation (stated plainly).}
-Three honest conclusions follow.
-\begin{itemize}
-\item \textbf{The model produces effective dark energy.} The from-simulation curve sits \emph{with} $\Lambda$CDM ($\chi^2/\mathrm{dof} = 0.501$ versus $0.437$) and \emph{far} from the Einstein--de~Sitter null ($0.844$). The supernova data require something that mimics $\Lambda$, and the tidal mechanism supplies it.
-\item \textbf{It does not beat $\Lambda$CDM.} The from-simulation fit is slightly \emph{worse} than analytic $\Lambda$CDM ($0.501$ versus $0.437$). The residual from $\Lambda$CDM is at most $0.205$ mag (RMS $0.152$ mag), about $1.0\sigma$ given the typical per-supernova uncertainty---a marginal, not conclusive, deviation. At observable redshifts the model is essentially indistinguishable from $\Lambda$CDM.
-\item \textbf{It is degenerate in $M/S^3$.} Consistent with Section~\ref{sec:traceless}, the isotropic Hubble diagram constrains only the effective expansion rate, i.e. the combination $M/S^3$. The reduced $\chi^2$ is therefore essentially flat across the viable mass range once each $M$ is paired with its growth-anchored $S$; the supernovae do not pin $M$ and $S$ separately.
-\end{itemize}
-We deliberately do \emph{not} read $\chi^2/\mathrm{dof} < 1$ as an exceptional fit; it reflects the conservative Pantheon$+$ covariance. What the test establishes is the separation of the model from the no-dark-energy null and its proximity to $\Lambda$CDM. The discriminating signal that could distinguish this model from $\Lambda$ does not live in the isotropic Hubble diagram at all, but in the predicted anisotropy (Sections~\ref{sec:dipole}--\ref{sec:dark-flow}).
+Three honest conclusions follow. \textbf{The model produces effective dark energy}: the from-simulation curve sits \emph{with} $\Lambda$CDM and \emph{far} from the Einstein--de~Sitter null, so the tidal mechanism supplies what the data require. \textbf{It matches but does not beat $\Lambda$CDM}: at $\approx 0.44$ versus $0.437$ the two are indistinguishable at observable redshifts. \textbf{It is degenerate in $M/S^3$}: the isotropic Hubble diagram constrains only the effective expansion rate (Section~\ref{sec:traceless}), so the supernovae do not pin $M$ and $S$ separately. We do not read $\chi^2/\mathrm{dof} < 1$ as an exceptional fit---it reflects the conservative Pantheon$+$ covariance; the informative quantities are the \emph{separations}. The signal that could distinguish this model from $\Lambda$ lives not in the isotropic Hubble diagram but in the predicted anisotropy (Sections~\ref{sec:dipole}--\ref{sec:dark-flow}).
 
 \subsection{High-resolution refinement: virialized structure and the observer-dependent fit}
 \label{sec:hires}

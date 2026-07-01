@@ -573,6 +573,50 @@ Infra: the timing probe (5 full cube26 sims at config size) is bypassed by skip_
 lethal at 100k); energy history retained at high N via chunked PE. Figures: results/figures/hero/
 (7 cloud-evolution panels + hero_hubble + hero_chi2_summary). Source: sweeps/hero/, sweep.py.
 
+## PF20 — Wide-σ mass segregation wastes mass on gravitationally-inert FAR nodes (near nodes go massless); pantheon sweep never checks SIZE
+
+Building the ACTUAL headline virialized geometry (`build_virialized_grid`, 300 nodes,
+massfunc, seg=1.0, force-balanced lattice, seed 42 — the `sweeps/hero/*.json` config)
+and ranking nodes by their differential-tidal proxy `m/d³` exposes a pathology in the
+wide-σ mass function:
+
+| σ (vir_mass_spread), seg=1.0 | near-node mass/mean | crop (2.5·S=50 Gpc) tidal share | max mass/mean @ r |
+|---|---|---|---|
+| 0.5 | 0.43–0.83 | 61% | 1.5× @ 87 Gpc |
+| 1.0 | 0.18–0.64 | 45% | 2.0× @ 87 Gpc |
+| 2.0 | 0.03–0.33 | 20% | 3.2× @ 87 Gpc |
+| 3.0 | 0.003–0.15 | ~3% | 4.6× @ 87 Gpc |
+| **6.0 (headline)** | **~0.00** | **0.4%** | **9.5× @ 87 Gpc** |
+
+Mechanism: massfunc SORTS a log-normal draw and assigns the biggest masses to the OUTERMOST
+shells (mass segregation, seg=1). With a wide σ the mean-preserving normalization then drives
+the inner shells to ~0 mass. But the tide falls as `m/d³`, so the massive far nodes are
+gravitationally INERT — at σ=6 the nodes within 50 Gpc carry 0.4% of Σ(m/d³); the field is a
+handful of ~9.5× nodes at ~87 Gpc (≈4× the 14 Gpc horizon). i.e. the headline config sources its
+"dark energy" almost entirely from mass placed where 1/d³ can't use it, and the near nodes we'd
+actually feel are ~massless. HONEST reading: a wide mass function is only viable at MILD
+segregation (or low σ); "virialized AND physically near-sourced" lives at σ≲1, seg=1 (near nodes
+order-M, near-dominated). σ=0 (uniform) is force-balanced but NOT a relaxed/virialized cluster
+(no segregation). This is the tension the §2.1 figure now makes visible (see below).
+
+SWEEP GAP (user-flagged, TASK-A-ADJACENT — NOT yet implemented): `compute_pantheon_metrics`
+(cosmo/parameter_sweep.py) selects the best config by `chi2_dof` ALONE (match_avg_pct=100/(1+chi2_dof)),
+with the ONLY size/expansion constraint a ±20% GATE on the total growth factor a[-1]/a[0]
+(GROWTH_ANCHOR_TOL, `expected_growth_factor`). It does NOT match the size CURVE or final size to
+LCDM — that machinery (match_curve_pct/match_end_pct/size R²) exists ONLY for objective="lcdm".
+So a wide-σ config can pass the coarse growth gate and win on best-OBSERVER chi2 while its a(t)
+SHAPE drifts from LCDM. A size-agreement metric alongside chi2 in the pantheon objective would
+likely penalize exactly these mass-wasting configs. Proposed but pending (touches shared sweep
+code / task A).
+
+FIGURE: `_gen_fig_meta_structure.py` (parameterized paper generator; every physical knob is a CLI
+arg since the config is still moving) renders a POINTS-ONLY single 3D scatter of the local HMEA
+neighbourhood (cropped by --view-scale), nodes sized + coloured by MASS, with our observable sphere
+to scale — REUSING cosmo.visualization.draw_universe_sphere + setup_3d_axes (no duplicated 3D code).
+Wired into paper §2.1 (fig:meta-structure) at σ=1 (docs/fig_meta_structure.png). The m/d³/crop-share
+numbers above are a diagnostic of the mass function (this PF), NOT plotted — the figure is a clean
+geometry illustration. The size-agreement sweep gap is TASK-A's to implement, not done here.
+
 ## What is NOT yet pinned (the job of this phase)
 
 - The cube26-vs-virialized attribution and the final headline chi2 band for virialized

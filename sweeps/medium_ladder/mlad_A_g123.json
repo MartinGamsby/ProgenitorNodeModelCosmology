@@ -1,0 +1,56 @@
+{
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_seeds": [
+    1
+  ],
+  "particle_count": 8000,
+  "n_steps": 1500,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "init_distributions": [
+    "grf"
+  ],
+  "grf_support": "sphere",
+  "node_geometries": [
+    "virialized"
+  ],
+  "vir_mass_rule": "massfunc",
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "medium",
+  "node_softening_gpc": 1.0,
+  "node_force_law": "plummer",
+  "score_observers": true,
+  "observer_definition": "local_rms",
+  "observer_sample": 2000,
+  "observer_k": -1,
+  "M_values": [
+    3000
+  ],
+  "S_values": [
+    55
+  ],
+  "s_min_gpc": 20,
+  "s_max_gpc": 120,
+  "s_cofit_method": "ternary",
+  "vir_n_nodes": 300,
+  "vir_mass_spreads": [
+    0.5
+  ],
+  "save_snapshots": true,
+  "skip_figures": true,
+  "skip_probe": true,
+  "save_interval": 25,
+  "tag": "mlad_A_g123",
+  "figures_dir": "results/figures/mlad_A_g123",
+  "_comment": "GRF-seed axis node-seed1/sig0.5/S55: particle_seed=123, 8000p/1500. Does the knot follow the IC realization?",
+  "particle_seed": 123
+}

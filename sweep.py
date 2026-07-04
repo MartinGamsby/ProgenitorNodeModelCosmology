@@ -412,12 +412,28 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
         # _make_sim_callback) agree -> keyed == run. Default 1.0 mirrors
         # SweepConfig/SimulationParameters (byte-identical, no cache slug).
         start_size_scale=cfg.get("start_size_scale", 1.0),
+        # Particle-mass randomization (0.0 default = equal masses, byte-identical,
+        # no slug; >0 draws masses uniform in [1-x, 1+x]*mean). Threaded so the
+        # keyed value == the run value (previously hardcoded 0.0 on the sim path).
+        mass_randomize=cfg.get("mass_randomize", 0.0),
         # Internal-gravity force method ("auto" default = byte-identical, no slug).
         # An explicit "numba_direct" reproduces a cell WITHOUT Barnes-Hut on the
         # identical sim path (BH-artifact falsification); keyed == run via the
         # "<fm>fm" cache slug.
         force_method=cfg.get("force_method", "auto"),
     )
+
+
+def _particle_seed(cfg: Dict) -> int:
+    """The PARTICLE/GRF-realization seed every sim in this sweep runs with.
+
+    Default 42 = the historical hardcoded value (byte-identical). The config key
+    "particle_seed" makes the GRF realization a per-arm axis (PF23: the central-knot
+    overdensity is baked into the seed-42 ICs). It is already KEYED: the seeds=[...]
+    list is an argument of build_cache_name, and the mu(z) panel rebuild uses the
+    same value (PF11 single-source-of-truth).
+    """
+    return int(cfg.get("particle_seed", 42))
 
 
 def _build_sim_params(
@@ -458,7 +474,7 @@ def _build_sim_params(
         damping_factor=sweep_cfg.damping_factor,
         center_node_mass=centerM,
         outer_density_ceiling=getattr(sweep_cfg, "outer_density_ceiling", 1.0),
-        mass_randomize=0.0,
+        mass_randomize=getattr(sweep_cfg, "mass_randomize", 0.0),
         node_mass_seed=sweep_cfg.node_mass_seed,
         node_mass_amplitude=sweep_cfg.node_mass_amplitude,
         node_s_amplitude=getattr(sweep_cfg, "node_s_amplitude", 0.0),
@@ -625,7 +641,7 @@ def _run_cell_fixed_S(
     sim_result, metrics = worst_callback(
         sim_cb, sweep_cfg,
         M_factor=cell["M"], S_val=S, centerM=centerM,
-        seeds=[42],
+        seeds=[_particle_seed(cfg)],
         baseline=baseline,
         weights=weights,
         pantheon_data=pantheon_data,
@@ -701,7 +717,7 @@ def _cofit_S_for_cell(
             cfg["s_min_gpc"], cfg["s_max_gpc"],
             s_hint=prev_best_S,
             hint_window=(prev_best_S // 4) if prev_best_S else (cfg["s_max_gpc"] // 4),
-            seeds=[42],
+            seeds=[_particle_seed(cfg)],
             pantheon_data=pantheon_data,
         )
         metrics_from_dict = {k: best_result_dict[k] for k in best_result_dict
@@ -717,7 +733,7 @@ def _cofit_S_for_cell(
             cfg["s_min_gpc"],
             prev_best_S if prev_best_S else cfg["s_max_gpc"],
             prev_best_S=prev_best_S,
-            seeds=[42],
+            seeds=[_particle_seed(cfg)],
             pantheon_data=pantheon_data,
         )
         if best_S is None:
@@ -946,10 +962,10 @@ def _generate_mu_z_panel(
 
     # Single source of truth: rebuild the cell + SweepConfig the run used, then
     # the SimulationParameters via the SAME _build_sim_params the sim callback
-    # uses. seed=42 matches the co-fit seed (linear/ternary search seeds=[42]).
+    # uses. The seed matches the sweep particle seed (_particle_seed, default 42).
     cell = _cell_from_best_row(best_row)
     sweep_cfg = _make_sweep_config_for_cell(cell, cfg)
-    sim_params = _build_sim_params(sweep_cfg, M, S, centerM, seed=42)
+    sim_params = _build_sim_params(sweep_cfg, M, S, centerM, seed=_particle_seed(cfg))
 
     print(f"  [mu_z] Running best config M={M} S={S} geo={cell['geometry']} "
           f"for mu(z) panel ...")

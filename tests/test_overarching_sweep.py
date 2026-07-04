@@ -732,6 +732,29 @@ class TestForceLawSubstepRelaxModeThreading(unittest.TestCase):
             _f.run_external_node_simulation(params, 10.0, 0.1)
         self.assertEqual(ctor.call_args.kwargs.get("force_method"), "numba_direct")
 
+    def test_mass_randomize_reaches_sim_and_key(self):
+        """mass_randomize (PF23 particle-mass axis): default 0.0 = the historical
+        hardcoded equal-mass value (no slug, byte-identical); >0 must reach the
+        SimulationParameters AND key the cache (keyed == run)."""
+        sim_params0, sweep_cfg0 = self._capture(self._cfg(), self._cell())
+        self.assertEqual(sim_params0.mass_randomize, 0.0)
+        self.assertNotIn("mrand", build_cache_name(sweep_cfg0, 100, 30, 1, [42]))
+        sim_params, sweep_cfg = self._capture(self._cfg(mass_randomize=0.5), self._cell())
+        self.assertEqual(sim_params.mass_randomize, 0.5)
+        self.assertIn("0.5mrand", build_cache_name(sweep_cfg, 100, 30, 1, [42]))
+
+    def test_particle_seed_default_and_override(self):
+        """particle_seed (PF23 GRF-realization axis): default 42 = the historical
+        hardcoded co-fit seed; the override must reach the seeds list (which is a
+        build_cache_name ARGUMENT -> distinct key) and the panel rebuild."""
+        from sweep import _particle_seed
+        self.assertEqual(_particle_seed({}), 42)
+        self.assertEqual(_particle_seed({"particle_seed": 7}), 7)
+        # distinct seeds -> distinct cache keys (seeds are a build_cache_name arg)
+        _, sweep_cfg = self._capture(self._cfg(), self._cell())
+        self.assertNotEqual(build_cache_name(sweep_cfg, 100, 30, 1, [42]),
+                            build_cache_name(sweep_cfg, 100, 30, 1, [7]))
+
     def test_gradient_relax_mode_reaches_sim_and_key(self):
         cfg = self._cfg(node_geometries=["virialized"], vir_n_nodes=40,
                         vir_relax_steps=20, vir_relax_mode="gradient",

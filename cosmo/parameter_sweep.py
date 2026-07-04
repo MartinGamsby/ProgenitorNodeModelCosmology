@@ -274,6 +274,11 @@ class SweepConfig:
     # integrator via SimulationParameters -> factories (keyed == run). Lets charts be
     # reproduced WITHOUT Barnes-Hut to falsify BH artifacts on the identical path.
     force_method: str = "auto"
+    # Particle-mass randomization (ParticleSystem mass_randomize): 0.0 (default) =
+    # equal particle masses = the sweep path's historical hardcoded value ->
+    # byte-identical, no slug. >0 keys the cache ("<x>mrand") AND reaches the sim
+    # (keyed == run) so the particle-mass axis can be tested honestly (PF23 knot).
+    mass_randomize: float = 0.0
     # Item-10 coupling: when True, vir_extent DRIVES vir_n_nodes (density-preserving
     # N ~ extent^3), making vir_extent meaningful in the force-balanced lattice mode.
     # False (default) -> byte-identical; its cache sub-slug is appended ONLY for the
@@ -923,6 +928,12 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     force_method = getattr(config, 'force_method', 'auto')
     if force_method != 'auto':
         parts.append(f"{force_method.replace('_', '')}fm")
+    # Particle-mass randomization slug: append ONLY when != 0.0 (the sweep path's
+    # historical equal-mass value) so every existing key stays valid; a non-zero
+    # mass spread gets a distinct key per value (keyed == run). Suffix "mrand".
+    mass_randomize = getattr(config, 'mass_randomize', 0.0)
+    if mass_randomize != 0.0:
+        parts.append(f"{mass_randomize}mrand")
     # Node-softening slug: append ONLY when != 0.0 so the default (legacy hard
     # 1e10 m floor, byte-identical tidal force) keeps its existing cache key and
     # NO PHYSICS_CACHE_VERSION bump is needed. Non-zero softening (the slingshot

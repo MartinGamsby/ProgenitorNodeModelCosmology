@@ -412,6 +412,11 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
         # _make_sim_callback) agree -> keyed == run. Default 1.0 mirrors
         # SweepConfig/SimulationParameters (byte-identical, no cache slug).
         start_size_scale=cfg.get("start_size_scale", 1.0),
+        # Internal-gravity force method ("auto" default = byte-identical, no slug).
+        # An explicit "numba_direct" reproduces a cell WITHOUT Barnes-Hut on the
+        # identical sim path (BH-artifact falsification); keyed == run via the
+        # "<fm>fm" cache slug.
+        force_method=cfg.get("force_method", "auto"),
     )
 
 
@@ -498,6 +503,10 @@ def _build_sim_params(
         # build_cache_name keys off, so the sim runs exactly what the cache key
         # encodes (keyed == run). Default 1.0 -> byte-identical, no slug.
         start_size_scale=getattr(sweep_cfg, "start_size_scale", 1.0),
+        # Force method: read from the same SweepConfig that build_cache_name keys
+        # off (keyed == run). "auto" default -> byte-identical, no slug; an explicit
+        # method reaches the integrator via factories.run_*_simulation.
+        force_method=getattr(sweep_cfg, "force_method", "auto"),
     )
 
 

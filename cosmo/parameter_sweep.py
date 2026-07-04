@@ -268,6 +268,12 @@ class SweepConfig:
     vir_relax_mode: str = "lattice"
     vir_relax_rate: float = 0.1
     vir_hold_outer_frac: float = 0.3
+    # Internal-gravity force method override ("auto" default = byte-identical: the
+    # integrator picks barnes_hut at N>=1000). An explicit "numba_direct"/"direct"/
+    # "barnes_hut" keys the cache (slug "<fm>fm" only when != auto) AND reaches the
+    # integrator via SimulationParameters -> factories (keyed == run). Lets charts be
+    # reproduced WITHOUT Barnes-Hut to falsify BH artifacts on the identical path.
+    force_method: str = "auto"
     # Item-10 coupling: when True, vir_extent DRIVES vir_n_nodes (density-preserving
     # N ~ extent^3), making vir_extent meaningful in the force-balanced lattice mode.
     # False (default) -> byte-identical; its cache sub-slug is appended ONLY for the
@@ -908,6 +914,15 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     outer_density_ceiling = getattr(config, 'outer_density_ceiling', 1.0)
     if outer_density_ceiling != 1.0:
         parts.append(f"{outer_density_ceiling}ceil")
+    # Force-method slug: append ONLY when != "auto" so every existing key (all built
+    # under the auto selection) stays valid -> NO PHYSICS_CACHE_VERSION bump. An
+    # explicit method (e.g. "numba_direct" for the no-Barnes-Hut chart runs) gets a
+    # distinct key per method (keyed == run). The method name's underscore is STRIPPED
+    # ("numbadirectfm") because cache keys are underscore-joined and cache._split_key
+    # must round-trip each part; suffix "fm" is purely alphabetic.
+    force_method = getattr(config, 'force_method', 'auto')
+    if force_method != 'auto':
+        parts.append(f"{force_method.replace('_', '')}fm")
     # Node-softening slug: append ONLY when != 0.0 so the default (legacy hard
     # 1e10 m floor, byte-identical tidal force) keeps its existing cache key and
     # NO PHYSICS_CACHE_VERSION bump is needed. Non-zero softening (the slingshot

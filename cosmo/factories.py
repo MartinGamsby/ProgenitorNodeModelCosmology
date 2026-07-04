@@ -116,7 +116,8 @@ def run_external_node_simulation(sim_params: SimulationParameters, box_size_Gpc:
     Returns dict with keys: 't_Gyr', 'a', 'diameter_Gpc', 'max_radius_Gpc', 'H_hubble', 'sim'
     """
     sim = CosmologicalSimulation(sim_params, box_size_Gpc, a_start,
-                                  use_external_nodes=True, use_dark_energy=False)
+                                  use_external_nodes=True, use_dark_energy=False,
+                                  force_method=getattr(sim_params, "force_method", "auto"))
     return run_and_extract_results(sim, sim_params.t_duration_Gyr, sim_params.n_steps,
                                     save_interval, damping=sim_params.damping_factor)
 
@@ -135,7 +136,8 @@ def run_matter_only_simulation(sim_params: SimulationParameters, box_size_Gpc: f
     Returns dict with keys: 't_Gyr', 'a', 'diameter_Gpc', 'max_radius_Gpc', 'H_hubble', 'sim'
     """
     sim = CosmologicalSimulation(sim_params, box_size_Gpc, a_start,
-                                  use_external_nodes=False, use_dark_energy=False)
+                                  use_external_nodes=False, use_dark_energy=False,
+                                  force_method=getattr(sim_params, "force_method", "auto"))
     return run_and_extract_results(sim, sim_params.t_duration_Gyr, sim_params.n_steps,
                                     save_interval, damping=sim_params.damping_factor)
 

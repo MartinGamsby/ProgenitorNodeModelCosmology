@@ -409,7 +409,8 @@ class SimulationParameters:
                  node_force_law: str = NODE_FORCE_LAW_DEFAULT,
                  node_substep_threshold: float = 0.0,
                  node_substeps: int = 1,
-                 start_size_scale: float = 1.0):
+                 start_size_scale: float = 1.0,
+                 force_method: str = "auto"):
         """
         Initialize simulation parameters.
 
@@ -660,6 +661,17 @@ class SimulationParameters:
                 "non-positive initial cloud size is unphysical."
             )
         self.start_size_scale = float(start_size_scale)
+
+        # Internal-gravity force method for the integrator: "auto" (default,
+        # byte-identical: barnes_hut for N>=1000, numba_direct for N>=100, direct
+        # otherwise -- the CosmologicalSimulation ctor default), or an explicit
+        # "direct"/"numba_direct"/"barnes_hut" override. Threaded through
+        # factories.run_*_simulation so charts can be produced WITHOUT Barnes-Hut
+        # (BH-artifact falsification) on the SAME sim path the sweep uses.
+        valid_fm = ("auto", "direct", "numba_direct", "barnes_hut")
+        if force_method not in valid_fm:
+            raise ValueError(f"force_method must be one of {valid_fm}, got {force_method!r}")
+        self.force_method = str(force_method)
 
         # Calculate derived quantities
         self._calculate_derived()

@@ -703,6 +703,35 @@ class TestForceLawSubstepRelaxModeThreading(unittest.TestCase):
         self.assertIn("0.5nsubth", key)
         self.assertIn("8nsub", key)
 
+    def test_force_method_reaches_sim_and_key(self):
+        """force_method (no-Barnes-Hut chart reproduction): an explicit method must
+        reach the SimulationParameters the sim runs AND key the cache (keyed == run);
+        the 'auto' default must stay byte-identical (no slug)."""
+        # default: auto, no slug
+        cfg0 = self._cfg()
+        sim_params0, sweep_cfg0 = self._capture(cfg0, self._cell())
+        self.assertEqual(sim_params0.force_method, "auto")
+        self.assertNotIn("fm", build_cache_name(sweep_cfg0, 100, 30, 1, [42]))
+        # explicit: threads through + slugs (underscore stripped for _split_key)
+        cfg = self._cfg(force_method="numba_direct")
+        sim_params, sweep_cfg = self._capture(cfg, self._cell())
+        self.assertEqual(sim_params.force_method, "numba_direct")
+        self.assertEqual(sweep_cfg.force_method, "numba_direct")
+        self.assertIn("numbadirectfm", build_cache_name(sweep_cfg, 100, 30, 1, [42]))
+
+    def test_force_method_reaches_integrator_ctor(self):
+        """factories must hand SimulationParameters.force_method to the
+        CosmologicalSimulation ctor (else the override is a dead knob)."""
+        from unittest.mock import patch as _patch, MagicMock as _MM
+        from cosmo import factories as _f
+        from cosmo.constants import SimulationParameters
+        params = SimulationParameters(n_particles=10, force_method="numba_direct")
+        with _patch.object(_f, "CosmologicalSimulation") as ctor, \
+             _patch.object(_f, "run_and_extract_results", return_value={}):
+            ctor.return_value = _MM()
+            _f.run_external_node_simulation(params, 10.0, 0.1)
+        self.assertEqual(ctor.call_args.kwargs.get("force_method"), "numba_direct")
+
     def test_gradient_relax_mode_reaches_sim_and_key(self):
         cfg = self._cfg(node_geometries=["virialized"], vir_n_nodes=40,
                         vir_relax_steps=20, vir_relax_mode="gradient",

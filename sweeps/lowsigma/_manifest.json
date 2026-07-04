@@ -1,0 +1,18 @@
+{
+  "family": "lowsigma",
+  "purpose": "Find a physically defensible sigma<=2 config (M,S,node-count) with a good best-observer fit. Sweep node count x sigma{1,1.5,2} x M x S; rank anchor-ok by best_observer_chi2; refine + snapshot the winner.",
+  "node_counts": [
+    26,
+    50,
+    150,
+    300,
+    600
+  ],
+  "arms": [
+    "sweeps/lowsigma/N26.json",
+    "sweeps/lowsigma/N50.json",
+    "sweeps/lowsigma/N150.json",
+    "sweeps/lowsigma/N300.json",
+    "sweeps/lowsigma/N600.json"
+  ]
+}

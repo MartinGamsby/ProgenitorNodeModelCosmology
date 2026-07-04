@@ -1,0 +1,52 @@
+{
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_seeds": [
+    42
+  ],
+  "particle_count": 4000,
+  "n_steps": 1092,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "init_distributions": [
+    "grf"
+  ],
+  "grf_support": "sphere",
+  "node_geometries": [
+    "virialized"
+  ],
+  "vir_mass_rule": "massfunc",
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "lattice",
+  "node_softening_gpc": 1.0,
+  "node_force_law": "plummer",
+  "score_observers": true,
+  "observer_definition": "local_rms",
+  "observer_sample": 4000,
+  "observer_k": -1,
+  "M_values": [
+    300
+  ],
+  "S_values": [
+    15
+  ],
+  "vir_mass_spreads": [
+    1.5
+  ],
+  "vir_n_nodes": 150,
+  "tag": "lowsig_ref_N150_M300_S15_sig1p5",
+  "figures_dir": "results/figures/lowsig_ref_N150_M300_S15_sig1p5",
+  "_comment": "low-sigma REFINE+snapshot: N150/M300/S15/sigma1.5 at 4000p/1092, observer_k=-1. Confirm best_obs + measure core-fraction.",
+  "save_snapshots": true,
+  "skip_figures": true,
+  "skip_probe": true,
+  "save_interval": 18
+}

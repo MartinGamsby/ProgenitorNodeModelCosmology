@@ -128,7 +128,7 @@ param(
     # (2000p / 1092 steps, sigma 4-8, M 100-500, S 15-30). Selected by SWITCHING between
     # hardcoded static arrays below (never built from input) -- the flag cannot widen the
     # set beyond these literals.
-    [ValidateSet("corev3", "localized", "localized5", "localized6", "localized7", "localized8", "hero")]
+    [ValidateSet("corev3", "localized", "localized5", "localized6", "localized7", "localized8", "hero", "rounder")]
     [string]$ArmSet = "corev3"
 )
 
@@ -314,8 +314,23 @@ $HeroArms = @(
     "sweeps/hero/07_M300_S20_sig6_100k_12ksteps.json"
 )
 
+# $RounderArms = the ROUNDER-cloud probe (idea A): single-cell configs at the rounder
+# anchor-ok corner (weaker field -> lower growth -> less traceless-tidal compression), 4000p /
+# 1092 steps, save_snapshots -> results/hero/rounder_*.npz. Measures core-fraction (which the
+# flat best-observer chi2 cannot discriminate). STATIC literal list (no disk glob). -ArmSet rounder.
+$RounderArms = @(
+    "sweeps/rounder/01_ctrl.json",
+    "sweeps/rounder/02_primary.json",
+    "sweeps/rounder/03_sig.json",
+    "sweeps/rounder/04_S.json",
+    "sweeps/rounder/05_seed.json",
+    "sweeps/rounder/06_stretch.json"
+)
+
 # Select the run set by SWITCHING between the static arrays (never built from input).
-if ($ArmSet -eq "hero") {
+if ($ArmSet -eq "rounder") {
+    $Arms = $RounderArms
+} elseif ($ArmSet -eq "hero") {
     $Arms = $HeroArms
 } elseif ($ArmSet -eq "localized8") {
     $Arms = $LocalizedV8Arms
@@ -453,7 +468,9 @@ for ($i = 0; $i -lt 12 -and $pyPids.Count -lt $Parallel; $i++) {
     } | Select-Object -ExpandProperty ProcessId)
 }
 
-if ($ArmSet -eq "hero") {
+if ($ArmSet -eq "rounder") {
+    $Mode = "ROUNDER (idea A: core-fraction probe at the rounder anchor-ok corner, 4000p, save_snapshots)"
+} elseif ($ArmSet -eq "hero") {
     $Mode = "HERO (high-resolution particles+steps ladder, 10k/5k -> 100k/12k, save_snapshots)"
 } elseif ($ArmSet -eq "localized8") {
     $Mode = "LOCALIZED_V8 (4000p converged-N multiplicity confirmation; observer_k=-1)"

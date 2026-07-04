@@ -712,6 +712,30 @@ underscore stripped for cache._split_key round-trip). Tests:
 `TestForceLawSubstepRelaxModeThreading::test_force_method_reaches_sim_and_key` + 
 `::test_force_method_reaches_integrator_ctor`. Use it to reproduce ANY chart without BH.
 
+## PF23 — Medium fit is seed-robust (~0.44 for every anchor-ok seed×σ); the central-knot COLLAPSE is NOT explained by the nearest-node near-field alone (GRF-realization + resolution suspect)
+
+Void-seed sweep (medium geometry, seeds {0,1,5,9} × σ{0.5,1,1.5} × M3000, per-M ternary S co-fit,
+2000p/546; results/ws1_sweep_medium_voidseed.csv):
+- **Fit is flat ~0.4387–0.4424 across every anchor-ok cell** — the medium's LCDM-quality match is
+  seed-robust. Weak-near-field seeds (5, 9: nearest HMEA proxy m/(d/S)³ ~0.2) are robust at ALL σ;
+  near-node seeds (0: 0.82S/proxy~1; 1) are σ-FRAGILE (seed 0 σ1.5 → 0.458/fbEdS 0.26; seed 1 σ1.5
+  → growth 15.3 runaway). Weak near-field ⇒ higher co-fit S (72–116 Gpc vs 55–69).
+- Since the medium structure is a fixed unit realization rescaled so NN==S, `d_near/S` is a pure
+  (seed, σ) property ⇒ the observational bound "no HMEA inside the observable universe
+  (~14.26 Gpc)" is a per-seed MINIMUM S: S ≥ 14.26/(d_near/S) (e.g. seed 0 → 17.4, seed 7 → 25.0).
+  At S≳55 every seed passes by 3–8×. Do NOT engineer an artificial void (we are a relaxed MEMBER
+  node; teleporting us breaks the equilibrium premise).
+- **Near-field proxy FALSIFIED as the sole knot driver** (4000p snapshots, knot = Lagrangian trace
+  of final-core particles): seed 5 (weakest field) collapses 0.57× — same as seed 0's 0.56×; seed 9
+  0.74×. ONLY seed 1 · σ0.5 · S55 is ~static (0.99×; core 0.156 vs 0.25–0.30 elsewhere) — a
+  fortunate tidal configuration, not explained by nearest-node distance alone.
+- ROOT-CAUSE SUSPECT: the PARTICLE/GRF seed is 42 in ALL cells — the knot is the SAME initial
+  overdensity in the same place (baked into the ICs); the node field only modulates its fate. At
+  4000p that blob is coarse. OPEN (decides the paper cloud): N-ladder (8k→32k + steps) + GRF-seed
+  variation on seed 1 AND a collapsing cell — is the knot a resolution artifact or robust structure
+  formation? Until then the usable static-knot config is medium · seed 1 · σ0.5 · M3000 · S55
+  (CSV best_obs 0.4387; 4000p reads ~+0.015 higher — compare like-for-like).
+
 ## What is NOT yet pinned (the job of this phase)
 
 - The cube26-vs-virialized attribution and the final headline chi2 band for virialized

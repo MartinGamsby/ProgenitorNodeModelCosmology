@@ -141,7 +141,28 @@ near-field), not how the perturbation acts. Source:
 [../physics/node-placement-vs-perturbation.md](../physics/node-placement-vs-perturbation.md),
 [node-geometries.md](./node-geometries.md).
 
-## PF8 — Only the analytic lattice reaches center force-balance; iterative relaxation (Option B) does NOT
+## PF8 — [CORRECTED by PF21] Force-balance is the WRONG criterion; the lattice's ~1e-30 was a central-node MASS artifact
+
+**CORRECTION (2026-07-04) — read PF21 first. Two errors invalidate the old PF8 conclusion below:**
+
+1. **The lattice's ~1e-30 "force-balance" required over-massing the central node.** The residual
+   uses `node_net_accelerations(..., center_mass_kg=...)` with a central node at the origin — its
+   DEFAULT is `mean(HMEA node masses)` (one full HMEA node). Remove that node and the SAME crystal
+   reads max residual ~**142** (not 1e-30). But the physical central node is "us" / the progenitor
+   (`center_node_mass` = centerM ≈ observable mass) which is ~1/M_value of an HMEA node — TINY, and
+   CANNOT cancel the finite-size background. So the "force-balanced lattice" was an artifact of
+   setting the (real) central node ~M_value× too heavy, NOT evidence of virialization. NOTE:
+   `center_node_mass`/centerM (post-Big-Bang: the cloud + outer mass) and the pre-Big-Bang central
+   node are the SAME progenitor mass in different EPOCHS — not a fudge, just mis-valued in the test.
+2. **Force-balance (static net-zero force) is not "virialized" at all.** A virialized system is held
+   up by VELOCITY DISPERSION (2K/|U|≈1); its members ORBIT and feel net forces at every instant.
+   The only STATIC net-zero-force structures are a crystal or a glass — which is why every
+   force-balance construction (lattice, gradient, glass) collapses back toward a lattice. The honest
+   "virialized in an infinite universe" structure is the periodic MEDIUM at virial equilibrium
+   (PF21), NOT a force-balanced lattice. The `virialization_residual` force-balance metric and its
+   TOL=0.25 are therefore the wrong test; use the virial ratio 2K/|U|.
+
+The old (now-superseded) empirical numbers are kept below for provenance ONLY.
 
 RE-GROUNDED on the CENTER-ONLY metric of a LARGE grid + REAL Option-B numbers (the
 disputed "irreducible central monopole" hand-wave is DROPPED; the conclusion is now
@@ -616,6 +637,80 @@ to scale — REUSING cosmo.visualization.draw_universe_sphere + setup_3d_axes (n
 Wired into paper §2.1 (fig:meta-structure) at σ=1 (docs/fig_meta_structure.png). The m/d³/crop-share
 numbers above are a diagnostic of the mass function (this PF), NOT plotted — the figure is a clean
 geometry illustration. The size-agreement sweep gap is TASK-A's to implement, not done here.
+
+## PF21 — The "virialized meta-structure" is an INFINITE homogeneous medium at virial equilibrium (2K/|U|≈1), NOT a crystal
+
+The honest realization of the "virialized meta-structure" is a snapshot of an INFINITE, homogeneous,
+self-gravitating medium in VIRIAL EQUILIBRIUM — implemented in `cosmo/virialized_medium.py` and wired
+as `vir_relax_mode="medium"` (`build_virialized_grid`). It supersedes the lattice crystal (regular,
+force-balanced only via the PF8 mass artifact) and the finite relaxed halo (the removed `nbody` mode,
+which was centrally concentrated and ran away).
+
+WHAT IT IS (all UT-backed, `tests/test_virialized_medium.py`, 15 tests):
+- **Periodic box = infinite tiling.** Every node is surrounded on all sides, so the mean-density
+  (background) force cancels by symmetry (the Jeans cancellation an infinite medium provides) — a
+  FINITE chunk cannot (edge deficit → ~r background). Tested via translation-invariance of the
+  min-image field (no special centre; each node virialized by its surroundings).
+- **VIRIAL EQUILIBRIUM 2K/|U| ≈ 1**, held up by velocity dispersion (members orbit), NOT static
+  force-balance — that is the correct meaning of "virialized" (PF8 correction). Softening = **2×
+  node spacing** keeps it COLLISIONLESS; smaller softening lets close encounters numerically HEAT
+  it → it evaporates (2K/|U| runs to ~15). Held at ~1.1, bounded, across N=125..1200.
+- **Homogeneous on average, disordered, locally clumpy** ("similar density everywhere zoomed out,
+  different in smaller regions" — clumps + voids). Concentration ≈ uniform (0.25³≈0.016), NOT a
+  central pile-up (distinguishes it from the wrong finite halo).
+- **"Us" / the progenitor = node 0 at the origin**, mass `center_mass_frac` × mean. Per the
+  Progenitor Hypothesis our observable universe WAS that node; it destabilised → Big Bang. So in the
+  SIM (post-BB) "us" is the particle CLOUD (+ centerM outer mass), NOT an HMEA — the `medium` grid
+  relaxes WITH node 0 (it belongs in the equilibrium) but DROPS it from the returned HMEAs. Thus
+  `center_node_mass`/centerM ≡ the central node, same progenitor mass in different EPOCHS (PF8 fix).
+
+INTEGRATION (`vir_relax_mode="medium"`): relax n_nodes+1 (node 0 = us), drop us, rescale so HMEA NN
+spacing == S, mean-preserve HMEA masses (mean == M_ext_kg), disk-cache under `data/vir_medium/` by
+(n_nodes, sigma, seed, center_mass_frac). M=0==EdS preserved (PF1). Deterministic. The wrong `nbody`
+finite-cluster mode + its configs/cache were removed. `center_mass_frac` is hardcoded 1.0 in the
+dispatch for now (threading it from centerM/M_value is a TODO; node 0 is dropped so it only perturbs
+the equilibrium). Source: `cosmo/virialized_medium.py`, `cosmo/node_geometry.py`
+(`_build_medium_virialized_grid`), tests `tests/test_virialized_medium.py`.
+
+PANTHEON FIT: **the medium reaches LCDM-quality best-observer chi2 at defensible low σ**
+(`sweeps/medium/` σ{1.0,1.5,2.0} × M{50,200,500,1000,3000} × per-M S co-fit ternary [20,120], 2000p/546,
+seed0, N=300, observer_k=-1; results `results/ws1_sweep_medium_sig*.csv`). ALL 15 cells are anchor-ok,
+NONE runaway, NONE collapse (growth 2.82–3.31, all inside [2.64, 3.97]). Best anchor-ok cell per σ:
+σ=1.0 → M3000/S63 **best_obs 0.4396** (center 0.458, frac_eds 0.915); σ=1.5 → M500/S69 best_obs 0.4421;
+σ=2.0 → M3000/S56 best_obs 0.4409. Single best overall = **σ=1.0, M=3000, S=63, best_obs 0.4396**
+(≈ LCDM 0.436; EdS null 0.843). So the honest medium is a GENUINE Pantheon fit at σ=1 (physically
+defensible), not fine-tuned — every σ has an LCDM-quality best observer and the fit is flat in M along
+the M/S³ ridge (higher M ⇒ higher co-fit S). CAVEAT (honest): the best cell sits at the TOP of the M grid
+(M=3000) for σ=1 and σ=2, a mild edge effect — the ridge may extend to higher M/S. The best cloud SHAPE
+is centrally CONCENTRATED and moderately triaxial, NOT round: core fraction ≈ 0.28 (particles within
+0.25×p90 of centre) and inertia-tensor axis ratio c/a ≈ 0.66 at 4000p (hero `results/hero/medium_best.npz`,
+figure `results/figures/medium/medium_best_cloud.png`). Note the authoritative best_obs is the 2000p sweep
+CSV value (0.4396); the 4000p hero RE-RUN stored 0.454 (best-observer is noisier at higher N / different
+observer sample) — quote the CSV. Reference: LCDM 0.436, EdS 0.843, anchor growth [2.64, 3.97].
+
+## PF22 — Barnes-Hut is NOT an artifact source at chart scale; the medium's central knot COLLAPSE is real physics
+
+BH-artifact falsification (user-flagged streaks in the medium_best cloud): the IDENTICAL cell
+(medium geometry, σ1/M3000/S63, 4000p) was re-run with `force_method="numba_direct"` (exact O(N²),
+no tree) on the SAME sweep path. Result: **indistinguishable** — best_obs 0.4541 == 0.4541, centre
+0.484 == 0.484, growth 3.157 vs 3.160, core-fraction 0.283 == 0.283, knot-collapse 0.56× vs 0.55×,
+clouds visually identical (results/figures/medium/bh_vs_direct.png). So BH (theta=0.5) introduces
+NO artifacts at these scales; the streaks + knot are REAL model physics.
+
+THE KNOT IS A REAL LOCAL COLLAPSE (honest): Lagrangian trace of the final-core particles (28% of
+the cloud) shows median radius 1.94 → 1.08 Gpc (0.56×) while the whole cloud expands 2.68× — a
+local overdensity decoupling from the expansion and collapsing (structure formation writ huge),
+NOT a numerical artifact and NOT a global "big crunch" (global growth 3.16, fit ~0.44 unaffected;
+a(t)/observers ride the expansion). Tension to report: the real universe has no ~Gpc-scale
+collapsed object; this is the PF2/PF19 tidal-compression anisotropy at its strongest.
+
+NEW KNOB (keyed==run): `force_method` on SimulationParameters (validated: auto/direct/
+numba_direct/barnes_hut; default "auto" = byte-identical: BH at N>=1000) → threaded through
+factories.run_*_simulation → SweepConfig → sweep.py `_make_sweep_config_for_cell` +
+`_build_sim_params` → cache slug `<fm-no-underscores>fm` ONLY when != auto ("numbadirectfm";
+underscore stripped for cache._split_key round-trip). Tests:
+`TestForceLawSubstepRelaxModeThreading::test_force_method_reaches_sim_and_key` + 
+`::test_force_method_reaches_integrator_ctor`. Use it to reproduce ANY chart without BH.
 
 ## What is NOT yet pinned (the job of this phase)
 

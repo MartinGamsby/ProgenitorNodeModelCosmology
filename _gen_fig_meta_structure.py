@@ -133,7 +133,7 @@ def main() -> None:
     p.add_argument("--seg", type=float, default=1.0, help="vir_segregation [0..1]")
     p.add_argument("--mass-rule", default="massfunc", choices=["massfunc", "radial"])
     p.add_argument("--seed", type=int, default=42)
-    p.add_argument("--relax-mode", default="lattice", choices=["lattice", "gradient"])
+    p.add_argument("--relax-mode", default="lattice", choices=["lattice", "gradient", "medium"])
     p.add_argument("--relax-steps", type=int, default=1)
     p.add_argument("--view-scale", type=float, default=2.5,
                    help="crop radius as a multiple of S (<=0 -> whole grid)")

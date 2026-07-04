@@ -796,6 +796,79 @@ def _build_relaxed_grid(
     return pos.astype(np.float64), masses.astype(np.float64)
 
 
+# ---------------------------------------------------------------------------
+# The INFINITE virialized meta-structure as the node geometry (vir_relax_mode="medium").
+#
+# Uses cosmo.virialized_medium.relax_virialized_medium to relax a PERIODIC self-gravitating medium
+# to VIRIAL EQUILIBRIUM (2K/|U| ~ 1): homogeneous on average, disordered, locally clumpy -- the
+# honest "virialized in an infinite universe" structure. (A crystal or glass is STATIC and
+# force-balanced, which is NOT virialized: a virialized system is held up by velocity dispersion,
+# its members orbit. This is why the old force-balance criterion was the wrong test.)
+#
+# "Us" / the progenitor and centerM: node 0 is our observable universe -- the progenitor node --
+# at the origin, part of the pre-Big-Bang equilibrium. Per the Progenitor Hypothesis that node
+# destabilized and BECAME the Big Bang, so in the SIMULATION (post-Big-Bang) "us" is the particle
+# CLOUD (+ centerM outer mass), NOT an HMEA. center_node_mass (centerM) and the central-node mass
+# are the SAME progenitor mass in different epochs. Therefore we relax the medium WITH the central
+# node (it belongs in the equilibrium) but DROP node 0 from the returned HMEA set -- the cloud is
+# it. (center_mass_frac is us's mass in units of the mean HMEA node mass; physically ~ centerM /
+# M_value, i.e. small, but since node 0 is dropped its exact value only perturbs the equilibrium.)
+#
+# The relaxed structure is disk-cached under data/vir_medium/ by (n_nodes, sigma, seed,
+# center_mass_frac); every S/M reuses it via the NN-spacing rescale + mean-preserving mass (the
+# same contract as the other modes). Deterministic. See cosmo/virialized_medium.py +
+# tests/test_virialized_medium.py.
+# ---------------------------------------------------------------------------
+
+def _medium_cache_dir() -> str:
+    """Directory for cached relaxed virialized-medium structures (repo data/vir_medium)."""
+    import os
+    return os.path.normpath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "data", "vir_medium"))
+
+
+def _relax_medium_structure(n_total: int, sigma: float, seed: int, center_mass_frac: float):
+    """Relax the periodic virialized medium (node 0 == "us"/progenitor at the origin); disk-cached.
+
+    Returns (pos (n_total,3) centred on "us", weights (n_total,) node masses with mean ~ 1). n_total
+    is n_HMEA + 1 (the extra node is "us"). Deterministic in (n_total, sigma, seed, center_mass_frac).
+    """
+    import os
+    from .virialized_medium import relax_virialized_medium
+    cdir = _medium_cache_dir()
+    cache = os.path.join(cdir, f"medium_N{int(n_total)}_sig{float(sigma):.4f}_"
+                               f"seed{int(seed)}_cm{float(center_mass_frac):.4f}.npz")
+    if os.path.exists(cache):
+        d = np.load(cache)
+        return d["pos"], d["weights"]
+    r = relax_virialized_medium(n_nodes=int(n_total), sigma=float(sigma), seed=int(seed),
+                                center_mass_frac=float(center_mass_frac))
+    pos, w = np.asarray(r["pos"], dtype=np.float64), np.asarray(r["mass"], dtype=np.float64)
+    try:
+        os.makedirs(cdir, exist_ok=True)
+        np.savez(cache, pos=pos, weights=w)
+    except OSError:
+        pass                                            # cache is best-effort
+    return pos, w
+
+
+def _build_medium_virialized_grid(S, *, n_nodes, M_ext_kg, vir_mass_spread, vir_s_metric, seed,
+                                  center_mass_frac=1.0):
+    """Assemble the HMEA grid from the virialized medium: relax n_nodes+1 nodes (node 0 == "us"),
+    DROP "us" (it is the particle cloud in the sim, NOT an HMEA), rescale so the HMEAs' realized NN
+    spacing (metric) == S, and mean-preserve the HMEA masses (mean == M_ext_kg). vir_mass_spread is
+    the sigma of the log-normal node-mass function."""
+    pos, w = _relax_medium_structure(int(n_nodes) + 1, float(vir_mass_spread), int(seed),
+                                     float(center_mass_frac))
+    hmea_pos, hmea_w = pos[1:], w[1:]                        # DROP node 0 ("us" / progenitor)
+    masses = float(M_ext_kg) * hmea_w / hmea_w.mean()       # mean(HMEA masses) == M_ext_kg
+    if len(hmea_pos) >= 2:
+        realized = nearest_neighbour_spacing(hmea_pos, vir_s_metric)
+        if realized > 0.0:
+            hmea_pos = hmea_pos * (float(S) / realized)
+    return hmea_pos.astype(np.float64), masses.astype(np.float64)
+
+
 def build_virialized_grid(
     S: float,
     *,
@@ -922,9 +995,24 @@ def build_virialized_grid(
         raise ValueError(
             f"Unknown vir_s_metric {vir_s_metric!r}; use 'median' or 'mean'."
         )
-    if vir_relax_mode not in ("lattice", "gradient"):
+    if vir_relax_mode not in ("lattice", "gradient", "medium"):
         raise ValueError(
-            f"Unknown vir_relax_mode {vir_relax_mode!r}; use 'lattice' or 'gradient'."
+            f"Unknown vir_relax_mode {vir_relax_mode!r}; use 'lattice', 'gradient', or 'medium'."
+        )
+
+    # "medium": the INFINITE virialized meta-structure -- a periodic self-gravitating medium relaxed
+    # to VIRIAL EQUILIBRIUM (2K/|U| ~ 1): homogeneous on average, disordered, locally clumpy. Node 0
+    # ("us"/the progenitor) is relaxed WITH the medium but DROPPED from the HMEAs (in the sim the
+    # cloud is us). See _build_medium_virialized_grid + cosmo/virialized_medium.py.
+    if vir_relax_mode == "medium" and int(n_nodes) >= 2:
+        return _build_medium_virialized_grid(
+            S,
+            n_nodes=int(n_nodes),
+            M_ext_kg=M_ext_kg,
+            vir_mass_spread=vir_mass_spread,
+            vir_s_metric=vir_s_metric,
+            seed=seed,
+            center_mass_frac=1.0,
         )
 
     # Option B (gradient): true iterative relaxation of a realistic segregated blob.

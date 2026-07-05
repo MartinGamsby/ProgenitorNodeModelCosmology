@@ -729,12 +729,27 @@ Void-seed sweep (medium geometry, seeds {0,1,5,9} × σ{0.5,1,1.5} × M3000, per
   of final-core particles): seed 5 (weakest field) collapses 0.57× — same as seed 0's 0.56×; seed 9
   0.74×. ONLY seed 1 · σ0.5 · S55 is ~static (0.99×; core 0.156 vs 0.25–0.30 elsewhere) — a
   fortunate tidal configuration, not explained by nearest-node distance alone.
-- ROOT-CAUSE SUSPECT: the PARTICLE/GRF seed is 42 in ALL cells — the knot is the SAME initial
-  overdensity in the same place (baked into the ICs); the node field only modulates its fate. At
-  4000p that blob is coarse. OPEN (decides the paper cloud): N-ladder (8k→32k + steps) + GRF-seed
-  variation on seed 1 AND a collapsing cell — is the knot a resolution artifact or robust structure
-  formation? Until then the usable static-knot config is medium · seed 1 · σ0.5 · M3000 · S55
-  (CSV best_obs 0.4387; 4000p reads ~+0.015 higher — compare like-for-like).
+- ROOT-CAUSE RESOLVED by the medium-knot LADDER (sweeps/medium_ladder/, 12 arms, 2026-07-04):
+  **the knot is CONVERGED, GENERIC physics — not resolution, not the IC realization.**
+  On cells A = seed1/σ0.5/S55 and B = seed0/σ1.0/S63 (M3000, medium):
+    * N-ladder 8k/16k/32k (steps 1500/2000/2500): knot ratio A 0.83/0.85/0.86×, B 0.47/0.48/0.50×
+      — N-STABLE both. (A's 4000p "0.99× static" was flattered by resolution; converged ~0.85×
+      MILD contraction.)
+    * GRF particle_seed {7,123} @8k: A 0.85/0.90×, B 0.53/0.51× — every realization forms the knot
+      (the earlier "seed-42 IC overdensity" suspicion is FALSIFIED; the knot is generic).
+    * mass_randomize 0.5 @8k: A 0.93×, B 0.45× — no meaningful help (as expected: uncorrelated
+      random masses raise two-body noise ⟨m²⟩/⟨m⟩²=13/12; the axis is now keyed==run and tested).
+  What sets the collapse RATE is the NODE-FIELD environment: A (node-seed 1) ~0.85× mild
+  contraction vs B (node-seed 0) ~0.50× strong collapse — the PF2 tidal-compression story.
+  **FIT IS CONVERGED AND UNIVERSAL: best_obs 0.439–0.444 across ALL 12 cells (8k→32k, 3 GRF
+  seeds, mass-randomize)** — the medium's LCDM-quality match is not a resolution or realization
+  artifact. HONEST STATUS for the paper cloud: a mildly contracting central overdensity
+  (core ~0.17 at cell A) is an intrinsic, converged prediction of the model — report it (PF2
+  anisotropy/structure-formation signal), don't hide it; cell A (medium · seed 1 · σ0.5 · M3000 ·
+  S55) is the mildest-knot LCDM-quality config. Figure: results/figures/medium/
+  ladder_32k_compare.png. OPEN (optional): a mass-weighted GRF init (carry δ in particle MASSES on
+  quasi-uniform positions instead of Zel'dovich displacement crowding) would test whether the
+  contraction weakens without the discrete crowding — a new init mode, not built.
 
 ## What is NOT yet pinned (the job of this phase)
 

@@ -782,12 +782,16 @@ The user's hypothesis: PF6's "centerM does nothing" might flip with the virializ
 3. **HONEST CATCH: the old hardcoded vcm=1.0 was LOAD-BEARING at S=55.** At the PHYSICAL
    vcm≈0.001 (us = observable mass only) the S=55 cell RUNS AWAY (growth 5.1, anchor-fail,
    both centerM 1 and 3; the cloud is tidally shredded by the 38 Gpc neighbour — see
-   centerm_clouds.png left panel). OPEN: the physical-vcm S co-fit (cm_vcmphys_cofit, running)
-   — a stronger near-field needs its own spacing; expect a viable higher-S cell.
-   THEORY FORK for the user: was the progenitor a TYPICAL node (vcm~1, current default — then the
-   observable universe is a small fraction of the progenitor's mass) or does us carry only the
-   observable mass (vcm=centerM/M_value — then S must be re-fit)? The sim can do either; the
-   PAPER must pick and justify one.
+   centerm_clouds.png left panel). RESOLVED by the S co-fit (cm_vcmphys_cofit): at ITS OWN
+   spacing **S=93 Gpc the physical vcm fits fine — best_obs 0.4413, growth 2.96, anchor-ok,
+   fbEdS 0.83**. So BOTH fork branches are LCDM-quality viable:
+     * progenitor = TYPICAL node (vcm≈1): S=55 → 0.4405
+     * us = OBSERVABLE mass only (vcm=centerM/M_value): S=93 → 0.4413
+   The fork does NOT threaten the headline fit — it only sets which S the paper quotes (M/S³
+   compensation again). THEORY DECISION for the user: pick a branch and justify it (typical-node
+   implies the observable universe is a small fraction of the progenitor's pre-BB mass; the
+   observable-mass branch needs no mass bookkeeping but a wider lattice). Follow-up when chosen:
+   knot/cloud snapshot + N-check at the chosen cell.
 
 ## What is NOT yet pinned (the job of this phase)
 

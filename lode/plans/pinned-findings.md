@@ -761,6 +761,34 @@ Void-seed sweep (medium geometry, seeds {0,1,5,9} × σ{0.5,1,1.5} × M3000, per
   **medium · seed 1 · σ0.5 · M3000 · S55 · grfmass** (knot ~static, fit ~0.44). Follow-on: rerun
   the N-ladder + seed×σ sweeps on grfmass — the WS7 GPU sweep's first job.
 
+## PF24 — centerM retest with the full new machinery: outer mass STILL doesn't move the fit (PF6 holds); the real centerM lever is the PRE-BB "us"-node mass (vcm), and the old default was load-bearing
+
+The user's hypothesis: PF6's "centerM does nothing" might flip with the virialized medium + grfmass
+(a different centerM changes the pre-BB equilibrium). Tested BOTH couplings on medium · seed1 ·
+σ0.5 · M3000 · S55 · grfmass (sweeps/centerm/, 2000p/546; snapshots 4000p):
+
+1. **WS4 outer mass (centerM 1→3, guard now relaxed so grf/grfmass compose with the outer shell):
+   best_obs FLAT 0.4392–0.4454 at both vcm{1,10} — PF6 CONFIRMED under the strongest test.** Outer
+   Big-Bang matter does not move the isotropic fit, period. (Bonus: the centerM=3 cloud is one of
+   the roundest yet — round envelope + visible outer shell, bo 0.4440;
+   results/figures/centerm/centerm_clouds.png.)
+2. **The pre-BB side (vir_center_mass_frac = the "us"-node mass in the medium relaxation, mean-node
+   units; PHYSICAL identity vcm = centerM/M_value) is a REAL lever — structurally NON-monotonic**
+   (single seed, results/figures/centerm/vcm_structure_sweep.png): near-massless us sits AMONG
+   nodes (nearest 0.70S=38 Gpc, 4 within 1.5S); PEER-mass us (vcm=1, the old hardcoded default)
+   carves the EMPTIEST neighbourhood (1.54S=85 Gpc, 0 within 1.5S — equal-mass scattering);
+   heavy us GATHERS satellites (vcm=30 → 0.71S, 6 within 1.5S). vcm=10 raises growth 2.99→3.61
+   and improves the CENTRE observer to ~LCDM (0.497→0.450) at ~equal best_obs.
+3. **HONEST CATCH: the old hardcoded vcm=1.0 was LOAD-BEARING at S=55.** At the PHYSICAL
+   vcm≈0.001 (us = observable mass only) the S=55 cell RUNS AWAY (growth 5.1, anchor-fail,
+   both centerM 1 and 3; the cloud is tidally shredded by the 38 Gpc neighbour — see
+   centerm_clouds.png left panel). OPEN: the physical-vcm S co-fit (cm_vcmphys_cofit, running)
+   — a stronger near-field needs its own spacing; expect a viable higher-S cell.
+   THEORY FORK for the user: was the progenitor a TYPICAL node (vcm~1, current default — then the
+   observable universe is a small fraction of the progenitor's mass) or does us carry only the
+   observable mass (vcm=centerM/M_value — then S must be re-fit)? The sim can do either; the
+   PAPER must pick and justify one.
+
 ## What is NOT yet pinned (the job of this phase)
 
 - The cube26-vs-virialized attribution and the final headline chi2 band for virialized

@@ -126,6 +126,7 @@ class ExternalNodeParameters:
                  vir_mass_rule: str = "radial", vir_mass_spread: float = 0.0,
                  vir_segregation: float = 1.0, vir_s_metric: str = "median",
                  vir_relax_steps: int = 1,
+                 vir_center_mass_frac: float = 1.0,
                  vir_relax_mode: str = "lattice",
                  vir_relax_rate: float = 0.1,
                  vir_hold_outer_frac: float = 0.3,
@@ -233,6 +234,7 @@ class ExternalNodeParameters:
         # "lattice" (default) is byte-identical; "gradient" reaches the true
         # iterative relaxation. rate/hold_outer_frac are used only in gradient mode.
         self.vir_relax_mode = str(vir_relax_mode)
+        self.vir_center_mass_frac = float(vir_center_mass_frac)
         self.vir_relax_rate = float(vir_relax_rate)
         self.vir_hold_outer_frac = float(vir_hold_outer_frac)
         # Item-10 coupling: when True, vir_extent drives vir_n_nodes (density-
@@ -271,6 +273,7 @@ class ExternalNodeParameters:
             vir_relax_rate=self.vir_relax_rate,
             vir_hold_outer_frac=self.vir_hold_outer_frac,
             vir_extent_couples_nodes=self.vir_extent_couples_nodes,
+            center_mass_frac=self.vir_center_mass_frac,
             seed=self.node_mass_seed,
         )
 
@@ -401,6 +404,7 @@ class SimulationParameters:
                  vir_mass_rule: str = "radial", vir_mass_spread: float = 0.0,
                  vir_segregation: float = 1.0, vir_s_metric: str = "median",
                  vir_relax_steps: int = 1,
+                 vir_center_mass_frac: float = 1.0,
                  vir_relax_mode: str = "lattice",
                  vir_relax_rate: float = 0.1,
                  vir_hold_outer_frac: float = 0.3,
@@ -626,6 +630,7 @@ class SimulationParameters:
         # Option A vs Option B selector + gradient tuning (Section 2). "lattice"
         # (default) byte-identical; "gradient" reaches the true iterative relaxation.
         self.vir_relax_mode = str(vir_relax_mode)
+        self.vir_center_mass_frac = float(vir_center_mass_frac)
         self.vir_relax_rate = float(vir_relax_rate)
         self.vir_hold_outer_frac = float(vir_hold_outer_frac)
         # Item-10 coupling: when True, vir_extent drives vir_n_nodes (N ~ extent^3,
@@ -710,6 +715,7 @@ class SimulationParameters:
             vir_s_metric=self.vir_s_metric,
             vir_relax_steps=self.vir_relax_steps,
             vir_relax_mode=self.vir_relax_mode,
+            vir_center_mass_frac=self.vir_center_mass_frac,
             vir_relax_rate=self.vir_relax_rate,
             vir_hold_outer_frac=self.vir_hold_outer_frac,
             vir_extent_couples_nodes=self.vir_extent_couples_nodes,

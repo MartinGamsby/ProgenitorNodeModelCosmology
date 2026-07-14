@@ -732,6 +732,25 @@ class TestForceLawSubstepRelaxModeThreading(unittest.TestCase):
             _f.run_external_node_simulation(params, 10.0, 0.1)
         self.assertEqual(ctor.call_args.kwargs.get("force_method"), "numba_direct")
 
+    def test_vir_center_mass_frac_reaches_sim_and_key(self):
+        """vir_center_mass_frac (PF23 centerM test): default 1.0 = the prior
+        hardcoded medium 'us'-node mass (no slug, byte-identical); != 1.0 must reach
+        SimulationParameters AND key the cache in medium mode (keyed == run)."""
+        base = dict(node_geometries=["virialized"], vir_n_nodes=40,
+                    vir_mass_rule="massfunc", vir_relax_mode="medium")
+        sim_params0, sweep_cfg0 = self._capture(self._cfg(**base), self._cell("virialized"))
+        self.assertEqual(sim_params0.vir_center_mass_frac, 1.0)
+        self.assertNotIn("vcm", build_cache_name(sweep_cfg0, 100, 30, 1, [42]))
+        cfg = self._cfg(**base, vir_center_mass_frac=5.0)
+        sim_params, sweep_cfg = self._capture(cfg, self._cell("virialized"))
+        self.assertEqual(sim_params.vir_center_mass_frac, 5.0)
+        self.assertIn("5.0vcm", build_cache_name(sweep_cfg, 100, 30, 1, [42]))
+        # non-medium modes must NOT slug it (the knob only exists in the medium build)
+        cfg_lat = self._cfg(node_geometries=["virialized"], vir_n_nodes=40,
+                            vir_center_mass_frac=5.0)
+        _, sweep_cfg_lat = self._capture(cfg_lat, self._cell("virialized"))
+        self.assertNotIn("vcm", build_cache_name(sweep_cfg_lat, 100, 30, 1, [42]))
+
     def test_mass_randomize_reaches_sim_and_key(self):
         """mass_randomize (PF23 particle-mass axis): default 0.0 = the historical
         hardcoded equal-mass value (no slug, byte-identical); >0 must reach the

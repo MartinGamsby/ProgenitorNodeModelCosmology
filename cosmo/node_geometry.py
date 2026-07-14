@@ -884,9 +884,17 @@ def build_virialized_grid(
     vir_relax_rate: float = 0.1,
     vir_hold_outer_frac: float = 0.3,
     vir_extent_couples_nodes: bool = False,
+    center_mass_frac: float = 1.0,
     seed: int = 0,
 ) -> tuple[np.ndarray, np.ndarray]:
     """COUPLED virialized node grid: (positions (N,3), masses (N,)), mass-segregated.
+
+    center_mass_frac (medium mode ONLY, default 1.0 = the prior hardcoded value =
+    byte-identical): the mass of "us"/the progenitor (node 0, relaxed WITH the medium
+    then DROPPED from the returned HMEAs) in units of the MEAN HMEA node mass. The
+    PHYSICAL epochs identity is center_mass_frac = centerM / M_value (us = centerM x
+    observable mass; a mean HMEA node = M_value x observable) — a heavier "us"
+    reshapes the pre-Big-Bang equilibrium around our position (PF23 centerM test).
 
     A physically-motivated *relaxed cluster*: smaller nodes cluster near the
     centre, more massive nodes are pushed FURTHER out (mass segregation). UNLIKE
@@ -1012,7 +1020,7 @@ def build_virialized_grid(
             vir_mass_spread=vir_mass_spread,
             vir_s_metric=vir_s_metric,
             seed=seed,
-            center_mass_frac=1.0,
+            center_mass_frac=float(center_mass_frac),
         )
 
     # Option B (gradient): true iterative relaxation of a realistic segregated blob.

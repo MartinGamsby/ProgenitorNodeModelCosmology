@@ -268,6 +268,11 @@ class SweepConfig:
     vir_relax_mode: str = "lattice"
     vir_relax_rate: float = 0.1
     vir_hold_outer_frac: float = 0.3
+    # Medium-mode "us"-node mass (units of the mean HMEA node mass; PF23). 1.0
+    # (default) = the prior hardcoded value -> byte-identical, no slug. != 1.0 keys
+    # the cache ("<x>vcm", medium mode only) AND reaches the relaxation (keyed==run).
+    # PHYSICAL identity: vir_center_mass_frac = centerM / M_value.
+    vir_center_mass_frac: float = 1.0
     # Internal-gravity force method override ("auto" default = byte-identical: the
     # integrator picks barnes_hut at N>=1000). An explicit "numba_direct"/"direct"/
     # "barnes_hut" keys the cache (slug "<fm>fm" only when != auto) AND reaches the
@@ -914,6 +919,15 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
             parts.append(f"{vir_relax_mode}vrm")
             parts.append(f"{getattr(config, 'vir_relax_rate', 0.1)}vrr")
             parts.append(f"{getattr(config, 'vir_hold_outer_frac', 0.3)}vho")
+        # Medium "us"-node mass slug (PF23 centerM test): the pre-BB equilibrium is
+        # relaxed WITH node 0 = us at vir_center_mass_frac x the mean HMEA mass, so a
+        # different frac -> a DIFFERENT structure. Append ONLY in medium mode AND
+        # only when != 1.0 (the prior hardcoded value) so every existing medium key
+        # stays valid (keyed == run; suffix "vcm").
+        if vir_relax_mode == 'medium':
+            vir_center_mass_frac = getattr(config, 'vir_center_mass_frac', 1.0)
+            if vir_center_mass_frac != 1.0:
+                parts.append(f"{vir_center_mass_frac}vcm")
     # outer_density_ceiling slug: append only when != 1.0 so the default (no outer
     # over-density) keeps its existing cache key and non-default ceilings get distinct keys.
     outer_density_ceiling = getattr(config, 'outer_density_ceiling', 1.0)

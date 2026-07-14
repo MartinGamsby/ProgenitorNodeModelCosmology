@@ -262,14 +262,11 @@ class ParticleSystem:
                 "remain 1.0. (WS4 outer-shell design targets the EdS path.)"
             )
 
-        # centerM > 1.0 requires uniform_sphere sampler (GRF outer shell: TODO).
-        if center_m > 1.0 and self.init_distribution != "uniform_sphere":
-            raise NotImplementedError(
-                f"Outer-particle generation (centerM={center_m} > 1.0) is not yet "
-                "implemented for init_distribution='grf'. Use init_distribution="
-                "'uniform_sphere' for WS4, or set centerM=1.0 for GRF runs. "
-                "(Follow-up: add shell sampling to the GRF path.)"
-            )
+        # centerM > 1.0 outer shell: sampler-agnostic (r_obs comes from the box
+        # geometry — the SAME (box/2)/sqrt(3/5) radius contract all three inner
+        # samplers honour — outer positions are a uniform shell, outer masses the
+        # mean). So uniform_sphere, grf, AND grfmass inner inits all compose with
+        # the WS4 outer shell; only an unknown init is rejected (below).
 
         # ------------------------------------------------------------------
         # INNER-PARTICLE MASS (EdS path: total_mass_kg is the EdS critical mass

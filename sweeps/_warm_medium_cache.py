@@ -5,7 +5,8 @@ seed subset, so no two workers ever build the same (n, sigma, seed, cm) file.
 
 Usage: python sweeps/_warm_medium_cache.py <seed> [<seed> ...]
 """
-import sys, time
+import os, sys, time
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")))
 import numpy as np
 from cosmo.node_geometry import build_virialized_grid
 from cosmo.constants import CosmologicalConstants

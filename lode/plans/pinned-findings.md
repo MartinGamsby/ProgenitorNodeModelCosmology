@@ -747,9 +747,19 @@ Void-seed sweep (medium geometry, seeds {0,1,5,9} × σ{0.5,1,1.5} × M3000, per
   (core ~0.17 at cell A) is an intrinsic, converged prediction of the model — report it (PF2
   anisotropy/structure-formation signal), don't hide it; cell A (medium · seed 1 · σ0.5 · M3000 ·
   S55) is the mildest-knot LCDM-quality config. Figure: results/figures/medium/
-  ladder_32k_compare.png. OPEN (optional): a mass-weighted GRF init (carry δ in particle MASSES on
-  quasi-uniform positions instead of Zel'dovich displacement crowding) would test whether the
-  contraction weakens without the discrete crowding — a new init mode, not built.
+  ladder_32k_compare.png.
+- **GRFMASS BUILT AND TESTED (2026-07-05, the user's particle-mass idea in principled form):**
+  `init_distribution="grfmass"` (cosmo/initial_distributions.sample_grf_mass + ParticleSystem
+  branch) carries the BBKS density contrast in per-particle MASSES on quasi-uniform jittered-grid
+  positions (24% lower cell-occupancy variance than grf, UT-pinned) — mass-preserving (total ==
+  uniform twin exactly, PF1), deterministic, grf's sphere-support contract, keyed==run
+  ("grfmassinit"+"sphsup" slugs, init_kwargs threaded; mass_randomize is mutually exclusive —
+  grfmass owns the masses). 10 UTs (tests/test_grfmass.py). MEASURED @8k on the ladder cells:
+  A knot 0.83×→**0.95× (~static)**, B 0.47×→0.58× (milder, still collapsing); best_obs 0.4417 on
+  BOTH (fit unmoved). VERDICT: IC crowding SEEDS the knot (removing it weakens the contraction
+  everywhere); the strong node field DRIVES the residual collapse (B). Best combined config:
+  **medium · seed 1 · σ0.5 · M3000 · S55 · grfmass** (knot ~static, fit ~0.44). Follow-on: rerun
+  the N-ladder + seed×σ sweeps on grfmass — the WS7 GPU sweep's first job.
 
 ## What is NOT yet pinned (the job of this phase)
 

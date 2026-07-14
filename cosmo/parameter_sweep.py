@@ -856,7 +856,7 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     # Non-grf runs (uniform_sphere) are completely untouched. Suffix is purely
     # alphabetic ("sphsup") so cache._split_key round-trips it. The value here is the
     # SAME grf_support threaded into init_kwargs={"support": ...} (keyed == run).
-    if init_distribution == "grf":
+    if init_distribution in ("grf", "grfmass"):
         grf_support = getattr(config, "grf_support", "sphere")
         if grf_support == "sphere":
             parts.append("sphsup")

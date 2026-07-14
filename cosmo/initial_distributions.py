@@ -377,3 +377,100 @@ def sample_grf(n_particles: int,
         positions = np.clip(positions, -limit, limit)
 
     return positions.astype(np.float64)
+
+
+def sample_grf_mass(n_particles: int,
+                    box_size_m: float,
+                    seed: int,
+                    Ng: int = 64,
+                    n_s: float = 0.965,
+                    Omega_m: float = 0.3,
+                    h: float = 0.70,
+                    support: str = "sphere",
+                    delta_rms: float = 0.5,
+                    weight_floor: float = 0.05) -> tuple:
+    """MASS-WEIGHTED GRF: carry the density contrast in per-particle MASSES on
+    QUASI-UNIFORM positions (init_distribution="grfmass").
+
+    The Zel'dovich-displaced ``sample_grf`` encodes delta(x) GEOMETRICALLY — particles
+    crowd into overdense cells — which seeds discrete gravitational collapse of the
+    crowded knots (the PF23 central-knot contraction). This sampler encodes the SAME
+    BBKS-shaped density field in particle WEIGHTS instead: positions stay a jittered
+    (quasi-uniform, non-crystalline) Lagrangian grid with NO crowding, and each kept
+    cell's weight is ``max(1 + delta, weight_floor)`` with delta normalised to
+    ``delta_rms`` over the support cells. The caller (ParticleSystem) rescales the
+    weights so the TOTAL mass is exactly the EdS-critical cloud mass (mass-preserving;
+    PF1 M=0==EdS depends on the total, not the split).
+
+    Same contract as sample_grf: deterministic per seed, sphere support masks the
+    UNDISPLACED grid to the uniform_sphere radius ``(box/2)/sqrt(3/5)``, positions raw
+    (centre/RMS-normalisation happens in particles.py).
+
+    Returns:
+        (positions (N,3) float64 metres, weights (N,) float64 > 0, mean ~ 1).
+    """
+    if support not in ("sphere", "box"):
+        raise ValueError(
+            f"Unknown GRF support {support!r}. Valid: 'sphere' (default), 'box'."
+        )
+    rng = np.random.default_rng(seed)
+
+    # 1-2. White noise -> BBKS-shaped delta_k (identical recipe to sample_grf).
+    white_noise = rng.standard_normal((Ng, Ng, Ng))
+    noise_k = np.fft.fftn(white_noise)
+    freq = np.fft.fftfreq(Ng) * Ng
+    kx, ky, kz = np.meshgrid(freq, freq, freq, indexing='ij')
+    k_mag = np.sqrt(kx ** 2 + ky ** 2 + kz ** 2)
+    Pk = _power_spectrum(k_mag, n_s=n_s, Omega_m=Omega_m, h=h)
+    delta_k = noise_k * np.sqrt(Pk)
+
+    # 3. REAL-SPACE density contrast (this sampler uses delta directly, no Psi).
+    delta = np.real(np.fft.ifftn(delta_k)).ravel()
+
+    # 4. Quasi-uniform positions: the UNDISPLACED Lagrangian grid + sub-cell jitter
+    #    (jitter breaks the perfect crystal without creating crowding).
+    cell_size_m = box_size_m / Ng
+    lin = np.linspace(-box_size_m / 2, box_size_m / 2, Ng, endpoint=False)
+    gx, gy, gz = np.meshgrid(lin, lin, lin, indexing='ij')
+    g0 = np.stack([gx.ravel(), gy.ravel(), gz.ravel()], axis=1)
+
+    # 5. Support mask on the undisplaced grid (same geometry contract as sample_grf).
+    sphere_radius_m = (box_size_m / 2.0) / np.sqrt(3.0 / 5.0)
+    if support == "sphere":
+        keep = np.linalg.norm(g0, axis=1) <= sphere_radius_m
+    else:
+        keep = np.ones(g0.shape[0], dtype=bool)
+    g0, delta = g0[keep], delta[keep]
+
+    # 6. Normalise the contrast over the SUPPORT cells to delta_rms, then weight
+    #    each cell max(1+delta, floor) — overdense cells get HEAVY particles instead
+    #    of MORE particles.
+    std = float(delta.std())
+    if std > 0:
+        delta = delta * (float(delta_rms) / std)
+    weights_all = np.maximum(1.0 + delta, float(weight_floor))
+
+    # 7. Subsample to exactly N cells (deterministic; tile+jitter edge case as grf).
+    n_avail = g0.shape[0]
+    if n_particles <= n_avail:
+        idx = rng.choice(n_avail, size=n_particles, replace=False)
+        positions = g0[idx]
+        weights = weights_all[idx]
+    else:
+        repeats = int(np.ceil(n_particles / n_avail))
+        positions = np.tile(g0, (repeats, 1))[:n_particles]
+        weights = np.tile(weights_all, repeats)[:n_particles]
+    positions = positions + rng.uniform(-0.3 * cell_size_m, 0.3 * cell_size_m,
+                                        positions.shape)
+
+    # 8. Radial clip (jitter can nudge an edge cell out; same rule as sample_grf).
+    if support == "sphere":
+        r = np.linalg.norm(positions, axis=1, keepdims=True)
+        over = (r > sphere_radius_m).ravel()
+        if np.any(over):
+            positions[over] = positions[over] * (sphere_radius_m / r[over])
+    else:
+        limit = box_size_m / 2
+        positions = np.clip(positions, -limit, limit)
+
+    return positions.astype(np.float64), weights.astype(np.float64)

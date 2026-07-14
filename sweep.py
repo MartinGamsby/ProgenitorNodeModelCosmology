@@ -461,7 +461,7 @@ def _build_sim_params(
     # sample_grf implicit default). For uniform_sphere, leave init_kwargs as None so
     # the run is byte-identical (the sampler ignores support).
     init_kwargs = None
-    if sweep_cfg.init_distribution == "grf":
+    if sweep_cfg.init_distribution in ("grf", "grfmass"):
         init_kwargs = {"support": getattr(sweep_cfg, "grf_support", "sphere")}
     return SimulationParameters(
         M_value=M_factor,

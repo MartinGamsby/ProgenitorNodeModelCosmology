@@ -191,6 +191,28 @@ class ParticleSystem:
             **kwargs,
         )
 
+    def _init_grf_mass(self) -> np.ndarray:
+        """Mass-weighted GRF sampler (init_distribution="grfmass").
+
+        Quasi-uniform jittered-grid positions; the BBKS density contrast rides in
+        per-particle WEIGHTS (stashed on self._grfmass_weights, consumed by the
+        mass block in _initialize_particles). Same seed discipline as _init_grf.
+
+        Returns:
+            positions : (N, 3) float64, raw (not centred / normalised).
+        """
+        from .initial_distributions import sample_grf_mass
+        grf_seed = int(np.random.randint(0, 2**31))
+        kwargs = dict(self.init_kwargs)
+        positions, weights = sample_grf_mass(
+            n_particles=self.n_particles,
+            box_size_m=self.box_size_m,
+            seed=grf_seed,
+            **kwargs,
+        )
+        self._grfmass_weights = weights
+        return positions
+
     # ------------------------------------------------------------------
     # Main initializer
     # ------------------------------------------------------------------
@@ -289,11 +311,27 @@ class ParticleSystem:
             inner_positions_raw = self._init_uniform_sphere()
         elif self.init_distribution == "grf":
             inner_positions_raw = self._init_grf()
+        elif self.init_distribution == "grfmass":
+            if self.mass_randomize > 0:
+                raise ValueError(
+                    "init_distribution='grfmass' owns the particle masses (the GRF "
+                    "density contrast rides in them); mass_randomize must be 0.0."
+                )
+            inner_positions_raw = self._init_grf_mass()
         else:
             raise ValueError(
                 f"Unknown init_distribution {self.init_distribution!r}. "
-                "Valid choices: 'uniform_sphere', 'grf'."
+                "Valid choices: 'uniform_sphere', 'grf', 'grfmass'."
             )
+
+        # grfmass: the sampler's weights BECOME the inner masses (mass-preserving:
+        # rescaled so the total is exactly total_mass_kg -> PF1 M=0==EdS holds; the
+        # density contrast is carried by the mass split, not particle crowding).
+        if self.init_distribution == "grfmass":
+            w = self._grfmass_weights
+            inner_masses_kg = w * (self.total_mass_kg / np.sum(w))
+            print(f"[ParticleSystem] grfmass weights: min={w.min():.3f}, "
+                  f"max={w.max():.3f} x mean (total mass preserved)")
 
         # CRITICAL: Center positions FIRST before calculating velocities.
         # Random particle distribution creates non-zero COM position.

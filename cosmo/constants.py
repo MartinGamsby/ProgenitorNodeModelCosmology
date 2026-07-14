@@ -391,6 +391,7 @@ class SimulationParameters:
                  t_start_Gyr: float = 10.8, t_duration_Gyr: float = 6.0, n_steps: int = 150,
                  damping_factor: float = None, center_node_mass: float = 1.0,
                  outer_density_ceiling: float = 1.0,
+                 outer_particle_cap: float = 0.0,
                  mass_randomize: float = 0.5,
                  node_mass_seed: int = 0, node_mass_amplitude: float = 0.0,
                  node_s_amplitude: float = 0.0,
@@ -609,6 +610,10 @@ class SimulationParameters:
                 stacklevel=2,
             )
         self.outer_density_ceiling = float(np.clip(outer_density_ceiling, 0.0, _max_ceil))
+        # outer_particle_cap (PF24, large-centerM): >0 caps N_outer at cap*N_inner
+        # with heavier outer particles (outer TOTAL conserved; shell theorem).
+        # 0.0 (default) = legacy linear N_outer (byte-identical).
+        self.outer_particle_cap = max(0.0, float(outer_particle_cap))
         self.mass_randomize = mass_randomize
         self.node_mass_seed = node_mass_seed
         self.node_mass_amplitude = node_mass_amplitude

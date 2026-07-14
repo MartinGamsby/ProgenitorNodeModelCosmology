@@ -293,6 +293,10 @@ class SweepConfig:
     # Outer-region density ceiling (WS4). Default 1.0 = outer density == inner density
     # (EdS critical). Clipped in SimulationParameters to MAX_OUTER_DENSITY_CEILING.
     outer_density_ceiling: float = 1.0
+    # Large-centerM outer-particle cap (PF24): >0 caps N_outer at cap*N_inner with
+    # HEAVIER outer particles (outer TOTAL mass conserved; shell-theorem faithful).
+    # 0.0 (default) = legacy linear N_outer -> byte-identical, no slug.
+    outer_particle_cap: float = 0.0
     # Node Plummer softening length in Gpc on the tidal force path (Section 4
     # slingshot taming knob). 0.0 (default) keeps the legacy hard 1e10 m floor ->
     # tidal force is byte-identical, so its cache sub-slug is appended ONLY when
@@ -933,6 +937,11 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     outer_density_ceiling = getattr(config, 'outer_density_ceiling', 1.0)
     if outer_density_ceiling != 1.0:
         parts.append(f"{outer_density_ceiling}ceil")
+    # Outer-particle cap slug: append ONLY when != 0.0 (legacy linear N_outer) so
+    # existing keys stay valid; a capped run gets a distinct key (keyed == run).
+    outer_particle_cap = getattr(config, 'outer_particle_cap', 0.0)
+    if outer_particle_cap != 0.0:
+        parts.append(f"{outer_particle_cap}opc")
     # Force-method slug: append ONLY when != "auto" so every existing key (all built
     # under the auto selection) stays valid -> NO PHYSICS_CACHE_VERSION bump. An
     # explicit method (e.g. "numba_direct" for the no-Barnes-Hut chart runs) gets a

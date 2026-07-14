@@ -348,19 +348,24 @@ class TestCenterMGuardRails(unittest.TestCase):
                 center_node_mass=2.0,
             )
 
-    def test_centerM_gt1_grf_raises(self):
-        """centerM > 1.0 with init_distribution='grf' must raise NotImplementedError."""
-        with self.assertRaises(NotImplementedError):
-            np.random.seed(1)
-            ParticleSystem(
-                n_particles=10,
-                box_size_m=_EdSParams.box_size_m(),
-                use_dark_energy=False,
-                eds_consistent=True,
-                t_start_Gyr=_EdSParams.T_START_GYR,
-                init_distribution="grf",
-                center_node_mass=2.0,
-            )
+    def test_centerM_gt1_grf_composes(self):
+        """centerM > 1.0 with init_distribution='grf' now COMPOSES (PF24): the outer
+        shell is sampler-agnostic (box-geometry radius, uniform shell, mean-mass
+        outer particles), so the old NotImplementedError guard was removed. Pin the
+        composition contract: inner count, outer count, mask split."""
+        np.random.seed(1)
+        ps = ParticleSystem(
+            n_particles=10,
+            box_size_m=_EdSParams.box_size_m(),
+            use_dark_energy=False,
+            eds_consistent=True,
+            t_start_Gyr=_EdSParams.T_START_GYR,
+            init_distribution="grf",
+            center_node_mass=2.0,
+        )
+        self.assertEqual(int(ps.observable_mask.sum()), 10, "inner count must stay N")
+        self.assertEqual(int((~ps.observable_mask).sum()), 10,
+                         "centerM=2 must append (centerM-1)*N outer particles")
 
     def test_centerM_below1_clipped_to1(self):
         """center_node_mass < 1.0 must be silently clipped to 1.0."""

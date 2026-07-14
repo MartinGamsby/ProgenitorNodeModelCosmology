@@ -410,6 +410,8 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
         # Medium "us"-node mass (PF23 centerM test): 1.0 default = byte-identical;
         # keyed via the "vcm" slug (medium mode) so keyed == run.
         vir_center_mass_frac=cfg.get("vir_center_mass_frac", 1.0),
+        # Large-centerM outer-particle cap (PF24): 0.0 default = byte-identical.
+        outer_particle_cap=cfg.get("outer_particle_cap", 0.0),
         # Start-size lever (Section 6). Threaded here so build_cache_name (keys off
         # the SweepConfig) and the actual sim (SimulationParameters, see
         # _make_sim_callback) agree -> keyed == run. Default 1.0 mirrors
@@ -521,6 +523,7 @@ def _build_sim_params(
         # Medium "us"-node mass: read from the same SweepConfig the cache keys off
         # (keyed == run). 1.0 default -> byte-identical, no slug.
         vir_center_mass_frac=getattr(sweep_cfg, "vir_center_mass_frac", 1.0),
+        outer_particle_cap=getattr(sweep_cfg, "outer_particle_cap", 0.0),
         # Start-size lever (Section 6): read from the same SweepConfig that
         # build_cache_name keys off, so the sim runs exactly what the cache key
         # encodes (keyed == run). Default 1.0 -> byte-identical, no slug.

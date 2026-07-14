@@ -96,7 +96,8 @@ class CosmologicalSimulation:
                                        eds_consistent=self.eds_consistent,
                                        t_start_Gyr=self.t_start_Gyr,
                                        center_node_mass=sim_params.center_node_mass,
-                                       outer_density_ceiling=sim_params.outer_density_ceiling)
+                                       outer_density_ceiling=sim_params.outer_density_ceiling,
+                                       outer_particle_cap=getattr(sim_params, 'outer_particle_cap', 0.0))
 
         # Initialize HMEA grid if using External-Node Model
         self.hmea_grid = None

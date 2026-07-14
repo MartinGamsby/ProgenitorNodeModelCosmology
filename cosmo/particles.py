@@ -35,7 +35,8 @@ class ParticleSystem:
                  eds_consistent: bool = False,
                  t_start_Gyr: Optional[float] = None,
                  center_node_mass: float = 1.0,
-                 outer_density_ceiling: float = 1.0):
+                 outer_density_ceiling: float = 1.0,
+                 outer_particle_cap: float = 0.0):
         """
         Initialize particle system with damped Hubble flow initial conditions.
 
@@ -89,6 +90,9 @@ class ParticleSystem:
         self.center_node_mass = max(1.0, float(center_node_mass))
         # outer_density_ceiling: density multiplier for outer shell (default 1.0).
         self.outer_density_ceiling = float(outer_density_ceiling)
+        # outer_particle_cap (PF24): >0 caps N_outer at cap*N_inner with heavier
+        # outer particles (outer TOTAL mass conserved); 0 = legacy linear N.
+        self.outer_particle_cap = float(outer_particle_cap)
 
         # EdS-consistent mode: the cloud must carry the EdS critical (background)
         # density so internal self-gravity matches the Friedmann deceleration.
@@ -378,6 +382,24 @@ class ParticleSystem:
             # N_outer = round((centerM - 1) * N_inner * ceiling). At ceiling=1
             # this gives N_total = round(centerM * N_inner) (LINEAR, not cubic).
             n_outer = int(np.round((center_m - 1.0) * n_inner * self.outer_density_ceiling))
+
+            # LARGE-centerM cap (PF24): outer_particle_cap > 0 bounds N_outer at
+            # cap * N_inner and scales the per-particle OUTER mass up so the outer
+            # TOTAL mass is conserved exactly. Justification: the outer region is a
+            # statistically uniform shell, whose net force on the inner observable
+            # cloud ~cancels (shell theorem; PF6 measured it inert), so fewer,
+            # heavier tracers represent it faithfully while keeping N feasible at
+            # centerM >> 1 (the progenitor-mass sweep). 0.0 (default) = legacy
+            # linear N (byte-identical).
+            outer_mass_each_kg = mean_mass_kg
+            cap = float(getattr(self, "outer_particle_cap", 0.0))
+            if cap > 0.0 and n_outer > int(cap * n_inner):
+                n_outer_capped = max(1, int(cap * n_inner))
+                outer_mass_each_kg = mean_mass_kg * (n_outer / n_outer_capped)
+                print(f"[ParticleSystem] outer cap {cap:g}x: N_outer {n_outer} -> "
+                      f"{n_outer_capped}, outer particle mass x{n_outer / n_outer_capped:.1f} "
+                      f"(outer TOTAL mass conserved)")
+                n_outer = n_outer_capped
             print(f"[ParticleSystem] centerM={center_m:.4f}: N_inner={n_inner}, "
                   f"N_outer={n_outer}, N_total={n_inner + n_outer}; "
                   f"R_obs={r_obs_m/self.const.Gpc_to_m:.3f} Gpc, "
@@ -390,8 +412,9 @@ class ParticleSystem:
                 # Apply the SAME scale factor so inner and outer are in the same frame.
                 outer_scaled = outer_positions_raw * scale_factor
 
-                # All outer particles carry the SAME per-particle mean mass as inner.
-                outer_masses_kg = np.full(n_outer, mean_mass_kg)
+                # Outer particles carry the mean mass (or the capped-up mass so the
+                # outer TOTAL is exact — see the cap above).
+                outer_masses_kg = np.full(n_outer, outer_mass_each_kg)
 
                 # Concatenate [inner; outer]. Observable mask: True for inner indices.
                 all_positions = np.concatenate([inner_centered, outer_scaled], axis=0)

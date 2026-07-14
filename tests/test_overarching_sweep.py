@@ -751,6 +751,38 @@ class TestForceLawSubstepRelaxModeThreading(unittest.TestCase):
         _, sweep_cfg_lat = self._capture(cfg_lat, self._cell("virialized"))
         self.assertNotIn("vcm", build_cache_name(sweep_cfg_lat, 100, 30, 1, [42]))
 
+    def test_outer_particle_cap_reaches_sim_and_key(self):
+        """outer_particle_cap (PF24 large-centerM): default 0.0 = legacy linear
+        N_outer (no slug); >0 must reach SimulationParameters AND key the cache."""
+        sim_params0, sweep_cfg0 = self._capture(self._cfg(), self._cell())
+        self.assertEqual(sim_params0.outer_particle_cap, 0.0)
+        self.assertNotIn("opc", build_cache_name(sweep_cfg0, 100, 30, 1, [42]))
+        sim_params, sweep_cfg = self._capture(self._cfg(outer_particle_cap=2.0), self._cell())
+        self.assertEqual(sim_params.outer_particle_cap, 2.0)
+        self.assertIn("2.0opc", build_cache_name(sweep_cfg, 100, 30, 1, [42]))
+
+    def test_outer_particle_cap_conserves_outer_mass(self):
+        """The cap trades N_outer for per-particle mass: outer TOTAL mass must be
+        conserved exactly and N_outer bounded at cap*N_inner."""
+        import numpy as np
+        from cosmo.particles import ParticleSystem
+        common = dict(n_particles=200, box_size_m=1.0e26, a_start=0.2,
+                      use_dark_energy=False, mass_randomize=0.0,
+                      init_distribution="uniform_sphere", eds_consistent=True,
+                      t_start_Gyr=2.9, center_node_mass=10.0)
+        np.random.seed(42)
+        capped = ParticleSystem(**common, outer_particle_cap=2.0)
+        np.random.seed(42)
+        legacy = ParticleSystem(**common)
+        m_cap = capped.get_masses(); m_leg = legacy.get_masses()
+        in_cap = capped.observable_mask; in_leg = legacy.observable_mask
+        # N_outer bounded
+        self.assertLessEqual((~in_cap).sum(), 2 * in_cap.sum())
+        self.assertEqual((~in_leg).sum(), 9 * 200)  # legacy linear
+        # outer TOTAL mass conserved vs legacy; inner untouched
+        self.assertAlmostEqual(m_cap[~in_cap].sum() / m_leg[~in_leg].sum(), 1.0, places=9)
+        np.testing.assert_allclose(m_cap[in_cap], m_leg[in_leg])
+
     def test_mass_randomize_reaches_sim_and_key(self):
         """mass_randomize (PF23 particle-mass axis): default 0.0 = the historical
         hardcoded equal-mass value (no slug, byte-identical); >0 must reach the

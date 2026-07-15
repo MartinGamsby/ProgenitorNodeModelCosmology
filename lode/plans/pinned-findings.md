@@ -793,6 +793,33 @@ The user's hypothesis: PF6's "centerM does nothing" might flip with the virializ
    observable-mass branch needs no mass bookkeeping but a wider lattice). Follow-up when chosen:
    knot/cloud snapshot + N-check at the chosen cell.
 
+## PF25 — LARGE-centerM CAMPAIGN (72 cells): a HEAVY progenitor CURES the central knot; fit flat ~0.44; all cells clear the 15 Gpc gate
+
+The user-directed campaign (centerM {1,2,3,10,30,100,300,1000,3000} × 8 medium seeds, per-cell
+ternary S co-fit [40,160] Gpc, medium/σ0.5/grfmass/M3000, outer_particle_cap 2×; results/
+ws1_sweep_cmx_*.csv + results/figures/centerm/cmx_verdict.csv, figures cmx_{clouds,nodes,trends}.png):
+
+- **THE HEADLINE (the user's hypothesis CONFIRMED): a heavier progenitor produces a BETTER
+  cloud.** Observable-cloud knot trace (4000p snapshots): centerM=1 → knot ratio 0.53
+  COLLAPSING (core 0.28); centerM=2 → 0.70 collapsing; **centerM 100–3000 → 0.95–1.32
+  (~static/expanding), core 0.06–0.20 — the central knot is GONE** while best_obs stays
+  LCDM-quality (0.4387–0.4453). Same-seed pairs agree (seed 5: 0.53@cm1 → 0.95@cm1000).
+  Mechanism reading: the heavy pre-BB progenitor's satellite entourage (PF24 structure) +
+  the outer mass together tame the central compression. The centerM=3 "nicest cloud"
+  observation (PF24) was the first hint of this trend.
+- Fit: FLAT in centerM (median best_obs 0.4398–0.4429 per centerM; range 0.4379–0.4831 over all
+  72). No cell beats LCDM (frac_below_lcdm=0 everywhere); median frac_below_eds 0.874. PF6/PF3
+  consistent: centerM is a STRUCTURE lever, not a chi2 lever.
+- **15 Gpc gate: ALL 72 cells pass** at their co-fit S (nearest HMEA min 17.1 Gpc — the one
+  runaway cell cm100/seed2 — else ≥41 Gpc, typically 50–260 Gpc). No observable-universe HMEA
+  anywhere in the campaign; the gate does not discriminate at co-fit S ∈ [40,160] Gpc.
+- Anchor: 71/72 anchor-ok. Failures: cm100/seed2 runaway (growth 4.11); cm2/seed5 co-fit hit the
+  S=160 Gpc bound (worst best_obs 0.4831, still anchor-ok).
+- CAVEATS (open): knot trend measured on 6 snapshot cells (1 seed per centerM) — the 8-seed
+  robustness is established for fit/anchor/gate, NOT yet for the knot; the knot transition sits
+  somewhere in centerM 2–100 (3–30 unsnapshotted). FOLLOW-UP RUNNING: transition + robustness
+  snapshots (centerM {3,10,30} × 3 seeds + {300,3000} × 3 more seeds).
+
 ## What is NOT yet pinned (the job of this phase)
 
 - The cube26-vs-virialized attribution and the final headline chi2 band for virialized

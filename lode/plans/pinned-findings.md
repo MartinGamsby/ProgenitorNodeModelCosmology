@@ -815,10 +815,25 @@ ws1_sweep_cmx_*.csv + results/figures/centerm/cmx_verdict.csv, figures cmx_{clou
   anywhere in the campaign; the gate does not discriminate at co-fit S ∈ [40,160] Gpc.
 - Anchor: 71/72 anchor-ok. Failures: cm100/seed2 runaway (growth 4.11); cm2/seed5 co-fit hit the
   S=160 Gpc bound (worst best_obs 0.4831, still anchor-ok).
-- CAVEATS (open): knot trend measured on 6 snapshot cells (1 seed per centerM) — the 8-seed
-  robustness is established for fit/anchor/gate, NOT yet for the knot; the knot transition sits
-  somewhere in centerM 2–100 (3–30 unsnapshotted). FOLLOW-UP RUNNING: transition + robustness
-  snapshots (centerM {3,10,30} × 3 seeds + {300,3000} × 3 more seeds).
+- **REVISED by the 15-cell replication (cmxsnap2, centerM {3,10,30}×seeds{5,9,11} +
+  {300,3000}×seeds{0,2,7}; results/figures/centerm/cmx_snap2_measurements.csv +
+  cmx_transition.png; recipe cross-checked against the prior batch to 2 decimals):**
+  * **There is NO clean knot transition in centerM.** In cM 3–300 the medium SEED dominates:
+    collapsing cells appear at cM=3 (s9 0.76), cM=30 (s5 0.69), cM=300 (s7 0.81) alongside
+    expanding ones (up to 2.7); only seed 9 rises monotonically. The 1-seed-per-centerM PF25
+    headline above OVERSTATED the trend — do not quote "heavy progenitor cures the knot" without
+    this caveat.
+  * **cM=3000 (= M_value, i.e. the progenitor EXACTLY a typical node, vcm=1) IS the seed-robust
+    near-static regime**: 4 seeds give knot 0.90–1.07 — the TIGHTEST cluster of any centerM, no
+    strong collapse/expansion. The theoretically-motivated point (Progenitor Hypothesis: a
+    typical node destabilised) is also the structurally best-behaved — a genuine convergence.
+    cM=300 is NOT confirmed (1 of 4 seeds collapses). cM=1 collapses clearly (0.53, 1 seed).
+  * CONFOUND (open): collapsing cells pair with SMALL co-fit S (e.g. seed 7's S=51 Gpc at both
+    cm300 and cm3000) and elevated growth (3.0–3.8) — the knot may track the co-fit spacing /
+    field strength as much as centerM. Direct probe: rerun a collapsing cell at a LARGER fixed S.
+  * Fit stays LCDM-quality in every one of the 21 snapshot cells (0.440–0.460); no runaways.
+  PAPER-CLOUD CANDIDATE: cm3000/seed0/S=89 Gpc (best_obs 0.4404, growth 3.06, knot 1.04 static,
+  core 0.125) — pending N/steps convergence + the S-confound probe.
 
 ## What is NOT yet pinned (the job of this phase)
 

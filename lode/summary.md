@@ -40,3 +40,17 @@ Key technical insights:
 9. Validation: 1205 tests passing (+35 subtests) including matter-only never-exceeds-LCDM, Numba verification, reproducibility, center-only virialization criterion + Option A/B comparison, slingshot root-cause + softening/bounded-law/substep taming, start_size_scale shape lever, GRF field stats + sphere support, observer-from-particle, vir_extent node-count coupling, the authoritative figure==CSV chi2 reconciliation, keyed==run sweep-knob threading (incl. the four force-law/substep/relax-mode axes that were keyed-but-not-run), and the core_v3 + satellite sweep-family contracts (TestCoreV3Family 84+15 cells, TestSatelliteFamilies start_size/convergence/extent)
 10. Paper predictions: dipole anisotropy deltaH0/H0 ~ 4.6-11.3% (comparable to Hubble Tension 8.6%); dark flow ~320-790 km/s; predictions robust across M/S configs
 11. Sweep CSV metric note: match_curve_rmse_pct = 100−RMSE×100; actual RMSE = 1−(match_curve_rmse_pct/100)
+
+THE centerM ARC (PF24/PF25, user-directed, 2026-07): centerM = the PROGENITOR NODE'S MASS (settled
+semantics: a typical node of the meta-structure destabilised into the Big Bang; one knob drives
+both epochs — post-BB outer particles via the WS4 shell with the new outer_particle_cap, pre-BB
+the medium's us-node mass vir_center_mass_frac = centerM/M_value). The 72-cell campaign (centerM
+1..3000 x 8 medium seeds, per-cell ternary S co-fit) + 15-cell replication + self-measured capstone
+found: the isotropic fit is FLAT in centerM (~0.44 everywhere, PF6/PF3 hold); ALL cells clear the
+"no HMEA within 15 Gpc" observational gate (nearest node 17-260 Gpc); the observable-cloud central
+KNOT is controlled by the node SPACING S (small co-fit S ~51 Gpc collapses it, S~89 Gpc frees it —
+the chi2-only co-fit sometimes prefers a knot-forming small S; a joint fit+knot criterion would pay
+~0.01-0.03 chi2 for a larger S), with centerM=M_value=3000 (progenitor EXACTLY a typical node) the
+seed-ROBUST near-static regime. PAPER-CLOUD CANDIDATE (converged 4k->16k particles): medium +
+sigma0.5 + grfmass + M3000 + centerM3000 + seed0 + S=89 Gpc -> best_obs 0.440, growth ~3.1, knot
+~static (1.04-1.17), core ~0.13. See lode/plans/pinned-findings.md PF21-PF25.

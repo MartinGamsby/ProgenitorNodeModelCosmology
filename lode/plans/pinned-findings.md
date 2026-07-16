@@ -832,8 +832,21 @@ ws1_sweep_cmx_*.csv + results/figures/centerm/cmx_verdict.csv, figures cmx_{clou
     cm300 and cm3000) and elevated growth (3.0–3.8) — the knot may track the co-fit spacing /
     field strength as much as centerM. Direct probe: rerun a collapsing cell at a LARGER fixed S.
   * Fit stays LCDM-quality in every one of the 21 snapshot cells (0.440–0.460); no runaways.
-  PAPER-CLOUD CANDIDATE: cm3000/seed0/S=89 Gpc (best_obs 0.4404, growth 3.06, knot 1.04 static,
-  core 0.125) — pending N/steps convergence + the S-confound probe.
+- **CAPSTONE VERDICTS (self-measured, results/figures/centerm/cmx_capstone_report.txt):**
+  * **S-CONFOUND CONFIRMED — the direct knot lever is the node SPACING S, not centerM.** Seed 7's
+    collapsing cells UN-COLLAPSE when rerun at S=89 Gpc instead of their co-fit S=51 Gpc:
+    cm3000 knot 0.90→1.20 (~static), cm300 0.81→2.25 (expanding). So the PF25 knot pattern was
+    largely mediated by which S the chi2-co-fit picked per cell. TRADE exposed: forcing S=89 on
+    those cells costs fit (best_obs 0.4506 / 0.4701 vs ~0.442 at their co-fit S) — the chi2-only
+    co-fit sometimes prefers a small, knot-forming S. A joint (fit + knot) selection criterion
+    would pick a larger S at ~0.01–0.03 chi2/dof cost. centerM=M_value remains the seed-ROBUST
+    regime (its 4 seeds stayed near-static even at co-fit S), but the mechanism runs through S.
+  * **PAPER-CLOUD CANDIDATE CONVERGED**: cm3000/seed0/S=89 Gpc at 4k/1092 → 8k/1500 → 16k/2000:
+    knot 1.04/1.17/1.08 (~static throughout), core 0.125/0.149/0.144, best_obs
+    0.4404/0.4411/0.4400, growth 3.06/3.12/3.04 — stable at 4× the particles. THE CANDIDATE
+    STANDS: medium (honest virialized structure) · σ0.5 (defensible mass function) · grfmass ·
+    M3000 · centerM=3000 (progenitor = typical node, the user's Progenitor Hypothesis point) ·
+    seed 0 · S=89 Gpc: knot-free, LCDM-quality, all HMEAs far outside 15 Gpc.
 
 ## What is NOT yet pinned (the job of this phase)
 

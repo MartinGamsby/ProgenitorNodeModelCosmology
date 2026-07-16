@@ -862,3 +862,23 @@ ws1_sweep_cmx_*.csv + results/figures/centerm/cmx_verdict.csv, figures cmx_{clou
 
 (RESOLVED since the last edit: the GRF chi2 swing is now attributed — PF12, the cube-vs-
 sphere setup bug + real clustering; and the figure↔CSV chi2 conflict is fixed — PF11.)
+
+## PF26 — UNIVERSE-FIT ranking (composite criterion, user-mandated): 19 qualifying configs; chi2-alone actively anti-selects structure at centerM=1
+
+"Best" now means the COMPOSITE criterion (memory: universe-fit-criterion): Pantheon best_obs
+<= 0.46 AND anchor-ok AND knot >= 0.9 (no collapsing Gpc core) AND no HMEA within 15 Gpc.
+Tool: sweeps/_universe_fit_rank.py -> results/figures/centerm/universe_fit_ranking.{csv,txt}
+(joins the campaign verdict with knots from ALL snapshot npz, highest-N per cell).
+
+RESULT (28 knot-measured cells; 44 campaign cells knot-unmeasured): **19 QUALIFY** — strong
+multiplicity of genuinely universe-like configs. Top: cm1000/s5/S=80 (0.4379, knot 0.95),
+cm3000/s11/S=98 (0.4383, 1.07), cm100/s7/S=77 (0.4384, 1.14), cm300/s11/S=50 (0.4389, 1.32),
+cm1/s1/S=56 (0.4395, 0.91). KEY HONEST FINDING: at centerM=1 the chi2 ranking was
+ANTI-correlated with structure — the three best-chi2 cm1 seeds (5, 2, 9) are ALL collapsing
+(knot 0.52/0.62/0.45) while seeds 1/0/11/3 qualify at ~0.001-0.003 worse chi2. So chi2-alone
+actively picked the WRONG cells (validates the user's criterion + the knot guard). centerM=1
+is NOT excluded (4/8 seeds qualify); the heavy end qualifies at higher rate (cm3000: 3/4) and
+holds the top fits. The 16k best-vs-best comparison (best_compare/) used the OLD criterion's
+cm1 cell (s5, collapsing) — under the composite criterion the best cm1 is seed 1 (S=56 Gpc).
+Follow-ups open: knots for the 44 unmeasured campaign cells; convergence check of the new #1
+(cm1000/s5 measured at 4000p only).

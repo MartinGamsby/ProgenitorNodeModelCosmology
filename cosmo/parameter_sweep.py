@@ -339,6 +339,22 @@ class SweepConfig:
     observer_k: int = -1                     # neighbours per observer (-1 = whole cloud)
     lcdm_ref: Optional[float] = None
     eds_ref: Optional[float] = None
+    # S-knot guard (PF25 capstone). The chi2-only S co-fit sometimes picks a small
+    # S whose observable cloud develops a COLLAPSING central knot (Lagrangian core
+    # ratio knot_ratio < knot_guard_min_ratio) while a modestly larger S is
+    # knot-free at only ~0.01-0.03 chi2/dof cost — the knot lever IS S. When
+    # s_knot_guard is on, the co-fit driver (sweep.py _cofit_S_for_cell) probes
+    # S = best_S + k*knot_guard_step_gpc (k = 1, 2, ...) up to the config's
+    # s_max_gpc and accepts the FIRST anchor-ok, knot-free candidate within
+    # knot_guard_chi2_budget of the search winner's chi2/dof.
+    # NO cache-name slug for any of these fields: the guard changes which S the
+    # SEARCH selects, not any per-(M,S) sim physics — every per-S cache entry
+    # stays valid for guarded and unguarded runs alike (a slug would only orphan
+    # good entries). Defaults keep the selection byte-identical (guard off).
+    s_knot_guard: bool = False
+    knot_guard_chi2_budget: float = 0.03
+    knot_guard_min_ratio: float = 0.9
+    knot_guard_step_gpc: int = 5
 
     @property
     def particle_count(self) -> int:
@@ -648,6 +664,52 @@ def _observer_metrics(sim_result, pantheon_data, t_start_Gyr, *, definition, sam
     }
 
 
+def knot_ratio_from_snapshots(snapshots, n_inner) -> Optional[float]:
+    """Lagrangian core ratio of the observable cloud from a sim's snapshots (PF25).
+
+    PURE diagnostic for the central-knot collapse: pick the particles that END UP
+    in the final snapshot's core (radius < 0.25 * r90 of the median-centred inner
+    cloud), then track THOSE SAME particles (Lagrangian) back to the first
+    snapshot and report median_radius(last) / median_radius(first).
+      ratio << 1  -> the core CONTRACTED (a collapsing central knot),
+      ratio >= ~1 -> knot-free comoving expansion.
+
+    Args:
+        snapshots: list of dicts with key "positions" ((N, 3) metres; other keys
+            such as velocities/time_s are ignored). The observable cloud = the
+            FIRST n_inner rows — inner particles are indices 0..n_inner-1 by
+            construction (ParticleSystem._initialize_particles concatenates
+            [inner; outer]).
+        n_inner: number of inner (observable) particles (config.particle_count).
+
+    Returns:
+        float ratio, or None when the metric is undefined: fewer than 2
+        snapshots, a final-snapshot core set of < 10 particles, or a degenerate
+        zero first-snapshot core radius.
+    """
+    if not snapshots or len(snapshots) < 2:
+        return None
+    n_inner = int(n_inner)
+    # Only the first and last snapshots enter the ratio; centre each on its own
+    # median (robust to the outer shell / slingshot outliers).
+    P_first = np.asarray(snapshots[0]["positions"], dtype=float)[:n_inner]
+    P_last = np.asarray(snapshots[-1]["positions"], dtype=float)[:n_inner]
+    P_first = P_first - np.median(P_first, axis=0)
+    P_last = P_last - np.median(P_last, axis=0)
+
+    rf = np.linalg.norm(P_last, axis=1)
+    r90 = np.percentile(rf, 90)
+    coreset = rf < 0.25 * r90
+    if coreset.sum() < 10:
+        return None
+
+    med_first = float(np.median(np.linalg.norm(P_first[coreset], axis=1)))
+    med_last = float(np.median(np.linalg.norm(P_last[coreset], axis=1)))
+    if med_first <= 0.0:
+        return None
+    return med_last / med_first
+
+
 def compute_pantheon_metrics(
     sim_result: "SimResult",
     pantheon_data: Dict[str, Any],
@@ -659,6 +721,7 @@ def compute_pantheon_metrics(
     observer_k: int = -1,
     lcdm_ref: Optional[float] = None,
     eds_ref: Optional[float] = None,
+    n_inner: Optional[int] = None,
 ) -> Dict[str, float]:
     """
     Score a SimResult against REAL Pantheon+ via its sim-derived mu(z).
@@ -779,6 +842,13 @@ def compute_pantheon_metrics(
                 metrics['chi2_dof'] = best                     # headline = best observer
                 metrics['match_avg_pct'] = 100.0 / (1.0 + best)
                 metrics['diff_pct'] = 100.0 - metrics['match_avg_pct']
+        # Central-knot diagnostic (PF25): the Lagrangian core ratio of the
+        # observable cloud, stored alongside the observer metrics (same post-sim,
+        # snapshots-based family; ADDITIVE field, never part of the cache KEY).
+        # The S-knot guard reads it to nudge the co-fit S off a collapsing knot.
+        snaps = getattr(sim_result, "snapshots", None)
+        if snaps and n_inner:
+            metrics['knot_ratio'] = knot_ratio_from_snapshots(snaps, n_inner)
     return metrics
 
 
@@ -1038,6 +1108,12 @@ def worst_callback(
             # otherwise a pre-observer entry would be reused without the new columns.
             if getattr(config, "score_observers", False) and config.objective != "lcdm":
                 check_keys = tuple(check_keys) + ('best_observer_chi2',)
+            # If the S-knot guard is on, a cache entry must carry knot_ratio
+            # (present even when None), else a pre-knot entry would be reused and
+            # silently disable the guard (mirrors the best_observer_chi2 pattern
+            # above). Guard-off runs keep reusing pre-knot entries untouched.
+            if getattr(config, "s_knot_guard", False) and config.objective != "lcdm":
+                check_keys = tuple(check_keys) + ('knot_ratio',)
             for key in check_keys:
                 if not key in cached_metrics:
                     has_all_keys = False
@@ -1084,6 +1160,9 @@ def worst_callback(
                 observer_k=getattr(config, "observer_k", -1),
                 lcdm_ref=getattr(config, "lcdm_ref", None),
                 eds_ref=getattr(config, "eds_ref", None),
+                # Inner (observable) particle count for the knot_ratio diagnostic:
+                # inner particles are rows 0..particle_count-1 of each snapshot.
+                n_inner=config.particle_count,
             )
         else:
             metrics = compute_match_metrics(result, baseline, weights)

@@ -117,6 +117,11 @@ SWEEP_CSV_COLS = [
     # at/below the LCDM / EdS references ("how typical a good vantage is").
     "best_observer_chi2", "center_chi2_dof", "observer_median_chi2",
     "frac_below_lcdm", "frac_below_eds",
+    # S-knot guard columns (PF25). knot_ratio = Lagrangian core ratio of the
+    # observable cloud (present-if-computed: needs snapshots + score_observers);
+    # knot_guard_moved / knot_guard_S_from record when the guard nudged the
+    # co-fit S off a collapsing knot (S_from = the original best_S, else "").
+    "knot_ratio", "knot_guard_moved", "knot_guard_S_from",
 ]
 
 # Subset compatible with load_best_config (rows where node_mass_amplitude=0)
@@ -426,6 +431,14 @@ def _make_sweep_config_for_cell(cell: Dict, cfg: Dict) -> _FixedSweepConfig:
         # identical sim path (BH-artifact falsification); keyed == run via the
         # "<fm>fm" cache slug.
         force_method=cfg.get("force_method", "auto"),
+        # S-knot guard (PF25). These fields change which S the CO-FIT SELECTS,
+        # not any per-(M,S) sim physics, so they add NO cache slug (every per-S
+        # cache entry stays valid); threaded so _cofit_S_for_cell reads them off
+        # the SweepConfig. Defaults (guard off) are byte-identical.
+        s_knot_guard=cfg.get("s_knot_guard", False),
+        knot_guard_chi2_budget=cfg.get("knot_guard_chi2_budget", 0.03),
+        knot_guard_min_ratio=cfg.get("knot_guard_min_ratio", 0.9),
+        knot_guard_step_gpc=cfg.get("knot_guard_step_gpc", 5),
     )
 
 
@@ -694,12 +707,74 @@ def _run_cell_fixed_S(
         "observer_median_chi2":  metrics.get("observer_median_chi2", float("nan")),
         "frac_below_lcdm":       metrics.get("frac_below_lcdm", float("nan")),
         "frac_below_eds":        metrics.get("frac_below_eds", float("nan")),
+        # Knot diagnostic (PF25): present-if-computed (None -> blank CSV cell).
+        # Fixed-S mode never moves S, so the guard columns are constants here.
+        "knot_ratio":            metrics.get("knot_ratio"),
+        "knot_guard_moved":      False,
+        "knot_guard_S_from":     "",
     }
 
 
 # ---------------------------------------------------------------------------
 # Per-M S co-fit (the key inner loop)
 # ---------------------------------------------------------------------------
+
+
+def _anchor_ok_from_metrics(metrics: Dict, t_start_Gyr: float) -> Tuple[float, float, bool]:
+    """(growth_factor, growth_target, anchor_ok) from a cell's metrics dict.
+
+    ONE contract for the physical-expansion-anchor verdict, shared by the co-fit
+    row and the knot-guard candidate evaluation (the guard must gate candidates
+    on the SAME anchor_ok the row reports).
+    """
+    growth_factor = metrics.get("growth_factor", float("nan"))
+    growth_target = metrics.get("growth_target") or expected_growth_factor(t_start_Gyr)
+    anchor_ok = (
+        math.isfinite(growth_factor) and
+        abs(growth_factor / growth_target - 1.0) <= GROWTH_ANCHOR_TOL
+    ) if (growth_target and math.isfinite(growth_factor)) else False
+    return growth_factor, growth_target, anchor_ok
+
+
+def _knot_guard_select(
+    best_S: int,
+    best_metrics: Dict,
+    evaluate_fn,
+    *,
+    s_max: int,
+    min_ratio: float,
+    budget: float,
+    step: int,
+) -> Tuple[int, Dict, bool]:
+    """PF25 S-knot guard: nudge the co-fit S upward off a collapsing central knot.
+
+    Triggers ONLY when the search winner's knot_ratio is present and below
+    min_ratio (its observable cloud's Lagrangian core collapsed). Probes
+    S = best_S + step, + 2*step, ... while S <= s_max and returns the FIRST
+    candidate that is anchor_ok, knot-free (knot_ratio >= min_ratio) AND within
+    budget of the winner's chi2/dof. If none qualifies, keeps the winner.
+
+    evaluate_fn(S) -> metrics dict carrying "chi2_dof", "knot_ratio" and
+    "anchor_ok" — in production the SAME worst_callback machinery the search
+    evaluated each S with (the metrics cache makes repeated S evaluations cheap);
+    in tests a scripted evaluator (no sims).
+
+    Returns (S, metrics, moved).
+    """
+    knot = best_metrics.get("knot_ratio")
+    if knot is None or not (knot < min_ratio):
+        return best_S, best_metrics, False
+    best_chi2 = best_metrics.get("chi2_dof", float("inf"))
+    S_try = best_S + step
+    while S_try <= s_max:
+        m = evaluate_fn(S_try)
+        k = m.get("knot_ratio")
+        chi2 = m.get("chi2_dof", float("inf"))
+        if (m.get("anchor_ok", False) and k is not None and k >= min_ratio
+                and chi2 <= best_chi2 + budget):
+            return S_try, m, True
+        S_try += step
+    return best_S, best_metrics, False
 
 def _cofit_S_for_cell(
     cell: Dict, cfg: Dict,
@@ -754,12 +829,44 @@ def _cofit_S_for_cell(
         S = best_S
         raw_metrics = best_result_dict
 
-    growth_factor = raw_metrics.get("growth_factor", float("nan"))
-    growth_target = raw_metrics.get("growth_target") or expected_growth_factor(cfg["t_start_Gyr"])
-    anchor_ok = (
-        math.isfinite(growth_factor) and
-        abs(growth_factor / growth_target - 1.0) <= GROWTH_ANCHOR_TOL
-    ) if (growth_target and math.isfinite(growth_factor)) else False
+    # --- S-knot guard (PF25): nudge S off a collapsing central knot -----------
+    # The chi2-only search can pick a small S whose observable cloud's core
+    # collapses (knot_ratio < min_ratio) when a modestly larger S is knot-free at
+    # ~0.01-0.03 chi2/dof cost. Probe upward through the SAME worst_callback
+    # machinery the search used (identical sweep_cfg/sim_cb/baseline/weights/
+    # pantheon_data -> identical cache keys, so repeats are cache-cheap).
+    knot_guard_moved = False
+    knot_guard_S_from: Union[int, str] = ""
+    if getattr(sweep_cfg, "s_knot_guard", False):
+        def _evaluate_S_for_guard(S_try: int) -> Dict:
+            _sr, m = worst_callback(
+                sim_cb, sweep_cfg, cell["M"], int(S_try), centerM,
+                [_particle_seed(cfg)], baseline, weights,
+                pantheon_data=pantheon_data,
+            )
+            m = dict(m)
+            _gf, _gt, m["anchor_ok"] = _anchor_ok_from_metrics(m, cfg["t_start_Gyr"])
+            return m
+
+        new_S, new_metrics, knot_guard_moved = _knot_guard_select(
+            S, raw_metrics, _evaluate_S_for_guard,
+            s_max=cfg["s_max_gpc"],
+            min_ratio=sweep_cfg.knot_guard_min_ratio,
+            budget=sweep_cfg.knot_guard_chi2_budget,
+            step=sweep_cfg.knot_guard_step_gpc,
+        )
+        if knot_guard_moved:
+            print(f"  [knot-guard] M={cell['M']}: S {S} -> {new_S}  "
+                  f"(knot {raw_metrics.get('knot_ratio')} -> "
+                  f"{new_metrics.get('knot_ratio')}, "
+                  f"chi2/dof {raw_metrics.get('chi2_dof', float('inf')):.4f} -> "
+                  f"{new_metrics.get('chi2_dof', float('inf')):.4f})")
+            knot_guard_S_from = S
+            S = new_S
+            raw_metrics = new_metrics
+
+    growth_factor, growth_target, anchor_ok = _anchor_ok_from_metrics(
+        raw_metrics, cfg["t_start_Gyr"])
     runaway = not anchor_ok
 
     row = {
@@ -789,6 +896,12 @@ def _cofit_S_for_cell(
         "observer_median_chi2":  raw_metrics.get("observer_median_chi2", float("nan")),
         "frac_below_lcdm":       raw_metrics.get("frac_below_lcdm", float("nan")),
         "frac_below_eds":        raw_metrics.get("frac_below_eds", float("nan")),
+        # Knot diagnostic + guard provenance (PF25). knot_ratio is
+        # present-if-computed (None -> blank CSV cell); knot_guard_S_from is the
+        # pre-guard best_S when the guard moved the cell, else "".
+        "knot_ratio":            raw_metrics.get("knot_ratio"),
+        "knot_guard_moved":      knot_guard_moved,
+        "knot_guard_S_from":     knot_guard_S_from,
     }
     return row, S
 
@@ -1154,9 +1267,9 @@ _ROW_FLOAT_COLS = ("centerM", "outer_density_ceiling", "node_mass_amplitude",
                    "chi2_lcdm", "chi2_eds",
                    "R2", "growth_factor", "growth_target", "match_avg_pct", "diff_pct",
                    "best_observer_chi2", "center_chi2_dof", "observer_median_chi2",
-                   "frac_below_lcdm", "frac_below_eds")
+                   "frac_below_lcdm", "frac_below_eds", "knot_ratio")
 _ROW_INT_COLS = ("M_factor", "S_gpc", "node_mass_seed", "n_sne_used")
-_ROW_BOOL_COLS = ("anchor_ok", "runaway")
+_ROW_BOOL_COLS = ("anchor_ok", "runaway", "knot_guard_moved")
 
 
 def _resume_key(identity: Dict, include_S: bool) -> tuple:

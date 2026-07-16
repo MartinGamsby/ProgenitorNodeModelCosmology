@@ -2103,5 +2103,434 @@ class TestObserverInSweep(unittest.TestCase):
             self.assertNotEqual(r["frac_below_eds"], "")
 
 
+# ---------------------------------------------------------------------------
+# 16. S-knot guard (PF25): knot_ratio diagnostic + guarded S co-fit
+# ---------------------------------------------------------------------------
+
+class TestKnotRatioPure(unittest.TestCase):
+    """knot_ratio_from_snapshots: the PURE Lagrangian core-ratio diagnostic (PF25).
+    Core = final-snapshot inner particles within 0.25*r90 of the median centre;
+    ratio = median core radius (last) / (first). < 1 contracting, > 1 expanding."""
+
+    def _base_cloud(self, n=200, seed=0):
+        rng = np.random.default_rng(seed)
+        dirs = rng.normal(size=(n, 3))
+        dirs /= np.linalg.norm(dirs, axis=1, keepdims=True)
+        radii = np.linspace(0.01, 1.0, n)
+        return dirs * radii[:, None]
+
+    def test_contracting_core_ratio_below_one(self):
+        from cosmo.parameter_sweep import knot_ratio_from_snapshots
+        base = self._base_cloud()
+        snaps = [{"positions": base * 2.0}, {"positions": base}]
+        r = knot_ratio_from_snapshots(snaps, n_inner=len(base))
+        self.assertIsNotNone(r)
+        self.assertAlmostEqual(r, 0.5, places=6)
+        self.assertLess(r, 1.0)
+
+    def test_expanding_core_ratio_above_one(self):
+        from cosmo.parameter_sweep import knot_ratio_from_snapshots
+        base = self._base_cloud()
+        snaps = [{"positions": base}, {"positions": base * 3.0}]
+        r = knot_ratio_from_snapshots(snaps, n_inner=len(base))
+        self.assertAlmostEqual(r, 3.0, places=6)
+        self.assertGreater(r, 1.0)
+
+    def test_only_first_n_inner_rows_used(self):
+        """The observable cloud = rows 0..n_inner-1 (ParticleSystem appends the
+        outer shell AFTER the inner particles); outer rows must not move the ratio."""
+        from cosmo.parameter_sweep import knot_ratio_from_snapshots
+        base = self._base_cloud()
+        outer = self._base_cloud(50, seed=1) * 100.0  # huge distant outer shell
+        snaps = [{"positions": np.vstack([base * 2.0, outer])},
+                 {"positions": np.vstack([base, outer * 1.7])}]
+        r = knot_ratio_from_snapshots(snaps, n_inner=len(base))
+        self.assertAlmostEqual(r, 0.5, places=6)
+
+    def test_median_centring_per_snapshot(self):
+        """A rigid per-snapshot translation (cloud drift) must not change the ratio."""
+        from cosmo.parameter_sweep import knot_ratio_from_snapshots
+        base = self._base_cloud()
+        snaps = [{"positions": base * 2.0 + np.array([5.0, -3.0, 1.0])},
+                 {"positions": base + np.array([-2.0, 7.0, 0.5])}]
+        r = knot_ratio_from_snapshots(snaps, n_inner=len(base))
+        self.assertAlmostEqual(r, 0.5, places=6)
+
+    def test_fewer_than_two_snapshots_none(self):
+        from cosmo.parameter_sweep import knot_ratio_from_snapshots
+        base = self._base_cloud()
+        self.assertIsNone(knot_ratio_from_snapshots([], 200))
+        self.assertIsNone(knot_ratio_from_snapshots(None, 200))
+        self.assertIsNone(knot_ratio_from_snapshots([{"positions": base}], 200))
+
+    def test_degenerate_shell_core_too_small_none(self):
+        """All particles on one shell -> nothing inside 0.25*r90 (< 10 core
+        particles) -> the metric is undefined (None), not a crash."""
+        from cosmo.parameter_sweep import knot_ratio_from_snapshots
+        rng = np.random.default_rng(3)
+        dirs = rng.normal(size=(100, 3))
+        dirs /= np.linalg.norm(dirs, axis=1, keepdims=True)
+        snaps = [{"positions": dirs}, {"positions": dirs * 1.1}]
+        self.assertIsNone(knot_ratio_from_snapshots(snaps, 100))
+
+
+class TestKnotRatioInMetrics(unittest.TestCase):
+    """compute_pantheon_metrics stores knot_ratio (ADDITIVE field) when
+    score_observers is on and snapshots + n_inner are available — the same
+    post-sim, snapshots-based family as the observer metrics."""
+
+    def _sim_result(self, snapshots):
+        from cosmo.parameter_sweep import SimResult, SimSimpleResult
+        t = np.linspace(0.0, 10.9, 30)
+        a = 1.0 + t / 10.9 * 2.3  # ~3.3x growth: passes the growth anchor
+        return SimResult(size_curve_Gpc=None, hubble_curve=None, t_Gyr=t,
+                         params=None, results=SimSimpleResult(1.0, 1.0, 1.0),
+                         a_curve=a, snapshots=snapshots)
+
+    def _snaps(self, n=200):
+        rng = np.random.default_rng(0)
+        dirs = rng.normal(size=(n, 3))
+        dirs /= np.linalg.norm(dirs, axis=1, keepdims=True)
+        base = dirs * np.linspace(0.01, 1.0, n)[:, None]
+        return [{"positions": base * 2.0}, {"positions": base}]
+
+    def test_knot_ratio_attached_when_observers_on(self):
+        from cosmo.parameter_sweep import compute_pantheon_metrics
+        from cosmo.pantheon import load_pantheon
+        pan = load_pantheon()
+        m = compute_pantheon_metrics(self._sim_result(self._snaps()), pan, 2.9,
+                                     score_observers=True, n_inner=200)
+        self.assertIn("knot_ratio", m)
+        self.assertAlmostEqual(m["knot_ratio"], 0.5, places=6)
+
+    def test_no_knot_ratio_when_observers_off(self):
+        from cosmo.parameter_sweep import compute_pantheon_metrics
+        from cosmo.pantheon import load_pantheon
+        pan = load_pantheon()
+        m = compute_pantheon_metrics(self._sim_result(self._snaps()), pan, 2.9,
+                                     score_observers=False, n_inner=200)
+        self.assertNotIn("knot_ratio", m)
+
+    def test_no_knot_ratio_without_snapshots(self):
+        from cosmo.parameter_sweep import compute_pantheon_metrics
+        from cosmo.pantheon import load_pantheon
+        pan = load_pantheon()
+        m = compute_pantheon_metrics(self._sim_result(None), pan, 2.9,
+                                     score_observers=True, n_inner=200)
+        self.assertNotIn("knot_ratio", m)
+
+
+class TestKnotGuardThreading(unittest.TestCase):
+    """s_knot_guard knobs: config -> SweepConfig threading; NO cache-name slug
+    (the guard changes which S the SEARCH selects, not per-(M,S) sim physics, so
+    every per-S cache entry stays valid); defaults byte-identical (guard off)."""
+
+    def _cfg(self, **overrides):
+        cfg = dict(DEFAULT_CONFIG)
+        cfg.update(overrides)
+        return cfg
+
+    def _cell(self):
+        return dict(M=100, amplitude=0.0, nm_seed=42, s_amplitude=0.0,
+                    init="uniform_sphere", geometry="cube26")
+
+    def test_guard_fields_reach_sweep_config(self):
+        cfg = self._cfg(s_knot_guard=True, knot_guard_chi2_budget=0.05,
+                        knot_guard_min_ratio=0.85, knot_guard_step_gpc=3)
+        sc = _make_sweep_config_for_cell(self._cell(), cfg)
+        self.assertIs(sc.s_knot_guard, True)
+        self.assertEqual(sc.knot_guard_chi2_budget, 0.05)
+        self.assertEqual(sc.knot_guard_min_ratio, 0.85)
+        self.assertEqual(sc.knot_guard_step_gpc, 3)
+
+    def test_defaults_off_and_byte_identical(self):
+        """A config WITHOUT the guard keys yields the SweepConfig defaults (guard
+        off, budget 0.03, min ratio 0.9, step 5) — same as a bare SweepConfig()."""
+        from cosmo.parameter_sweep import SweepConfig
+        sc = _make_sweep_config_for_cell(self._cell(), self._cfg())
+        base = SweepConfig()
+        for obj in (sc, base):
+            self.assertIs(obj.s_knot_guard, False)
+            self.assertEqual(obj.knot_guard_chi2_budget, 0.03)
+            self.assertEqual(obj.knot_guard_min_ratio, 0.9)
+            self.assertEqual(obj.knot_guard_step_gpc, 5)
+
+    def test_cache_key_unchanged_by_guard(self):
+        """build_cache_name must be IDENTICAL with the guard on/off: per-S entries
+        computed without the guard stay valid for guarded runs (and vice versa)."""
+        cell = self._cell()
+        sc_off = _make_sweep_config_for_cell(cell, self._cfg())
+        sc_on = _make_sweep_config_for_cell(cell, self._cfg(
+            s_knot_guard=True, knot_guard_chi2_budget=0.05,
+            knot_guard_min_ratio=0.85, knot_guard_step_gpc=3))
+        for S in (20, 45, 70):
+            self.assertEqual(build_cache_name(sc_off, 100, S, 1, [42]),
+                             build_cache_name(sc_on, 100, S, 1, [42]))
+        # Same invariance on the smoke path (observers on).
+        sc_off2 = _make_sweep_config_for_cell(cell, self._cfg(score_observers=True))
+        sc_on2 = _make_sweep_config_for_cell(cell, self._cfg(score_observers=True,
+                                                             s_knot_guard=True))
+        self.assertEqual(build_cache_name(sc_off2, 100, 45, 1, [42]),
+                         build_cache_name(sc_on2, 100, 45, 1, [42]))
+
+    def test_knot_columns_in_sweep_csv_cols(self):
+        for c in ("knot_ratio", "knot_guard_moved", "knot_guard_S_from"):
+            self.assertIn(c, SWEEP_CSV_COLS)
+
+
+class TestKnotGuardSelection(unittest.TestCase):
+    """_knot_guard_select on a SCRIPTED evaluator (no sims). The spec scenario:
+    best_S=20 (knot 0.5, chi2 0.44); S=25 (knot 0.85, chi2 0.45); S=30
+    (knot 0.95, chi2 0.46). Budget 0.03 -> the guard must select 30 (25 is still
+    knotted); budget 0.01 -> it must stay at 20 (30 is out of budget)."""
+
+    _BEST = dict(chi2_dof=0.44, knot_ratio=0.5, anchor_ok=True)
+
+    def _script(self):
+        table = {
+            25: dict(chi2_dof=0.45, knot_ratio=0.85, anchor_ok=True),
+            30: dict(chi2_dof=0.46, knot_ratio=0.95, anchor_ok=True),
+        }
+        calls = []
+
+        def evaluate(S):
+            calls.append(S)
+            return dict(table.get(S, dict(chi2_dof=float("inf"),
+                                          knot_ratio=None, anchor_ok=False)))
+        return evaluate, calls
+
+    def test_budget_003_moves_to_30(self):
+        from sweep import _knot_guard_select
+        ev, calls = self._script()
+        S, m, moved = _knot_guard_select(20, dict(self._BEST), ev, s_max=70,
+                                         min_ratio=0.9, budget=0.03, step=5)
+        self.assertTrue(moved)
+        self.assertEqual(S, 30)
+        self.assertEqual(m["knot_ratio"], 0.95)
+        self.assertEqual(m["chi2_dof"], 0.46)
+        self.assertEqual(calls, [25, 30])  # first-accept: stops at 30
+
+    def test_budget_001_stays_at_20(self):
+        from sweep import _knot_guard_select
+        ev, calls = self._script()
+        S, m, moved = _knot_guard_select(20, dict(self._BEST), ev, s_max=70,
+                                         min_ratio=0.9, budget=0.01, step=5)
+        self.assertFalse(moved)
+        self.assertEqual(S, 20)
+        self.assertEqual(m["knot_ratio"], 0.5)  # winner's metrics kept
+        # Ladder exhausted up to s_max in step-Gpc increments.
+        self.assertEqual(calls, [25, 30, 35, 40, 45, 50, 55, 60, 65, 70])
+
+    def test_no_trigger_when_knot_free(self):
+        from sweep import _knot_guard_select
+        ev, calls = self._script()
+        S, m, moved = _knot_guard_select(20, dict(chi2_dof=0.44, knot_ratio=0.95),
+                                         ev, s_max=70, min_ratio=0.9,
+                                         budget=0.03, step=5)
+        self.assertFalse(moved)
+        self.assertEqual(S, 20)
+        self.assertEqual(calls, [])  # never probes when the winner is knot-free
+
+    def test_no_trigger_when_knot_ratio_missing_or_none(self):
+        from sweep import _knot_guard_select
+        for best in (dict(chi2_dof=0.44), dict(chi2_dof=0.44, knot_ratio=None)):
+            ev, calls = self._script()
+            S, _m, moved = _knot_guard_select(20, best, ev, s_max=70,
+                                              min_ratio=0.9, budget=0.03, step=5)
+            self.assertFalse(moved)
+            self.assertEqual(S, 20)
+            self.assertEqual(calls, [])
+
+    def test_anchor_gate_skips_runaway_candidates(self):
+        """A knot-free, within-budget candidate that fails the growth anchor must
+        be SKIPPED (the guard cannot trade a knot for a runaway)."""
+        from sweep import _knot_guard_select
+        table = {25: dict(chi2_dof=0.45, knot_ratio=0.95, anchor_ok=False),
+                 30: dict(chi2_dof=0.46, knot_ratio=0.95, anchor_ok=True)}
+
+        def ev(S):
+            return dict(table.get(S, dict(chi2_dof=float("inf"),
+                                          knot_ratio=None, anchor_ok=False)))
+        S, _m, moved = _knot_guard_select(20, dict(self._BEST), ev, s_max=30,
+                                          min_ratio=0.9, budget=0.03, step=5)
+        self.assertTrue(moved)
+        self.assertEqual(S, 30)
+
+    def test_respects_s_max(self):
+        from sweep import _knot_guard_select
+        ev, calls = self._script()
+        S, _m, moved = _knot_guard_select(20, dict(self._BEST), ev, s_max=27,
+                                          min_ratio=0.9, budget=0.03, step=5)
+        self.assertFalse(moved)
+        self.assertEqual(calls, [25])  # 30 > s_max is never probed
+
+
+class TestKnotGuardInCofit(unittest.TestCase):
+    """The guard wired into _cofit_S_for_cell: default-off is a no-op (guard helper
+    never called, no behaviour change in selection); enabled + knotted winner ->
+    the row carries the moved S and the provenance columns."""
+
+    def _cell(self):
+        return dict(M=100, amplitude=0.0, nm_seed=42, s_amplitude=0.0,
+                    init="uniform_sphere", geometry="cube26")
+
+    def _best_metrics(self, **extra):
+        m = {"match_avg_pct": 69.4, "diff_pct": 30.6, "chi2_dof": 0.44,
+             "chi2": 100.0, "R2": 0.9, "n_sne_used": 100,
+             "growth_factor": 3.3, "growth_target": 3.3}
+        m.update(extra)
+        return m
+
+    def test_cofit_default_off_never_calls_guard(self):
+        from sweep import _cofit_S_for_cell
+        cfg = dict(DEFAULT_CONFIG)  # no guard keys at all
+        with patch("sweep.linear_search_S",
+                   return_value=(30, self._best_metrics(), False, [])), \
+             patch("sweep._knot_guard_select") as guard:
+            row, S = _cofit_S_for_cell(self._cell(), cfg, 10.0, 0.1,
+                                       None, None, None, 0.44, 0.84)
+        guard.assert_not_called()
+        self.assertEqual(S, 30)
+        self.assertFalse(row["knot_guard_moved"])
+        self.assertEqual(row["knot_guard_S_from"], "")
+        self.assertIsNone(row["knot_ratio"])  # present-if-computed, not required
+
+    def test_cofit_guard_moves_S_and_records_provenance(self):
+        from sweep import _cofit_S_for_cell
+        cfg = dict(DEFAULT_CONFIG)
+        cfg.update(s_knot_guard=True, s_max_gpc=30)  # defaults: budget .03, step 5
+        table = {25: (0.45, 0.85), 30: (0.46, 0.95)}
+        probed = []
+
+        def fake_worst(sim_cb, config, M, S, cM, seeds, baseline, weights,
+                       pantheon_data=None):
+            probed.append(S)
+            chi2, knot = table[S]
+            m = self._best_metrics(chi2_dof=chi2, knot_ratio=knot,
+                                   match_avg_pct=100.0 / (1.0 + chi2))
+            return MagicMock(), m
+
+        with patch("sweep.linear_search_S",
+                   return_value=(20, self._best_metrics(knot_ratio=0.5),
+                                 False, [])), \
+             patch("sweep.worst_callback", side_effect=fake_worst):
+            row, S = _cofit_S_for_cell(self._cell(), cfg, 10.0, 0.1,
+                                       None, None, None, 0.44, 0.84)
+        self.assertEqual(probed, [25, 30])
+        self.assertEqual(S, 30)
+        self.assertEqual(row["S_gpc"], 30)
+        self.assertTrue(row["knot_guard_moved"])
+        self.assertEqual(row["knot_guard_S_from"], 20)
+        self.assertAlmostEqual(row["knot_ratio"], 0.95)
+        self.assertAlmostEqual(row["chi2_dof"], 0.46)
+        self.assertTrue(row["anchor_ok"])
+
+    def test_cofit_guard_keeps_winner_when_no_candidate_qualifies(self):
+        from sweep import _cofit_S_for_cell
+        cfg = dict(DEFAULT_CONFIG)
+        cfg.update(s_knot_guard=True, s_max_gpc=30, knot_guard_chi2_budget=0.01)
+        table = {25: (0.45, 0.85), 30: (0.46, 0.95)}
+
+        def fake_worst(sim_cb, config, M, S, cM, seeds, baseline, weights,
+                       pantheon_data=None):
+            chi2, knot = table[S]
+            return MagicMock(), self._best_metrics(
+                chi2_dof=chi2, knot_ratio=knot,
+                match_avg_pct=100.0 / (1.0 + chi2))
+
+        with patch("sweep.linear_search_S",
+                   return_value=(20, self._best_metrics(knot_ratio=0.5),
+                                 False, [])), \
+             patch("sweep.worst_callback", side_effect=fake_worst):
+            row, S = _cofit_S_for_cell(self._cell(), cfg, 10.0, 0.1,
+                                       None, None, None, 0.44, 0.84)
+        self.assertEqual(S, 20)
+        self.assertFalse(row["knot_guard_moved"])
+        self.assertEqual(row["knot_guard_S_from"], "")
+        self.assertAlmostEqual(row["knot_ratio"], 0.5)
+        self.assertAlmostEqual(row["chi2_dof"], 0.44)
+
+
+class TestKnotGuardCacheRequire(unittest.TestCase):
+    """PF-OBSCACHE mirror: a cache entry consulted by a GUARDED run must carry the
+    knot_ratio field (else a pre-knot entry would silently disable the guard);
+    guard-off runs keep reusing pre-knot entries byte-identically."""
+
+    class _FakeCache:
+        def __init__(self, name, metrics):
+            self.name = name
+            self._metrics = metrics
+            self.added = []
+
+        def get_cached_value(self, key, cache_type):
+            from cosmo.cache import CacheType
+            if cache_type == CacheType.METRICS:
+                return dict(self._metrics)
+            return {"size_final_Gpc": 1.0, "radius_max_Gpc": 1.0, "a_final": 1.0}
+
+        def add_cached_value(self, *args, **kwargs):
+            self.added.append(args)
+
+    def setUp(self):
+        import cosmo.parameter_sweep as ps
+        self._ps = ps
+        self._saved_cache = ps.CACHE
+        self._saved_skip = ps.SKIP_CACHE
+        ps.SKIP_CACHE = False
+
+    def tearDown(self):
+        self._ps.CACHE = self._saved_cache
+        self._ps.SKIP_CACHE = self._saved_skip
+
+    def _worst(self, cached_metrics, **cfg_over):
+        from cosmo.parameter_sweep import worst_callback, SimResult, SimSimpleResult
+        cfg = dict(DEFAULT_CONFIG)
+        cfg.update(particle_count=500, n_steps=137)
+        cfg.update(cfg_over)
+        sweep_cfg = _make_sweep_config_for_cell(
+            dict(M=100, amplitude=0.0, nm_seed=42, s_amplitude=0.0,
+                 init="uniform_sphere", geometry="cube26"), cfg)
+        self._ps.CACHE = self._FakeCache(
+            f"metrics_{sweep_cfg.particle_count}_s42", cached_metrics)
+        sim_calls = []
+
+        def sim_cb(M, S, cM, seeds):
+            sim_calls.append(S)
+            # a_curve=None -> compute_pantheon_metrics scores worst-case without
+            # touching pantheon_data (hermetic).
+            return [SimResult(size_curve_Gpc=None, hubble_curve=None, t_Gyr=None,
+                              params=None, results=SimSimpleResult(1.0, 1.0, 1.0),
+                              a_curve=None)]
+
+        _res, metrics = worst_callback(sim_cb, sweep_cfg, 100, 50, 1, [42],
+                                       baseline=None, weights=None,
+                                       pantheon_data=None)
+        return metrics, sim_calls
+
+    def test_guard_off_reuses_pre_knot_entry(self):
+        """Default (guard off): a pre-knot cache entry stays a HIT — byte-identical
+        behaviour, knot_ratio NOT required."""
+        metrics, sim_calls = self._worst({"match_avg_pct": 60.0, "chi2_dof": 0.5})
+        self.assertEqual(sim_calls, [])
+        self.assertEqual(metrics["chi2_dof"], 0.5)
+
+    def test_guard_on_requires_knot_ratio(self):
+        """Guarded run + pre-knot entry (no knot_ratio field) -> cache MISS, the
+        cell recomputes (so the guard always has its input)."""
+        _metrics, sim_calls = self._worst({"match_avg_pct": 60.0, "chi2_dof": 0.5},
+                                          s_knot_guard=True)
+        self.assertEqual(sim_calls, [50])
+
+    def test_guard_on_accepts_entry_with_knot_ratio_even_none(self):
+        """knot_ratio=None is a VALID cached verdict (metric undefined): presence
+        of the field is what the guard requires, not a non-None value."""
+        metrics, sim_calls = self._worst(
+            {"match_avg_pct": 60.0, "chi2_dof": 0.5, "knot_ratio": None},
+            s_knot_guard=True)
+        self.assertEqual(sim_calls, [])
+        self.assertIn("knot_ratio", metrics)
+        self.assertIsNone(metrics["knot_ratio"])
+
+
 if __name__ == "__main__":
     unittest.main()

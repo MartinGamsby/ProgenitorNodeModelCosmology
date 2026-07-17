@@ -893,3 +893,15 @@ knot~0.9 move ±~0.08 between 4000p and 16k (cm1/s1 0.91→0.88; the former #1 c
 superseded). RULE: treat knot 0.9–1.1 qualifiers as PROVISIONAL; only margin (>=~1.2 at 4000p)
 + 16k confirmation earns "best" labels. best_compare_v3 (running) uses the margin pair:
 cm1/s11/S=113 (knot 1.25) vs cm1000/s1/S=79 (knot 1.71), both at 16k.
+
+### PF26 final: the resolution-robust best-vs-best (best_compare_v3, both 16k-CONFIRMED)
+| cell | S | best_obs@16k | growth | core | knot@16k |
+|---|---|---|---|---|---|
+| best-margin centerM=1 (seed 11) | 113 Gpc | 0.4444 | 2.89 | 0.084 | 1.20 (expanding) |
+| universe-fit #1 centerM=1000 (seed 1) | 79 Gpc | 0.4451 | 2.92 | 0.063 | 1.62 (expanding) |
+Margin picks HELD at 16k (vs the boundary cells that slipped 0.9->0.87). Both are genuinely
+universe-like: LCDM-quality Pantheon fit, anchor-ok expansion, small non-collapsing cores,
+nearest HMEA >> 15 Gpc. Figures: results/figures/centerm/best_compare_v3/ (expansion, cloud
+evolution x2, final clouds, nodes, knot traces). 16k best_obs reads ~+0.005 above the 2000p CSV
+values (known offset; CSV authoritative for cross-cell ranking: 0.4399 / 0.4381). The centerM
+arc is COMPLETE; paper candidates = these two cells (either or both).

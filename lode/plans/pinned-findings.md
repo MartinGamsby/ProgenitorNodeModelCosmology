@@ -882,3 +882,14 @@ holds the top fits. The 16k best-vs-best comparison (best_compare/) used the OLD
 cm1 cell (s5, collapsing) — under the composite criterion the best cm1 is seed 1 (S=56 Gpc).
 Follow-ups open: knots for the 44 unmeasured campaign cells; convergence check of the new #1
 (cm1000/s5 measured at 4000p only).
+
+### PF26 addendum (full fill-in, 2026-07-16/17)
+All 71 valid campaign cells knot-measured: **43/71 QUALIFY** under the composite criterion
+(results/figures/centerm/universe_fit_ranking.txt). Top: cm1000/s1/S=79 (0.4381, knot 1.71),
+cm3000/s11/S=98 (0.4383, 1.07), cm100/s7/S=77 (0.4384, 1.14). Heavy centerM dominates the top;
+cm1 still qualifies via seeds 0/11. **RESOLUTION SENSITIVITY at the knot boundary:** cells near
+knot~0.9 move ±~0.08 between 4000p and 16k (cm1/s1 0.91→0.88; the former #1 cm1000/s5
+0.95→0.87 — BOTH dropped out at 16k; best_compare_v2 therefore compares two borderline cells —
+superseded). RULE: treat knot 0.9–1.1 qualifiers as PROVISIONAL; only margin (>=~1.2 at 4000p)
++ 16k confirmation earns "best" labels. best_compare_v3 (running) uses the margin pair:
+cm1/s11/S=113 (knot 1.25) vs cm1000/s1/S=79 (knot 1.71), both at 16k.

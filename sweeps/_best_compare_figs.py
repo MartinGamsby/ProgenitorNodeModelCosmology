@@ -47,7 +47,10 @@ def load_cell(c):
     rf = np.linalg.norm(P[-1], axis=1); r90 = np.percentile(rf, 90)
     coreset = rf < 0.25 * r90
     med = np.array([np.median(np.linalg.norm(P[s][coreset], axis=1)) for s in range(len(P))])
-    return dict(d=d, P=P, P_all=P_all, t=d["times_rel"], rf=rf, r90=r90,
+    n_outer = n_total - n_inner
+    outer_mass_factor = ((c["centerM"] - 1) * n_inner / n_outer) if n_outer > 0 else 1.0
+    return dict(d=d, P=P, P_all=P_all, inner_sel=inner_sel, outer_mass_factor=outer_mass_factor,
+                t=d["times_rel"], rf=rf, r90=r90,
                 core=float(np.mean(coreset)), knot=float(med[-1] / med[0]), med=med,
                 bo=float(d["best_observer_chi2"]), growth=float(d["growth_factor"]),
                 a=np.asarray(d["a_curve"]), tG=np.asarray(d["t_Gyr"]),
@@ -99,11 +102,18 @@ for ax, k in zip(axes[:2], ("A", "B")):
     ax.set_title(f"{CELLS[k]['label']}\ncore={x['core']:.3f}  knot={x['knot']:.2f}  "
                  f"bo={x['bo']:.4f}  growth={x['growth']:.2f}", fontsize=9.5)
 xB = cells["B"]; PB = xB["P_all"][-1]; rB = np.linalg.norm(PB, axis=1)
-axes[2].scatter(PB[:, 0], PB[:, 1], s=1.2, c=rB, cmap="viridis", alpha=0.5, linewidths=0)
+# Dot AREA ~ particle mass: the outer shell rides on CAPPED, HEAVIER tracers
+# ((centerM-1)*N_inner/N_outer x the inner mass; shell-theorem representation), so
+# equal dots fake a dense centre (tracer-count illusion) even though the MASS
+# density is uniform — see density_profile_check.png.
+mB = np.where(xB["inner_sel"], 1.0, xB["outer_mass_factor"])
+axes[2].scatter(PB[:, 0], PB[:, 1], s=1.2 * np.sqrt(mB), c=rB, cmap="viridis",
+                alpha=0.45, linewidths=0)
 limB = np.percentile(rB, 99.5) * 1.05
 axes[2].set_xlim(-limB, limB); axes[2].set_ylim(-limB, limB); axes[2].set_aspect("equal")
 axes[2].set_xlabel("Gpc")
-axes[2].set_title("candidate, ALL particles:\nobservable cloud + outer progenitor mass shell", fontsize=9.5)
+axes[2].set_title(f"candidate, ALL particles (dot area ~ particle mass;\nouter tracers "
+                  f"{xB['outer_mass_factor']:.0f}x heavier — MASS density uniform)", fontsize=9.5)
 fig.suptitle("Final clouds (t = 13.8 Gyr): the observable universe in both models", fontsize=12)
 fig.tight_layout(rect=[0, 0, 1, 0.90])
 fig.savefig(f"{OUT}/final_clouds_compare.png", dpi=115); plt.close(fig)

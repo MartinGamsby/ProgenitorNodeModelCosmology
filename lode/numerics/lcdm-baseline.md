@@ -9,7 +9,7 @@ All ΛCDM baselines use `solve_friedmann_equation()` (analytic ODE solver), NOT 
 **Rationale:**
 - Eliminates Leapfrog discretization artifacts
 - Provides exact ΛCDM predictions for comparison against External-Node models
-- Ensures consistency between `run_simulation.py` and `parameter_sweep.py`
+- Ensures consistency between `run_simulation.py` and the sweep (`sweep.py`)
 - N-body integration introduces numerical noise inappropriate for reference curves
 
 ## Reference Values
@@ -98,7 +98,7 @@ All 8 tests passing confirms correct baseline computation.
 ## Historical Context
 
 **Before 2026-01-20:**
-- `parameter_sweep.py` used `CosmologicalSimulation.run()` for LCDM baseline
+- the sweep (then the now-deleted root `parameter_sweep.py`) used `CosmologicalSimulation.run()` for LCDM baseline
 - This ran LCDM through Leapfrog integrator with N tracer particles
 - Introduced numerical artifacts from particle-based RMS radius calculation
 - Timestep discretization caused small deviations from analytic LCDM

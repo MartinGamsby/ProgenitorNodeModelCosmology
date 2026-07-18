@@ -1,0 +1,52 @@
+{
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_seeds": [
+    42
+  ],
+  "particle_count": 2000,
+  "n_steps": 546,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "init_distributions": [
+    "grf"
+  ],
+  "grf_support": "sphere",
+  "node_geometries": [
+    "virialized"
+  ],
+  "vir_mass_rule": "massfunc",
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "lattice",
+  "node_softening_gpc": 1.0,
+  "node_force_law": "plummer",
+  "score_observers": true,
+  "observer_definition": "local_rms",
+  "observer_sample": 2000,
+  "observer_k": -1,
+  "M_values": [
+    500,
+    1000,
+    3000,
+    9000
+  ],
+  "S_values": "co-fit",
+  "s_min_gpc": 20,
+  "s_max_gpc": 80,
+  "s_cofit_method": "ternary",
+  "vir_n_nodes": 300,
+  "vir_mass_spreads": [
+    2.0
+  ],
+  "tag": "highsm_N300_sig2p0",
+  "figures_dir": "results/figures/highsm_N300_sig2p0",
+  "_comment": "high-S/M ridge, N=300, sigma=2.0: M{500,1000,3000,9000} with per-M S CO-FIT ternary [20,80]. 2000p/546, observer_k=-1, seed42. Does a higher S/M ridge point at defensible sigma<=2 fit LCDM AND round the cloud (far node shell = smoother tidal field across the observable sphere)?"
+}

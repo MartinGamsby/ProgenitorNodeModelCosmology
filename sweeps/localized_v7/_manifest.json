@@ -1,0 +1,10 @@
+{
+  "family": "localized_v7",
+  "purpose": "Multiplicity + seed-robustness at observer_k=-1 (the clean metric) + a 4000p N-convergence check of the headline cell. The paper's 'many configs reach ~LCDM, robustly' claim.",
+  "arms": [
+    "sweeps/localized_v7/01_seed42.json",
+    "sweeps/localized_v7/02_seed7.json",
+    "sweeps/localized_v7/03_seed123.json",
+    "sweeps/localized_v7/04_N4000.json"
+  ]
+}

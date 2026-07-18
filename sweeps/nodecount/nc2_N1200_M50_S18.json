@@ -1,0 +1,52 @@
+{
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "init_distributions": [
+    "grf"
+  ],
+  "grf_support": "sphere",
+  "node_geometries": [
+    "virialized"
+  ],
+  "vir_n_nodes": 1200,
+  "vir_mass_rule": "massfunc",
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "lattice",
+  "node_softening_gpc": 1.0,
+  "node_force_law": "plummer",
+  "score_observers": true,
+  "observer_definition": "local_rms",
+  "observer_sample": 4000,
+  "observer_k": -1,
+  "save_snapshots": true,
+  "skip_figures": true,
+  "skip_probe": true,
+  "particle_count": 4000,
+  "n_steps": 1092,
+  "save_interval": 18,
+  "M_values": [
+    50
+  ],
+  "S_values": [
+    18
+  ],
+  "vir_mass_spreads": [
+    5.0
+  ],
+  "node_mass_seeds": [
+    42
+  ],
+  "tag": "nc2_N1200_M50_S18",
+  "figures_dir": "results/figures/nc2_N1200_M50_S18",
+  "_comment": "node-count co-fit: 1200 small nodes (total-fixed), S=18 to push growth toward 3.3 while staying round. seed42/sigma5/4000p."
+}

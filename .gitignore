@@ -213,6 +213,11 @@ __marimo__/
 results/
 output/
 
+# Generated simulation data (sweep metrics, velocity dumps) - churn, never committed
+data/*.csv
+# Cache PID-lock files (left behind by force-killed runs)
+data/*.lock
+
 # 1. Ignore all .png files everywhere in the repository
 *.png
 
@@ -225,3 +230,10 @@ lode/tmp/
 # Claude temp files
 tmpclaude-*
 .claude/settings.local.json
+/docs/archive/VirializedMetaStructure_v0
+/docs/VirializedMetaStructure_v1.0.1
+/docs/VirializedMetaStructure_v1
+/data/pantheon_plus
+
+# root scratch dir (one-off scripts, never committed)
+tmp/

@@ -1,0 +1,12 @@
+{
+  "family": "localized_v5",
+  "purpose": "observer_k (local-observer) hunt to push best-observer below LCDM + exact frac_below_lcdm at observer_sample=2000, plus step-convergence confirmation. Built on v4's sub-LCDM winning band.",
+  "arms": [
+    "sweeps/localized_v5/01_obsk64.json",
+    "sweeps/localized_v5/02_obsk128.json",
+    "sweeps/localized_v5/03_obsk256.json",
+    "sweeps/localized_v5/04_obskall.json",
+    "sweeps/localized_v5/05_conv_2730steps.json",
+    "sweeps/localized_v5/06_conv_3276steps.json"
+  ]
+}

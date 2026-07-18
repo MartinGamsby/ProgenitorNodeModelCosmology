@@ -1,0 +1,46 @@
+{
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_seeds": [
+    42
+  ],
+  "particle_count": 2000,
+  "n_steps": 1638,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "init_distributions": [
+    "grf"
+  ],
+  "grf_support": "sphere",
+  "node_geometries": [
+    "virialized"
+  ],
+  "vir_n_nodes": 300,
+  "vir_mass_rule": "massfunc",
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "lattice",
+  "node_softening_gpc": 1.0,
+  "node_force_law": "plummer",
+  "score_observers": true,
+  "observer_sample": 256,
+  "M_values": [
+    300
+  ],
+  "S_values": [
+    20
+  ],
+  "vir_mass_spreads": [
+    6.0
+  ],
+  "tag": "loc4_conv_1638",
+  "figures_dir": "results/figures/loc4_conv_1638",
+  "_comment": "localized_v4 step-convergence: M=300/S=20/sigma=6 at n_steps=1638 (dt~6.7 Myr). Compare to the sig6 arm's 1092-step value to confirm n_steps>=1092 is converged (validates the user's >=1000 floor)."
+}

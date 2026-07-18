@@ -1,0 +1,49 @@
+{
+  "M_values": [
+    35,
+    100,
+    300
+  ],
+  "S_values": "co-fit",
+  "s_min_gpc": 3,
+  "s_max_gpc": 35,
+  "s_cofit_method": "ternary",
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_seeds": [
+    42
+  ],
+  "particle_count": 1000,
+  "n_steps": 546,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "figures_dir": "results/figures/satellite_startsize",
+  "init_distributions": [
+    "grf"
+  ],
+  "grf_support": "sphere",
+  "node_geometries": [
+    "virialized"
+  ],
+  "vir_n_nodes": 300,
+  "vir_mass_rule": "massfunc",
+  "vir_mass_spread": 2.0,
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "lattice",
+  "node_softening_gpc": 1.0,
+  "node_force_law": "bounded",
+  "node_substep_threshold": 2.0,
+  "node_substeps": 8,
+  "start_size_scale": 2.0,
+  "tag": "sat_startsize_2p0",
+  "_comment": "SATELLITE start_size arm: virialized Option A (lattice) GRF bounded+substep (MATCHED to core_v3 arm 05), start_size_scale=2.0. M in [35,100,300], S co-fit [3..35] ternary, 1000p/546 (LOWER quality than the 2000p production core -- a SHAPE study isolating a(t) vs start_size per PF10, NOT a converged chi2 band). vir_n_nodes=150.",
+  "score_observers": true
+}

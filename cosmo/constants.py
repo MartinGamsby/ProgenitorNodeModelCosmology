@@ -5,6 +5,34 @@ Handles both standard ΛCDM and External-Node Model parameters
 
 import numpy as np
 
+# Close-range node force-law identifiers (Section 4).
+#   "plummer" (default): the legacy hard-floor / Plummer law (byte-identical at
+#       node_softening_gpc == 0). The blunt 1 Gpc Plummer floor lives here.
+#   "bounded": the regularized "can't cross the midpoint" law — below the
+#       softening length the per-node acceleration MAGNITUDE is capped at its
+#       value at r == softening_m, so the close-pass kick is bounded but
+#       sub-softening bodies still feel the FULL softening-length attraction.
+# The integer codes are passed into the numba kernel (cosmo.tidal_forces_numba)
+# and mirrored by the numpy fallback; keep these three in lock-step.
+NODE_FORCE_LAW_CODES = {"plummer": 0, "bounded": 1}
+NODE_FORCE_LAW_DEFAULT = "plummer"
+
+# Maximum KDK substeps a single close node pass may request (Section 4 adaptive
+# sub-stepping). Bounded so a malformed config cannot ask for an unbounded inner
+# loop (security: the substep count is a config-supplied int).
+MAX_NODE_SUBSTEPS = 64
+
+
+def node_force_law_code(name: str) -> int:
+    """Map a node_force_law NAME to its integer kernel code (default 'plummer').
+
+    Unknown names fall back to the default ('plummer', code 0) so a stray config
+    value can never silently change the physics to an unintended law; the caller
+    that constructs SimulationParameters validates the name up front.
+    """
+    return NODE_FORCE_LAW_CODES.get(str(name), NODE_FORCE_LAW_CODES[NODE_FORCE_LAW_DEFAULT])
+
+
 class CosmologicalConstants:
     """Fundamental physical constants in SI units"""
     
@@ -53,6 +81,31 @@ class LambdaCDMParameters:
         import numpy as np
         return self.H0_si * np.sqrt(self.Omega_m / a**3)
 
+    @staticmethod
+    def H_eds_at_time(t_start_Gyr: float) -> float:
+        """Einstein-de Sitter Hubble parameter at age t, in s^-1.
+
+        For a flat matter-dominated (Ω_m = 1) universe a(t) ∝ t^(2/3), so
+        H(t) = (da/dt)/a = 2 / (3 t). This is the ONLY initial Hubble rate that
+        is mutually consistent with the EdS critical density below; together they
+        make a finite uniform sphere reproduce the EdS scale factor EXACTLY
+        (standard Newtonian cosmology). Using the absolute age t (not the
+        Ω_m=0.3 H_matter_only) is what ties the sim's a(t) to the analytic
+        einstein_de_sitter null used in the Pantheon comparison.
+        """
+        return (2.0 / 3.0) / (t_start_Gyr * CosmologicalConstants.Gyr_to_s)
+
+    @staticmethod
+    def eds_critical_density(H_si: float) -> float:
+        """EdS critical (background) density ρ_crit = 3 H² / (8 π G), Ω_m = 1.
+
+        At Ω_m = 1 the matter density equals the critical density, so a comoving
+        patch carrying this density supplies exactly the self-gravity needed to
+        decelerate the Hubble flow onto the EdS solution.
+        """
+        import numpy as np
+        return 3.0 * H_si ** 2 / (8.0 * np.pi * CosmologicalConstants.G)
+
     def __str__(self):
         return (f"ΛCDM Parameters:\n"
                 f"  H0 = {self.H0_km_s_Mpc} km/s/Mpc\n"
@@ -63,20 +116,171 @@ class LambdaCDMParameters:
 
 class ExternalNodeParameters:
     """External-Node Model parameters from the paper"""
-    
-    def __init__(self, M_ext_kg: float = None, S: float = None):
-        """Initialize External-Node parameters (M_ext_kg in kg, S in meters)."""
+
+    def __init__(self, M_ext_kg: float = None, S: float = None,
+                 node_mass_seed: int = 0, node_mass_amplitude: float = 0.0,
+                 node_s_amplitude: float = 0.0,
+                 node_geometry: str = "cube26",
+                 geometry_kwargs: dict = None,
+                 vir_n_nodes: int = 26, vir_extent: float = 1.0,
+                 vir_mass_rule: str = "radial", vir_mass_spread: float = 0.0,
+                 vir_segregation: float = 1.0, vir_s_metric: str = "median",
+                 vir_relax_steps: int = 1,
+                 vir_center_mass_frac: float = 1.0,
+                 vir_relax_mode: str = "lattice",
+                 vir_relax_rate: float = 0.1,
+                 vir_hold_outer_frac: float = 0.3,
+                 vir_extent_couples_nodes: bool = False,
+                 node_softening_gpc: float = 0.0,
+                 node_force_law: str = NODE_FORCE_LAW_DEFAULT):
+        """Initialize External-Node parameters (M_ext_kg in kg, S in meters).
+
+        Args:
+            M_ext_kg: External node mass in kg (mean mass per node).
+            S: Node separation in meters.
+            node_mass_seed: RNG seed for per-node mass distribution (default 0).
+                Also seeds the per-node POSITION perturbation (node_s_amplitude)
+                so a single seed selects a coherent orientation for both knobs.
+            node_mass_amplitude: Log-normal width of per-node mass distribution.
+                0.0 (default) => all 26 nodes have identical mass M_ext_kg (backward compatible).
+            node_s_amplitude: Log-normal width of the per-node RADIAL position
+                perturbation. 0.0 (default) => all 26 nodes sit on the perfect
+                symmetric lattice (backward compatible, byte-identical). >0 scales
+                each node's distance from the origin by a mean-preserving factor
+                S_i = S * exp(node_s_amplitude * g_i) / <exp(...)>, keeping each
+                node on its original ray (direction unchanged) and preserving the
+                MEAN radial scale exactly, so it isolates symmetry-breaking from a
+                net S change.
+            node_geometry: Geometry identifier for the HMEA node layout
+                (default "cube26" = current 3×3×3-1 lattice, backward-compatible).
+                "virialized" selects the COUPLED (positions, masses) mass-segregated
+                generator (see cosmo/node_geometry.build_virialized_grid); the vir_*
+                params below are consumed ONLY then (ignored otherwise), and for
+                "virialized" node_mass_amplitude is IGNORED (vir_mass_spread owns the
+                node-mass distribution).
+            geometry_kwargs: Optional dict forwarded to the geometry factory.
+                Default None (uses each geometry's built-in defaults). NOT used by
+                "virialized" (it reads the vir_* fields instead).
+            vir_n_nodes: Virialized node count (default 26, parity with cube26).
+            vir_extent: Virialized radius multiplier; raw outer radius ~ vir_extent*S
+                before the NN-spacing rescale (default 1.0).
+            vir_mass_rule: "radial" (deterministic mass ~ f(r), default) or "massfunc"
+                (log-normal mass-function draw + spatial segregation).
+            vir_mass_spread: Amplitude of the node-mass distribution about the mean.
+                0.0 (default) -> uniform masses (THE falsifiable knob).
+            vir_segregation: Mass<->radius coupling strength (default 1.0).
+                0.0 -> mass/radius decoupled (no segregation).
+            vir_s_metric: NN-spacing definition the generator targets:
+                "median" (default) or "mean".
+            vir_relax_steps: Virialized BALANCE LEVEL (default 1) in lattice mode.
+                0 -> realistic Fibonacci layout (NOT force-balanced); >= 1 ->
+                force-balanced cubic-lattice ball (inner nodes feel ~zero net force).
+                In gradient mode (vir_relax_mode="gradient") it is instead the literal
+                NUMBER of relaxation iterations. See
+                cosmo.node_geometry.build_virialized_grid.
+            vir_relax_mode: "lattice" (default, Option A: analytic balance level) or
+                "gradient" (Option B: TRUE iterative relaxation of a realistic
+                segregated blob). "lattice" is byte-identical to prior behaviour.
+            vir_relax_rate: Gradient-descent step size as a fraction of the NN spacing
+                (Option B only; default 0.1).
+            vir_hold_outer_frac: Fraction of outermost nodes pinned during gradient
+                relaxation (Option B only; default 0.3) so the interior relaxes inside
+                a fixed boundary.
+            vir_extent_couples_nodes: When False (default) vir_n_nodes is the literal
+                node count (byte-identical). When True, vir_extent DRIVES the count to
+                hold the ball density constant: effective count =
+                round(vir_n_nodes * vir_extent^3) (item 10: "a higher extent should
+                imply MORE nodes, like centerM"). This also makes vir_extent matter in
+                the force-balanced lattice mode (where it was otherwise a no-op). At the
+                default vir_extent == 1.0 the count is unchanged even when enabled.
+            Note: the virialized RNG reuses node_mass_seed (one-seed coherence,
+                like node_s_amplitude); there is no separate vir_seed field.
+            node_softening_gpc: Plummer NODE-softening length in Gpc applied on the
+                tidal force path (the Section 4 slingshot taming knob). 0.0
+                (default) keeps the LEGACY hard ``r < 1e10 m`` floor on the tidal
+                force, so the tidal acceleration is byte-identical to before
+                (cube26 a(t) unchanged, all existing caches valid). > 0.0 applies
+                ``r_soft^2 = r^2 + (node_softening_gpc*Gpc_to_m)^2`` to the node
+                force, capping the close-pass kick and taming the runaway
+                slingshot for ALL geometries (it is a geometry-agnostic force-path
+                change). M_ext=0 -> zero node mass -> zero tidal force regardless
+                of this knob, so M=0 == EdS is preserved. Stored in meters as the
+                derived attribute node_softening_m.
+            node_force_law: Close-range tidal force law (Section 4). "plummer"
+                (default) keeps the legacy hard-floor / Plummer behaviour above
+                (byte-identical at node_softening_gpc == 0). "bounded" switches the
+                sub-softening regime to the regularized "can't cross the midpoint"
+                law (per-node accel capped at its r==softening_m value), which only
+                differs from "plummer" when node_softening_gpc > 0. Stored as the
+                integer derived attribute node_force_law_code (0 plummer, 1 bounded).
+        """
         # Default values - S is tuned to give Ω_Λ_eff ≈ 0.7 with M_ext_kg = 5e55
         self.M_ext_kg = M_ext_kg if M_ext_kg is not None else 5e55  # kg
         self.S = S if S is not None else 31.6 * CosmologicalConstants.Gpc_to_m  # meters
-        
+        self.node_mass_seed = node_mass_seed
+        self.node_mass_amplitude = node_mass_amplitude
+        self.node_s_amplitude = node_s_amplitude
+        self.node_geometry = node_geometry
+        self.geometry_kwargs = geometry_kwargs if geometry_kwargs is not None else {}
+        # Virialized-grid params (consumed only when node_geometry == "virialized").
+        self.vir_n_nodes = vir_n_nodes
+        self.vir_extent = vir_extent
+        self.vir_mass_rule = vir_mass_rule
+        self.vir_mass_spread = vir_mass_spread
+        self.vir_segregation = vir_segregation
+        self.vir_s_metric = vir_s_metric
+        self.vir_relax_steps = vir_relax_steps
+        # Option A vs Option B selector + gradient-descent tuning (Section 2).
+        # "lattice" (default) is byte-identical; "gradient" reaches the true
+        # iterative relaxation. rate/hold_outer_frac are used only in gradient mode.
+        self.vir_relax_mode = str(vir_relax_mode)
+        self.vir_center_mass_frac = float(vir_center_mass_frac)
+        self.vir_relax_rate = float(vir_relax_rate)
+        self.vir_hold_outer_frac = float(vir_hold_outer_frac)
+        # Item-10 coupling: when True, vir_extent drives vir_n_nodes (density-
+        # preserving N ~ extent^3). False (default) -> count used as given (byte-
+        # identical); at vir_extent == 1.0 it is a no-op regardless.
+        self.vir_extent_couples_nodes = bool(vir_extent_couples_nodes)
+        # Node Plummer softening length in Gpc (Section 4 slingshot fix).
+        # 0.0 (default) -> legacy hard 1e10 m floor (byte-identical).
+        self.node_softening_gpc = node_softening_gpc
+        # Close-range force law name (Section 4). "plummer" default == legacy.
+        self.node_force_law = str(node_force_law)
+
         # Calculate derived parameters
         self._calculate_derived()
-        
+
+    def build_virialized(self) -> tuple:
+        """Return COUPLED (positions, masses) for the virialized geometry.
+
+        Thin adapter that forwards this object's vir_* fields (and M_ext_kg / S /
+        node_mass_seed) to cosmo.node_geometry.build_virialized_grid. Only valid
+        when node_geometry == "virialized"; HMEAGrid._create_grid calls this on the
+        coupled branch.
+        """
+        from .node_geometry import build_virialized_grid
+        return build_virialized_grid(
+            self.S,
+            n_nodes=self.vir_n_nodes,
+            M_ext_kg=self.M_ext_kg,
+            vir_extent=self.vir_extent,
+            vir_mass_rule=self.vir_mass_rule,
+            vir_mass_spread=self.vir_mass_spread,
+            vir_segregation=self.vir_segregation,
+            vir_s_metric=self.vir_s_metric,
+            vir_relax_steps=self.vir_relax_steps,
+            vir_relax_mode=self.vir_relax_mode,
+            vir_relax_rate=self.vir_relax_rate,
+            vir_hold_outer_frac=self.vir_hold_outer_frac,
+            vir_extent_couples_nodes=self.vir_extent_couples_nodes,
+            center_mass_frac=self.vir_center_mass_frac,
+            seed=self.node_mass_seed,
+        )
+
     def _calculate_derived(self) -> None:
         """Calculate derived quantities."""
         const = CosmologicalConstants()
-        
+
         # Effective dark energy from tidal acceleration
         # From paper: H0^2 * Omega_Lambda ≈ G*M_ext_kg/S^3
         self.Omega_Lambda_eff = (const.G * self.M_ext_kg) / (self.S**3 * (70*1000/const.Mpc_to_m)**2)
@@ -87,9 +291,70 @@ class ExternalNodeParameters:
         # Grid spacing in Gpc
         self.S_Gpc = self.S / const.Gpc_to_m
 
+        # Node Plummer softening length in meters (Section 4 slingshot fix).
+        # 0.0 -> the tidal path keeps the legacy hard 1e10 m floor (byte-identical).
+        self.node_softening_m = self.node_softening_gpc * const.Gpc_to_m
+        # Integer code for the close-range force law (0 plummer, 1 bounded). The
+        # numba kernel + numpy fallback both branch on this. Unknown names map to
+        # the default (plummer) so a stray value can never silently change physics.
+        self.node_force_law_code = node_force_law_code(self.node_force_law)
+
         # Mass ratio to observable universe
         self.M_ratio = self.M_ext_kg / const.M_observable_kg
         
+    def node_masses(self, n_nodes: int = 26) -> np.ndarray:
+        """Return per-node mass array of length n_nodes.
+
+        INVARIANTS:
+        - (a) Deterministic & reproducible: identical output for the same
+          (node_mass_seed, node_mass_amplitude) regardless of global RNG state.
+          Uses np.random.default_rng(seed) — independent of particle/simulation RNG.
+        - (b) All masses strictly positive: guaranteed by exp() > 0.
+        - (c) MEAN-PRESERVING: mean(m_i) == M_ext_kg EXACTLY (within float precision).
+          The / w.mean() step enforces this, keeping total external mass /
+          Omega_Lambda_eff / growth-anchor / never-exceed-LCDM background fixed.
+          The seed selects shear/dipole ORIENTATION only, not the isotropic background.
+
+        When node_mass_amplitude == 0.0 (default): returns np.full(n_nodes, M_ext_kg),
+        which is byte-identical to the legacy uniform behavior.
+        """
+        if self.node_mass_amplitude == 0.0:
+            return np.full(n_nodes, self.M_ext_kg)
+        rng = np.random.default_rng(self.node_mass_seed)
+        g = rng.standard_normal(n_nodes)
+        w = np.exp(self.node_mass_amplitude * g)
+        return self.M_ext_kg * w / w.mean()
+
+    def node_scale_factors(self, n_nodes: int = 26) -> np.ndarray:
+        """Return per-node RADIAL scale factors (length n_nodes), mean == 1.0.
+
+        Multiplies each lattice node's position by its factor, scaling the node's
+        DISTANCE from the origin while keeping it on its original ray (direction
+        unchanged). This breaks the lattice symmetry RADIALLY without changing the
+        net scale S or any node direction.
+
+        INVARIANTS (mirror node_masses):
+        - (a) Deterministic & reproducible: identical output for the same
+          (node_mass_seed, node_s_amplitude). Uses np.random.default_rng(seed),
+          independent of the particle/simulation RNG. A SEPARATE rng draw from
+          node_masses() (different call), so the two knobs do not entangle.
+        - (b) All factors strictly positive: guaranteed by exp() > 0, so no node
+          can cross the origin or flip sides.
+        - (c) MEAN-PRESERVING: mean(factor_i) == 1.0 EXACTLY (within float
+          precision). The / w.mean() step enforces this, keeping the MEAN radial
+          scale (and hence the symmetric-lattice average geometry) fixed; the
+          seed selects the shear/dipole ORIENTATION only.
+
+        When node_s_amplitude == 0.0 (default): returns np.ones(n_nodes), so node
+        positions are byte-identical to the symmetric lattice (backward compatible).
+        """
+        if self.node_s_amplitude == 0.0:
+            return np.ones(n_nodes)
+        rng = np.random.default_rng(self.node_mass_seed)
+        g = rng.standard_normal(n_nodes)
+        w = np.exp(self.node_s_amplitude * g)
+        return w / w.mean()
+
     def set_grid_spacing(self, S_Gpc: float) -> None:
         """Set grid spacing in Gigaparsecs."""
         self.S = S_Gpc * CosmologicalConstants.Gpc_to_m
@@ -119,10 +384,38 @@ class ExternalNodeParameters:
 class SimulationParameters:
     """Parameters for running cosmological simulations"""
 
+    # Maximum allowed outer_density_ceiling (>2 risks over-dense tidal environment).
+    MAX_OUTER_DENSITY_CEILING: float = 2.0
+
     def __init__(self, M_value: float = 800, S_value: float = 24.0, n_particles: int = 300, seed: int = 42,
                  t_start_Gyr: float = 10.8, t_duration_Gyr: float = 6.0, n_steps: int = 150,
                  damping_factor: float = None, center_node_mass: float = 1.0,
-                 mass_randomize: float = 0.5):
+                 outer_density_ceiling: float = 1.0,
+                 outer_particle_cap: float = 0.0,
+                 mass_randomize: float = 0.5,
+                 node_mass_seed: int = 0, node_mass_amplitude: float = 0.0,
+                 node_s_amplitude: float = 0.0,
+                 init_distribution: str = "uniform_sphere",
+                 init_kwargs: dict = None,
+                 eds_consistent: bool = True,
+                 pre_start_tidal_boost: bool = True,
+                 node_geometry: str = "cube26",
+                 geometry_kwargs: dict = None,
+                 vir_n_nodes: int = 26, vir_extent: float = 1.0,
+                 vir_mass_rule: str = "radial", vir_mass_spread: float = 0.0,
+                 vir_segregation: float = 1.0, vir_s_metric: str = "median",
+                 vir_relax_steps: int = 1,
+                 vir_center_mass_frac: float = 1.0,
+                 vir_relax_mode: str = "lattice",
+                 vir_relax_rate: float = 0.1,
+                 vir_hold_outer_frac: float = 0.3,
+                 vir_extent_couples_nodes: bool = False,
+                 node_softening_gpc: float = 0.0,
+                 node_force_law: str = NODE_FORCE_LAW_DEFAULT,
+                 node_substep_threshold: float = 0.0,
+                 node_substeps: int = 1,
+                 start_size_scale: float = 1.0,
+                 force_method: str = "auto"):
         """
         Initialize simulation parameters.
 
@@ -135,11 +428,165 @@ class SimulationParameters:
             t_duration_Gyr: Duration in Gyr
             n_steps: Number of timesteps
             damping_factor: Initial velocity damping (None=auto)
-            center_node_mass: Central node mass as multiple of M_observable.
-                              Default 1.0 = 1 x M_observable_kg.
-                              Affects total_mass_kg and softening scaling.
+            center_node_mass: Outer-mass multiplier: total simulated mass /
+                              inner observable mass (>= 1.0). Default 1.0 =
+                              observable sphere only (backward-compatible,
+                              byte-identical). >1.0 adds extra Big-Bang matter
+                              OUTSIDE the observable sphere at the same
+                              EdS-critical density and same per-particle mass;
+                              N grows LINEARLY (centerM=2 -> 2x particles),
+                              R_sim = R_obs*centerM**(1/3). The inner R_obs
+                              stays the OBSERVABLE region used for a(t)/mu(z).
+                              Under eds_consistent the inner mass is the EdS
+                              critical mass regardless of centerM; centerM ONLY
+                              adds OUTER particles. NOTE: softening no longer
+                              scales with centerM (frozen at the centerM=1
+                              baseline, 1.0 Gpc).
             mass_randomize: Particle mass randomization (0.0=equal masses,
                            1.0=masses from 0 to 2x mean). Default 0.5.
+            node_mass_seed: RNG seed for per-node mass distribution (default 0).
+                            Independent of particle/simulation RNG.
+            node_mass_amplitude: Log-normal width of per-node mass distribution.
+                                 0.0 (default) => all 26 nodes have identical mass
+                                 M_ext_kg (backward compatible, byte-identical).
+            node_s_amplitude: Log-normal width of the per-node RADIAL position
+                              perturbation (analogous to node_mass_amplitude, but
+                              for node POSITIONS). 0.0 (default) => perfect
+                              symmetric lattice (backward compatible,
+                              byte-identical). >0 scales each node's distance from
+                              the origin by a mean-preserving factor (mean scale
+                              == S preserved), breaking lattice symmetry radially.
+                              Reuses node_mass_seed for determinism.
+            init_distribution: Particle position sampler.
+                               "uniform_sphere" (default) — current behaviour,
+                               backward-compatible with all existing tests.
+                               "grf" — Gaussian random field + Zel'dovich displacement
+                               shaped by approximate LCDM P(k) (BBKS transfer function).
+            init_kwargs: Optional dict of keyword arguments forwarded to the sampler.
+                         Supported for "grf": Ng (int, default 64), n_s, Omega_m, h.
+                         Ignored for "uniform_sphere".
+            eds_consistent: When True (default) and dark energy is OFF, the cloud
+                            uses self-consistent Einstein-de Sitter initial
+                            conditions (Hubble flow v=H_EdS*r with H_EdS=2/(3 t_start)
+                            AND cloud mass = EdS critical mass). This makes the
+                            matter-only (M_ext=0) sim reproduce the analytic EdS
+                            expansion by construction, replacing the old
+                            velocity-calibration fudge. Ignored for LCDM runs
+                            (use_dark_energy=True). Set False to restore the legacy
+                            calibrated-velocity behaviour.
+            pre_start_tidal_boost: When True (default) AND external nodes are
+                            active AND eds_consistent, the cloud's initial radial
+                            velocities are boosted at t_start by the velocity the
+                            HMEA tidal field would have imparted over the
+                            pre-t_start history (Big Bang -> t_start). The cloud
+                            should ARRIVE at t_start moving slightly FASTER than
+                            pure EdS Hubble flow because the nodes have been pulling
+                            on it for billions of years. Derived from the SAME node
+                            sum the sim uses (see CosmologicalSimulation
+                            ._apply_pre_start_tidal_boost); it scales with M_ext so
+                            it VANISHES as M_ext -> 0, preserving M=0 == EdS exactly.
+                            This is NOT a fit-to-LCDM knob. Set False to start from
+                            pure EdS Hubble flow with no pre-history boost.
+            outer_density_ceiling: Multiplier on the inner EdS-critical density
+                              for outer particles (default 1.0 = exactly critical,
+                              same density as inner). Values > 1.0 raise the outer
+                              number density above critical. Capped at
+                              MAX_OUTER_DENSITY_CEILING = 2.0 (enforce/clip);
+                              higher values re-introduce over-dense tidal
+                              environments and are not physically motivated.
+                              Has no effect when centerM == 1.0.
+            node_geometry:  Geometry identifier for the HMEA node layout (default
+                            "cube26" = current 3×3×3-1 lattice, backward-compatible).
+                            Other choices: "cube_dense", "fcc", "bcc" (all
+                            volume-filling / virialized). See cosmo/node_geometry.py.
+            geometry_kwargs: Optional dict of keyword arguments forwarded to the
+                            geometry factory (e.g. n_per_side=7 for "cube_dense").
+                            Default None (uses each geometry's own defaults).
+            vir_n_nodes / vir_extent / vir_mass_rule / vir_mass_spread /
+            vir_segregation / vir_s_metric / vir_relax_steps: parameters of the
+                            "virialized" COUPLED (positions, masses) mass-segregated
+                            grid, consumed ONLY when node_geometry == "virialized" (see
+                            ExternalNodeParameters / node_geometry.build_virialized_grid).
+                            Defaults: 26, 1.0, "radial", 0.0, 1.0, "median", 1.
+                            vir_relax_steps is a BALANCE LEVEL: 0 -> realistic (not
+                            force-balanced) Fibonacci layout; >= 1 (default) ->
+                            force-balanced cubic-lattice ball (inner nodes ~ zero net
+                            force). The virialized RNG reuses node_mass_seed.
+            vir_relax_mode: "lattice" (default, Option A: the analytic balance level
+                            where vir_relax_steps is a balance level) or "gradient"
+                            (Option B: TRUE iterative relaxation of a realistic
+                            segregated blob, where vir_relax_steps is the iteration
+                            count). "lattice" is byte-identical to prior behaviour.
+            vir_relax_rate: Gradient-descent step size as a fraction of NN spacing
+                            (Option B only; default 0.1).
+            vir_hold_outer_frac: Fraction of outermost nodes pinned during gradient
+                            relaxation (Option B only; default 0.3).
+            vir_extent_couples_nodes: When False (default) vir_n_nodes is the literal
+                            count (byte-identical). When True, vir_extent DRIVES the
+                            node count to hold the virialized ball DENSITY constant
+                            (effective count = round(vir_n_nodes * vir_extent^3); item
+                            10 "a higher extent should imply more nodes, like centerM"),
+                            which also makes vir_extent matter in the force-balanced
+                            lattice mode. A no-op at the default vir_extent == 1.0.
+            node_softening_gpc: Plummer NODE-softening length in Gpc on the tidal
+                            force path (Section 4 slingshot taming knob). 0.0
+                            (default) keeps the LEGACY hard 1e10 m floor -> the
+                            tidal force (and cube26 a(t)) is byte-identical to
+                            before; every existing cache stays valid. > 0.0 applies
+                            r_soft^2 = r^2 + (node_softening_gpc*Gpc_to_m)^2 to the
+                            node force, capping the close-pass kick and taming the
+                            runaway slingshot for BOTH cube26 AND virialized (it is
+                            a geometry-agnostic force-path change). VANISHES at
+                            M_ext=0 (no node mass -> no tidal force), so M=0 == EdS
+                            is preserved. Recommended ~1.0 for the final sweep.
+            node_force_law: Close-range tidal force law (Section 4). "plummer"
+                            (default) = legacy/Plummer (byte-identical at
+                            node_softening_gpc == 0). "bounded" = the regularized
+                            "can't cross the midpoint" law: below the softening
+                            length the per-node acceleration is CAPPED at its
+                            r==softening_m value instead of being softened toward
+                            zero, so sub-softening bodies still attract at full
+                            softening-length strength but the close-pass kick stays
+                            bounded. It only differs from "plummer" when
+                            node_softening_gpc > 0, and VANISHES at M_ext=0 (no node
+                            mass -> no tidal force), so M=0 == EdS holds for both
+                            laws. An unknown name is treated as "plummer".
+            node_substep_threshold: Adaptive KDK sub-stepping trigger (Section 4),
+                            in units of the node softening length (or, if softening
+                            is 0, of the node spacing S). 0.0 (default) DISABLES
+                            sub-stepping -> the integrator takes one plain leapfrog
+                            step (byte-identical). > 0.0 means: on any global step
+                            where a particle is within node_substep_threshold *
+                            S_ref of a node, that whole step is integrated as
+                            node_substeps smaller KDK substeps, refining dt during
+                            the close pass so a coarse step cannot fling a particle
+                            across the node (a TIME-RESOLUTION cure complementary to
+                            the force-law cap). Steps with no close pass run as a
+                            single step regardless, so the cost is paid only during
+                            encounters.
+            node_substeps:  Number of KDK substeps per triggered close pass (>= 1,
+                            clamped to MAX_NODE_SUBSTEPS = 64). 1 (default) is a
+                            no-op even if node_substep_threshold > 0 (a single
+                            substep == the original step). Active only when
+                            node_substep_threshold > 0 AND node_substeps > 1.
+            start_size_scale: Multiplier on the LCDM-implied INITIAL cloud size
+                            (the box passed to CosmologicalSimulation is scaled by
+                            this factor BEFORE particles are built). 1.0 (default)
+                            = current LCDM-implied size -> byte-identical to before
+                            (a(t), positions, masses, cache key all unchanged).
+                            > 1.0 starts the cloud BIGGER, < 1.0 starts it SMALLER.
+                            It is NOT a pure normalization (a(t) = RMS ratio is
+                            scale-free, and the mu(z) pipeline divides out the
+                            absolute size). Under eds_consistent the EdS-critical
+                            cloud MASS scales with the box VOLUME, so the cloud
+                            DENSITY (and thus the M=0 == EdS invariant) is preserved
+                            for ANY size; the falsifiable EFFECT at M_ext>0 comes
+                            from the cloud spanning a different fraction of the FIXED
+                            node spacing S (and fixed softening), which changes the
+                            differential-tidal-to-self-gravity ratio across the
+                            cloud and hence the a(t) SHAPE. Must be > 0 (values
+                            <= 0 raise ValueError). Like the retired centerM it is
+                            an invalidatable lever (can go bigger OR smaller).
         """
         self.M_value = M_value
         self.S_value = S_value
@@ -149,8 +596,92 @@ class SimulationParameters:
         self.t_duration_Gyr = t_duration_Gyr
         self.n_steps = n_steps
         self.damping_factor = damping_factor
-        self.center_node_mass = center_node_mass
+        # centerM >= 1.0: values below 1.0 are a misconfiguration; clip to 1.0.
+        self.center_node_mass = max(1.0, float(center_node_mass))
+        # outer_density_ceiling: clip to [0, MAX_OUTER_DENSITY_CEILING].
+        _max_ceil = SimulationParameters.MAX_OUTER_DENSITY_CEILING
+        if outer_density_ceiling > _max_ceil:
+            import warnings
+            warnings.warn(
+                f"outer_density_ceiling={outer_density_ceiling} exceeds maximum "
+                f"{_max_ceil}; clipping to {_max_ceil}. Higher values risk an "
+                "over-dense outer tidal environment and are not physically motivated.",
+                UserWarning,
+                stacklevel=2,
+            )
+        self.outer_density_ceiling = float(np.clip(outer_density_ceiling, 0.0, _max_ceil))
+        # outer_particle_cap (PF24, large-centerM): >0 caps N_outer at cap*N_inner
+        # with heavier outer particles (outer TOTAL conserved; shell theorem).
+        # 0.0 (default) = legacy linear N_outer (byte-identical).
+        self.outer_particle_cap = max(0.0, float(outer_particle_cap))
         self.mass_randomize = mass_randomize
+        self.node_mass_seed = node_mass_seed
+        self.node_mass_amplitude = node_mass_amplitude
+        self.node_s_amplitude = node_s_amplitude
+        self.init_distribution = init_distribution
+        self.init_kwargs = init_kwargs if init_kwargs is not None else {}
+        self.eds_consistent = eds_consistent
+        self.pre_start_tidal_boost = pre_start_tidal_boost
+        self.node_geometry = node_geometry
+        self.geometry_kwargs = geometry_kwargs if geometry_kwargs is not None else {}
+        # Virialized-grid params (consumed only when node_geometry == "virialized").
+        self.vir_n_nodes = vir_n_nodes
+        self.vir_extent = vir_extent
+        self.vir_mass_rule = vir_mass_rule
+        self.vir_mass_spread = vir_mass_spread
+        self.vir_segregation = vir_segregation
+        self.vir_s_metric = vir_s_metric
+        self.vir_relax_steps = vir_relax_steps
+        # Option A vs Option B selector + gradient tuning (Section 2). "lattice"
+        # (default) byte-identical; "gradient" reaches the true iterative relaxation.
+        self.vir_relax_mode = str(vir_relax_mode)
+        self.vir_center_mass_frac = float(vir_center_mass_frac)
+        self.vir_relax_rate = float(vir_relax_rate)
+        self.vir_hold_outer_frac = float(vir_hold_outer_frac)
+        # Item-10 coupling: when True, vir_extent drives vir_n_nodes (N ~ extent^3,
+        # density-preserving). False (default) -> byte-identical; no-op at extent 1.0.
+        self.vir_extent_couples_nodes = bool(vir_extent_couples_nodes)
+        # Node Plummer softening length in Gpc (Section 4 slingshot fix).
+        # 0.0 (default) -> legacy hard 1e10 m floor (byte-identical).
+        self.node_softening_gpc = node_softening_gpc
+        # Close-range force law (Section 4). Validate up front so a typo is loud
+        # rather than silently falling back to the default law.
+        if str(node_force_law) not in NODE_FORCE_LAW_CODES:
+            raise ValueError(
+                f"node_force_law must be one of {sorted(NODE_FORCE_LAW_CODES)} "
+                f"(got {node_force_law!r})."
+            )
+        self.node_force_law = str(node_force_law)
+        # Adaptive KDK sub-stepping (Section 4). threshold 0.0 (default) -> OFF
+        # (byte-identical single leapfrog step). node_substeps clamped to a sane
+        # range so a config can never request an unbounded inner loop.
+        self.node_substep_threshold = float(node_substep_threshold)
+        if self.node_substep_threshold < 0.0:
+            raise ValueError(
+                f"node_substep_threshold must be >= 0 (got {node_substep_threshold})."
+            )
+        self.node_substeps = int(max(1, min(int(node_substeps), MAX_NODE_SUBSTEPS)))
+        # Start-size lever: multiplier on the LCDM-implied initial box size.
+        # 1.0 (default) -> byte-identical. Must be strictly positive: a zero or
+        # negative cloud size is unphysical (and would divide by zero in the
+        # RMS-ratio a(t)). Raise rather than clip so a misconfiguration is loud.
+        if start_size_scale <= 0:
+            raise ValueError(
+                f"start_size_scale must be > 0 (got {start_size_scale}); a "
+                "non-positive initial cloud size is unphysical."
+            )
+        self.start_size_scale = float(start_size_scale)
+
+        # Internal-gravity force method for the integrator: "auto" (default,
+        # byte-identical: barnes_hut for N>=1000, numba_direct for N>=100, direct
+        # otherwise -- the CosmologicalSimulation ctor default), or an explicit
+        # "direct"/"numba_direct"/"barnes_hut" override. Threaded through
+        # factories.run_*_simulation so charts can be produced WITHOUT Barnes-Hut
+        # (BH-artifact falsification) on the SAME sim path the sweep uses.
+        valid_fm = ("auto", "direct", "numba_direct", "barnes_hut")
+        if force_method not in valid_fm:
+            raise ValueError(f"force_method must be one of {valid_fm}, got {force_method!r}")
+        self.force_method = str(force_method)
 
         # Calculate derived quantities
         self._calculate_derived()
@@ -166,17 +697,43 @@ class SimulationParameters:
         # Calculate end time
         self.t_end_Gyr = self.t_start_Gyr + self.t_duration_Gyr
 
-        # Calculate center node mass in kg
+        # center_node_mass_kg: legacy property kept for backward compat.
+        # Under eds_consistent this value is NOT used to drive inner cloud mass
+        # (ParticleSystem overrides to EdS critical). It is still read on the
+        # legacy non-EdS path (CosmologicalSimulation.__init__ total_mass_kg).
         self.center_node_mass_kg = self.center_node_mass * const.M_observable_kg
 
         # Create external node parameters for this configuration
-        self.external_params = ExternalNodeParameters(M_ext_kg=self.M_ext_kg, S=self.S)
+        self.external_params = ExternalNodeParameters(
+            M_ext_kg=self.M_ext_kg,
+            S=self.S,
+            node_mass_seed=self.node_mass_seed,
+            node_mass_amplitude=self.node_mass_amplitude,
+            node_s_amplitude=self.node_s_amplitude,
+            node_geometry=self.node_geometry,
+            geometry_kwargs=self.geometry_kwargs,
+            vir_n_nodes=self.vir_n_nodes,
+            vir_extent=self.vir_extent,
+            vir_mass_rule=self.vir_mass_rule,
+            vir_mass_spread=self.vir_mass_spread,
+            vir_segregation=self.vir_segregation,
+            vir_s_metric=self.vir_s_metric,
+            vir_relax_steps=self.vir_relax_steps,
+            vir_relax_mode=self.vir_relax_mode,
+            vir_center_mass_frac=self.vir_center_mass_frac,
+            vir_relax_rate=self.vir_relax_rate,
+            vir_hold_outer_frac=self.vir_hold_outer_frac,
+            vir_extent_couples_nodes=self.vir_extent_couples_nodes,
+            node_softening_gpc=self.node_softening_gpc,
+            node_force_law=self.node_force_law,
+        )
 
     def __str__(self):
         return (f"Simulation Parameters:\n"
                 f"  M = {self.M_value} × M_obs\n"
                 f"  S = {self.S_value} Gpc\n"
-                f"  Center Node Mass = {self.center_node_mass} × M_obs\n"
+                f"  centerM = {self.center_node_mass} (outer-mass multiplier; 1.0=obs only)\n"
+                f"  outer_density_ceiling = {self.outer_density_ceiling}\n"
                 f"  Particles = {self.n_particles}\n"
                 f"  Seed = {self.seed}\n"
                 f"  Time = {self.t_start_Gyr} → {self.t_end_Gyr} Gyr ({self.t_duration_Gyr} Gyr)\n"

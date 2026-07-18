@@ -25,11 +25,18 @@ class Particle:
 
 class ParticleSystem:
     """Collection of particles representing the observable universe"""
-    
+
     def __init__(self, n_particles: int = 1000, box_size_m: Optional[float] = None,
                  total_mass_kg: Optional[float] = None, a_start: float = 1.0,
                  use_dark_energy: bool = True,
-                 mass_randomize: float = 0.5):
+                 mass_randomize: float = 0.5,
+                 init_distribution: str = "uniform_sphere",
+                 init_kwargs: Optional[dict] = None,
+                 eds_consistent: bool = False,
+                 t_start_Gyr: Optional[float] = None,
+                 center_node_mass: float = 1.0,
+                 outer_density_ceiling: float = 1.0,
+                 outer_particle_cap: float = 0.0):
         """
         Initialize particle system with damped Hubble flow initial conditions.
 
@@ -41,15 +48,78 @@ class ParticleSystem:
             use_dark_energy: Whether dark energy is enabled
             mass_randomize: Mass distribution randomness (0.0 = equal masses,
                            1.0 = masses from 0 to 2x mean, 0.5 = default)
+            init_distribution: Position sampler: "uniform_sphere" (default,
+                               backward-compatible) or "grf" (Gaussian random field
+                               + Zel'dovich displacement shaped by BBKS LCDM P(k)).
+            init_kwargs: Optional dict forwarded to the sampler (e.g. Ng for grf).
+            eds_consistent: If True, use SELF-CONSISTENT Einstein-de Sitter initial
+                            conditions (Ω_m=1): the Hubble flow v_i = H_EdS(t_start)*r_i
+                            with H_EdS = 2/(3 t_start), AND the cloud total mass is
+                            OVERRIDDEN to the EdS critical mass ρ_crit(t_start)*V so
+                            self-gravity supplies the exact EdS deceleration. With
+                            no external tidal forces this makes the from-sim a(t)
+                            reproduce the analytic EdS solution by construction
+                            (the M=0 == EdS invariant). Requires t_start_Gyr.
+                            Default False keeps the legacy behaviour.
+            t_start_Gyr: Absolute start time in Gyr, REQUIRED when eds_consistent
+                         is True (sets H_EdS and ρ_crit). Ignored otherwise.
+            center_node_mass: Outer-mass multiplier (>= 1.0, default 1.0). When
+                         > 1.0 outer particles are added OUTSIDE the inner
+                         observable sphere at the same density and per-particle
+                         mass. N grows LINEARLY; R_sim = R_obs*centerM**(1/3).
+                         centerM=1.0 -> no outer particles, byte-identical.
+                         Only supported for init_distribution="uniform_sphere";
+                         centerM>1 with "grf" raises NotImplementedError.
+            outer_density_ceiling: Multiplier on inner density for outer particles
+                         (default 1.0 = same density). Clipped to
+                         MAX_OUTER_DENSITY_CEILING (2.0) upstream.
         """
         const = CosmologicalConstants()
+        self.const = const
 
         self.n_particles = n_particles
         self.box_size_m = box_size_m if box_size_m is not None else const.R_hubble
-        self.total_mass_kg = total_mass_kg if total_mass_kg is not None else const.M_observable_kg
         self.a_start = a_start
         self.use_dark_energy = use_dark_energy
         self.mass_randomize = np.clip(mass_randomize, 0.0, 1.0)
+        self.init_distribution = init_distribution
+        self.init_kwargs = init_kwargs if init_kwargs is not None else {}
+        self.eds_consistent = eds_consistent
+        self.t_start_Gyr = t_start_Gyr
+        # centerM: outer-mass multiplier (>= 1.0). 1.0 = no outer particles.
+        self.center_node_mass = max(1.0, float(center_node_mass))
+        # outer_density_ceiling: density multiplier for outer shell (default 1.0).
+        self.outer_density_ceiling = float(outer_density_ceiling)
+        # outer_particle_cap (PF24): >0 caps N_outer at cap*N_inner with heavier
+        # outer particles (outer TOTAL mass conserved); 0 = legacy linear N.
+        self.outer_particle_cap = float(outer_particle_cap)
+
+        # EdS-consistent mode: the cloud must carry the EdS critical (background)
+        # density so internal self-gravity matches the Friedmann deceleration.
+        # We OVERRIDE total_mass_kg with ρ_crit(t_start) * V_sphere; the velocity
+        # field below uses the matching H_EdS = 2/(3 t_start). Velocity & density
+        # are mutually consistent => M_ext=0 reproduces EdS a(t) exactly.
+        # H_EdS = 2/(3 t_start) is only defined for a positive start time; t_start<=0
+        # (e.g. Big-Bang t=0 used by some size-semantics tests) has no finite Hubble
+        # rate, so fall back to the legacy (non-EdS) initialisation there.
+        if eds_consistent and t_start_Gyr is not None and t_start_Gyr <= 0:
+            eds_consistent = False
+            self.eds_consistent = False
+
+        if eds_consistent:
+            if t_start_Gyr is None:
+                raise ValueError("eds_consistent=True requires t_start_Gyr.")
+            H_eds = LambdaCDMParameters.H_eds_at_time(t_start_Gyr)
+            rho_crit = LambdaCDMParameters.eds_critical_density(H_eds)
+            # Uniform sphere: target RMS radius = box_size/2, so physical sphere
+            # radius R_sphere = RMS / sqrt(3/5) (RMS = R*sqrt(3/5) for a uniform
+            # ball). The carried mass is the critical density times that volume.
+            rms_radius_m = self.box_size_m / 2.0
+            r_sphere_m = rms_radius_m / np.sqrt(3.0 / 5.0)
+            volume_m3 = (4.0 / 3.0) * np.pi * r_sphere_m ** 3
+            self.total_mass_kg = rho_crit * volume_m3
+        else:
+            self.total_mass_kg = total_mass_kg if total_mass_kg is not None else const.M_observable_kg
 
         self.particles = []
         self.time = 0.0
@@ -57,120 +127,337 @@ class ParticleSystem:
         # Initialize particles
         self._initialize_particles()
         
+    # ------------------------------------------------------------------
+    # Private position samplers
+    # ------------------------------------------------------------------
+
+    def _init_uniform_sphere(self) -> np.ndarray:
+        """Uniform sphere rejection sampler (legacy behaviour).
+
+        Reproduces the ORIGINAL positions loop from the pre-refactor code so
+        existing tests that pin output to a fixed np.random seed remain valid.
+
+        Returns:
+            positions : (N, 3) float64, raw (not centred / normalised).
+        """
+        sphere_radius_m = (self.box_size_m / 2) / np.sqrt(3 / 5)
+        positions = []
+        for i in range(self.n_particles):
+            while True:
+                pos = np.random.uniform(-sphere_radius_m, sphere_radius_m, 3)
+                if np.linalg.norm(pos) <= sphere_radius_m:
+                    break
+            positions.append(pos)
+        return np.array(positions)
+
+    def _init_outer_shell(self, r_inner_m: float, r_outer_m: float, n_outer: int) -> np.ndarray:
+        """Uniform rejection sampler for the outer shell r_inner < |r| <= r_outer.
+
+        Draws continue from the CURRENT np.random state (immediately after inner
+        draws), so the inner draws are never disturbed. The shell is rejection-sampled
+        in the enclosing cube of half-side r_outer.
+
+        Args:
+            r_inner_m: Inner (observable) sphere radius in metres.
+            r_outer_m: Outer (sim) sphere radius in metres.
+            n_outer:   Number of outer particles to generate.
+
+        Returns:
+            positions: (n_outer, 3) float64, raw (NOT centred or normalised).
+        """
+        positions = []
+        while len(positions) < n_outer:
+            pos = np.random.uniform(-r_outer_m, r_outer_m, 3)
+            d = np.linalg.norm(pos)
+            if r_inner_m < d <= r_outer_m:
+                positions.append(pos)
+        return np.array(positions)
+
+    def _init_grf(self) -> np.ndarray:
+        """Gaussian random field + Zel'dovich displacement sampler.
+
+        Uses the current np.random seed (set by simulation.py) as the integer
+        seed forwarded to sample_grf so the result is reproducible for a given
+        SimulationParameters.seed.
+
+        Returns:
+            positions : (N, 3) float64, raw (not centred / normalised).
+        """
+        from .initial_distributions import sample_grf
+        # Use the seed established by np.random.seed() in simulation.py.
+        # np.random.randint gives a fresh deterministic integer from that stream.
+        grf_seed = int(np.random.randint(0, 2**31))
+        kwargs = dict(self.init_kwargs)  # copy so we don't mutate the original
+        return sample_grf(
+            n_particles=self.n_particles,
+            box_size_m=self.box_size_m,
+            seed=grf_seed,
+            **kwargs,
+        )
+
+    def _init_grf_mass(self) -> np.ndarray:
+        """Mass-weighted GRF sampler (init_distribution="grfmass").
+
+        Quasi-uniform jittered-grid positions; the BBKS density contrast rides in
+        per-particle WEIGHTS (stashed on self._grfmass_weights, consumed by the
+        mass block in _initialize_particles). Same seed discipline as _init_grf.
+
+        Returns:
+            positions : (N, 3) float64, raw (not centred / normalised).
+        """
+        from .initial_distributions import sample_grf_mass
+        grf_seed = int(np.random.randint(0, 2**31))
+        kwargs = dict(self.init_kwargs)
+        positions, weights = sample_grf_mass(
+            n_particles=self.n_particles,
+            box_size_m=self.box_size_m,
+            seed=grf_seed,
+            **kwargs,
+        )
+        self._grfmass_weights = weights
+        return positions
+
+    # ------------------------------------------------------------------
+    # Main initializer
+    # ------------------------------------------------------------------
+
     def _initialize_particles(self) -> None:
-        """Create initial particle distribution with Hubble flow."""
+        """Create initial particle distribution with Hubble flow.
+
+        When center_node_mass > 1.0 (centerM > 1), outer particles are added
+        OUTSIDE the inner observable sphere at the same per-particle mass and
+        outer_density_ceiling * inner_density number density. The inner
+        observable region is UNCHANGED (same positions, masses) — only outer
+        particles are appended.
+
+        self.observable_mask (bool, N_total) is set here:
+          True  = inner observable particle (indices 0 .. N_inner-1)
+          False = outer shell particle      (indices N_inner .. N_total-1)
+        centerM=1 -> all-True mask of length n_particles (byte-identical).
+        """
         lcdm = LambdaCDMParameters()
 
         # Use model-appropriate Hubble parameter for initial velocity
         # ΛCDM: H includes dark energy (Ω_Λ) → higher expansion rate
         # Matter-only: H without dark energy → lower expansion rate
         # This ensures each model's N-body matches its own Friedmann solution
-        if self.use_dark_energy:
+        if self.eds_consistent:
+            # Pure EdS Hubble flow, consistent with the critical density carried by
+            # the cloud (set in __init__). H_EdS = 2/(3 t_start) makes a(t) follow
+            # the analytic (t/t_start)^(2/3) EdS solution with no calibration.
+            H_start = lcdm.H_eds_at_time(self.t_start_Gyr)
+            print(f"[ParticleSystem] EdS-consistent H(t_start={self.t_start_Gyr:.3f} Gyr) = {H_start:.3e} /s")
+        elif self.use_dark_energy:
             H_start = lcdm.H_at_time(self.a_start)
             print(f"[ParticleSystem] Using LCDM H(a={self.a_start:.3f}) = {H_start:.3e} /s")
         else:
             H_start = lcdm.H_matter_only(self.a_start)
             print(f"[ParticleSystem] Using matter-only H(a={self.a_start:.3f}) = {H_start:.3e} /s")
 
+        # N_inner is the requested observable particle count (always = n_particles).
+        n_inner = self.n_particles
+        center_m = self.center_node_mass  # >= 1.0
 
-        # Generate particle masses
-        mean_mass_kg = self.total_mass_kg / self.n_particles
-        if self.mass_randomize > 0 and self.n_particles > 1:
-            # Generate random masses with specified randomization level
-            # mass_randomize=1.0: uniform in [0, 2*mean], so range is 2*mean
-            # mass_randomize=0.5: uniform in [0.5*mean, 1.5*mean], range is mean
-            # mass_randomize=0.0: all masses equal to mean
+        # Non-EdS + centerM>1 is not supported; EdS path is the one used for WS4.
+        if center_m > 1.0 and not self.eds_consistent:
+            raise NotImplementedError(
+                "centerM > 1.0 (outer-particle generation) is only supported "
+                "with eds_consistent=True. For non-EdS / LCDM runs, centerM must "
+                "remain 1.0. (WS4 outer-shell design targets the EdS path.)"
+            )
+
+        # centerM > 1.0 outer shell: sampler-agnostic (r_obs comes from the box
+        # geometry — the SAME (box/2)/sqrt(3/5) radius contract all three inner
+        # samplers honour — outer positions are a uniform shell, outer masses the
+        # mean). So uniform_sphere, grf, AND grfmass inner inits all compose with
+        # the WS4 outer shell; only an unknown init is rejected (below).
+
+        # ------------------------------------------------------------------
+        # INNER-PARTICLE MASS (EdS path: total_mass_kg is the EdS critical mass
+        # for the INNER sphere; per-particle mass = total_mass_kg / n_inner).
+        # The SAME per-particle mass is reused for outer particles so that outer
+        # number density == outer_density_ceiling * inner density (at ceiling=1
+        # this is exactly the same density, giving total mass = centerM * inner).
+        # ------------------------------------------------------------------
+        mean_mass_kg = self.total_mass_kg / n_inner
+
+        if self.mass_randomize > 0 and n_inner > 1:
+            # Generate random masses with specified randomization level.
+            # mass_randomize=1.0: uniform in [0, 2*mean], range is 2*mean.
+            # mass_randomize=0.5: uniform in [0.5*mean, 1.5*mean], range is mean.
+            # mass_randomize=0.0: all masses equal to mean.
             half_range = self.mass_randomize * mean_mass_kg
             raw_masses = np.random.uniform(
                 mean_mass_kg - half_range,
                 mean_mass_kg + half_range,
-                self.n_particles
+                n_inner,
             )
-            # Ensure no negative masses (shouldn't happen unless randomize > 1, but be safe)
+            # Ensure no negative masses (shouldn't happen unless randomize > 1, be safe).
             raw_masses = np.maximum(raw_masses, 1e-10 * mean_mass_kg)
-            # Normalize to preserve total mass exactly
-            particle_masses_kg = raw_masses * (self.total_mass_kg / np.sum(raw_masses))
+            # Normalize to preserve total mass exactly.
+            inner_masses_kg = raw_masses * (self.total_mass_kg / np.sum(raw_masses))
             print(f"[ParticleSystem] Mass randomize={self.mass_randomize:.2f}: "
-                  f"min={np.min(particle_masses_kg):.2e}, max={np.max(particle_masses_kg):.2e}, "
-                  f"mean={np.mean(particle_masses_kg):.2e} kg")
+                  f"min={np.min(inner_masses_kg):.2e}, max={np.max(inner_masses_kg):.2e}, "
+                  f"mean={np.mean(inner_masses_kg):.2e} kg")
         else:
-            particle_masses_kg = np.full(self.n_particles, mean_mass_kg)
+            inner_masses_kg = np.full(n_inner, mean_mass_kg)
 
-        # Scale box_size so that the RMS radius matches the target
-        # For a uniform sphere of radius R, RMS radius = R * sqrt(3/5) ≈ 0.775*R
-        # We want RMS = box_size/2, so R_sphere = box_size/2 / 0.775
-        # This means we need to use a sphere of radius: box_size/2 / sqrt(3/5)
-        sphere_radius_m = (self.box_size_m / 2) / np.sqrt(3/5)
+        # ------------------------------------------------------------------
+        # POSITION SAMPLING: inner particles FIRST (unchanged), then outer shell.
+        # The sampler must return raw (N, 3) positions; post-processing
+        # (centre + RMS-norm) follows below, referenced to the INNER subset.
+        # ------------------------------------------------------------------
+        print(f"[ParticleSystem] init_distribution={self.init_distribution!r}, centerM={center_m:.4f}")
+        if self.init_distribution == "uniform_sphere":
+            inner_positions_raw = self._init_uniform_sphere()
+        elif self.init_distribution == "grf":
+            inner_positions_raw = self._init_grf()
+        elif self.init_distribution == "grfmass":
+            if self.mass_randomize > 0:
+                raise ValueError(
+                    "init_distribution='grfmass' owns the particle masses (the GRF "
+                    "density contrast rides in them); mass_randomize must be 0.0."
+                )
+            inner_positions_raw = self._init_grf_mass()
+        else:
+            raise ValueError(
+                f"Unknown init_distribution {self.init_distribution!r}. "
+                "Valid choices: 'uniform_sphere', 'grf', 'grfmass'."
+            )
 
-        # First, generate all positions using rejection sampling
-        # This keeps position RNG calls separate from velocity RNG calls
-        positions = []
-        for i in range(self.n_particles):
-            # Random position uniformly in sphere of radius sphere_radius_m
-            # Using rejection sampling for clarity
-            while True:
-                pos = np.random.uniform(-sphere_radius_m, sphere_radius_m, 3)
-                if np.linalg.norm(pos) <= sphere_radius_m:
-                    break
-            positions.append(pos)
+        # grfmass: the sampler's weights BECOME the inner masses (mass-preserving:
+        # rescaled so the total is exactly total_mass_kg -> PF1 M=0==EdS holds; the
+        # density contrast is carried by the mass split, not particle crowding).
+        if self.init_distribution == "grfmass":
+            w = self._grfmass_weights
+            inner_masses_kg = w * (self.total_mass_kg / np.sum(w))
+            print(f"[ParticleSystem] grfmass weights: min={w.min():.3f}, "
+                  f"max={w.max():.3f} x mean (total mass preserved)")
 
-        # CRITICAL: Center positions FIRST before calculating velocities
-        # Random particle distribution creates non-zero COM position
-        # We must center BEFORE velocity calculation so v_hubble = H*r uses centered positions
-        positions_arr = np.array(positions)
-        com_position = np.mean(positions_arr, axis=0)
+        # CRITICAL: Center positions FIRST before calculating velocities.
+        # Random particle distribution creates non-zero COM position.
+        # We must center BEFORE velocity calculation so v_hubble = H*r uses centred positions.
+        com_position = np.mean(inner_positions_raw, axis=0)
+        print(f"[ParticleSystem] Centering COM position: "
+              f"[{com_position[0]:.3e}, {com_position[1]:.3e}, {com_position[2]:.3e}] m")
+        inner_centered = inner_positions_raw - com_position
 
-        print(f"[ParticleSystem] Centering COM position: [{com_position[0]:.3e}, {com_position[1]:.3e}, {com_position[2]:.3e}] m")
-
-        # Center the positions array
-        centered_positions = positions_arr - com_position
-
-        # CRITICAL: Normalize to exact target RMS radius
-        # Random particle rejection sampling creates slight RMS variation even with same seed
-        # This causes initialization artifacts in model comparisons (matter-only appearing
-        # to "exceed LCDM" initially when it's just starting 0.5% larger by chance)
-        # Normalization ensures exact comparison: any deviation is real physics, not randomness
-        current_rms = np.sqrt(np.mean(np.sum(centered_positions**2, axis=1)))
+        # CRITICAL: Normalize to exact target RMS radius using the INNER subset.
+        # We must compute the scale factor from the inner subset RMS so that:
+        #   (a) centerM=1 is byte-identical to the old code (inner==all -> same calc).
+        #   (b) centerM>1: inner region keeps RMS = box/2 (its density is what's fixed);
+        #       outer particles get the SAME scale applied, preserving relative geometry.
+        current_inner_rms = np.sqrt(np.mean(np.sum(inner_centered**2, axis=1)))
         target_rms = self.box_size_m / 2  # RMS should be half box size
 
-        # Handle edge case: if RMS is already very small (e.g., n=1 particle at origin),
-        # skip normalization to avoid division by zero
-        if current_rms > 1e-10 * target_rms:  # Only normalize if RMS is non-negligible
-            scale_factor = target_rms / current_rms
-            centered_positions *= scale_factor
-
-            print(f"[ParticleSystem] Normalized RMS radius: {current_rms:.6e} -> {target_rms:.6e} m (scale={scale_factor:.6f})")
-
-            # Verify normalization succeeded
-            final_rms = np.sqrt(np.mean(np.sum(centered_positions**2, axis=1)))
-            assert abs(final_rms - target_rms) / target_rms < 1e-10, \
-                f"RMS normalization failed: {final_rms:.6e} vs {target_rms:.6e}"
+        # Handle edge case: if inner RMS is negligible (e.g. n=1 particle at origin).
+        if current_inner_rms > 1e-10 * target_rms:
+            scale_factor = target_rms / current_inner_rms
+            inner_centered *= scale_factor
+            print(f"[ParticleSystem] Normalized inner RMS: {current_inner_rms:.6e} -> {target_rms:.6e} m "
+                  f"(scale={scale_factor:.6f})")
+            final_inner_rms = np.sqrt(np.mean(np.sum(inner_centered**2, axis=1)))
+            assert abs(final_inner_rms - target_rms) / target_rms < 1e-10, \
+                f"Inner RMS normalization failed: {final_inner_rms:.6e} vs {target_rms:.6e}"
         else:
-            print(f"[ParticleSystem] Skipping RMS normalization (current RMS={current_rms:.3e} is negligible)")
+            scale_factor = 1.0
+            print(f"[ParticleSystem] Skipping RMS normalization "
+                  f"(inner RMS={current_inner_rms:.3e} is negligible)")
 
-        # Now generate velocities using CENTERED and NORMALIZED positions
-        # This ensures velocity initialization is independent of rejection sampling randomness
-        for i in range(self.n_particles):
-            pos = centered_positions[i]  # Use centered and normalized position!
+        # ------------------------------------------------------------------
+        # OUTER PARTICLE GENERATION (centerM > 1 only).
+        # R_obs = r_sphere used during inner sampling (before scale; but the
+        # scaled inner sphere radius = r_sphere * scale_factor, which is what
+        # we need for the shell boundary). We use the scaled inner sphere radius.
+        # ------------------------------------------------------------------
+        if center_m > 1.0:
+            # Inner sphere radius (scaled, physical).
+            # _init_uniform_sphere() uses sphere_radius = (box_size/2)/sqrt(3/5).
+            # After scale_factor: R_obs_scaled = sphere_radius * scale_factor.
+            # However, since we normalised the RMS to box/2, and for a uniform sphere
+            # RMS = R * sqrt(3/5), we have R_obs_physical = (box/2) / sqrt(3/5).
+            r_obs_m = (self.box_size_m / 2.0) / np.sqrt(3.0 / 5.0)
+            r_sim_m = r_obs_m * (center_m ** (1.0 / 3.0))
 
-            # Initial velocity: Damped Hubble flow + small peculiar velocity
-            # Damping compensates for lack of ongoing Hubble drag during integration
+            # N_outer = round((centerM - 1) * N_inner * ceiling). At ceiling=1
+            # this gives N_total = round(centerM * N_inner) (LINEAR, not cubic).
+            n_outer = int(np.round((center_m - 1.0) * n_inner * self.outer_density_ceiling))
+
+            # LARGE-centerM cap (PF24): outer_particle_cap > 0 bounds N_outer at
+            # cap * N_inner and scales the per-particle OUTER mass up so the outer
+            # TOTAL mass is conserved exactly. Justification: the outer region is a
+            # statistically uniform shell, whose net force on the inner observable
+            # cloud ~cancels (shell theorem; PF6 measured it inert), so fewer,
+            # heavier tracers represent it faithfully while keeping N feasible at
+            # centerM >> 1 (the progenitor-mass sweep). 0.0 (default) = legacy
+            # linear N (byte-identical).
+            outer_mass_each_kg = mean_mass_kg
+            cap = float(getattr(self, "outer_particle_cap", 0.0))
+            if cap > 0.0 and n_outer > int(cap * n_inner):
+                n_outer_capped = max(1, int(cap * n_inner))
+                outer_mass_each_kg = mean_mass_kg * (n_outer / n_outer_capped)
+                print(f"[ParticleSystem] outer cap {cap:g}x: N_outer {n_outer} -> "
+                      f"{n_outer_capped}, outer particle mass x{n_outer / n_outer_capped:.1f} "
+                      f"(outer TOTAL mass conserved)")
+                n_outer = n_outer_capped
+            print(f"[ParticleSystem] centerM={center_m:.4f}: N_inner={n_inner}, "
+                  f"N_outer={n_outer}, N_total={n_inner + n_outer}; "
+                  f"R_obs={r_obs_m/self.const.Gpc_to_m:.3f} Gpc, "
+                  f"R_sim={r_sim_m/self.const.Gpc_to_m:.3f} Gpc "
+                  f"(x{center_m**(1/3):.4f})")
+
+            if n_outer > 0:
+                # Draw outer positions using the SAME np.random stream (after inner draws).
+                outer_positions_raw = self._init_outer_shell(r_obs_m, r_sim_m, n_outer)
+                # Apply the SAME scale factor so inner and outer are in the same frame.
+                outer_scaled = outer_positions_raw * scale_factor
+
+                # Outer particles carry the mean mass (or the capped-up mass so the
+                # outer TOTAL is exact — see the cap above).
+                outer_masses_kg = np.full(n_outer, outer_mass_each_kg)
+
+                # Concatenate [inner; outer]. Observable mask: True for inner indices.
+                all_positions = np.concatenate([inner_centered, outer_scaled], axis=0)
+                all_masses = np.concatenate([inner_masses_kg, outer_masses_kg])
+                observable_mask = np.concatenate([
+                    np.ones(n_inner, dtype=bool),
+                    np.zeros(n_outer, dtype=bool),
+                ])
+            else:
+                # n_outer rounded to 0 (centerM very close to 1.0 with small N_inner).
+                all_positions = inner_centered
+                all_masses = inner_masses_kg
+                observable_mask = np.ones(n_inner, dtype=bool)
+        else:
+            # centerM == 1.0: no outer particles; all-True mask; byte-identical.
+            all_positions = inner_centered
+            all_masses = inner_masses_kg
+            observable_mask = np.ones(n_inner, dtype=bool)
+
+        # Store the observable mask on the instance (Section 2 consumes this).
+        self.observable_mask = observable_mask
+        n_total = len(all_positions)
+
+        # Now generate velocities using CENTRED and NORMALISED positions.
+        # This ensures velocity initialization is independent of sampling randomness.
+        for i in range(n_total):
+            pos = all_positions[i]
+
+            # Initial velocity: Hubble flow + small peculiar velocity.
             v_hubble = H_start * pos
             v_peculiar = np.random.normal(0, 1e5, 3)  # ~100 km/s peculiar velocity
             vel = v_hubble + v_peculiar
 
-            particle = Particle(pos, vel, particle_masses_kg[i], particle_id=i)
+            particle = Particle(pos, vel, all_masses[i], particle_id=i)
             self.particles.append(particle)
 
-        # CRITICAL: Remove center-of-mass velocity to prevent bulk motion
-        # With Hubble flow v = H*r, random particle positions create non-zero COM velocity
-        # This causes the entire system to drift, appearing as unphysical expansion
+        # CRITICAL: Remove centre-of-mass velocity to prevent bulk motion.
+        # With Hubble flow v = H*r, random particle positions create non-zero COM velocity.
         velocities = np.array([p.vel for p in self.particles])
         com_velocity = np.mean(velocities, axis=0)
+        print(f"[ParticleSystem] Removing COM velocity: "
+              f"[{com_velocity[0]:.3e}, {com_velocity[1]:.3e}, {com_velocity[2]:.3e}] m/s")
 
-        print(f"[ParticleSystem] Removing COM velocity: [{com_velocity[0]:.3e}, {com_velocity[1]:.3e}, {com_velocity[2]:.3e}] m/s")
-
-        # Apply COM velocity correction to each particle
         for particle in self.particles:
             particle.vel -= com_velocity
     
@@ -189,6 +476,18 @@ class ParticleSystem:
     def get_accelerations(self) -> np.ndarray:
         """Get all particle accelerations as (N, 3) array."""
         return np.array([p.acc for p in self.particles])
+
+    def get_observable_mask(self) -> np.ndarray:
+        """Return the observable mask (bool, N_total).
+
+        True  = inner observable particle (indices 0 .. N_inner-1).
+        False = outer shell particle (only present when centerM > 1.0).
+        centerM=1.0 -> all-True mask of length n_particles.
+
+        Section 2 (a(t) computation) uses this mask to restrict the RMS
+        radius calculation to the inner observable sub-region only.
+        """
+        return self.observable_mask
 
     def set_accelerations(self, accelerations: np.ndarray) -> None:
         """Set accelerations for all particles."""
@@ -258,10 +557,16 @@ class ParticleSystem:
     
     
     def __len__(self):
-        return self.n_particles
-    
+        # Total particle count (inner + outer). n_particles is the inner (observable) count.
+        return len(self.particles)
+
     def __repr__(self):
-        return f"ParticleSystem(n={self.n_particles}, t={self.time:.2e}s)"
+        n_total = len(self.particles)
+        n_inner = self.n_particles
+        if n_total == n_inner:
+            return f"ParticleSystem(n={n_inner}, t={self.time:.2e}s)"
+        return (f"ParticleSystem(n_total={n_total}, n_inner={n_inner}, "
+                f"centerM={self.center_node_mass:.2f}, t={self.time:.2e}s)")
 
 
 class HMEAGrid:
@@ -278,33 +583,69 @@ class HMEAGrid:
         
     def _create_grid(self) -> None:
         """
-        Create 3x3x3 grid of HMEA nodes (26 total, excluding center).
+        Create HMEA node grid using the geometry factory.
 
-        Grid is perfectly symmetric to ensure tidal forces cancel at origin.
-        Any drift indicates either numerical issues or particle asymmetry.
+        The base node positions come from build_node_positions(geometry, S, **kwargs)
+        in cosmo/node_geometry.py.  Default geometry "cube26" produces a 3×3×3-1
+        cubic lattice (26 nodes) byte-identical to the previous hard-coded loop.
+
+        Per-node masses are drawn from ExternalNodeParameters.node_masses(n).
+        When node_mass_amplitude == 0.0 (default), all masses equal M_ext_kg
+        (byte-identical to the legacy uniform behavior).
+        When node_mass_amplitude > 0.0, masses are log-normally distributed
+        with mean M_ext_kg exactly (mean-preserving normalization), preserving
+        Omega_Lambda_eff / growth-anchor / isotropic background.
+
+        Per-node RADIAL position perturbation is drawn from
+        ExternalNodeParameters.node_scale_factors(n). When node_s_amplitude == 0.0
+        (default), all factors are 1.0 => the geometry's symmetric node positions
+        (byte-identical to the legacy positions for cube26). When node_s_amplitude > 0.0,
+        each node's DISTANCE from the origin is scaled by a mean-preserving
+        log-normal factor (mean scale == S preserved) while its DIRECTION (ray)
+        is held fixed, breaking the symmetry radially.
+
+        Mass bookkeeping: total external mass = n_nodes * M_ext_kg.  The
+        Omega_Lambda_eff formula uses M_ext_kg (per-node mean), so to keep
+        Omega_Lambda_eff comparable across geometries the caller should rescale
+        M_ext_kg via effective_M_ext_kg() from cosmo/node_geometry.py.
+
+        COUPLED "virialized" branch: when node_geometry == "virialized" the
+        positions AND masses come together from build_virialized_grid (mass↔radius
+        coupled, mass-segregated). The returned masses are used DIRECTLY (the
+        virialized vir_mass_spread knob owns the node-mass distribution, so
+        node_masses()/node_mass_amplitude is NOT consulted on this branch). The
+        per-node radial node_scale_factors() perturbation STILL composes on top
+        (mean-preserving radial jitter, as for every geometry).
         """
+        from .node_geometry import build_node_positions
+
         S = self.params.S
+        geometry = getattr(self.params, 'node_geometry', 'cube26')
+        geometry_kwargs = getattr(self.params, 'geometry_kwargs', {})
 
-        # 3x3x3 grid positions: -1, 0, +1 in each direction
-        # Skip (0,0,0) - that's our universe
-        node_id = 0
-        for i in [-1, 0, 1]:
-            for j in [-1, 0, 1]:
-                for k in [-1, 0, 1]:
-                    # Skip center - that's us!
-                    if i == 0 and j == 0 and k == 0:
-                        continue
+        if geometry == "virialized":
+            # COUPLED path: positions + masses already paired (mass-segregated).
+            base_positions_arr, masses = self.params.build_virialized()
+            n = len(base_positions_arr)
+        else:
+            # Independent path (UNCHANGED): positions from factory, masses separately.
+            base_positions_arr = build_node_positions(geometry, S, **geometry_kwargs)
+            n = len(base_positions_arr)
+            masses = self.params.node_masses(n)
 
-                    # Position with spacing S (perfectly symmetric)
-                    pos = np.array([i, j, k], dtype=float) * S
+        scale_factors = self.params.node_scale_factors(n)  # mean == 1.0; ones() when amp=0
 
-                    node = {
-                        'id': node_id,
-                        'position': pos,
-                        'mass': self.params.M_ext_kg,
-                    }
-                    self.nodes.append(node)
-                    node_id += 1
+        for node_id in range(n):
+            pos = base_positions_arr[node_id] * scale_factors[node_id]
+            node = {
+                'id': node_id,
+                'position': pos,
+                'mass': masses[node_id],
+            }
+            self.nodes.append(node)
+
+        # Update n_nodes to match actual geometry (callers may rely on len(grid.nodes))
+        self.n_nodes = n
     
     def get_positions(self) -> np.ndarray:
         """Get all node positions as (N, 3) array."""
@@ -318,6 +659,16 @@ class HMEAGrid:
         """
         Calculate tidal acceleration for multiple positions.
 
+        Node softening (Section 4 slingshot fix)
+        ----------------------------------------
+        The softening length comes from self.params.node_softening_m (derived from
+        node_softening_gpc; defaults to 0.0). When it is 0.0 BOTH paths use the
+        LEGACY hard ``r < 1e10 m`` floor (byte-identical to the pre-softening
+        force, so cube26 a(t) and every existing cache stay unchanged). When it is
+        > 0.0 BOTH paths use a Plummer softening ``r_soft^2 = r^2 + eps^2`` that
+        caps the close-pass node kick and tames the runaway slingshot. This force
+        path is GEOMETRY-AGNOSTIC, so the softening tames cube26 AND virialized.
+
         Args:
             positions: (N, 3) particle positions in meters
             use_numba: If True, use Numba JIT for speedup
@@ -326,6 +677,12 @@ class HMEAGrid:
             Accelerations array with shape (N, 3) in m/s².
         """
         const = CosmologicalConstants()
+        # Node Plummer softening length (meters). Default 0.0 -> legacy floor.
+        softening_m = float(getattr(self.params, 'node_softening_m', 0.0))
+        eps2 = softening_m * softening_m
+        # Close-range force-law code: 0 plummer (default/legacy), 1 bounded.
+        force_law = int(getattr(self.params, 'node_force_law_code', 0))
+        bounded = (force_law == 1) and (eps2 > 0.0)
 
         if use_numba:
             # Use Numba JIT-compiled version (much faster)
@@ -338,10 +695,13 @@ class HMEAGrid:
                 positions,
                 node_positions,
                 node_masses,
-                const.G
+                const.G,
+                softening_m,
+                force_law,
             )
         else:
-            # Original NumPy vectorized version (fallback)
+            # Original NumPy vectorized version (fallback) — mirrors the numba
+            # kernel branch-for-branch (legacy floor / Plummer / bounded).
             N = len(positions)
             accelerations = np.zeros((N, 3))
 
@@ -351,10 +711,32 @@ class HMEAGrid:
 
                 # Vector from position to node (attractive force toward node)
                 r_vec_m = node_pos - positions  # Broadcasting
-                r_m = np.linalg.norm(r_vec_m, axis=1, keepdims=True)
 
-                # Avoid singularities
-                r_m = np.maximum(r_m, 1e10)
+                if bounded:
+                    # BOUNDED "can't cross the midpoint" law: true 1/r^2 outside
+                    # the softening length, magnitude capped at G m / eps^2 inside.
+                    r_m = np.linalg.norm(r_vec_m, axis=1, keepdims=True)
+                    inside = r_m < softening_m
+                    # Far field: exact Newtonian (no Plummer offset). Guard r==0.
+                    r_safe = np.where(r_m > 0.0, r_m, 1.0)
+                    a_far = const.G * M_ext_kg * r_vec_m / r_safe**3
+                    # Inside: a_cap * unit_vector = (G m / eps^2) * (r_vec / r).
+                    a_cap = const.G * M_ext_kg / eps2
+                    a_in = a_cap * r_vec_m / r_safe
+                    a_tidal = np.where(inside, a_in, a_far)
+                    # r == 0 contributes nothing (symmetric); zero those rows.
+                    a_tidal = np.where(r_m > 0.0, a_tidal, 0.0)
+                    accelerations += a_tidal
+                    continue
+
+                if eps2 > 0.0:
+                    # Plummer softening: r_soft^2 = r^2 + eps^2 (finite at r->0).
+                    r2 = np.sum(r_vec_m * r_vec_m, axis=1, keepdims=True) + eps2
+                    r_m = np.sqrt(r2)
+                else:
+                    # LEGACY hard floor (byte-identical default).
+                    r_m = np.linalg.norm(r_vec_m, axis=1, keepdims=True)
+                    r_m = np.maximum(r_m, 1e10)
 
                 # Tidal acceleration for all particles (attractive toward node)
                 a_tidal = const.G * M_ext_kg * r_vec_m / r_m**3

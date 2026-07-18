@@ -121,12 +121,145 @@ graph LR
 
 ## 2. External Tidal Forces
 
-**File**: particles.py:238-272
+**File**: particles.py — `HMEAGrid._create_grid`, `HMEAGrid.get_masses`; `tidal_forces_numba.py`
 
 **Formula**:
 ```
-a_tidal = Σ_nodes [G × M_ext × (r - r_node) / |r - r_node|³]
+a_tidal = Σ_nodes [G × m_node_i × (r - r_node_i) / |r - r_node_i|³]
 ```
+
+### Per-node mass distribution (Deliverable B)
+
+Each of the 26 nodes can have a distinct mass via `ExternalNodeParameters.node_masses(26)`.
+Controlled by two `SimulationParameters` fields (also in `SweepConfig`):
+
+| Field | Default | Effect |
+|---|---|---|
+| `node_mass_seed` | 0 | RNG seed for independent `default_rng(seed)` |
+| `node_mass_amplitude` | 0.0 | Log-normal width; 0.0 => uniform (backward compat) |
+
+**Computation** (inside `ExternalNodeParameters.node_masses(n_nodes=26)`):
+```python
+rng = np.random.default_rng(node_mass_seed)     # independent of particle RNG
+g   = rng.standard_normal(n_nodes)
+w   = np.exp(node_mass_amplitude * g)           # strictly positive
+m   = M_ext_kg * w / w.mean()                  # MEAN-PRESERVING
+```
+
+**INVARIANTS** (must never be broken):
+- **(a) Deterministic**: same `(seed, amplitude)` → identical 26-vector.
+- **(b) Strictly positive**: `exp(·) > 0` always.
+- **(c) MEAN-PRESERVING**: `mean(m_i) == M_ext_kg` exactly. This pins the total external
+  mass and `Omega_Lambda_eff` (both linear in the masses) — verified end-to-end via
+  `HMEAGrid.get_masses().sum() == 26*M_ext_kg` in the real force path.
+  CAVEAT: mean-preservation does NOT fully pin the realized growth factor. The tidal
+  acceleration and the RMS-radius a(t) are NONLINEAR in the node configuration, so at
+  strong tidal field (small S / large M) `amplitude>0` raises the realized growth by a
+  few % (e.g. M=1000,S=50: 3.078→3.191 as amp 0→0.75). The seed selects shear/dipole
+  **orientation**; amplitude selects orientation AND a second-order growth nudge. At weak
+  tidal field (large S) growth is flat and the "orientation only" reading holds. See
+  [pantheon-comparison-results.md](./pantheon-comparison-results.md).
+
+**amplitude == 0.0**: fast path returns `np.full(n_nodes, M_ext_kg)` — byte-identical
+to the legacy uniform behavior, so existing cached sim results are unaffected.
+
+**Cache key**: anisotropic runs (`amplitude != 0.0`) append `{seed}nmseed` and
+`{amplitude}nmamp` slugs to `worst_callback`'s cache name so they never reuse a
+uniform cache entry. Uniform runs keep their existing keys unchanged.
+
+**Force layer**: `tidal_forces_numba.py` already indexed `node_masses[j]` per-node;
+no force-code changes were needed (Deliverable B is grid-construction only).
+
+### Per-node POSITION perturbation: `node_s_amplitude`
+
+The position analogue of `node_mass_amplitude`. Perturbs the 26 node POSITIONS off
+the perfect lattice to break symmetry RADIALLY. Field on `SimulationParameters`,
+`ExternalNodeParameters`, `SweepConfig` (default 0.0 = symmetric, byte-identical).
+Reuses `node_mass_seed` for determinism.
+
+**Convention** (`ExternalNodeParameters.node_scale_factors(n=26)`, constants.py):
+```python
+if node_s_amplitude == 0.0:
+    return np.ones(n)                      # exact symmetric lattice (fast path)
+rng = np.random.default_rng(node_mass_seed)  # SEPARATE draw from node_masses()
+g = rng.standard_normal(n)
+w = np.exp(node_s_amplitude * g)
+return w / w.mean()                         # MEAN scale factor == 1.0 exactly
+```
+`HMEAGrid._create_grid` multiplies each base lattice position `(i,j,k)*S` by its
+factor → `(i,j,k)*S*scale_i`. Each node stays on its ORIGINAL ray (direction
+unchanged); only its DISTANCE changes. So it is a pure radial symmetry-break.
+
+**INVARIANTS** (tests/test_node_s_amplitude.py):
+- (a) Vanishes at 0: positions byte-identical to the symmetric lattice.
+- (b) Deterministic per (node_mass_seed, node_s_amplitude); separate rng draw from
+  node_masses so enabling one knob does not perturb the other.
+- (c) MEAN radial scale preserved: mean(scale_factors)==1.0 exactly (isolates
+  symmetry-breaking from a net S change).
+- (d) Strictly positive (no node crosses the origin / flips sides).
+- (e) Nodes stay OUTSIDE the cloud for amp<=0.6 at the tested base (smallest node
+  radius at S=40 is ~13 Gpc vs cloud edge ~3 Gpc).
+- (f) Particle cloud byte-identical across node_s_amplitude (confound guard).
+
+**Cache slug** (`build_cache_name`): appends `{seed}nmseed_{amp}nsamp` only when
+`node_s_amplitude != 0.0` (the seed slug is added here too since node_s depends on
+it; not double-added if node_mass_amplitude already added it). Sweepable in the
+objective="pantheon" path: `SweepConfig.node_s_amplitude`, threaded by
+`sweep._make_sweep_config_for_cell` / `_make_sim_callback`.
+
+### LEVER EXPERIMENT — can breaking lattice symmetry reach LCDM? (honest verdict: NO)
+
+Base M=1500/S=40 (firmly bound, g/anch~0.85), 400p, t_start=2.9, grf, seed=42.
+chi2/dof vs REAL Pantheon+ on each row's sim-covered SNe (sim vs EdS-null vs LCDM
+directly comparable per row). growth target 3.304. Harness: tmp/lever_experiment.py.
+
+| Lever value | growth | g/anch | chi2 sim | chi2 EdS | chi2 LCDM | shear | dipole |
+|---|---|---|---|---|---|---|---|
+| BASE (symmetric)        | 2.80 | 0.85 | 0.846 | 0.856 | 0.437 | 0.20 | 0.02 |
+| nm_amp=0.25             | 3.03 | 0.92 | 0.478 | 0.834 | 0.437 | 1.31 | 0.14 |
+| nm_amp=0.50             | 3.57 | 1.08 | 0.991 | 0.781 | 0.424 | 1.92 | 0.28 |
+| nm_amp=1.0 (RUNAWAY)    | 5.72 | 1.73 | 1.389 | 0.690 | 0.420 | 2.39 | 0.52 |
+| ns_amp=0.05             | 2.86 | 0.87 | 0.526 | 0.850 | 0.433 | 0.79 | 0.12 |
+| ns_amp=0.10             | 3.21 | 0.97 | 1.729 | 0.779 | 0.425 | 1.81 | 0.27 |
+| ns_amp=0.3 (RUNAWAY)    | 209  | 63   | 0.433 | 0.670 | 0.416 | 2.20 | 0.03 |
+| centerM=3               | 2.86 | 0.87 | 0.797 | 0.860 | 0.435 | 0.19 | 0.01 |
+| centerM=10              | 3.08 | 0.93 | 0.630 | 0.849 | 0.432 | 0.17 | 0.00 |
+
+**HONEST VERDICT: symmetry-breaking does NOT reach LCDM for the isotropic Hubble
+fit.** The minimum physical (anchor-OK) lever chi2 is ~0.48 — the SAME 0.46-0.51
+band the symmetric M/S degeneracy already spans — and it never crosses LCDM (0.44).
+As any lever is pushed to actually HIT the growth anchor (g/anch→1), the isotropic
+chi2 gets WORSE, not better (M=1500/S=40 nm sweep: g/anch 0.92→1.00 ⇒ chi2
+0.48→0.68). The transient "improvement" at small amplitude is purely the documented
+growth-degeneracy: the base UNDERSHOOTS growth (2.8 vs 3.3), so any nudge upward
+moves chi2 toward LCDM until the wrong-a(t)-SHAPE penalty dominates. Past the
+anchor, levers tip into RUNAWAY (growth 5-500x; the "0.43" rows are runaway configs
+fitting a clipped z-window — the growth anchor correctly rejects them).
+
+**Why levers 1,2 raise growth at all (subtlety vs the linear traceless argument)**:
+to LINEAR order, rearranging EXTERNAL (vacuum, ∇²Φ=0) nodes is TRACELESS → shear
+only, no isotropic expansion. CONFIRMED in the SHEAR column (shear jumps 0.2→1-2.4,
+dipole 0.02→0.5 with every lever — strong, monotone). But the realized growth bump
+is a SECOND-ORDER, NONLINEAR near-node effect: a perturbed node pulled inward
+stretches its near cloud face as (S-R)^-2, which is intrinsically ANISOTROPIC (that
+is why growth and shear rise together) and runs away once a node gets close. It is
+NOT a clean isotropic dark-energy channel.
+
+**centerM (lever 3) — interior mass, ∇²Φ≠0, CAN move the monopole**: increasing
+centerM DOES raise growth/lower chi2 monotonically (1→10: 0.846→0.630, shear FLAT
+~0.17). BUT note the EdS-consistent ICs OVERRIDE cloud mass to the EdS critical
+value, so centerM here only sets softening; the observed shift is a softening/
+resolution effect, not added self-gravity. To make centerM inject REAL central
+mass on top of critical is a separate IC decision (see initial-conditions.md "Future
+steps") and would add DECELERATION (more matter-like, AWAY from LCDM) per the
+physics.
+
+**The clean publishable result**: the discriminating signal of the External-Node
+model is the ANISOTROPY (shear + Hubble dipole), NOT the isotropic Hubble diagram.
+Levers 1,2 move shear/dipole by ~10x while the isotropic chi2 stays pinned in the
+same band as the symmetric model. M=0==EdS is preserved under all levers+boost
+(M=0 chi2 sim 0.70 ≈ EdS 0.86 ≪ farther from LCDM 0.44; levers applied at M=0 are
+byte-identical to plain M=0 since the boost and node knobs all vanish at M_ext=0).
 
 **Implementation**:
 ```python
@@ -270,7 +403,7 @@ Hubble drag (a_drag = -2Hv) is only appropriate for **comoving coordinates** whe
 
 **Only active when**: `use_dark_energy=True` (ΛCDM mode)
 
-**Why not in External-Node/Matter-only?**: Hubble drag is property of cosmic expansion driven by dark energy. In matter-dominated regime, expansion decelerates naturally from gravity. External-Node model uses *damped initial conditions* instead of ongoing drag (see [initial-conditions.md](./initial-conditions.md)).
+**Why not in External-Node/Matter-only?**: Hubble drag is property of cosmic expansion driven by dark energy. In matter-dominated regime, expansion decelerates naturally from gravity. With the corrected self-consistent EdS initial conditions (default), the matter-only cloud carries the EdS critical density and Hubble flow so its self-gravity supplies the EdS deceleration with NO drag and NO velocity calibration (see [initial-conditions.md](./initial-conditions.md)).
 
 ## Force Composition by Mode
 

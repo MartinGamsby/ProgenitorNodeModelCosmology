@@ -1,0 +1,21 @@
+{
+  "_comment": "LCDM-objective exploration — the consolidated replacement for the retired root parameter_sweep.py (OBJECTIVE='lcdm'). Scores each cell by R^2-style match vs the analytic LCDM baseline (compute_match_metrics -> match_avg_pct / diff_pct) instead of chi2 vs the real Pantheon+ SNe. The cache slug includes 'lcdmobj' so these runs never collide with pantheon-objective caches. Timing mirrors the old script's non-leet window (t_start=5.8). Best config is chosen by MAX match_avg_pct; chi2_dof is not produced in this mode (compute_match_metrics emits no chi2), so the standard sweep CSV is emitted with chi2_dof left infinite for lcdm rows.",
+  "M_values": [100, 250, 500, 855, 1000, 2000],
+  "S_values": "co-fit",
+  "s_min_gpc": 14,
+  "s_max_gpc": 66,
+  "s_cofit_method": "linear",
+  "node_mass_amplitudes": [0.0],
+  "node_s_amplitudes": [0.0],
+  "node_mass_seeds": [42],
+  "init_distributions": ["uniform_sphere"],
+  "node_geometries": ["cube26"],
+  "geometry_kwargs": {},
+  "particle_count": 400,
+  "n_steps": 273,
+  "t_start_Gyr": 5.8,
+  "centerM": 1,
+  "objective": "lcdm",
+  "results_dir": "results",
+  "tag": "lcdm_example"
+}

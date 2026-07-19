@@ -905,3 +905,20 @@ nearest HMEA >> 15 Gpc. Figures: results/figures/centerm/best_compare_v3/ (expan
 evolution x2, final clouds, nodes, knot traces). 16k best_obs reads ~+0.005 above the 2000p CSV
 values (known offset; CSV authoritative for cross-cell ranking: 0.4399 / 0.4381). The centerM
 arc is COMPLETE; paper candidates = these two cells (either or both).
+
+## PF27 — GUARDED re-sweep (cmx2): the joint fit+knot S-selection makes the grid ~UNIVERSALLY viable — 69/72 qualify, 26 rescued, 0 lost, chi2 cost < 0.005
+
+The production run of s_knot_guard over the full campaign grid (72 cells, same axes; results/
+figures/centerm/cmx2_verdict.{csv,txt}; knots now native CSV columns from the in-sweep 2000p
+metric): **69/72 cells qualify under the composite universe-fit criterion** (unguarded: 43/71).
+The guard moved S in 25 cells (+5..+25 Gpc), RESCUED all 26 previously knot-failing measured
+cells, and lost ZERO previous qualifiers; typical chi2 cost of a move is +0.002..+0.005 (well
+inside the 0.03 budget). Leaderboard top unchanged (cm1000/s5/S=80 0.4379, cm1000/s1/S=79
+0.4381 — already knot-free, guard idle). The 3 non-qualifiers, honestly: cm100/s2 (the known
+runaway), cm3/s9 (guard moved 76→101 Gpc, knot fixed 0.76→1.07, but fit 0.4608 exceeded 0.46 —
+the budget correctly refused to hide a bad cell), cm2/s5 (the S=160 co-fit boundary case, fit
+0.4831). CAVEATS: in-sweep knots are 2000p (PF26 margin rule applies — rescued cells at
+0.90–0.99 are provisional; headline picks still need >=1.2 margin + 16k confirmation, which the
+two PF26 candidates have). CONSEQUENCE: s_knot_guard should be ON in every future pantheon
+co-fit config; the model's (centerM × seed) space is BROADLY universe-like once S is selected
+jointly — the paper's multiplicity statement at full strength.

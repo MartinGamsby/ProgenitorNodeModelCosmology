@@ -7,6 +7,7 @@ Writes results/figures/centerm/cmx2_verdict.{csv,txt}.
 import os, sys, glob, re, csv
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")))
 import numpy as np
+PREFIX = sys.argv[1] if len(sys.argv) > 1 else "cmx2"
 from cosmo.node_geometry import build_virialized_grid
 from cosmo.constants import CosmologicalConstants
 
@@ -22,8 +23,8 @@ for r in csv.DictReader(open("results/figures/centerm/universe_fit_ranking.csv")
     old[(int(float(r["centerM"])), int(float(r["seed"])))] = r
 
 rows = []
-for fn in sorted(glob.glob("results/ws1_sweep_cmx2_s*_cm*.csv")):
-    m = re.search(r"cmx2_s(\d+)_cm(\d+)", fn)
+for fn in sorted(glob.glob(f"results/ws1_sweep_{PREFIX}_s*_cm*.csv")):
+    m = re.search(PREFIX + r"_s(\d+)_cm(\d+)", fn)
     seed, cM = int(m.group(1)), int(m.group(2))
     for r in csv.DictReader(open(fn)):
         S = _f(r.get("S_gpc")); bo = _f(r.get("best_observer_chi2")) or _f(r.get("chi2_dof"))
@@ -45,14 +46,14 @@ for fn in sorted(glob.glob("results/ws1_sweep_cmx2_s*_cm*.csv")):
                                     and (d_near or 0) > 15.0 and knot is not None and knot >= 0.9)))
 
 rows.sort(key=lambda r: (not r["qualifies"], r["bo"] if r["bo"] is not None else 9))
-with open("results/figures/centerm/cmx2_verdict.csv", "w", newline="") as f:
+with open(f"results/figures/centerm/{PREFIX}_verdict.csv", "w", newline="") as f:
     w = csv.DictWriter(f, fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
 
 q = [r for r in rows if r["qualifies"]]
 rescued = [r for r in q if not r["old_qualified"]]
 lost = [r for r in rows if r["old_qualified"] and not r["qualifies"]]
 moved = [r for r in rows if r["moved"]]
-lines = ["=== cmx2 GUARDED universe-fit verdict ===", "",
+lines = [f"=== {PREFIX} GUARDED universe-fit verdict ===", "",
          f"qualifiers: {len(q)}/{len(rows)}  (unguarded campaign: 43/71)",
          f"guard moved S in {len(moved)} cells; RESCUED {len(rescued)} previously-failing cells; "
          f"lost {len(lost)} previous qualifiers", ""]
@@ -62,5 +63,5 @@ for r in rows:
                  f"{r['bo'] if r['bo'] is not None else float('nan'):8.4f} "
                  f"{r['knot'] if r['knot'] is not None else float('nan'):6.2f} "
                  f"{str(r['moved'])[:1]:>5} {r['d_near'] or -1:11.1f} {str(r['qualifies'])[:1]:>5}")
-open("results/figures/centerm/cmx2_verdict.txt", "w").write("\n".join(lines))
+open(f"results/figures/centerm/{PREFIX}_verdict.txt", "w").write("\n".join(lines))
 print("\n".join(lines[:12])); print(f"... full table in cmx2_verdict.txt ({len(rows)} rows)")

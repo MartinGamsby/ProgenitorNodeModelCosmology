@@ -68,7 +68,7 @@
 - [plans/centerm-reconception.md](./plans/centerm-reconception.md) - WS4 DESIGN RATIONALE (IMPLEMENTED): why centerM was repurposed from a softening artifact into an outer-mass multiplier; mechanism now lives in physics/observable-mask-and-outer-mass.md; honest result in pinned-findings PF6
 - [plans/grf-vs-uniform.md](./plans/grf-vs-uniform.md) - WS5: explain the GRF chi2 swing (0.51->1.56 at M=1500/S=30); H1 real / H2 near-runaway / H3 N-noise / H4 GRF-setup, with graphs
 - [plans/particle-convergence.md](./plans/particle-convergence.md) - WS6 (LAST/slowest): high-N Barnes-Hut convergence of chi2/dof+growth+shear/dipole for headline configs
-- [plans/scale-out-gpu-hf.md](./plans/scale-out-gpu-hf.md) - WS7 (FUTURE, not now): Numba-CUDA GPU sweep + HuggingFace dataset results store, triggered only when scripts+numbers are good
+- [plans/scale-out-gpu-hf.md](./plans/scale-out-gpu-hf.md) - WS7 (ACTIVE): SELF-HOSTED GPU compute via force_method="cuda_direct" (cosmo/cuda_direct.py, numba.cuda direct-sum O(N^2), gate-tested == numba_direct ~1e-9 via CUDA simulator; DONE) + HuggingFace as results-store + viz Space ONLY (no HF Jobs; Martin runs his own GPU box). cmx4 20k CPU auto-chain CANCELLED (self-hosted GPU replaces it). HF scaffold in hf/ (push_results.py Dataset push + space/ Gradio viewer + preview.py; Martin does auth/push)
 
 ## Temporary
 - [tmp/](./tmp/) - Session scraps (git-ignored)

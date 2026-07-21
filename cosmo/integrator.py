@@ -207,6 +207,29 @@ class Integrator:
         tree.build_tree(positions, masses_kg)
         return tree.calculate_all_accelerations()
 
+    def calculate_internal_forces_cuda_direct(self) -> np.ndarray:
+        """Internal gravity via the numba.cuda direct-sum O(N^2) GPU kernel.
+
+        Exact pairwise summation on the GPU -- the WS7 scale-out path. Numerically
+        equal to ``numba_direct`` (same softened 1/r^2 math; only hardware +
+        summation order differ, ~1e-13 relative). The tidal / external force stays
+        on the CPU numba path. Raises a clear error if no CUDA backend is present
+        (this is an explicit opt-in method -- no silent CPU fallback).
+
+        Returns accelerations array with shape (N, 3) in m/s^2.
+        """
+        from cosmo.cuda_direct import CudaDirectSolver
+
+        positions = self.particles.get_positions()
+        masses_kg = self.particles.get_masses()
+
+        solver = CudaDirectSolver(
+            softening_m=self.softening_m,
+            G=self.const.G
+        )
+        solver.build_tree(positions, masses_kg)
+        return solver.calculate_all_accelerations()
+
     def calculate_internal_forces_barnes_hut_gpu(self) -> np.ndarray:
         from cosmo.barnes_hut_numba import NumbaBarnesHutGPU
 
@@ -326,6 +349,8 @@ class Integrator:
         # Select internal force method
         if self._active_force_method == 'numba_direct':
             a_internal_mps2 = self.calculate_internal_forces_numba_direct()
+        elif self._active_force_method == 'cuda_direct':
+            a_internal_mps2 = self.calculate_internal_forces_cuda_direct()
         elif self._active_force_method == 'barnes_hut':
             a_internal_mps2 = self.calculate_internal_forces_barnes_hut()
         elif self._active_force_method == 'barnes_hut_gpu':

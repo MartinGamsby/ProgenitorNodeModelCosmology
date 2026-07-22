@@ -17,6 +17,11 @@ from .particles import ParticleSystem, HMEAGrid
 
 is_cuda_available = None
 
+# Peak-memory budget for ONE potential_energy() block (see Integrator.potential_energy).
+# Bounds the transient allocation per PE call so several sims can run in parallel on a
+# modest-RAM box without numpy OOM. Lower it if a many-way parallel sweep still OOMs.
+_PE_BLOCK_BYTES = 64 * 1024 * 1024  # 64 MB
+
 class Integrator:
     """Base class for N-body integration"""
     
@@ -419,8 +424,15 @@ class Integrator:
         soft2 = self.softening_m ** 2
         G = self.const.G
         j_idx = np.arange(N)
-        # Keep each block's working set ~1e7 elements (block*N*3 floats).
-        block = max(1, int(1e7 // max(1, N)))
+        # Bound the PEAK BYTES of one block's temporaries, not just an element count.
+        # Each iteration allocates diff (b,N,3) PLUS ~6 (b,N) arrays (r2, r_soft, mp,
+        # pe, mask, and the pe[mask] copy) => ~ b*N*8*(3+6) bytes. The old
+        # element-only heuristic (1e7//N) ignored both the xyz factor and those
+        # temporaries, under-counting ~9x: at N=24000 it picked b=416 => ~700 MB per
+        # call, which OOMed a 4-way-parallel sweep (numpy _ArrayMemoryError). The PE
+        # VALUE is unchanged (same pairs, same upper-triangle mask) -- only the block
+        # boundaries move, so this is a pure memory fix.
+        block = max(1, int(_PE_BLOCK_BYTES // (max(1, N) * 8 * 9)))
         PE = 0.0
         for i0 in range(0, N, block):
             i1 = min(i0 + block, N)

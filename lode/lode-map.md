@@ -33,6 +33,7 @@
 - [numerics/lcdm-baseline.md](./numerics/lcdm-baseline.md) - ΛCDM baseline computation standardization, reference values, bug fixes
 - [numerics/leapfrog-staggering.md](./numerics/leapfrog-staggering.md) - Velocity staggering, pre-kick fix, initial bump elimination
 - [numerics/expansion-rate-calculation.md](./numerics/expansion-rate-calculation.md) - Hubble parameter H(t) from numerical derivatives, edge artifacts from smoothing, diagnostic tools
+- [numerics/memory-and-parallelism.md](./numerics/memory-and-parallelism.md) - Parallel-sweep concurrency is RAM-bound not core-bound; the potential_energy chunk-size fix (_PE_BLOCK_BYTES, 719MB -> 66MB peak per call at N=24000, PE value unchanged); pool-driver rules (xargs not wait-barrier/wait -n, OK/FAIL logging, guarded verdict)
 
 ## Scripts
 - [scripts/parameter-sweep.md](./scripts/parameter-sweep.md) - The sweep LIBRARY (cosmo/parameter_sweep.py): search algorithms, match metrics, objectives, build_cache_name. sweep.py is the single DRIVER; root parameter_sweep.py + pantheon_knob_sweep.py are DELETED (now JSON configs)

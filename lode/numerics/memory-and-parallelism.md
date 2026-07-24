@@ -44,6 +44,23 @@ Peak is now ~flat in N. **The PE VALUE is unchanged** — same pairs, same
 upper-triangle mask, only block boundaries move (verified vs a dense reference:
 rel diff 1.2e-16). Pure memory fix, no physics change, no cache-key change.
 
+## The PE fix was necessary but NOT sufficient on a RAM-starved box
+
+`_PE_BLOCK_BYTES` removed the 719 MB PE spikes, but the cmx3 campaign still OOMed
+~6 heavy cells (centerM 300/1000/3000 = 24000 particles) at POOL=4 — this time in
+`barnes_hut_numba.build_octree` (`MemoryError: Allocation failed`). The octree
+itself is only ~25 MB (`max_nodes = N*10` = 240k nodes at 24k particles), so the
+allocation is not intrinsically large: it fails because the SYSTEM is out of RAM at
+that instant. This machine has 32 GB but ~26 GB is held by other apps => only
+~6 GB free, and **measured per-sim working set is ~1.3–1.4 GB for a 24k-particle
+cell, growing over the run** (accumulated snapshots). 4 concurrent heavy cells
+(~5 GB peak) against ~6 GB free intermittently tips over.
+
+CONCLUSION: on THIS box, POOL=3 (~4 GB peak, headroom under ~6 GB free) is the safe
+ceiling for the 24k-particle tier; POOL=2 for retries. Closing other apps (freeing
+RAM) or the new 20-core/higher-RAM box would lift this — the constraint is free RAM,
+full stop. This is NOT a code bug; nothing is lost (failed cells are retryable).
+
 ## Pool driver rules (learned the hard way on the cmx3 campaign)
 
 - **Never a `wait`-barrier batch.** The original `cmx3_driver.sh` launched 4 then
@@ -60,5 +77,9 @@ rel diff 1.2e-16). Pure memory fix, no physics change, no cache-key change.
   substring (e.g. `cmx3_pool`) also match the *agent's own shell*, which runs that
   string in its command line. Match the exact script path and exclude `$$`/`$PPID`.
 
-Current cmx3 driver: `results/logs/cmx3_pool_driver.sh` (xargs pool, default 4 ==
-physical cores on the i7-7700, resumable, OK/FAIL logging, guarded verdict).
+Current cmx3 driver: `results/logs/cmx3_pool_driver.sh` (gitignored) — SELF-HEALING
+xargs pool: default POOL=3 pass 1, RETRY_POOL=2 for up to MAX_PASSES=5 passes,
+recomputing any cell that lacks a data row each pass; resumable; OK/FAIL logging;
+writes the verdict + `cmx3_done.txt` ONLY when all 72 cells have data, else logs
+`INCOMPLETE` with the still-failing cells. Relaunch idempotently:
+`nohup bash results/logs/cmx3_pool_driver.sh 3 2 5 &`.

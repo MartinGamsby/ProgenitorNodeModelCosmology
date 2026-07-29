@@ -922,3 +922,50 @@ the budget correctly refused to hide a bad cell), cm2/s5 (the S=160 co-fit bound
 two PF26 candidates have). CONSEQUENCE: s_knot_guard should be ON in every future pantheon
 co-fit config; the model's (centerM × seed) space is BROADLY universe-like once S is selected
 jointly — the paper's multiplicity statement at full strength.
+
+## PF28 — N-STABILITY (cmx3, 8000p): the guarded universe-fit verdict is N-stable 2k→8k (69→68/72); only the LOW-centerM knot boundary moves
+
+The high-N re-run of the full guarded campaign at **8000 particles / 1092 steps** (same 72 axes —
+centerM {1,2,3,10,30,100,300,1000,3000} × seeds {0,1,2,3,5,7,9,11}, medium/σ0.5/grfmass/M3000,
+ternary S co-fit + s_knot_guard; results/figures/centerm/cmx3_verdict.{csv,txt}). Ran on the
+memory-marginal i7-7700 box via the self-healing pool driver (see
+[../numerics/memory-and-parallelism.md](../numerics/memory-and-parallelism.md)) — the PE fix +
+POOL≤3 + PASS-2 retry at POOL=2 got all 72 cells to real data before the verdict was written.
+
+HEADLINE — the composite universe-fit conclusion is CONVERGED in N:
+- **68/72 qualify at 8000p vs 69/72 at 2000p (cmx2).** The guarded grid stays ~universally
+  universe-like at 4× the particles — PF27's multiplicity statement holds at 8k. Guard moved S in
+  27 cells, rescued 26, lost 1 (cmx2: 25 / 26 / 0).
+- **Only 3 of 72 cells flip qualification 2k→8k, all at the KNOT boundary:**
+  * cm3/s9: fail→**qualify** (rescued: knot 1.07→0.91, fit 0.4608→0.4420 — the cmx2 "bad fit"
+    non-qualifier now passes at 8k).
+  * cm10/s0: qualify→**fail** (knot 0.94→**0.74** — a central collapse the 2k grid missed).
+  * cm10/s3: qualify→**fail** (knot 1.48→**0.43** — strong collapse at 8k).
+- **N-COUPLING (the honest caveat): the central knot at LOW centerM (cm10) + low S sharpens with
+  resolution** — higher N resolves a collapse that 2000p smoothed over. HEAVY centerM (100–3000)
+  knots stay ≥0.9 and robust (consistent with PF25: cM=M_value=3000 is the seed-robust near-static
+  regime). So "low centerM is knot-fragile" is an N-effect to state, not hide; the heavy-progenitor
+  paper candidates are unaffected.
+
+FIT FLOOR (report with care):
+- 8k qualifier best_obs clusters **~0.433–0.435** (min 0.4331 cm2/s9), median 0.4350; **47/68
+  qualifiers sit ≤ LCDM 0.436** — vs 2k min 0.4379 / median 0.4423 / 0 below LCDM.
+- **DO NOT claim "beats LCDM at 8k."** best-observer ABSOLUTE values are NOT directly comparable
+  across N (observer-sampling: PF26 saw 16k read ~+0.005 ABOVE the 2k CSV; here 8k reads ~−0.009
+  BELOW — opposite sign ⇒ methodology noise, not a monotone physical trend). The ROBUST, N-stable
+  claim is the QUALIFICATION (composite criterion), which barely moves (69→68). The fit stays
+  LCDM-quality; the exact sub-LCDM count is resolution/observer-sample-dependent.
+
+S CO-FIT is N-stable: median S shift 8k−2k = **+1.0 Gpc** (mean −1.1) across all 72 — no
+systematic drift (an early 3-cell "+10–12 Gpc" read was not representative). Persistent
+non-qualifiers at BOTH resolutions: cm100/s2 (runaway, best_obs nan, nearest HMEA 17.1 Gpc — the
+one genuinely bad cell) and cm2/s5 (S=160 co-fit boundary, fit 0.4955). Leaderboard top at 8k:
+cm2/s9/S73 (0.4331), cm100/s11/S154 (0.4332), cm1000/s0/S56 (0.4333) — all knot≥0.9, nearest
+HMEA 70–90 Gpc.
+
+LADDER STATUS (2k→8k pinned): the verdict is stable and the paper multiplicity claim survives 8k.
+The **20k rung is the first SELF-HOSTED-GPU job** (was cmx4, CPU chain cancelled — PF-WS7 /
+[scale-out-gpu-hf.md](./scale-out-gpu-hf.md)): its purpose is to confirm the ladder top and watch
+whether the cm10 low-S knot collapse keeps sharpening or stabilizes past 8k. Nothing in the 2k→8k
+step argues against the model; it argues the knot is a real, N-resolved structure feature at low
+centerM, exactly where PF22–PF25 said the physics lives.

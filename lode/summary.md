@@ -54,3 +54,12 @@ the chi2-only co-fit sometimes prefers a knot-forming small S; a joint fit+knot 
 seed-ROBUST near-static regime. PAPER-CLOUD CANDIDATE (converged 4k->16k particles): medium +
 sigma0.5 + grfmass + M3000 + centerM3000 + seed0 + S=89 Gpc -> best_obs 0.440, growth ~3.1, knot
 ~static (1.04-1.17), core ~0.13. See lode/plans/pinned-findings.md PF21-PF25.
+
+N-STABILITY (PF28, cmx3 @8000p): the GUARDED universe-fit verdict is converged in N — 68/72
+qualify at 8k vs 69/72 at 2k (cmx2); only 3 cells flip, all at the knot boundary (cm3/s9 rescued;
+cm10/s0 & cm10/s3 drop out as their low-centerM/low-S central knot COLLAPSES at higher resolution
+— the knot is a real, N-resolved structure feature at low centerM, heavy-progenitor candidates
+unaffected). Fit stays LCDM-quality (best_obs floor ~0.433 at 8k); absolute best-observer values
+are not directly comparable across N (observer-sampling noise), so the robust claim is the
+qualification stability, not a sub-LCDM count. The 20k rung is the first self-hosted-GPU job
+(force_method=cuda_direct; cmx4 CPU chain cancelled). See lode/plans/scale-out-gpu-hf.md.

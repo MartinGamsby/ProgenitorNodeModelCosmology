@@ -14,9 +14,20 @@ Replace dark energy (Λ) with classical tidal forces from trans-observable Hyper
 
 ## Physical Model
 
-**Virialized Meta-Structure**: Crystal-lattice-like arrangement of HMEA nodes beyond observable universe. Stable, gravitationally balanced (like relaxed galaxy cluster), irregular in detail. HMEAs described as ancient black holes far older than 13.8 Gyr (possibly quadrillions of years).
+**Virialized Meta-Structure**: arrangement of HMEA nodes beyond the observable universe.
+UPDATED 2026-07-29 to match PF21: sec:grid now defines "virialized" as VIRIAL EQUILIBRIUM
+(2K/|U|≈1, supported by velocity dispersion — members orbit) realized as an INFINITE periodic
+self-gravitating MEDIUM, NOT a static force-balanced lattice. The paper explicitly records the
+correction (the old lattice's centre force-balance was an artifact of over-massing the central
+site; the physical progenitor is far lighter and cannot cancel the field). The ordered lattice
+is KEPT only as the analytic idealization in sec:tidal. HMEAs = ancient black holes far older
+than 13.8 Gyr.
 
-**Progenitor Hypothesis** (sec:progenitor): Big Bang = destabilization of a node in this meta-structure. Pre-existing equilibrium explains isotropy without fine-tuning. Introduction forward-references this.
+**Progenitor Hypothesis** (sec:progenitor): Big Bang = destabilization of a node in this
+meta-structure. Pre-existing equilibrium explains isotropy without fine-tuning. NEW paragraph
+"One mass, two epochs" (PF24): M_prog is ONE parameter acting in BOTH epochs — pre-BB it is the
+mass of a medium member, post-BB it is the observable universe + the matter beyond the horizon.
+Theoretically distinguished value M_prog = M_ext (progenitor = a TYPICAL node).
 
 **Tidal Acceleration** (sec:tidal): Expanding universe climbs potential gradient of nearest HMEA. Only the closest node matters (virialized equilibrium cancels at center; nearest dominates via 1/d³ scaling; edge nodes ~35%, corner ~19% contribution vs face). Single-node derivation is conservative—adding nodes would increase tidal force, predicting smaller M or S. Linear scaling: a_tidal ≈ (2 G M_ext / S³) × R. Mathematically equivalent to Λ term: H₀² Ω_Λ R. N-body sim uses all 26 nodes.
 
@@ -158,7 +169,45 @@ Hubble Tension discussed as potential consequence of directional dipole: CMB is 
 Numerical robustness paragraph covers seed variation, particle count convergence, resolution threshold.
 w_eff formula clarified as total effective equation of state (not DE component alone).
 
+## Universe-like criterion + centerM arc (sec:universe-like, ADDED 2026-07-29)
+
+New §4.7 "Beyond the Hubble diagram: which configurations are universe-like?" carries the
+PF25/PF26/PF27/PF28 arc:
+- **Composite criterion** (4 gates): best-obs chi2/dof <= 0.46 + growth anchor (±20%) + core
+  trace >= 0.9 (no collapsing Gpc core) + no HMEA within ~14 Gpc. Motivated by the honest
+  finding that chi2-alone can ACTIVELY pick a knot-forming config.
+- **Knot is real physics** (PF22): unchanged under exact direct summation (no tree) and across
+  IC realizations — stated in the paper.
+- **Progenitor-mass scan**: paper states the NEGATIVE honestly — NO clean transition in
+  centerM (collapsing + expanding coexist at intermediate masses; single-seed scans overstate).
+  Positive claim is narrow: at M_prog = M_ext the seeds cluster tightest (0.90–1.07).
+  MECHANISM CAVEAT stated: the direct lever is S, not centerM (larger fixed S un-collapses at
+  ~0.01–0.03 chi2 cost) — which is WHY S is co-selected on fit + core stability.
+- **Multiplicity** (tab:universe-like): 43/71 (chi2-alone) -> 69/72 (joint, 2k) -> **68/72
+  (joint, 8k)**.
+- **Resolution stability** (PF28): 3 cells flip; 2 low-centerM cores resolve as genuinely
+  collapsing at 8k; median S shift 1 Gpc. Explicit warning NOT to compare absolute best-observer
+  values across N (±0.005–0.01, BOTH directions) — the robust claim is QUALIFICATION.
+
+Figures added: fig8_centerm_knot.png (= results/figures/centerm/cmx_transition.png, 2-panel:
+knot trace + core concentration) and fig9_universe_candidates.png (=
+best_compare_v3/final_clouds_compare.png, 3-panel: two candidates + full-extent outer-mass view
+where dot area ~ particle mass). CAPTIONS WERE WRITTEN AGAINST THE ACTUAL IMAGES (a first draft
+overstated a clean centerM trend the figure does not show — always view the PNG before
+captioning).
+
 ## Section Structure (current)
-Sec 1: Introduction. Sec 2: Physical Model (Grid Topology, Progenitor Hypothesis). Sec 3: Dynamics (Tidal Acceleration, Estimation). Sec 4: Numerical Validation (Framework, Results, Tradeoffs, Matter-Only). Sec 5: Scope and Limitations (flat—no subsections, limitations only). Sec 6: Predictions (Phantom, Dipole, Axis of Evil, Dark Flow). Sec 7: Observational Consistency ("Dark Giant"). Sec 8: Great Metabolism (speculative, explicitly labeled). Sec 9: Conclusion.
+Sec 1: Introduction. Sec 2: Physical Model (Grid Topology + "what virialized must mean"
+correction, Progenitor Hypothesis + "one mass, two epochs"). Sec 3: Dynamics (Tidal
+Acceleration, Traceless Tides, Estimation). Sec 4: Numerical Validation (Framework, Results,
+Tradeoffs, Matter-Only, sec:from-data Pantheon+, sec:hires high-resolution/best-observer,
+**sec:universe-like** composite criterion + centerM + N-stability). Sec 5: Scope and
+Limitations. Sec 6: Predictions (Phantom, Dipole, Axis of Evil, Dark Flow). Sec 7:
+Observational Consistency ("Dark Giant"). Sec 8: Great Metabolism (speculative). Sec 9:
+Conclusion (now also carries the universe-like multiplicity + typical-node convergence).
+
+Validation helper: no pdflatex on this box — check structure with a script that verifies
+\ref/\cite resolve, \label uniqueness, includegraphics targets EXIST in docs/, environment
+balance, brace balance (all clean as of 2026-07-29, 602 lines).
 
 Removed in prior trims: Fossil Black Holes, Physical Interpretation subsection, "What the Model Addresses" subsection (redundant with results). Philosophical Stance collapsed to 2 sentences. Quantitative Agreement paragraph condensed—tables carry the data.

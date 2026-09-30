@@ -872,6 +872,17 @@ def _build_result_dict(
     }
 
 
+def vir_seed_reshapes_grid(node_geometry: str, vir_relax_mode: str,
+                           vir_mass_rule: str, vir_mass_spread: float) -> bool:
+    """True when node_mass_seed changes the virialized node grid itself, with both
+    anisotropy amplitudes at 0: the massfunc log-normal mass draw (spread > 0), and
+    every "medium" relaxation (its random start positions/velocities are seeded even
+    at spread 0). Single rule for the cache key (virseed) and sweep.expand_grid."""
+    if node_geometry != "virialized":
+        return False
+    return vir_relax_mode == "medium" or (vir_mass_rule == "massfunc" and vir_mass_spread > 0.0)
+
+
 def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
     """Build the metrics/results cache slug for a single sweep configuration.
 
@@ -954,23 +965,16 @@ def build_cache_name(config, M_factor, S_val, centerM, seeds) -> str:
         parts.append(f"{getattr(config, 'vir_segregation', 1.0)}vsg")
         parts.append(f"{getattr(config, 'vir_s_metric', 'median')}vsm")
         parts.append(f"{getattr(config, 'vir_relax_steps', 1)}vrx")
-        # Geometry-seed slug (B3a bug fix): for the virialized massfunc rule with a
-        # NON-ZERO mass spread, node_mass_seed drives the log-normal mass draw AND the
-        # segregation permutation (cosmo/node_geometry.py:583-586), so the seed
-        # MATERIALLY changes the realized grid -> two seeds MUST get distinct cache
-        # keys. Before this fix the seed only entered the key when an anisotropy
-        # amplitude was non-zero (node_mass_amplitude/node_s_amplitude), so amp=0
-        # virialized runs that differed ONLY by seed COLLIDED on one cache entry and
-        # silently returned the same a(t) (run-but-not-keyed inversion). Gated tightly
-        # so the radial rule (deterministic, no RNG) and spread==0 (raw_masses=ones,
-        # no RNG) keys stay BYTE-IDENTICAL -> no existing key changes, no
-        # PHYSICS_CACHE_VERSION bump. Suffix is purely alphabetic ("virseed") so
-        # cache._split_key round-trips it. The value keyed here is the SAME
-        # node_mass_seed threaded into SimulationParameters and forwarded to
-        # build_virialized_grid (keyed == run).
-        vir_mass_rule = getattr(config, 'vir_mass_rule', 'radial')
-        vir_mass_spread = getattr(config, 'vir_mass_spread', 0.0)
-        if vir_mass_rule == "massfunc" and vir_mass_spread > 0.0:
+        # Geometry-seed slug: whenever node_mass_seed reshapes the grid itself (see
+        # vir_seed_reshapes_grid), two seeds MUST get distinct keys, or amp=0 runs that
+        # differ only by seed collide and silently share one a(t). Deterministic
+        # layouts (lattice/gradient with the radial rule or spread 0) keep keys without
+        # the token. Suffix is purely alphabetic ("virseed") so cache._split_key
+        # round-trips it; the value is the node_mass_seed the grid is built with.
+        if vir_seed_reshapes_grid(node_geometry,
+                                  getattr(config, 'vir_relax_mode', 'lattice'),
+                                  getattr(config, 'vir_mass_rule', 'radial'),
+                                  getattr(config, 'vir_mass_spread', 0.0)):
             parts.append(f"{node_mass_seed}virseed")
         # Extent->node-count coupling slug (item 10): append ONLY when the coupling
         # is ON (and only for virialized), so default virialized runs keep their

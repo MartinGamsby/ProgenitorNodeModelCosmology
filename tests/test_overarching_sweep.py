@@ -426,21 +426,46 @@ class TestVirializedSeedAxis(unittest.TestCase):
     # ---- build_cache_name ----
 
     def _key(self, nm_seed, *, geometry="virialized", vir_mass_rule="massfunc",
-             vir_mass_spread=0.8):
+             vir_mass_spread=0.8, vir_relax_mode="lattice", node_s_amplitude=0.0):
         sweep_cfg = _FixedSweepConfig(
             particle_count=400, n_steps=273,
             t_start_Gyr=2.9, t_duration_Gyr=10.9,
             objective="pantheon", s_min_gpc=20, s_max_gpc=80,
             node_mass_seed=nm_seed,
             node_mass_amplitude=0.0,   # the bug case: anisotropy OFF
-            node_s_amplitude=0.0,
+            node_s_amplitude=node_s_amplitude,
             init_distribution="uniform_sphere",
             node_geometry=geometry,
             vir_n_nodes=80,
             vir_mass_rule=vir_mass_rule,
             vir_mass_spread=vir_mass_spread,
+            vir_relax_mode=vir_relax_mode,
         )
         return build_cache_name(sweep_cfg, 100, 30, 1, [42])
+
+    def test_medium_keys_distinct_per_seed_at_radial_spread_zero(self):
+        """The medium relaxation is seeded even with uniform masses, so medium runs
+        differing only by seed must never share a cache entry."""
+        for rule, spread in (("radial", 0.8), ("massfunc", 0.0), ("radial", 0.0)):
+            k42 = self._key(42, vir_relax_mode="medium", vir_mass_rule=rule,
+                            vir_mass_spread=spread)
+            k7 = self._key(7, vir_relax_mode="medium", vir_mass_rule=rule,
+                           vir_mass_spread=spread)
+            self.assertNotEqual(k42, k7, f"medium {rule}/spread={spread} seeds collide")
+            self.assertIn("42virseed", k42)
+
+    def test_medium_relaxation_depends_on_seed_at_spread_zero(self):
+        """The run half of keyed==run: sigma=0 still gives a seed-dependent structure."""
+        from cosmo.virialized_medium import relax_virialized_medium
+        a = relax_virialized_medium(n_nodes=8, sigma=0.0, seed=0, n_steps=3)
+        b = relax_virialized_medium(n_nodes=8, sigma=0.0, seed=1, n_steps=3)
+        self.assertTrue(np.array_equal(a["mass"], b["mass"]))
+        self.assertFalse(np.allclose(a["pos"], b["pos"]))
+
+    def test_node_s_amplitude_keys_distinct_per_seed(self):
+        """Radial node offsets are drawn from node_mass_seed (keyed via nmseed)."""
+        self.assertNotEqual(self._key(42, geometry="cube26", node_s_amplitude=0.3),
+                            self._key(7, geometry="cube26", node_s_amplitude=0.3))
 
     def test_virialized_massfunc_spread_distinct_keys_per_seed(self):
         """THE BUG: two virialized massfunc (spread>0) runs differing ONLY by
@@ -499,6 +524,27 @@ class TestVirializedSeedAxis(unittest.TestCase):
         cells = expand_grid(cfg)
         self.assertEqual(len(cells), 3)
         self.assertEqual({c["nm_seed"] for c in cells}, {42, 7, 123})
+
+    def test_expand_grid_emits_one_cell_per_seed_medium_spread_zero(self):
+        """A medium relaxation is seeded even at spread 0 -> one cell per seed."""
+        cfg = self._cfg(
+            M_values=[100], node_mass_amplitudes=[0.0],
+            node_mass_seeds=[42, 7, 123], node_s_amplitudes=[0.0],
+            init_distributions=["uniform_sphere"],
+            node_geometries=["virialized"], vir_relax_mode="medium",
+            vir_mass_rule="radial", vir_mass_spread=0.0,
+        )
+        self.assertEqual({c["nm_seed"] for c in expand_grid(cfg)}, {42, 7, 123})
+
+    def test_expand_grid_emits_one_cell_per_seed_node_s_amplitude(self):
+        """node_s_amplitude>0 draws radial node offsets from the seed, so amp=0 must not
+        collapse the requested seeds to 42 (it silently ran one realization)."""
+        cfg = self._cfg(
+            M_values=[100], node_mass_amplitudes=[0.0],
+            node_mass_seeds=[42, 7, 123], node_s_amplitudes=[0.3],
+            init_distributions=["uniform_sphere"], node_geometries=["cube26"],
+        )
+        self.assertEqual({c["nm_seed"] for c in expand_grid(cfg)}, {42, 7, 123})
 
     def test_expand_grid_collapses_radial_to_one_seed(self):
         """No-op: radial rule still collapses to a single seed=42 cell at amp=0."""

@@ -15,8 +15,6 @@ except ImportError:
 from .constants import CosmologicalConstants, LambdaCDMParameters
 from .particles import ParticleSystem, HMEAGrid
 
-is_cuda_available = None
-
 # Peak-memory budget for ONE potential_energy() block (see Integrator.potential_energy).
 # Bounds the transient allocation per PE call so several sims can run in parallel on a
 # modest-RAM box without numpy OOM. Lower it if a many-way parallel sweep still OOMs.
@@ -37,8 +35,10 @@ class Integrator:
         particles (fewer particles) have larger softening for stability.
 
         Args:
-            force_method: 'auto' (uses numba_direct for N>=100), 'direct' for NumPy O(N²),
-                          'numba_direct' for Numba JIT O(N²), or 'barnes_hut' for real O(N log N) octree
+            force_method: 'auto' (barnes_hut for N>=1000, numba_direct for N>=100, direct
+                          otherwise), 'direct' for NumPy O(N²), 'numba_direct' for Numba JIT
+                          O(N²), 'barnes_hut' for real O(N log N) octree, or 'cuda_direct'
+                          for the GPU direct sum (explicit opt-in only)
             barnes_hut_theta: Opening angle for Barnes-Hut (0.3-0.7 typical)
             use_hubble_drag: Apply Hubble drag a_drag = -2H(a)v for matter-only sims
             node_substep_threshold: Adaptive KDK sub-stepping trigger (Section 4),
@@ -68,26 +68,14 @@ class Integrator:
         self.node_substeps = int(max(1, node_substeps))
         self._node_substep_ref_m = self._compute_node_substep_ref_m()
 
+        # Total acceleration at the end of the last KDK step, reused to start the
+        # next one (see _total_forces_at_current_state).
+        self._force_cache = None
+
         # Determine actual method to use
         N = len(particle_system.particles)
         if force_method == 'auto':
-            if N >= 10000:
-                global is_cuda_available
-                if is_cuda_available == None:
-                    from numba import cuda
-                    is_cuda_available = cuda.is_available()
-                
-                    if is_cuda_available:
-                        print("GPU is supported and ready!")
-                        print(cuda.detect())
-                    else:
-                        print("CUDA GPU not found or drivers are missing.")
-                
-                if is_cuda_available:
-                    self._active_force_method = 'barnes_hut_gpu'
-                else:
-                    self._active_force_method = 'barnes_hut'
-            elif N >= 1000:
+            if N >= 1000:
                 self._active_force_method = 'barnes_hut'
             elif N >= 100:
                 self._active_force_method = 'numba_direct'
@@ -235,23 +223,6 @@ class Integrator:
         solver.build_tree(positions, masses_kg)
         return solver.calculate_all_accelerations()
 
-    def calculate_internal_forces_barnes_hut_gpu(self) -> np.ndarray:
-        from cosmo.barnes_hut_numba import NumbaBarnesHutGPU
-
-        positions = self.particles.get_positions()
-        masses_kg = self.particles.get_masses()
-
-        tree = NumbaBarnesHutGPU(
-            theta=self.barnes_hut_theta,
-            softening_m=self.softening_m,
-            G=self.const.G
-        )
-        result = tree.calculate(positions, masses_kg)
-        if result:
-            return result
-        # Fallback to CPU for Barnes Hut
-        return self.calculate_internal_forces_barnes_hut()
-
     def calculate_external_forces(self) -> np.ndarray:
         """
         Calculate tidal forces from external HMEA nodes.
@@ -358,8 +329,6 @@ class Integrator:
             a_internal_mps2 = self.calculate_internal_forces_cuda_direct()
         elif self._active_force_method == 'barnes_hut':
             a_internal_mps2 = self.calculate_internal_forces_barnes_hut()
-        elif self._active_force_method == 'barnes_hut_gpu':
-            a_internal_mps2 = self.calculate_internal_forces_barnes_hut()# TO TEST: calculate_internal_forces_barnes_hut_gpu()
         else:
             a_internal_mps2 = self.calculate_internal_forces()
 
@@ -453,21 +422,36 @@ class LeapfrogIntegrator(Integrator):
     Second-order symplectic integrator, conserves energy well
     """
     
+    def _total_forces_at_current_state(self) -> np.ndarray:
+        """Total acceleration at the current positions, computed at most once per state.
+
+        KDK needs a(x_n) to open step n, which is exactly the a(x_n) that closed step
+        n-1: positions do not change in between (only velocities, via the kick and the
+        optional drag). Reusing it halves the force evaluations with bit-identical
+        results. The reuse is keyed on the positions themselves plus the force switches,
+        so anything that resets positions (e.g. the legacy velocity calibration) or
+        toggles the nodes between steps falls back to a fresh evaluation.
+        """
+        positions = self.particles.get_positions()
+        switches = (self.use_external_nodes, self.use_dark_energy, id(self.hmea_grid))
+        cached = self._force_cache
+        if cached is not None and cached[0] == switches and np.array_equal(cached[1], positions):
+            return cached[2]
+        a_total = self.calculate_total_forces()
+        self._force_cache = (switches, positions, a_total)
+        return a_total
+
     def _kdk(self, dt_s: float) -> None:
         """One bare kick-drift-kick leapfrog update (no drag, no time bump)."""
-        a_total = self.calculate_total_forces()
-
-        # Kick (half step)
-        self.particles.set_accelerations(a_total)
+        # Kick (half step) with a(x_n), normally reused from the previous step's closing kick.
+        self.particles.set_accelerations(self._total_forces_at_current_state())
         self.particles.update_velocities(dt_s / 2)
 
         # Drift (full step)
         self.particles.update_positions(dt_s)
 
-        # Kick (half step)
-        a_total = self.calculate_total_forces()
-
-        self.particles.set_accelerations(a_total)
+        # Kick (half step) with a(x_{n+1}), kept for the next step's opening kick.
+        self.particles.set_accelerations(self._total_forces_at_current_state())
         self.particles.update_velocities(dt_s / 2)
 
     def step(self, dt_s: float) -> None:
@@ -511,7 +495,7 @@ class LeapfrogIntegrator(Integrator):
         print(f"  Total steps = {n_steps}")
         print(f"  Save interval = {save_interval}")
 
-        # Initial snapshot (after pre-kick, velocities now at t=-dt/2)
+        # Initial snapshot (KDK keeps positions and velocities synchronous at step boundaries)
         snapshots.append(self._save_snapshot())
 
         n_particles = self.particles.n_particles

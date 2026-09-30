@@ -1,7 +1,17 @@
 # Memory budget & sweep parallelism
 
-Back to [lode-map](../lode-map.md). Related: [timestep-stability](./timestep-stability.md),
-[parameter-sweep](../scripts/parameter-sweep.md).
+Back to [lode-map](../lode-map.md). Related: [integration](../physics/integration.md),
+[sweep](../scripts/sweep.md).
+
+```mermaid
+graph LR
+    POOL[xargs -P N sweep.py workers] --> RAM{free RAM >= N x peak?}
+    RAM -->|yes| OK[cells write data rows]
+    RAM -->|no| OOM[ArrayMemoryError / octree MemoryError]
+    OOM --> RETRY[self-healing pass at smaller POOL]
+    RETRY --> OK
+    OK --> VERDICT[verdict only when EVERY cell has data]
+```
 
 ## The binding constraint on a parallel sweep is RAM, not cores
 
@@ -11,7 +21,7 @@ and die with `numpy._core._exceptions._ArrayMemoryError`. Size a pool against PE
 transient memory per sim, never steady-state working set (a 24k-particle cell sits at
 ~270 MB but SPIKES far higher).
 
-## `Integrator.potential_energy` was the spike (FIXED)
+## `Integrator.potential_energy` is budgeted by bytes
 
 PE is a diagnostic (energy-conservation history, sampled ~10x/run at N<=20000, ~5x
 above — see `evolve`). It is chunked to avoid the full (N,N,3) array, but the block

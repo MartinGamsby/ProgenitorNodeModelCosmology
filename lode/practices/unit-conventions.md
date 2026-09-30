@@ -1,149 +1,44 @@
-# Unit Naming Conventions
+# Unit conventions
 
-SI units (meters, seconds, kilograms) used internally. Variable names include explicit unit suffixes for clarity and safety.
+SI inside (m, s, kg, s⁻¹, m/s²); Gpc and Gyr only at I/O boundaries (CLI, configs, CSV, plots).
+Variable names carry the unit: `_m`, `_s`, `_kg`, `_si` (rates in s⁻¹), `_mps2`, and
+`_Gpc` / `_Gyr` / `_Mpc` for user-facing values. Distances in chat, figures and tables are
+ABSOLUTE Gpc (never "0.8 S" ratios). Where the constants live: `cosmo/constants.py`.
 
-## Suffixes
-
-**Distance**:
-- `_m`: meters (r_m, diameter_m, rms_radius_m, softening_m, separation_m)
-- `_Gpc`: Gigaparsecs (user-facing only, converted at I/O boundaries)
-
-**Time**:
-- `_s`: seconds (time_s, dt_s, t_start_s, t_end_s, age_s)
-- `_Gyr`: Gigayears (user-facing only, converted at I/O boundaries)
-
-**Mass**:
-- `_kg`: kilograms (mass_kg, M_observable_kg, M_ext_kg, total_mass_kg, m_particle_kg)
-
-**Rate**:
-- `_si`: Hubble parameter in s^-1 (H0_si, H_si, hubble_rate_si)
-
-**Acceleration**:
-- `_mps2`: m/s² (a_internal_mps2, a_external_mps2, a_tidal_mps2, acc_mps2)
-
-## Critical: Radius vs Diameter
-
-**IMPORTANT DISTINCTION**:
-- `rms_radius_m`: RMS distance from center of mass = sqrt(mean(r²))
-- `diameter_m`: Full width = 2 × rms_radius_m
-
-**Expansion history semantics**:
-```python
-expansion_history = {
-    'time_s': [...],          # Time in seconds
-    'diameter_m': [...],      # DIAMETER (2×RMS), not radius!
-    'scale_factor': [...]     # a(t) / a(t_start)
-}
+```mermaid
+graph LR
+    IN[config / CLI: S_value Gpc, t_start_Gyr, M_value x M_obs] --> SP[SimulationParameters._calculate_derived]
+    SP --> SI[S m, M_ext_kg, softening m, seconds]
+    SI --> OUT[expansion_history diameter_m -> diameter_Gpc, time_Gyr]
 ```
 
-**Why diameter?** Observable universe size is conventionally reported as diameter (e.g., "28 Gpc observable universe"). Storing diameter directly matches user expectations and avoids factor-of-2 confusion in comparisons.
+## Constants actually used
+| name | value | note |
+|---|---|---|
+| `CosmologicalConstants.Gpc_to_m` | 3.0857e25 | `Mpc_to_m` 3.0857e22 |
+| `CosmologicalConstants.Gyr_to_s` | 3.1536e16 | **365-day year** |
+| inline `1e9 * 365.25 * 24 * 3600` | 3.15576e16 | Julian year: integrator clock, `time_Gyr`, analysis |
+| `M_observable_kg` | 1e53 | M_value and centerM are in these units |
+| H0 | 70 km/s/Mpc → `LambdaCDMParameters.H0_si` | Ω_m 0.3, Ω_Λ 0.7 |
 
-**Internal calculations** use `rms_radius_m` for physics (e.g., force calculations, energy), but convert to `diameter_m` for storage/output.
+## Known inconsistency (open decision, not fixed)
+Two year lengths coexist: `Gyr_to_s` (365 d) feeds `H_eds_at_time`, the pre-start boost and
+`sim_distance`, while the integrator clock and `time_Gyr` use 365.25 d. Effects: the EdS start
+time is read ~0.07% short (growth +~0.03%, inside the PF1 tolerance); μ(z) gets a constant
+0.0015 mag offset that `fit_offset` absorbs. A fix changes every cached a(t) ⇒ needs a
+`PHYSICS_CACHE_VERSION` bump; fold it into the next physics change.
 
-## Examples
+## Radius vs diameter
+- `rms_radius_m` = sqrt(mean r²) about the (masked) COM; `diameter_m` = 2 × rms_radius_m.
+- `box_size` (e.g. `box_size_Gpc`, `box_size_m`) is a DIAMETER: the inner cloud's RMS radius is
+  box/2 and its sphere radius (box/2)/√(3/5).
+- `expansion_history[i]["scale_factor"]` = rms(t)/rms(0) (starts at 1, NOT the cosmological a).
 
-**Factory functions**:
 ```python
-def create_default_external_node_model(
-    total_mass_kg: float,
-    lattice_spacing_m: float,
-    t_start_s: float,
-    t_end_s: float,
-    dt_s: float
-) -> dict:
-    ...
+from cosmo.constants import CosmologicalConstants as C
+S_m = S_Gpc * C.Gpc_to_m                        # boundary conversion, then SI inside
+t_Gyr = snap["time_s"] / (1e9 * 365.25 * 24 * 3600)   # relative to t_start
 ```
 
-**Force calculations**:
-```python
-def calculate_internal_forces(
-    positions_m: np.ndarray,
-    masses_kg: np.ndarray,
-    softening_m: float
-) -> np.ndarray:  # Returns accelerations in m/s²
-    ...
-```
-
-**Integration**:
-```python
-def evolve(self, dt_s: float) -> None:
-    # Leapfrog kick-drift-kick
-    a_internal_mps2 = self.calculate_internal_forces()
-    a_external_mps2 = self.calculate_external_forces()
-    a_total_mps2 = a_internal_mps2 + a_external_mps2
-    ...
-```
-
-**Analysis**:
-```python
-def compute_expansion_metrics(particles: ParticleCollection) -> dict:
-    positions_m = particles.get_positions()
-    rms_radius_m = compute_rms_radius(positions_m)
-    diameter_m = 2.0 * rms_radius_m
-
-    return {
-        'rms_radius_m': rms_radius_m,
-        'diameter_m': diameter_m,  # Stored for history
-        'com_m': compute_center_of_mass(particles)
-    }
-```
-
-## Conversion Constants
-
-Defined in `cosmo/constants.py`:
-```python
-# Distance
-GPC_TO_METERS = 3.0857e25        # 1 Gpc = 3.0857e25 m
-METERS_TO_GPC = 1 / GPC_TO_METERS
-
-# Time
-GYR_TO_SECONDS = 3.15576e16      # 1 Gyr = 3.15576e16 s
-SECONDS_TO_GYR = 1 / GYR_TO_SECONDS
-
-# Hubble
-H0_KM_S_MPC = 70.0               # User-facing: 70 km/s/Mpc
-H0_SI = 2.268e-18                # Internal: s^-1
-```
-
-**I/O boundary pattern**:
-```python
-# User provides Gpc/Gyr, convert to SI immediately
-lattice_spacing_m = lattice_spacing_Gpc * GPC_TO_METERS
-t_end_s = t_end_Gyr * GYR_TO_SECONDS
-
-# Internal calculations use SI
-expansion_history = run_simulation(t_end_s, dt_s, ...)
-
-# Output converts back to user-facing units
-diameter_Gpc = expansion_history['diameter_m'] * METERS_TO_GPC
-print(f"Final size: {diameter_Gpc:.2f} Gpc")
-```
-
-## Benefits
-
-**Safety**: Type-like checking at the variable name level. Harder to mix units accidentally.
-
-**Clarity**: Code is self-documenting. `softening_m` is unambiguous, `softening` is not.
-
-**Debugging**: Unit mismatches become obvious in variable names before becoming bugs.
-
-**Review**: Easier to verify physical correctness when units are explicit.
-
-## Enforcement
-
-**New code MUST**:
-- Use unit suffixes for all physical quantities
-- Document units in function signatures (type hints + docstrings)
-- Convert at I/O boundaries, not mid-calculation
-
-**Legacy code**:
-- Refactor opportunistically during modifications
-- Prioritize high-risk areas (force calculations, integrators)
-- Tests validate unit handling (see test_units_validation.py)
-
-## Related Files
-
-- cosmo/constants.py - Conversion constants and SI values
-- tests/test_units_validation.py - Unit handling validation
-- tests/test_radius_diameter_semantics.py - Radius vs diameter correctness
-- lode/practices.md - General coding practices
+Tests: `tests/test_units_validation.py`, `tests/test_radius_diameter_semantics.py`,
+`tests/test_constants.py`.

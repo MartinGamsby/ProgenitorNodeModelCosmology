@@ -1,146 +1,57 @@
-# Data Flow
+# Data flow — one simulation, one sweep cell
 
-## run_simulation.py Execution
+Modules: [module-structure.md](./module-structure.md). Physics of each stage:
+[../physics/initial-conditions.md](../physics/initial-conditions.md),
+[../physics/integration.md](../physics/integration.md),
+[../physics/hubble-diagram.md](../physics/hubble-diagram.md).
 
 ```mermaid
 graph TD
-    A[Parse CLI] --> B[SimulationParameters]
-    B --> C[Solve ΛCDM Friedmann ODE]
-    C --> D[Solve Matter-only Friedmann]
-    D --> E[Extract t_start conditions]
-    E --> F[Run External-Node N-body]
-    E --> G[Run Matter-only N-body]
-    F --> H[Extract expansion history]
-    G --> I[Extract expansion history]
-    C --> J[ΛCDM analytic a_lcdm]
-    D --> K[Matter analytic a_matter]
-    H --> L[External N-body a_ext]
-    I --> M[Matter N-body a_matter_sim]
-    J --> N[4-panel plot]
-    K --> N
-    L --> N
-    M --> N
-    N --> O[Save PNG + pickle]
+    P[SimulationParameters] --> CTX[setup_simulation_context: box_Gpc, a_start, LCDM baseline]
+    CTX --> SIM[CosmologicalSimulation.__init__: ParticleSystem, HMEAGrid, boost, integrator]
+    SIM --> RUN[run: timestep check, calibration skipped on EdS path, integrator.evolve]
+    RUN --> SNAP[snapshots every save_interval]
+    SNAP --> EH[_calculate_expansion_history: masked RMS -> a, diameter_m]
+    EH --> RES[factories dict: t_Gyr, a, diameter_Gpc, max_radius_Gpc, H_hubble, sim]
+    RES --> SR[results_to_sim_result: SimResult a_curve + snapshots]
+    SR --> MET[compute_pantheon_metrics]
+    MET --> ROW[CSV row + metrics cache entry]
 ```
 
-## Key Transformations
+## Stage contracts
+1. **Context**: `setup_simulation_context(t_start, t_duration, n_steps, save_interval)` →
+   box diameter (14.5 Gpc × a_start/a_today), a_start, analytic ΛCDM baseline at the exact
+   snapshot times.
+2. **Build**: `CosmologicalSimulation(sim_params, box_size_Gpc, a_start, use_external_nodes,
+   use_dark_energy, force_method)` seeds `np.random` with `seed`, scales the box by
+   `start_size_scale`, builds particles (inner first, then outer shell), the HMEA grid, applies
+   the pre-start boost, and creates the integrator (softening 1 Gpc base).
+3. **Run**: `run(t_end_Gyr=duration, n_steps, save_interval, damping)`; the calibration runs only
+   off the EdS path; `evolve` returns snapshots `{time_s, positions, velocities, accelerations}`
+   for ALL particles.
+4. **Measure**: `expansion_history` entries `{time, time_Gyr, scale_factor, diameter_m, size_a,
+   max_particle_distance, com}` computed on the observable (inner) particles only;
+   `scale_factor[0] == 1`.
+5. **Package**: `run_external_node_simulation` returns the factories dict; `results_to_sim_result`
+   wraps it as `SimResult(size_curve_Gpc, hubble_curve, t_Gyr, params, results, a_curve,
+   snapshots)`; snapshots ride along only for post-sim scoring.
+6. **Score**: growth anchor → μ(z) χ² on in-range SNe → optional best observer, fractions, knot
+   ratio (see [../scripts/sweep.md](../scripts/sweep.md)).
+7. **Persist**: metrics + small results in `data/metrics_*.csv`; tidy row in
+   `results/ws1_sweep_<tag>.csv`; optional `results/hero/<tag>.npz`.
 
-### 1. Initial Conditions (run_simulation.py:44-73)
+## Single-run entry points
+- `run_simulation.py` — External-Node + matter-only N-body + analytic ΛCDM, 4-panel plot.
+- `hubble_diagram_nbody.py` — one config scored against Pantheon+ with a JSON sidecar.
+- Direct use (tests, figure scripts): the factories functions above.
 
-**Input**: t_start_Gyr (e.g., 10.8)
+## Units at the boundaries
+SI inside (m, s, kg); Gpc/Gyr only at I/O. `diameter_*` = 2 × RMS radius. Snapshot times are
+relative to t_start. See [../practices/unit-conventions.md](../practices/unit-conventions.md).
 
-**Output**: a_at_start, box_size_initial
-
-Solve Friedmann ODE from Big Bang → present. Extract scale factor at t_start. Calculate box size: `14.5 Gpc × (a_start / a_today)`.
-
-Example: t=10.8 Gyr → a≈0.839 → size≈12.2 Gpc
-
-### 2. Particle Init (particles.py:73-116)
-
-**Input**: box_size, n_particles, a_start, damping_override
-
-**Output**: ParticleSystem with N particles
-
-Random positions in box. Velocities: `v = damping×H(a)×r + v_pec` where damping auto-calculated from deceleration param q or overridden. Masses uniform: total_mass/N.
-
-See [initial-conditions.md](../physics/initial-conditions.md) for damping details.
-
-### 3. HMEA Grid (particles.py:196-228)
-
-**Input**: M_ext, S (spacing)
-
-**Output**: 26 HMEA nodes
-
-3×3×3 cubic lattice, center excluded. Each node at `[i,j,k]×S` with 5% positional irregularity (virialized realism).
-
-### 4. Force Calculation (integrator.py:159-179)
-
-**Input**: Particle positions, velocities
-
-**Output**: Total accelerations
-
+```python
+res = run_external_node_simulation(p, box_Gpc, a_start, save_interval=10)
+sr = results_to_sim_result(res, p)
+m = compute_pantheon_metrics(sr, load_pantheon(), p.t_start_Gyr, score_observers=True,
+                             lcdm_ref=0.436, eds_ref=0.843, n_inner=p.n_particles)
 ```
-a_total = internal_gravity + external_tidal + dark_energy + hubble_drag
-```
-
-- Internal: O(N²) pairwise with softening
-- External: Vectorized over 26 nodes (if use_external_nodes)
-- Dark energy: H₀²Ω_Λ×r (if use_dark_energy)
-- Hubble drag: -2H(a)×v (if use_dark_energy)
-
-See [force-calculations.md](../physics/force-calculations.md).
-
-### 5. Leapfrog Step (integrator.py:229-252)
-
-**Input**: dt, current state
-
-**Output**: Updated positions, velocities
-
-Kick-Drift-Kick: half-step velocity kick, full-step position drift, half-step velocity kick. Symplectic, energy-conserving.
-
-See [integration.md](../physics/integration.md).
-
-### 6. Expansion Tracking (simulation.py:90-150)
-
-**Input**: Particle snapshots over time
-
-**Output**: Scale factor history
-
-Calculate RMS radius of particle distribution at each snapshot:
-```
-R_rms(t) = sqrt(mean(||r_i - r_cm||²))
-a(t) = R_rms(t) / R_rms(t_start)
-```
-
-Also compute H(t) = (da/dt) / a via finite differences.
-
-### 7. Comparison Plot (run_simulation.py:180-230)
-
-**Input**: Three expansion histories (ΛCDM analytic, External N-body, Matter N-body)
-
-**Output**: 4-panel figure
-
-- Top-left: Scale factor a(t)
-- Top-right: Hubble parameter H(t)
-- Bottom-left: Ratio External/ΛCDM (match quality)
-- Bottom-right: Physical size evolution
-
-Saved as PNG with timestamp + params in filename.
-
-## Data Types
-
-**SimulationParameters**: Unified config object holding M_value, S_value, n_particles, seed, t_start, t_duration, n_steps, damping_factor. Auto-calculates derived quantities (M_ext in kg, S in meters, external_params).
-
-**ParticleSystem**: List of Particle objects with positions (m), velocities (m/s), masses (kg), accelerations (m/s²).
-
-**HMEAGrid**: List of (M_ext, position) tuples for 26 external nodes.
-
-**Expansion history**: Arrays of (time, scale_factor, hubble_param, rms_radius).
-
-## File I/O
-
-**Output files** (results/):
-- PNG: 4-panel comparison plot
-- Pickle: Full CosmologicalSimulation object (particles, history, parameters)
-
-**Filename convention**:
-```
-figure_simulation_results_YYYY-MM-DD_HH.MM.SS_300p_10.8-16.8Gyr_800M_24S_150steps_0.91d.png
-```
-
-Includes timestamp, particles, time range, M/S params, steps, damping.
-
-## Performance Notes
-
-**Bottleneck**: Internal force O(N²). ~2 min for 300 particles × 150 steps.
-
-**Parallelization**: External forces vectorized over 26 nodes (NumPy broadcasting).
-
-**Memory**: Minimal. Snapshots saved every save_interval steps (default 10).
-
-## References
-
-Particle init: [initial-conditions.md](../physics/initial-conditions.md)
-Forces: [force-calculations.md](../physics/force-calculations.md)
-Integration: [integration.md](../physics/integration.md)
-Module organization: [module-structure.md](./module-structure.md)

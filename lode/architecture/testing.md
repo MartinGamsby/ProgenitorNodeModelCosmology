@@ -1,142 +1,50 @@
 # Testing
 
-## Structure
+~1320 pytest tests in `tests/` (unittest classes + plain functions), ~1.5 min for the default
+run. Physics-first: pin invariants and contracts (PF1, mean preservation, keyed==run,
+bit-identity of refactors), not implementation details. Practices: [../practices.md](../practices.md).
 
-Tests in `tests/`. Physics-first: validate equations (F=GMm/r², a=H₀²Ω_Λr) not implementation.
-
-## Files
-
-**test_constants.py**: Constants, ΛCDM params, External-Node params. All 21 tests passing.
-
-**test_forces.py**: Gravitational, tidal, dark energy, Hubble drag forces. All 12 tests passing.
-
-**test_model_comparison.py**: Matter-only vs ΛCDM expansion behavior. Tests that ΛCDM expands faster than matter-only, even with very few timesteps. Includes regression test for Hubble drag bug. All 4 tests (7 subtests) passing.
-
-**test_analysis.py**: Shared analysis utilities (Friedmann solver, initial conditions, comparisons, runaway detection). All 22 tests passing.
-
-**test_visualization.py**: Shared visualization utilities (node positions, filename generation, title formatting). All 16 tests passing.
-
-**test_simulation_baseline.py**: LCDM analytic expansion validation. Tests that `solve_friedmann_equation()` produces expected sizes at key times (t=3.8→13.8 Gyr reaches 14.5 Gpc). Validates scale factor monotonic increase, cosmic acceleration, and LCDM vs matter-only comparison. Provides reference baseline used by `run_simulation.py` and `sweep.py`. All 8 tests passing.
-
-**test_units_validation.py**: Unit naming convention enforcement. Validates that physical quantities use explicit unit suffixes (_m, _s, _kg, _si, _mps2). Tests conversion constants (GPC_TO_METERS, GYR_TO_SECONDS), factory function signatures, and expansion history keys. Ensures consistency across codebase.
-
-**test_radius_diameter_semantics.py**: Radius vs diameter correctness. Critical test that expansion_history['diameter_m'] stores DIAMETER (2×RMS), not radius. Validates compute_rms_radius returns radius, expansion metrics convert properly, and all comparisons use consistent semantics. Prevents factor-of-2 errors.
-
-**test_integrator.py**: Leapfrog integration mechanics. Tests kick-drift-kick algorithm, position/velocity updates, energy conservation, and force calculation pipeline. Validates softening length computation, timestep application, and integrator state consistency.
-
-**test_factories.py**: Factory function validation. Tests create_default_external_node_model, create_default_lcdm_model, and create_matter_only_model. Validates parameter passing, unit conversions, and default value handling. Ensures factories produce valid simulation configurations.
-
-**test_tidal_numba.py**: Numba JIT tidal force validation. 5 tests: default uses Numba, faster for large N, matches NumPy for small/large N, symmetry preserved.
-
-**test_parameter_sweep.py**: LIBRARY (`cosmo/parameter_sweep.py`) validation. 36 tests using dummy callbacks to test search algorithms without running real simulations. Tests parameter space builders (M list, S list, center mass list), match metric computation, ternary search, linear search with early stopping and adaptive skipping, brute force exhaustive search, and SweepConfig dataclass. Dummy callbacks return SimResult (with nested SimSimpleResult) with predictable quality based on distance from optimal point. NOTE: 3 PRE-EXISTING failures here (TestMatchWeights.test_defaults, test_weights_sum_to_one reference renamed MatchWeights fields; test_build_s_list_range asserts len 46 vs 41) — stale asserts targeting the renamed library, OUT OF SCOPE / unrelated to recent work. These are the ONLY failures in the suite.
-
-**test_particles.py**: Particle system validation. 13 tests for mass randomization feature: total mass preserved, mass range scales with randomize parameter, clamping to [0,1], no negative masses, reproducibility with seed, single particle edge case, and default value. Also basic ParticleSystem tests for particle count and array shapes.
-
-**test_early_time_behavior.py**: Physics constraint enforcement. 6 tests validating:
-1. **Initial size exact match**: All models start with identical RMS radius (no random variation from particle placement)
-2. **Early-time matching**: Progenitor models within 1% of ΛCDM in first ~1 Gyr before divergence
-3. **Matter-only never exceeds ΛCDM**: At EVERY timestep, size_matter ≤ size_lcdm (physics constraint: only gravity, no acceleration)
-4. **External-nodes early-time constraint**: External-nodes shouldn't exceed ΛCDM in first ~1 Gyr (tidal forces ∝ r, small at early times)
-5. **No velocity overshoot**: First 5 steps show monotonic deceleration for matter-only
-6. **Leapfrog staggering**: Energy evolution smooth from step 0 (no initialization spike)
-
-These tests enforce critical correctness requirements. Failure indicates numerical artifacts or physics violations.
-
-**test_friedmann_at_times.py**: Time-aligned ΛCDM baseline. 9 tests validating solve_friedmann_at_times:
-- Exact time alignment: output times exactly match input (critical for eliminating interpolation artifacts)
-- Scale factor increases monotonically, Hubble parameter positive
-- Matter-only slower than ΛCDM at late times (dark energy acceleration)
-- Consistency with solve_friedmann_equation at matching times
-- Handles single time point, matches N-body snapshot timing exactly
-
-Ensures ΛCDM baseline computed at exact N-body snapshot times, eliminating "bump" pattern from grid misalignment.
-
-**test_cache.py**: Cache module with JSON/CSV/Pickle format support + CacheLock. 61 tests covering EnhancedJSONEncoder, JSON CRUD, CSV CRUD (flattened dict columns, split key columns), Pickle CRUD, cross-format fallback (all 6 pairwise directions + dict preservation), primary format precedence, CacheLock (acquire/release, PID in lock, stale lock auto-break, corrupt lock auto-break, owner_pid property), lifetime lock (lock held while alive, released on close, read-only on conflict via EOFError/OSError fallback, read-only skips saves, separate names don't conflict, saves on close), edge cases (corrupted files for all 3 formats, empty files, real key round-trip, special characters in keys). All 61 tests passing.
-
-**test_node_geometry_anisotropy.py**: 128 tests. Generalizes the (previously cube26-only) node POSITION + MASS + node_mass_amplitude + node_s_amplitude invariants across ALL geometries (cube26/cube_dense/fcc/bcc), each with its ACTUAL node count N, tightly checking the AFTER-amplitude node state: mean-preservation for any N, ray (unit-direction) preservation, mean radial scale preserved, seeded determinism, global-RNG independence, separate-RNG cross-knob independence, effective_M_ext_kg parity. Tests only; no production code touched. See lode/physics/node-placement-vs-perturbation.md.
-
-**test_virialized_grid.py**: 88 tests. The coupled `virialized` geometry: generator shapes/dtype/count, mean-preservation (both rules, several N; sum==N·M_ext_kg), falsifiable reductions (spread=0→uniform; segregation=0→decoupled), positive mass-radius correlation when segregated, vir_extent radial-range scaling, median/mean NN-metric targeting, determinism + global-RNG isolation, volume-filling (≥2 radii), build_node_positions("virialized") raises, NN-helper sanity, the vir_relax_steps BALANCE LEVEL (default force-balanced; balanced<<unbalanced; relax_steps=0 no node at origin, =1 node at origin), HMEAGrid coupled-branch threading (count, mean-preserving masses, masses-not-from-node_masses, node_s composition, M=0 zero-tidal EdS invariant), cube26 byte-identical opt-in, SimulationParameters/SweepConfig threading (incl. vir_relax_steps), cache-slug distinctness (incl. node_softening) + non-virialized-key regression. See lode/plans/node-geometries.md.
-
-**test_virialization_validation.py**: 15 tests. The force-balance METRIC + the user's virialization CRITERION (node net force / one neighbour pull <= 0.25): node_net_accelerations shape/dtype + hand checks (symmetric-ring-null, 2-node sign, singularity floor), virialization_residual reads ~null on a symmetric ground truth, THE criterion on the big grid (n=100) — default (relax_steps>=1) << TOL for BOTH rules, realistic (relax_steps=0) O(20-30) >> TOL (contrast), bigger grid stays balanced, determinism. See lode/physics/node-placement-vs-perturbation.md.
-
-**test_slingshot.py**: 13 tests. Slingshot root cause + the node_softening_gpc fix (tiny deterministic sims): runaway config DOES slingshot, tame does NOT, ROOT CAUSE = nodes ON >> nodes OFF (the close-pass, not particle-particle), diagnostic softened-node-force tames it + pure-helper checks; PRODUCT path node_softening_gpc=1.0 tames cube26 AND virialized, default 0.0 byte-identical to legacy hard-floor, close-pass kick bounded, far-field <5% change, M_ext=0 → zero tidal for any softening. See lode/physics/slingshot-and-softening.md.
-
-**test_start_size.py**: 20 tests. start_size_scale (initial-size/density lever): scale=1.0 byte-identical a(t)/positions/masses; M_ext=0 → EdS for scale ∈ {0.5,1.0,2.0}; M_ext>0 → normalized a(t) SHAPE differs (not a divided-out offset) + growth responds; cache 'ssz' slug only when !=1.0; SimulationParameters/SweepConfig/sweep-cell/CLI threading; <=0 raises ValueError. See lode/physics/initial-conditions.md.
-
-**test_overarching_sweep.py**: 52 tests. The single sweep driver `sweep.py` (hermetic, no sims): config load + JSON override, grid expansion (amp=0 collapse), CSV column contract, _FixedSweepConfig, cache-key uniqueness, vir_* + node_softening keyed==run threading (the cache key AND the SimulationParameters agree — no keyed-but-not-run), objective key + _select_best_row, knob-grf migration (ported from the deleted test_pantheon_knob_sweep.py), every sweeps/*.json loads+expands, S co-fit vs explicit, --plots-only, load_best_config + reference chi2. See lode/plans/overarching-sweep.md.
-
-**test_ws8_figs.py**: 33 tests. PURE (no-sim, no-I/O) helpers of `_generate_ws8_figs.py`: resolve_n_steps (dt<0.05 Gyr ceiling), displacement_magnitudes, slingshot_metrics (tail detection + edge cases), softened_node_acceleration (diagnostic Plummer node force), virialization-residual curve, mass_radius_stats (correlation/slope/NN/mean-preservation on real virialized grids), _pearson/_spearman. See lode/scripts/visualization.md.
-
-## Running
-
-```bash
-pytest tests/ -v  # ~1055 tests (3 pre-existing test_parameter_sweep.py failures, out of scope)
-pytest tests/test_constants.py -v  # 21 tests
-pytest tests/test_forces.py -v  # 12 tests
-pytest tests/test_model_comparison.py -v  # 7 tests
-pytest tests/test_analysis.py -v  # 22 tests
-pytest tests/test_visualization.py -v  # 16 tests
-pytest tests/test_simulation_baseline.py -v  # 11 tests
-pytest tests/test_reproducibility.py -v  # 6 tests
-pytest tests/test_simulation_quality.py -v  # 5 tests
-pytest tests/test_units_validation.py -v  # Unit naming conventions
-pytest tests/test_radius_diameter_semantics.py -v  # Radius vs diameter
-pytest tests/test_integrator.py -v  # Leapfrog mechanics
-pytest tests/test_factories.py -v  # Factory functions
-pytest tests/test_tidal_numba.py -v  # 5 tests
-pytest tests/test_barnes_hut.py -v  # Barnes-Hut/Numba internal forces
-pytest tests/test_cache.py -v  # 61 tests
+```mermaid
+graph LR
+    RUN[python -m pytest] --> DEF[default: slow tests skipped by conftest]
+    RUN2[python -m pytest -m slow] --> SLOW[9 heavy N-body integration tests]
+    DEF --> HERM[hermetic: synthetic SNe fixture, tiny sims, no network]
+    DEF --> REAL[real Pantheon+ tests skip when data/pantheon_plus is absent]
 ```
 
-## Key Fixes Applied
+## Running
+```bash
+python -m pytest -q                         # everything except @pytest.mark.slow
+python -m pytest -m slow -q                 # only the slow ones
+python -m pytest tests/test_force_reuse.py -q
+```
+`conftest.py` registers the `slow` marker and skips slow tests unless a `-m` expression is given.
 
-**Gravitational forces**: Fixed sign error in integrator.py:85 - changed subtraction to addition for attractive force.
+## Map (by area)
+| area | files |
+|---|---|
+| constants, units, radius-vs-diameter | `test_constants`, `test_units_validation`, `test_radius_diameter_semantics` |
+| ICs, PF1, samplers, start size, boost | `test_matter_only_consistency`, `test_particles`, `test_realistic_init`, `test_grfmass`, `test_start_size`, `test_pre_start_tidal_boost`, `test_early_time_behavior`, `test_early_start_validation` |
+| forces + kernels | `test_forces`, `test_tidal_numba`, `test_barnes_hut`, `test_cuda_direct` (CUDA simulator subprocess), `test_slingshot`, `test_node_masses`, `test_node_s_amplitude` |
+| integrator | `test_integrator`, `test_force_reuse` (bit-identical oracle), `test_potential_energy_memory` |
+| geometry | `test_node_geometry`, `test_node_geometry_anisotropy`, `test_virialized_grid`, `test_virialized_medium`, `test_virialization_validation` |
+| centerM / mask | `test_observable_mask`, `test_ws4_cache_slug` |
+| scoring | `test_sim_distance`, `test_distances`, `test_pantheon`, `test_hubble_diagram*`, `test_observer_distance`, `test_anisotropy`, `test_hubble_parameter`, `test_friedmann_at_times`, `test_simulation_baseline` |
+| sweep + cache | `test_overarching_sweep` (driver, keyed==run per knob, families, observers, knot guard), `test_parameter_sweep*`, `test_cofit_validation`, `test_sweep_resume`, `test_cache`, `test_cache_concurrent` |
+| figures / scripts | `test_plots`, `test_ws8_figs`, `test_virialization_figs`, `test_meta_structure_fig`, `test_visualization`, `test_cli`, `test_encoding`, `test_factories`, `test_model_comparison`, `test_reproducibility`, `test_simulation_quality` |
 
-**Tidal forces**: Fixed direction in particles.py:261 - changed `r_vec = positions - node_pos` to `r_vec = node_pos - positions` for attractive gravity toward nodes.
+## Rules
+- A physics-preserving refactor ships with an ORACLE test proving bit-identity against the old
+  behaviour (e.g. `_TwoEvalLeapfrog` in `test_force_reuse.py`) plus a check that existing sweep
+  cells/keys are unchanged.
+- A new knob ships with keyed==run tests: the SweepConfig key AND the SimulationParameters the
+  sim receives both carry it; default adds no slug.
+- Tests that do not depend on the real SNe use `tests/fixtures/pantheon_synthetic.dat`
+  (11 SNe, z 0.03–1.5); real-data assertions must skip when the file is absent.
+- Stochastic tests seed explicitly (`np.random.seed` for particles, `default_rng` elsewhere).
+- Warnings are part of the contract: assert expected ones (`assertWarnsRegex`) so new ones stand out.
 
-**Test attribute naming**: Fixed all tests to use `particle.pos` instead of non-existent `particle.position`.
-
-**Numerical precision**: Relaxed tolerance in precision-sensitive tests from `places=20` to `places=10` to handle floating-point errors (~1e-13).
-
-**Tidal linear approximation test**: Corrected physics expectation - for R << S with exact formula a=GM/(S-R)², force is nearly constant (ratio ≈ 1.0067), not linear in R (ratio ≈ 2.0).
-
-**Node irregularity tolerance**: Relaxed tidal direction test tolerance from 10% to 200% to account for 5% HMEA node position irregularity.
-
-**Matter-only instability fixes** (multiple files):
-
-1. **Softening inconsistency** (integrator.py:83): Changed `a_vec = a_mag * (r_vec / r)` to `a_vec = a_mag * (r_vec / r_soft)`. Must use softened distance for BOTH magnitude and direction. Inconsistency created spurious force components causing runaway expansion.
-
-2. **COM velocity removal** (particles.py:118-130): After initializing particles with Hubble flow v=H×r, random positions create non-zero center-of-mass velocity. This causes bulk drift (spurious expansion). Now subtract COM velocity: `particle.vel -= com_velocity`.
-
-3. **Hubble drag disabled** (integrator.py:271-277): In proper coordinates with explicit dark energy, Hubble drag (a_drag = -2Hv) causes OVER-DAMPING. With v ≈ Hr, drag is 3x stronger than dark energy acceleration, making ΛCDM decelerate! Hubble drag only appropriate for comoving coordinates. Proper coords use dark energy acceleration alone.
-
-Result: Matter-only no longer expands faster than ΛCDM. Damping=1.0 now works correctly as benchmark. See test_model_comparison.py tests.
-
-**4. Timestep requirements for numerical stability**: Leapfrog integrator requires sufficient timesteps to prevent energy injection. With too few steps, the integrator becomes unstable and spuriously adds energy to the system.
-
-Example failure case (20 Gyr simulation):
-- 150 steps (dt=0.133 Gyr): Matter-only explodes to 54.64 Gpc (~2x LCDM) due to 1600% energy drift starting around step 91
-- 500 steps (dt=0.040 Gyr): Matter-only correctly gives 27.29 Gpc (~same as LCDM) with stable energy
-
-**Minimum timestep requirement**: For matter-only simulations, need ~250-500 steps per crossing time (t_cross ≈ box_size / v_rms). Too few steps cause leapfrog to inject spurious energy when accelerations change over timestep. Rule of thumb: dt < 0.05 Gyr for typical cosmological simulations.
-
-**5. Softening mass scaling bug** (integrator.py:57): Changed `self.softening = base * mass_ratio` to `self.softening = base * (mass_ratio ** (1/3))`. The comment said "ε ∝ m^(1/3)" but code used linear scaling. With 50 particles (mass_ratio=0.02), linear gave 0.65 Mpc softening (too small), while m^(1/3) gives 8.8 Mpc (appropriate).
-
-**6. Small-N softening boost** (integrator.py:59-68): Added adaptive boost for N < 100: `boost = sqrt(100/N)`. Small particle counts have stronger forces per particle and higher risk of close encounters. Boost prevents numerical instability. Example: N=50 gets 1.41x boost, N=10 gets 3.16x boost.
-
-**7. compare_expansion_histories R² metric** (analysis.py:162-234): Switched from percentage match to R² (coefficient of determination) as default metric. R² = 1 - (SS_res/SS_tot) measures fraction of ΛCDM variance explained by External-Node model. Provides statistical foundation for curve comparison. Parameters:
-- `use_r_squared=True` (default): Returns R² in 0-1 range (1=perfect fit)
-- `use_r_squared=False`: Returns percentage match 0-100 range (backward compatible)
-- `return_diagnostics=True`: Returns dict with r_squared, match_pct, max_error_pct, mean_error_pct, rmse, rmse_pct
-- `return_array=True`: Returns per-timestep percentage errors (R² is aggregate metric)
-
-Edge case: scalar inputs or constant baseline → R²=1.0 if match, else 0.0. New `calculate_r_squared()` helper function implements standard R² calculation with edge case handling.
-
-**8. External nodes test physics correction** (test_model_comparison.py:366-471): Renamed `test_external_nodes_early_time_behavior` to `test_external_nodes_accelerate_expansion`. Original test incorrectly expected tidal forces to decelerate expansion at early times. Tidal formula a=GM_ext×r/S³ is proportional to r, so tidal forces ALWAYS accelerate expansion (like dark energy), not decelerate. Updated test to verify:
-- Early time: ratio ≥ 1.0 (tidal acceleration present but small)
-- Late time: ratio > 1.01 (tidal acceleration dominates)
-- Ratio increases with time (acceleration grows with r)
-
-## Coverage Notes
-
-Leapfrog correctness covered by test_integrator.py. Particle initialization (damped Hubble flow, COM removal, RMS normalization) covered by test_early_time_behavior.py. Simulation quality covered by test_simulation_quality.py and test_reproducibility.py. No known gaps in critical paths.
+```python
+@pytest.mark.slow           # heavy: excluded from the default run
+def test_n_ladder_converges(): ...
+```

@@ -1,151 +1,75 @@
-# Hubble-Diagram Test vs Real Pantheon+ Supernovae (SEMI-ANALYTIC)
+# Hubble diagram — from-sim μ(z) vs Pantheon+
 
-Data-anchored background test. Turns each model's H(z) into a distance-modulus
-mu(z) Hubble diagram, overlays real Pantheon+SH0ES Type Ia SNe, and reports a
-per-model chi^2 / R^2 after marginalizing the magnitude offset.
-
-> NOTE: this file documents the SEMI-ANALYTIC test (H(z) from Omega_Lambda_eff).
-> The genuine FROM-SIM N-body test (mu(z) integrated from the real a(t)) is the
-> non-circular companion — see
-> [./hubble-diagram-nbody.md](./hubble-diagram-nbody.md). The semi-analytic
-> `external_node` curve at Omega_Lambda_eff~=0.70 is mathematically == LCDM
-> (CIRCULAR); the from-sim curve is not.
-
-This is DISTINCT from the N-body model-vs-LCDM-theory R^2 (see
-[../numerics/lcdm-baseline.md](../numerics/lcdm-baseline.md) and
-[../scripts/parameter-sweep.md](../scripts/parameter-sweep.md)):
-- N-body test = how well the External-Node sim tracks the *LCDM theory curve*
-  (model vs model).
-- Hubble-diagram test = how well each model's H(z) fits *real observed SNe data*
-  (model vs data). Fixes the "model only ever traced against another model"
-  credibility gap.
-
-The existing N-body simulation path (run_simulation.py, parameter_sweep.py,
-cosmo/simulation.py, integrator, particles, factories) is UNTOUCHED and
-INDEPENDENT. The Hubble-diagram capability is purely additive and semi-analytic;
-it never calls CosmologicalSimulation.run() and does not depend on or modify the
-N-body start time (t_start=5.8 Gyr).
-
-## Semi-analytic H(z)
-
-For density parameters (Omega_m, Omega_de), with Omega_k = 1 - Omega_m - Omega_de:
-
-    E(z) = sqrt( Omega_m (1+z)^3 + Omega_k (1+z)^2 + Omega_de )
-    H(z) = H0 * E(z)
-
-Three models (all Omega_m = 0.3, H0 = 70 km/s/Mpc):
-- `lcdm`          : Omega_de = 0.7                       (flat)
-- `external_node` : Omega_de = Omega_Lambda_eff(M,S)    (flat-or-curved)
-- `matter_only`   : Omega_de = 0.0, Omega_k = 0.7       (open; sinh branch)
-
-`Omega_Lambda_eff = G*M_ext / (S^3 * H0_si^2)` comes from
-`ExternalNodeParameters` (cosmo/constants.py). The paper's claim is that the
-External-Node H(a) equals LCDM with Omega_Lambda := Omega_Lambda_eff in the
-linear regime, so using Omega_Lambda_eff IS the model's faithful prediction.
-
-### Semi-analytic vs from-sim N-body d_L (both now exist)
-This semi-analytic curve is fast and covers the full SN range, BUT at the
-data-matching config (Omega_Lambda_eff~=0.70) the `external_node` curve is
-CIRCULAR — identical to LCDM by construction, so it cannot test the mechanism.
-
-The from-sim N-body path now EXISTS as the non-circular test
-([./hubble-diagram-nbody.md](./hubble-diagram-nbody.md)): it integrates
-`D_C = c*integral dt/a` from the real a(t) (NO differentiation, so it sidesteps
-the edge artifacts in
-[../numerics/expansion-rate-calculation.md](../numerics/expansion-rate-calculation.md)).
-The from-sim curve only covers up to z~0.96 at t_start=5.8 (validated safe floor
-t_start=2.9 -> z~2.23 covers full Pantheon+); the semi-analytic curve still
-serves as the full-range reference. Honest result: the from-sim curve is
-currently INDISTINGUISHABLE from LCDM within the covered range
-(~0.77 sigma) — real, not circular.
-
-## Distance kernel (curvature-aware)
-
-D_C(z) = (c/H0) integral_0^z dz'/E(z')   (cumulative trapezoid on a fine grid)
-D_M(z) = curvature correction of D_C:
-  - Omega_k > 0 (open):   (D_H/sqrt(Omega_k))  * sinh(sqrt(Omega_k)  * D_C/D_H)
-  - Omega_k = 0 (flat):   D_C
-  - Omega_k < 0 (closed): (D_H/sqrt|Omega_k|) * sin (sqrt|Omega_k| * D_C/D_H)
-d_L(z) = (1+z) * D_M
-mu(z)  = 5*log10(d_L / Mpc) + 25
-
-Closed models (Omega_de large enough that Omega_k < 0) can have E^2 < 0 — a
-turnaround — within the data z-range; `hubble_z` raises a descriptive
-ValueError, surfaced (not swallowed) by the comparison engine.
-
-## Offset marginalization (fair comparison)
-
-SN distance moduli carry an unknown additive offset DeltaM that absorbs the
-absolute magnitude M_B and the H0 calibration. For each model independently,
-DeltaM is fit analytically by inverse-variance-weighted least squares:
-
-    w_i = 1/sigma_i^2
-    DeltaM = sum(w_i * (mu_obs_i - mu_model_i)) / sum(w_i)
-
-Then chi^2, dof = n-1, reduced chi^2, and R^2 are computed on the
-offset-corrected residuals. This marginalizes the M_B/H0 nuisance, so the test
-measures only the SHAPE of H(z) (the physics) — honest and standard.
-
-- chi^2 / R^2 are computed on UNBINNED per-SN points. Binning is plot-only.
-- R^2 reuses `cosmo.analysis.calculate_r_squared` for metric consistency.
-
-## Data flow
+The model's observable test: turn the N-body a(t) into a distance-modulus curve and score it
+against real Pantheon+SH0ES supernovae. Numbers: [../findings/fit.md](../findings/fit.md).
+Per-particle vantages: [observers.md](./observers.md).
 
 ```mermaid
-graph TD
-    raw[data/pantheon_plus/Pantheon+SH0ES.dat<br/>real SNe, acquired manually] --> loader[cosmo/pantheon.py<br/>load_pantheon: zHD, MU_SH0ES, ERR_DIAG<br/>z_min + calibrator cuts]
-    sp[SimulationParameters M,S<br/>Omega_Lambda_eff] --> kernel
-    loader -->|z, mu, sigma| engine
-    kernel[cosmo/distances.py<br/>model_distance_modulus<br/>lcdm / external_node / matter_only] --> engine[cosmo/hubble_diagram.py<br/>fit_offset + chi^2/R^2 per model]
-    engine -->|per-model DeltaM, chi2, R2, residuals| script[hubble_diagram.py<br/>print table + 2-panel figure]
+graph LR
+    A[a t: inner-masked RMS ratio] --> B[sim_to_distance_modulus]
+    B --> C[in-range SNe only]
+    C --> D[evaluate_precomputed: fit_offset + chi2, dof = n-1]
+    A --> G{growth anchor a_end/a_0 within 20%?}
+    G -->|no| W[worst-case score]
+    D --> M[compute_pantheon_metrics: chi2_dof, match_avg_pct = 100/1+chi2_dof]
+    G -->|yes| M
 ```
 
-## Module map
+## a(t) → μ(z): `cosmo/sim_distance.py::sim_to_distance_modulus`
+1. t_abs = t_start + t (sim times are relative); the last snapshot must be within 0.2 Gyr of
+   13.8 Gyr, so runs use `t_duration = 13.8 − t_start` (ValueError otherwise).
+2. Renormalize a to 1 today; z_snap = 1/a − 1.
+3. D_C(t_i) = c ∫_{t_i}^{today} dt/a by cumulative trapezoid — **no differentiation of a(t)**
+   (avoids the edge artifacts of [../numerics/expansion-rate-calculation.md](../numerics/expansion-rate-calculation.md)).
+4. d_L = (1+z) D_C (flat), μ = 5 log10(d_L/Mpc) + 25; interpolate onto SN redshifts, HARD-CLIP
+   to the covered z range (no extrapolation); returns an `in_range` mask.
+H0 never enters: the absolute scale sits in the marginalized offset; only the SHAPE matters.
+Feeding analytic ΛCDM a(t) reproduces `model_distance_modulus(z,"lcdm")` to < 0.03 mag.
 
-| File | Role |
-|------|------|
-| `cosmo/distances.py` | Pure distance kernel: hubble_z, comoving/transverse/luminosity distance, distance_modulus, model_distance_modulus. No I/O. |
-| `cosmo/pantheon.py` | Loader for the vendored Pantheon+SH0ES.dat (by column name); z_min + calibrator cuts; bin_for_plot helper. No network. |
-| `cosmo/hubble_diagram.py` | Comparison engine: fit_offset, evaluate_model, compare_all_models. Pure numpy. |
-| `hubble_diagram.py` | Standalone top-level script: load -> compare -> print table -> save 2-panel PNG. Independent of run_simulation.py. |
+## χ² engine: `cosmo/hubble_diagram.py`
+- `fit_offset`: closed-form inverse-variance mean of μ_obs − μ_model (absorbs M_B + H0).
+- `evaluate_precomputed(z, mu_obs, sigma, mu_model)` → chi2, dof = n−1, chi2_dof, R2,
+  residuals. `evaluate_model` does the same for analytic models.
+- Diagonal errors only (`MU_SH0ES_ERR_DIAG`); full STAT+SYS covariance is open work.
 
-Script reconfigures stdout/stderr to UTF-8 at import so the Greek labels
-(Lambda, Omega, chi^2) print on Windows cp1252 consoles.
+## Data: `cosmo/pantheon.py::load_pantheon`
+Reads `data/pantheon_plus/Pantheon+SH0ES.dat` by column name (zHD, MU_SH0ES,
+MU_SH0ES_ERR_DIAG, IS_CALIBRATOR); z ≥ 0.01, Cepheid calibrators excluded, sorted by z. The
+file is not committed (README in that folder); tests use `tests/fixtures/pantheon_synthetic.dat`.
 
-## Real data provenance
+## The growth anchor (why a bare shape fit is not enough)
+Renormalizing a=1 today lets a runaway config (e.g. 25000× expansion) fit the z-window with a
+nonsensical history. `compute_pantheon_metrics` therefore rejects any a(t) whose
+a[−1]/a[0] differs from `expected_growth_factor(t_start)` (ΛCDM a(today)/a(t_start), ≈3.30 at
+2.9 Gyr) by more than `GROWTH_ANCHOR_TOL = 0.20`. Rejected rows keep `growth_factor` /
+`growth_target` for transparency. It checks TOTAL growth only, not the a(t) shape (PF20 gap).
 
-The real `Pantheon+SH0ES.dat` is NOT committed (size). Acquire manually per
-[../../data/pantheon_plus/README.md](../../data/pantheon_plus/README.md)
-(PantheonPlusSH0ES GitHub release; place at
-`data/pantheon_plus/Pantheon+SH0ES.dat`). Loader raises a clear
-FileNotFoundError pointing to the README if absent. Tests use a tiny synthetic
-fixture (`tests/fixtures/pantheon_synthetic.dat`), never the real file.
+## References (analytic, per run)
+`sweep._compute_reference_chi2` scores analytic ΛCDM (0.436) and the Einstein–de Sitter
+Ω_m=1 null (0.843) with the same engine, over ALL loaded SNe. The model is scored on its own
+in-range subset (`n_sne_used`); SNe above the model's z coverage (growth ≈3 ⇒ z_max ≈2) are a
+handful at z>2, so the comparison is near- but not exactly same-set.
 
-Default config when running the script: `--M 855 --S 37.8`
-(Omega_Lambda_eff ~= 0.70). The raw SimulationParameters default and the paper's
-primary N-body config are closed universes (see open issue below).
+## Scripts
+- `hubble_diagram_nbody.py` — one from-sim config (default t_start=2.9, 2000p, 273 steps):
+  μ(z) + Δμ-vs-ΛCDM panel + EdS null, JSON sidecar `<png>.summary.json`,
+  `--from-best-config <sweep_csv>`; all knobs go through `cosmo.cli.args_to_sim_params`.
+- `hubble_diagram.py` — SEMI-ANALYTIC: plugs Ω_Λ,eff = GM/(S³H0²) into the ΛCDM E(z). At
+  Ω_Λ,eff = 0.70 it IS ΛCDM (circular); illustration only, never evidence.
 
-## OPEN ISSUE: config that matches data != paper's primary N-body config
+## Known unit wrinkle
+`sim_distance` converts Gyr with `CosmologicalConstants.Gyr_to_s` (365-day year) while
+snapshot times use 365.25-day years: D_C is scaled by a constant 0.9993 ⇒ a 0.0015 mag μ offset,
+fully absorbed by `fit_offset` (no χ² effect). See [../practices/unit-conventions.md](../practices/unit-conventions.md).
 
-Factually recorded, NOT resolved here (physics is the human's call):
-- Paper's primary N-body config M=9000, S=38 implies Omega_Lambda_eff ~= 7.24
-  -> a strongly CLOSED universe (Omega_k ~= -6.54), which turns around at low z
-  and cannot fit Pantheon+ over the full SN range.
-- Other paper configs are also closed: M=875,S=24 -> 2.79; M=92,S=15 -> 1.20.
-- Matching real SN data needs Omega_Lambda_eff ~= 0.70, achieved near
-  M=855, S=37.8 (-> 0.6988).
+```python
+from cosmo.sim_distance import sim_to_distance_modulus
+from cosmo.hubble_diagram import evaluate_precomputed
+d = sim_to_distance_modulus(pan["z"], a_curve, t_Gyr, t_start_Gyr=2.9)
+m = d["in_range"]
+ev = evaluate_precomputed(pan["z"][m], pan["mu"][m], pan["sigma"][m], d["mu"])
+ev["chi2_dof"]
+```
 
-So the (M,S) that best reproduces the LCDM *expansion history* in the N-body sim
-differs from the (M,S) whose semi-analytic H(z) best fits *real SNe*. The two
-tests prefer different regions of (M,S) space. Reconciling this — whether the
-N-body match metric, the Omega_Lambda_eff normalization, or the paper's primary
-config needs revisiting — is unresolved. See
-[./theoretical-framework.md](./theoretical-framework.md) and
-[../paper-reference.md](../paper-reference.md).
-
-## Related
-- [./hubble-diagram-nbody.md](./hubble-diagram-nbody.md) — the FROM-SIM N-body (non-circular) companion test
-- [../paper-reference.md](../paper-reference.md)
-- [./theoretical-framework.md](./theoretical-framework.md)
-- [../numerics/expansion-rate-calculation.md](../numerics/expansion-rate-calculation.md)
-- [../architecture/module-structure.md](../architecture/module-structure.md)
+Tests: `tests/test_sim_distance.py`, `tests/test_hubble_diagram*.py`,
+`tests/test_parameter_sweep_pantheon.py`, `tests/test_pantheon.py`.

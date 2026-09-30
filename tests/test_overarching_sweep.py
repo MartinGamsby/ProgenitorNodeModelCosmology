@@ -47,6 +47,10 @@ from sweep import (
 )
 from cosmo.parameter_sweep import build_cache_name
 
+# Committed synthetic SNe (the real Pantheon+ file is gitignored): tests whose assertions do
+# not depend on the real data use this so they run on a fresh clone.
+_PANTHEON_FIXTURE = pathlib.Path(__file__).resolve().parent / "fixtures" / "pantheon_synthetic.dat"
+
 
 # ---------------------------------------------------------------------------
 # 1. Config loading
@@ -2109,7 +2113,7 @@ class TestObserverInSweep(unittest.TestCase):
         import numpy as np
         from cosmo.parameter_sweep import compute_pantheon_metrics, SimResult, SimSimpleResult
         from cosmo.pantheon import load_pantheon
-        pan = load_pantheon()
+        pan = load_pantheon(_PANTHEON_FIXTURE)
         # A physical EdS-ish a(t) that passes the growth anchor (~3.3x over 2.9->13.8).
         t = np.linspace(0.0, 10.9, 30)
         a = (1.0 + t / 10.9 * 2.3)  # grows ~3.3x, monotonic
@@ -2121,6 +2125,23 @@ class TestObserverInSweep(unittest.TestCase):
         # No snapshots -> observer scoring skipped, no best_observer_chi2 injected.
         self.assertNotIn("best_observer_chi2", m)
         self.assertIn("chi2_dof", m)
+
+    def test_observer_scoring_failure_warns_instead_of_silent_fallback(self):
+        """A crash inside observer scoring keeps the sweep alive (centre chi2) but must
+        warn: the fallback puts a centre value in the best-observer headline column."""
+        import numpy as np
+        from cosmo.parameter_sweep import compute_pantheon_metrics, SimResult, SimSimpleResult
+        from cosmo.pantheon import load_pantheon
+        pan = load_pantheon(_PANTHEON_FIXTURE)
+        t = np.linspace(0.0, 10.9, 30)
+        broken_snaps = [{"time_s": 0.0}, {"time_s": 1.0}]  # no positions/velocities
+        sr = SimResult(size_curve_Gpc=None, hubble_curve=None, t_Gyr=t,
+                       params=None, results=SimSimpleResult(1.0, 1.0, 1.0),
+                       a_curve=1.0 + t / 10.9 * 2.3, snapshots=broken_snaps)
+        with self.assertWarnsRegex(RuntimeWarning, "observer scoring failed"):
+            m = compute_pantheon_metrics(sr, pan, 2.9, score_observers=True,
+                                         lcdm_ref=0.44, eds_ref=0.84)
+        self.assertNotIn("best_observer_chi2", m)
 
     def test_small_sweep_makes_best_observer_the_headline(self):
         """End-to-end: a 1-cell virialized sweep with score_observers writes the observer
@@ -2243,16 +2264,19 @@ class TestKnotRatioInMetrics(unittest.TestCase):
     def test_knot_ratio_attached_when_observers_on(self):
         from cosmo.parameter_sweep import compute_pantheon_metrics
         from cosmo.pantheon import load_pantheon
-        pan = load_pantheon()
-        m = compute_pantheon_metrics(self._sim_result(self._snaps()), pan, 2.9,
-                                     score_observers=True, n_inner=200)
+        pan = load_pantheon(_PANTHEON_FIXTURE)
+        # The fixture snapshots carry positions only, so observer scoring fails (and
+        # says so); the knot ratio must still attach.
+        with self.assertWarnsRegex(RuntimeWarning, "observer scoring failed"):
+            m = compute_pantheon_metrics(self._sim_result(self._snaps()), pan, 2.9,
+                                         score_observers=True, n_inner=200)
         self.assertIn("knot_ratio", m)
         self.assertAlmostEqual(m["knot_ratio"], 0.5, places=6)
 
     def test_no_knot_ratio_when_observers_off(self):
         from cosmo.parameter_sweep import compute_pantheon_metrics
         from cosmo.pantheon import load_pantheon
-        pan = load_pantheon()
+        pan = load_pantheon(_PANTHEON_FIXTURE)
         m = compute_pantheon_metrics(self._sim_result(self._snaps()), pan, 2.9,
                                      score_observers=False, n_inner=200)
         self.assertNotIn("knot_ratio", m)
@@ -2260,7 +2284,7 @@ class TestKnotRatioInMetrics(unittest.TestCase):
     def test_no_knot_ratio_without_snapshots(self):
         from cosmo.parameter_sweep import compute_pantheon_metrics
         from cosmo.pantheon import load_pantheon
-        pan = load_pantheon()
+        pan = load_pantheon(_PANTHEON_FIXTURE)
         m = compute_pantheon_metrics(self._sim_result(None), pan, 2.9,
                                      score_observers=True, n_inner=200)
         self.assertNotIn("knot_ratio", m)

@@ -4,6 +4,7 @@ Parameter sweep infrastructure for cosmological simulations.
 Provides reusable search algorithms and configuration for finding optimal
 External-Node parameters (M, S, centerM) that match LCDM expansion.
 """
+import warnings
 from enum import Enum
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -635,7 +636,9 @@ def _observer_metrics(sim_result, pantheon_data, t_start_Gyr, *, definition, sam
     The observer-from-particle inference (we are a RANDOM observer; Pantheon+
     localises us): returns the BEST observer's chi2/dof and the FRACTION of
     observers below the LCDM / EdS references. Returns None (so the caller falls
-    back to the centre score) if there are too few snapshots or anything raises.
+    back to the centre score) if there are too few snapshots or anything raises;
+    a raise is reported as a RuntimeWarning, since the fallback puts a centre
+    chi2 in the column that otherwise holds best-observer values.
     """
     snaps = getattr(sim_result, "snapshots", None)
     if not snaps or len(snaps) < 2:
@@ -652,7 +655,9 @@ def _observer_metrics(sim_result, pantheon_data, t_start_Gyr, *, definition, sam
             k=(int(k) if k else ALL_NEIGHBOURS),
             observers=observers, lcdm_ref=lcdm_ref, eds_ref=eds_ref,
         )
-    except Exception:
+    except Exception as exc:  # keep a long sweep alive, but never silently
+        warnings.warn(f"observer scoring failed ({exc!r}); this cell's chi2_dof is the "
+                      "CENTRE value, not the best observer", RuntimeWarning, stacklevel=2)
         return None
     return {
         'best_observer_chi2': dist.get('best_chi2_dof', float('inf')),

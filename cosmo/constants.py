@@ -336,8 +336,10 @@ class ExternalNodeParameters:
         INVARIANTS (mirror node_masses):
         - (a) Deterministic & reproducible: identical output for the same
           (node_mass_seed, node_s_amplitude). Uses np.random.default_rng(seed),
-          independent of the particle/simulation RNG. A SEPARATE rng draw from
-          node_masses() (different call), so the two knobs do not entangle.
+          independent of the particle/simulation RNG. NOTE: it takes the SAME
+          first n standard normals as node_masses() (same seed, fresh generator),
+          so with both amplitudes > 0 the heavier nodes are also the farther ones
+          (perfect rank correlation), not independent perturbations.
         - (b) All factors strictly positive: guaranteed by exp() > 0, so no node
           can cross the origin or flip sides.
         - (c) MEAN-PRESERVING: mean(factor_i) == 1.0 EXACTLY (within float

@@ -68,8 +68,9 @@ class ParticleSystem:
                          observable sphere at the same density and per-particle
                          mass. N grows LINEARLY; R_sim = R_obs*centerM**(1/3).
                          centerM=1.0 -> no outer particles, byte-identical.
-                         Only supported for init_distribution="uniform_sphere";
-                         centerM>1 with "grf" raises NotImplementedError.
+                         Composes with every inner sampler (the outer shell is
+                         always uniform); centerM>1 requires eds_consistent=True
+                         (NotImplementedError otherwise).
             outer_density_ceiling: Multiplier on inner density for outer particles
                          (default 1.0 = same density). Clipped to
                          MAX_OUTER_DENSITY_CEILING (2.0) upstream.

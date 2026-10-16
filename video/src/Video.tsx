@@ -1,5 +1,5 @@
 import React from 'react';
-import {AbsoluteFill, Audio, interpolate, Sequence, staticFile} from 'remotion';
+import {AbsoluteFill, Audio, interpolate, Sequence, staticFile, useCurrentFrame} from 'remotion';
 import {BeatProvider} from './beats';
 import {Starfield} from './components/Background';
 import {SceneShell} from './components/SceneShell';
@@ -32,6 +32,13 @@ const Music: React.FC = () => {
       }}
     />
   );
+};
+
+/** Fade to black over the last ~1.6 s and hold black for the final 0.6 s. */
+const EndFade: React.FC = () => {
+  const frame = useCurrentFrame();
+  const o = interpolate(frame, [TIMELINE.total - 48, TIMELINE.total - 18], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  return o > 0 ? <AbsoluteFill style={{background: '#000', opacity: o}} /> : null;
 };
 
 export const Explainer: React.FC = () => (
@@ -69,5 +76,6 @@ export const Explainer: React.FC = () => (
         </Sequence>
       );
     })}
+    <EndFade />
   </AbsoluteFill>
 );

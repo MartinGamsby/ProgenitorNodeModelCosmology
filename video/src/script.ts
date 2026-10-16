@@ -4,11 +4,15 @@
  * Each scene = a visual (`scene`, see src/scenes/index.ts) + narration `beats`.
  * One beat = one caption line = one voice clip. Visuals key their animations to beat
  * numbers (0-based), so rewording a line re-times everything automatically.
+ * Removed scenes live in src/cutting-room.ts (kept for future videos).
  *
  * Caption markup:
  *   *word*                 -> highlighted in the caption (spoken normally)
  *   {shown|spoken}         -> caption shows "shown", the voice says "spoken"
  *   10^120                 -> superscript in the caption
+ *
+ * Writing for the voice: short sentences, commas and periods for pauses (no "…"), a question
+ * mark when it's a question, spoken forms for symbols and numbers via {shown|spoken}.
  *
  * After editing narration: `npm run voice` (regenerates only changed clips), then
  * `npm run studio` to preview or `npm run render` for the MP4.
@@ -21,11 +25,11 @@ export const VIDEO_SUBTITLE = 'The Progenitor Node Model, explained';
 export const CREDITS = {
   paper:
     'Replacing Dark Energy and Unifying Large-Scale Anomalies: The Progenitor Node Model within a Virialized Meta-Structure',
-  author: 'Martin Gamsby',
-  orcid: 'ORCID 0009-0007-4069-9687',
   code: 'github.com/MartinGamsby/ProgenitorNodeModelCosmology',
   doi: 'doi.org/10.5281/zenodo.20481859',
 };
+
+const LCDM = '{ΛCDM|Lambda C D M}';
 
 export const SCENES: SceneDef[] = [
   {
@@ -34,12 +38,12 @@ export const SCENES: SceneDef[] = [
     chapter: '',
     beats: [
       'Everything in the universe is flying apart.',
-      "And here's the weird part: it's *speeding up*.",
+      "And here's the weird part. It's *speeding up*.",
       'Physicists call whatever is doing this *dark energy*.',
-      "It's about seventy percent of everything… and nobody knows what it is.",
+      "It makes up about seventy percent of everything. And nobody knows what it is.",
       "So here's a what-if.",
       'What if nothing is *pushing* the universe apart?',
-      'What if something is *pulling*?',
+      'What if something is *pulling* it?',
     ],
   },
   {
@@ -55,12 +59,12 @@ export const SCENES: SceneDef[] = [
     scene: 'Problem',
     chapter: 'The problem',
     beats: [
-      'In 1998, two teams measured distant exploding stars: {Type Ia|type one A} supernovae.',
-      'They were too dim. Farther away than a slowing-down universe allows.',
-      'The fix: a cosmological constant, {Λ|Lambda}. Energy built into empty space itself.',
+      'In 1998, two teams measured distant exploding stars, called {Type Ia|type one A} supernovae.',
+      'They looked too dim. They were farther away than a slowing universe would allow.',
+      'The fix was a cosmological constant, {Λ|Lambda}: energy built into empty space itself.',
       'It works beautifully. But it comes with two embarrassing problems.',
-      'One: quantum physics predicts a vacuum energy about {10^120|ten to the one hundred and twenty} times too big.',
-      'Two: why is dark energy roughly equal to matter *right now*, of all the moments we could be living in?',
+      'First, quantum physics predicts a vacuum energy about {10^120|ten to the power of one hundred and twenty} times too big.',
+      'Second, why is dark energy about equal to matter *right now*, of all the moments we could be living in?',
       'Fitting the data is not the same as *explaining* it.',
     ],
   },
@@ -70,39 +74,26 @@ export const SCENES: SceneDef[] = [
     chapter: 'Beyond the horizon',
     beats: [
       "Let's zoom out.",
-      'Everything we can ever see is a sphere about 14 {gigaparsecs|giga-parsecs} in radius. Roughly 46 billion light-years.',
-      'Standard cosmology assumes it looks the same out there as in here. Forever.',
-      'But what if it doesn’t?',
+      'Everything we can ever see fits in a sphere about forty-six billion light-years in radius.',
+      'Standard cosmology assumes that out there looks just like in here. Forever.',
+      "But what if it doesn't?",
       'Picture giant dark masses far beyond our horizon, each *hundreds to thousands* of times heavier than our entire observable universe.',
-      'Call them {HMEAs|H. M. E. A. s}: *hyper-massive external attractors*.',
-      'Not a neat grid: a lumpy, settled swarm, like galaxies in a relaxed cluster. Only absurdly bigger.',
+      'Call them *hyper-massive external attractors*.',
+      "They don't form a neat grid. They form a lumpy, settled swarm, like galaxies in a relaxed cluster, only absurdly bigger.",
       'And our universe sits in one of the gaps.',
     ],
   },
   {
     id: 'tides',
     scene: 'Tides',
-    chapter: 'Tides',
+    chapter: 'Pulled apart',
     beats: [
-      'Quick gravity fact: a perfectly smooth shell of mass around you pulls on you… *not at all*.',
-      "Every direction cancels. That's Newton's shell theorem.",
-      'But *lumps* don’t cancel.',
-      'The side of our bubble closer to a node gets pulled harder than the middle, and the middle harder than the far side.',
-      "So the bubble gets *stretched*. That's a tide, the same thing the Moon does to our oceans.",
-      'Do the math, and the tidal pull grows in proportion to distance: {2GMR/S³|two G M R over S cubed}.',
-      "And dark energy's push? Also proportional to distance.",
-      'Same shape. To gravity, a *pull from outside* can look exactly like a *push from inside*.',
-    ],
-  },
-  {
-    id: 'numbers',
-    scene: 'Numbers',
-    chapter: 'How big? How far?',
-    beats: [
-      'How heavy, and how far? Plug in the numbers.',
-      "Nodes about five hundred times our observable universe's mass…",
-      '…spaced about 39 {gigaparsecs|giga-parsecs} apart, would do the job.',
-      'No exotic vacuum energy. Just ordinary gravity, from very big things, very far away.',
+      "Here's a gravity fact that sounds wrong. Surround yourself with a perfectly smooth shell of mass, and it won't pull you *at all*.",
+      "Every direction cancels out. That's Newton's shell theorem.",
+      "But *clumps* don't cancel. The side of our universe facing a clump gets pulled harder than the far side, so it gets pulled apart.",
+      'And real clumps come in *different sizes*, at *different distances*. That makes the pull even more lopsided.',
+      'An outward pull that gets stronger the farther out you go. That is exactly what dark energy seems to do.',
+      'So to gravity, a *pull from outside* can look just like a *push from inside*. No exotic energy required.',
     ],
   },
   {
@@ -111,12 +102,10 @@ export const SCENES: SceneDef[] = [
     chapter: 'What if…',
     whatIf: 'we sat dead centre?',
     beats: [
-      'What if we sat exactly in the middle, with nodes evenly all around us?',
-      'Then every pull cancels. No acceleration at all.',
-      'And a subtle twist: in empty space, tides can’t simply inflate a volume.',
-      'They stretch one way and squeeze the others. Pure *shear*.',
-      'The overall speed-up comes from the bubble creeping closer to the nodes, where the pull grows faster and faster.',
-      'And that leftover stretch? It’s a *fingerprint*. Hold that thought.',
+      'What if we sat exactly in the middle, with the neighbours spread evenly all around us?',
+      'Then every pull would cancel out, and nothing would speed up.',
+      'But a real swarm is never perfectly even. One side always pulls a little harder.',
+      "So our universe should expand a little faster in one direction. Keep that in mind. It's a *fingerprint* we can actually look for.",
     ],
   },
   {
@@ -125,14 +114,14 @@ export const SCENES: SceneDef[] = [
     chapter: 'The Progenitor Hypothesis',
     beats: [
       'But wait. Why would we be anywhere near the middle of a gap?',
-      "Here's the boldest what-if: what if the Big Bang *was one of these nodes*?",
-      'A node, sitting at its balance point among its neighbours…',
-      '…destabilises.',
-      'It blows apart, and the matter expands evenly into the surrounding gap.',
+      "Here's the boldest what-if. What if the Big Bang *was one of these attractors*?",
+      'Picture one of them, sitting at its balance point among its neighbours.',
+      'Then it {destabilises|becomes unstable}.',
+      'It blows apart, and its matter spreads out evenly into the surrounding gap.',
       'That explains why we start near the middle, and why the expansion looks the same in every direction.',
-      "This is the *Progenitor Hypothesis*. And it's one mass playing two roles:",
-      'before the bang, a member of the swarm. After it, everything that came out.',
-      'The most natural guess: our progenitor was just a *typical* node. Nothing special.',
+      "This is the *Progenitor Hypothesis*. And it means one mass plays two roles.",
+      'Before the bang, it was one member of the swarm. After the bang, that same mass became our whole universe, plus whatever lies beyond what we can see.',
+      'The most natural guess is that our progenitor was just a *typical* member. Nothing special.',
     ],
     sfx: [{beat: 3, sound: 'boom'}],
   },
@@ -141,14 +130,14 @@ export const SCENES: SceneDef[] = [
     scene: 'Simulation',
     chapter: 'The simulation',
     beats: [
-      'Nice story. Does it actually work? Time to simulate.',
-      'Thousands of particles in a cloud, and nothing but plain Newtonian gravity.',
-      'Self-gravity slows the cloud down. The distant nodes pull it apart.',
-      'We start 2.9 billion years after the Big Bang, and run to today: 13.8 billion years.',
-      'First, a sanity check: set the node mass to *zero*.',
-      'The simulation hands back the textbook universe with no dark energy. Exactly.',
-      'Good. Now turn the nodes *on*.',
-      'The cloud grows by just the right amount. Like a universe with dark energy, but without any.',
+      'Nice story. But does it actually work? Time to simulate.',
+      'We take thousands of particles in a cloud, and nothing but plain Newtonian gravity.',
+      "The cloud's own gravity slows it down. The distant attractors pull it apart.",
+      'We start {2.9|two point nine} billion years after the Big Bang, and run all the way to today, {13.8|thirteen point eight} billion years.',
+      'First, a sanity check. We set the attractor mass to *zero*.',
+      'The simulation gives back the textbook universe with no dark energy. Exactly.',
+      'Good. Now we turn the attractors *on*.',
+      'The cloud grows by just the right amount, like a universe with dark energy. Without any.',
     ],
   },
   {
@@ -156,15 +145,15 @@ export const SCENES: SceneDef[] = [
     scene: 'Data',
     chapter: 'Moment of truth',
     beats: [
-      'Now the moment of truth: *real data*.',
-      'Over fifteen hundred {Type Ia|type one A} supernovae from the {Pantheon+|Pantheon plus} catalogue.',
-      'We turn the simulated expansion into a distance-versus-redshift curve. No shortcuts.',
-      'Zoom in on the differences. A universe without dark energy misses. *Badly*.',
-      'Standard {ΛCDM|Lambda C D M} nails it.',
-      'And the node model?',
+      'Now, the moment of truth: *real data*.',
+      'More than fifteen hundred {Type Ia|type one A} supernovae, from the {Pantheon+|Pantheon plus} catalogue.',
+      'We turn the simulated expansion into a curve of distance versus redshift. No shortcuts.',
+      'Now zoom in on the differences. A universe without dark energy misses. *Badly*.',
+      `Standard ${LCDM} nails it.`,
+      'And the attractor model?',
       'Right on top of it.',
-      'Fit score, lower is better: no dark energy, {0.843|zero point eight four three}. {ΛCDM|Lambda C D M}, {0.436|zero point four three six}. Node model, {0.440|zero point four four zero}.',
-      'To be clear: it *matches* {ΛCDM|Lambda C D M}. It doesn’t beat it. And the match holds from ten thousand to a hundred thousand particles.',
+      `Here's the fit score, where lower is better. No dark energy: {0.843|zero point eight four three}. ${LCDM}: {0.436|zero point four three six}. Our model: {0.440|zero point four four zero}.`,
+      `Some runs even edge past ${LCDM}, but by less than the simulation's own noise. So the honest word is: it *matches*. From ten thousand to a hundred thousand particles.`,
     ],
     sfx: [{beat: 6, sound: 'ding'}],
   },
@@ -175,24 +164,24 @@ export const SCENES: SceneDef[] = [
     whatIf: "we're not at the centre?",
     beats: [
       "What if we're not at the centre of the cloud? We almost certainly aren't.",
-      "So every particle gets a turn being *us*. Does any vantage point see our universe?",
-      'Plenty do. And not just in one lucky setup: *many* different configurations get there.',
+      "So every particle gets a turn being *us*. Does any vantage point see a universe like ours?",
+      `Plenty do. And not in just one lucky setup. Across seventy-one configurations, the best vantage lands right around ${LCDM}.`,
     ],
   },
   {
     id: 'whatif-close',
     scene: 'WhatIfClose',
     chapter: 'What if…',
-    whatIf: 'the nodes are too close?',
+    whatIf: 'the attractors are too close?',
     beats: [
-      'What if the nodes are too close? Two things can go wrong.',
-      'The pull wins outright: a *runaway* that rips the cloud apart way too fast.',
-      'Or something sneakier: the core of the cloud collapses into a dense *knot*.',
-      'On the left, a run with a great supernova fit… and a collapsing core. On the right, a healthy one.',
-      'So a good fit is not enough. A universe-like run must pass a checklist:',
-      'fit the supernovae, grow by the right amount, keep its core from collapsing, and keep every node outside our horizon.',
-      'Picking by fit alone would have chosen the collapsing universes. The checklist catches them.',
-      'With it: *68 out of 72* configurations are universe-like.',
+      'What if the attractors are too close? Two things can go wrong.',
+      'The pull can win outright, in a *runaway* that rips the cloud apart way too fast.',
+      'Or something sneakier happens. The core of the cloud collapses into a dense *knot*.',
+      "On the left, a run with a decent supernova fit, and a collapsing core. On the right, a healthy one.",
+      "So a good fit isn't enough. A universe-like run has to pass a checklist.",
+      'It must fit the supernovae, grow by the right amount, keep its core from collapsing, and keep every attractor outside our horizon.',
+      'Picking runs by fit alone would have chosen the collapsing universes. The checklist catches them.',
+      'With it, *68 out of 72* configurations are universe-like.',
     ],
   },
   {
@@ -202,9 +191,9 @@ export const SCENES: SceneDef[] = [
     whatIf: 'the progenitor was tiny? Or huge?',
     beats: [
       'What if the progenitor was tiny? Or enormous?',
-      'We tried more than three orders of magnitude: from one observable universe, up to three thousand.',
+      'We tried more than three orders of magnitude, from one observable universe up to three thousand.',
       'The fit barely cares. The structure does.',
-      'And the most robust choice is the *typical node*: exactly what the hypothesis preferred, before we ran anything.',
+      'And the most robust choice is the *typical* member, exactly what the hypothesis preferred before we ran anything.',
     ],
   },
   {
@@ -212,10 +201,10 @@ export const SCENES: SceneDef[] = [
     scene: 'Catch',
     chapter: 'The catch',
     beats: [
-      'Now the catch. Because there is one.',
-      'Heavy nodes far away, or lighter nodes closer in: the supernovae can’t tell them apart.',
-      'The average expansion only measures mass over spacing cubed.',
-      'So the Hubble diagram alone will never prove this model. We need a different test.',
+      "Now, the catch. Because there is one.",
+      "Heavy attractors far away, or lighter ones closer in. The supernovae can't tell them apart.",
+      'The average expansion only measures the mass divided by the spacing cubed.',
+      'So the supernovae alone will never prove this model. We need a different test.',
     ],
   },
   {
@@ -223,14 +212,16 @@ export const SCENES: SceneDef[] = [
     scene: 'Predictions',
     chapter: 'Predictions',
     beats: [
-      'Remember the stretch fingerprint? *That’s* the test.',
+      "Remember that lopsided fingerprint? *That's* the test.",
       'Prediction one: a *Hubble dipole*. One half of the sky should expand a little faster than the other.',
-      'Which might feed the Hubble tension: 67 versus 73, depending on how you measure.',
-      'Prediction two: the *Axis of Evil*. The biggest patterns in the cosmic microwave background line up along a strange axis.',
+      'Measure the expansion rate from the whole sky at once, and you get 67. Measure it with nearby galaxies, and you get 73.',
+      'Those numbers should agree, and they don\'t. It\'s called the *Hubble tension*, and a lopsided expansion could be part of the reason.',
+      "Prediction two: the *Axis of Evil*. The biggest patterns in the cosmic microwave background line up along a strange axis.",
       'Lopsided neighbours could imprint exactly that kind of alignment.',
-      'Prediction three: *dark flow*. Galaxies drifting in bulk, pulled by something outside the survey.',
-      'Prediction four: as we near the nodes, the acceleration *grows*. Phantom dark energy: {w < −1|w below minus one}.',
-      'And the kicker: they should all point *the same way*. Toward our nearest, heaviest neighbours.',
+      'Prediction three: *dark flow*. Huge regions of galaxies drifting together, pulled by something outside the survey.',
+      'Prediction four: the acceleration keeps growing. As we drift toward the attractors, their pull gets stronger, so the speed-up itself speeds up.',
+      "Cosmologists call that *phantom* dark energy. A cosmological constant can't do it, because its push never changes.",
+      'And the kicker: all four should point *the same way*, toward our nearest, heaviest neighbours.',
     ],
   },
   {
@@ -239,9 +230,9 @@ export const SCENES: SceneDef[] = [
     chapter: 'What if…',
     whatIf: 'they’re real? Why can’t we see them?',
     beats: [
-      'If these things are so huge, why can’t we see them?',
-      "They're beyond our horizon, for a start. But they'd also be ancient black holes that ate everything nearby long ago.",
-      'No food, no glowing disk. Their Hawking temperature: about {10^-33|ten to the minus thirty-three} kelvin.',
+      "If these things are so huge, why can't we see them?",
+      "First, they're beyond our horizon. But they would also be ancient black holes that swallowed everything nearby long ago.",
+      'No food means no glowing disk. And their Hawking radiation is absurdly cold: about {10^-33|ten to the minus thirty-three} kelvin.',
       '*Dark giants*. Seen only by their pull.',
     ],
   },
@@ -251,10 +242,10 @@ export const SCENES: SceneDef[] = [
     chapter: 'What if…',
     whatIf: 'it’s a cycle?',
     beats: [
-      'One last, wild what-if. Pure speculation: no simulation behind this one.',
-      'A node bangs. Its matter fills the gap.',
+      'One last, wild what-if. This one is pure speculation, with no simulation behind it.',
+      'An attractor bangs, and its matter fills the gap.',
       'Over eons, the neighbours swallow that matter.',
-      'One grows too big, destabilises… and bangs again.',
+      'One of them grows too big, becomes unstable, and bangs again.',
       'Our universe would be one breath in a *great cosmic metabolism*.',
     ],
   },
@@ -263,9 +254,9 @@ export const SCENES: SceneDef[] = [
     scene: 'Limits',
     chapter: 'Honesty corner',
     beats: [
-      "Let's be honest about what this is: a *toy model*.",
-      'Newtonian gravity in flat space. No general relativity, no early universe, no microwave background spectrum, no baryon acoustic oscillations.',
-      "It doesn't claim this is reality. It claims ordinary gravity can fake dark energy. And that's worth checking.",
+      "Let's be honest about what this is. It's a *toy model*.",
+      'Newtonian gravity in flat space. No general relativity, no early universe, no microwave background spectrum, and no baryon acoustic oscillations.',
+      "It doesn't claim to be reality. It claims that ordinary gravity can fake dark energy. And that's worth checking.",
     ],
   },
   {
@@ -273,11 +264,11 @@ export const SCENES: SceneDef[] = [
     scene: 'Outro',
     chapter: '',
     beats: [
-      'So. If the Hubble dipole, the Axis of Evil, and the dark flow all line up…',
-      '…then dark energy might not be a property of space at all.',
+      'So, if the Hubble dipole, the Axis of Evil, and the dark flow all line up,',
+      'then dark energy might not be a property of space at all.',
       'It might just be *the neighbours*.',
       '',
     ],
-    minSeconds: 18,
+    minSeconds: 20,
   },
 ];

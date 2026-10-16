@@ -1,98 +1,102 @@
 import React from 'react';
 import {AbsoluteFill} from 'remotion';
 import {useBeats} from '../beats';
-import {Axes, LegendItem, scales} from '../components/Chart';
 import {Show} from '../components/Show';
-import {Arrow, At, Card, Label, NodeDot, pathOf, partial, SvgDefs, Tex, Title} from '../components/ui';
-import {C, FONT, HEIGHT, WIDTH} from '../theme';
+import {Arrow, At, Label, NodeDot, SvgDefs, Title} from '../components/ui';
+import {C, HEIGHT, WIDTH} from '../theme';
 
 const CX = WIDTH / 2;
 const CY = HEIGHT / 2 - 10;
+// the "real swarm" version of each lattice site: offset (px) and mass factor
+const JITTER = [
+  [40, -30, 1.6], [-20, 50, 0.7], [-60, 20, 1.1], [30, 40, 0.6],
+  [-30, -40, 1.3], [50, 10, 0.8], [-10, -60, 1.0], [20, 30, 1.9],
+];
 
 export const WhatIfCenter: React.FC = () => {
   const b = useBeats();
   const sp = 300;
-  const lattice: [number, number][] = [];
-  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) if (i || j) lattice.push([CX + i * sp * 1.25, CY + j * sp * 0.9]);
-  const latO = 1 - b.p(2, 15);
-  const shear = b.p(3, 40);
-  const R = 150;
-
-  // beat 4: exact vs linear tidal pull vs R/S
-  const box = {x: 520, y: 210, w: 900, h: 520};
-  const {X, Y} = scales(box, [0, 0.7], [0, 6]);
-  const xs = new Array(80).fill(0).map((_, i) => (i / 79) * 0.7);
-  const exact = xs.filter((u) => 1 / (1 - u) ** 2 - 1 <= 6).map((u) => [X(u), Y(1 / (1 - u) ** 2 - 1)] as [number, number]);
-  const linear = xs.map((u) => [X(u), Y(2 * u)] as [number, number]);
+  const real = b.p(2, 40);
+  const nodes: {x: number; y: number; m: number}[] = [];
+  let k = 0;
+  for (let i = -1; i <= 1; i++)
+    for (let j = -1; j <= 1; j++) {
+      if (!i && !j) continue;
+      const [dx, dy, m] = JITTER[k++];
+      nodes.push({x: CX + i * sp * 1.25 + dx * real, y: CY + j * sp * 0.9 + dy * real, m: 1 + (m - 1) * real});
+    }
+  // net pull on the centre: Σ m r̂ / d²
+  let nx = 0;
+  let ny = 0;
+  nodes.forEach((n) => {
+    const dx = n.x - CX;
+    const dy = n.y - CY;
+    const d = Math.hypot(dx, dy) / sp;
+    nx += (n.m * dx) / (d ** 3 * sp);
+    ny += (n.m * dy) / (d ** 3 * sp);
+  });
+  const nL = Math.hypot(nx, ny) || 1;
+  const netLen = Math.min(220, 160 * nL) * real;
+  const lop = b.p(3, 40);
+  const ax = nx / nL;
+  const ay = ny / nL;
   return (
     <AbsoluteFill>
       <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
         <SvgDefs />
-        {!b.on(2, 15) && (
-          <g opacity={latO}>
-            {lattice.map(([x, y], i) => (
-              <g key={i}>
-                <NodeDot x={x} y={y} r={30} opacity={b.p(0, 20, i * 3)} />
-                <Arrow x1={CX} y1={CY} x2={CX + (x - CX) * 0.45} y2={CY + (y - CY) * 0.45} color={C.gold} width={6} head={20} p={b.p(0, 25, 30)} opacity={1 - b.p(1, 30, 20)} />
-              </g>
-            ))}
-            <circle cx={CX} cy={CY} r={70} fill="url(#bubble)" stroke={C.bubble} strokeWidth={3} />
+        {nodes.map((n, i) => (
+          <g key={i}>
+            <NodeDot x={n.x} y={n.y} r={30 * Math.sqrt(n.m)} opacity={b.p(0, 20, i * 3)} />
+            <Arrow
+              x1={CX}
+              y1={CY}
+              x2={CX + (n.x - CX) * 0.42}
+              y2={CY + (n.y - CY) * 0.42}
+              color={C.gold}
+              width={6}
+              head={20}
+              p={b.p(0, 25, 30)}
+              opacity={1 - b.p(1, 30, 20)}
+            />
           </g>
-        )}
-        {b.on(2) && !b.on(4) && (
-          <g opacity={Math.min(b.p(2, 15), 1 - b.p(4, 12))}>
-            <ellipse cx={CX} cy={CY} rx={R} ry={R} fill="none" stroke={C.faint} strokeWidth={3} strokeDasharray="10 8" />
-            <ellipse cx={CX} cy={CY} rx={R * (1 + 0.45 * shear)} ry={R / (1 + 0.45 * shear)} fill="url(#bubble)" stroke={C.bubble} strokeWidth={4} />
-            {[-1, 1].map((s) => (
-              <g key={s}>
-                <Arrow x1={CX + s * (R + 40)} y1={CY} x2={CX + s * (R + 160)} y2={CY} color={C.hot} width={8} head={24} p={shear} />
-                <Arrow x1={CX} y1={CY + s * (R + 150)} x2={CX} y2={CY + s * (R + 40)} color={C.lcdm} width={8} head={24} p={shear} />
-              </g>
-            ))}
-            <text x={CX + R + 190} y={CY + 12} fill={C.hot} fontFamily={FONT.display} fontWeight={800} fontSize={40}>stretch</text>
-            <text x={CX + 30} y={CY - R - 120} fill={C.lcdm} fontFamily={FONT.display} fontWeight={800} fontSize={40}>squeeze</text>
-          </g>
-        )}
-        {b.on(4) && !b.on(5) && (
-          <g opacity={Math.min(b.p(4, 15), 1 - b.p(5, 12))}>
-            <Axes box={box} xd={[0, 0.7]} yd={[0, 6]} xticks={[0, 0.2, 0.4, 0.6]} yticks={[0, 2, 4, 6]} xlabel="how close we are to a node (R / S)" ylabel="tidal pull" />
-            <path d={pathOf(partial(linear, b.p(4, 40, 10)))} stroke={C.dim} strokeWidth={5} strokeDasharray="12 10" fill="none" />
-            <path d={pathOf(partial(exact, b.p(4, 50, 25)))} stroke={C.node} strokeWidth={7} fill="none" />
-            <LegendItem x={box.x + 40} y={box.y + 30} color={C.dim} dashed text="linear (Λ-like)" />
-            <LegendItem x={box.x + 40} y={box.y + 80} color={C.node} text="real pull: 1/(S−R)²" />
-          </g>
-        )}
+        ))}
+        {/* our universe: round, then expanding a bit faster toward the net pull */}
+        <ellipse
+          cx={CX + ax * 18 * lop}
+          cy={CY + ay * 18 * lop}
+          rx={70 * (1 + 0.28 * lop * Math.abs(ax)) + 6 * lop}
+          ry={70 * (1 + 0.28 * lop * Math.abs(ay)) + 6 * lop}
+          fill="url(#bubble)"
+          stroke={C.bubble}
+          strokeWidth={3}
+        />
+        {real > 0 && <Arrow x1={CX} y1={CY} x2={CX + ax * netLen} y2={CY + ay * netLen} color={C.hot} width={9} head={26} />}
       </svg>
       <Show from={1} until={2} offset={20}>
-        <At x={CX} y={170}>
+        <At x={CX} y={110}>
           <Title size={64}>
             net pull = <span style={{color: C.gold}}>0</span>
           </Title>
         </At>
       </Show>
-      <Show from={3} until={4}>
-        <At x={360} y={CY}>
-          <Card style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10}}>
-            <Label size={34} color={C.ink} style={{fontFamily: FONT.display, fontWeight: 800}}>
-              SHEAR
-            </Label>
-            <Tex tex={String.raw`T\sim\frac{GM}{S^3}\begin{pmatrix}+4&&\\&-2&\\&&-2\end{pmatrix}`} size={44} />
-            <Label size={30}>trace = 0 → no net inflation</Label>
-          </Card>
+      <Show from={2} until={3}>
+        <At x={CX} y={110}>
+          <Title size={58}>
+            real swarm: <span style={{color: C.hot}}>one side pulls harder</span>
+          </Title>
         </At>
       </Show>
-      <Show from={5}>
-        <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center', flexDirection: 'column', gap: 30}}>
-          <svg width={420} height={300}>
-            {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-              <ellipse key={i} cx={210} cy={150} rx={40 + i * 26} ry={(40 + i * 26) * 0.62} fill="none" stroke={C.gold} strokeWidth={5} opacity={0.9 - i * 0.1} strokeDasharray={i % 2 ? '30 14' : undefined} />
-            ))}
-          </svg>
-          <Title size={80} color={C.gold}>
+      <Show from={3}>
+        <At x={CX} y={100}>
+          <Title size={64} color={C.gold}>
             a fingerprint
           </Title>
-          <Label size={36}>lopsided expansion · hold that thought</Label>
-        </AbsoluteFill>
+        </At>
+        <At x={CX} y={170}>
+          <Label size={32} color={C.ink} style={{fontWeight: 700}}>
+            expansion slightly faster in one direction
+          </Label>
+        </At>
       </Show>
     </AbsoluteFill>
   );

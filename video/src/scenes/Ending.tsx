@@ -377,6 +377,7 @@ export const Outro: React.FC = () => {
   const nodes = medium.pos as [number, number, number][];
   const mass = medium.mass as number[];
   const credits = b.p(3, 25);
+
   return (
     <AbsoluteFill>
       <Space3D
@@ -417,11 +418,6 @@ export const Outro: React.FC = () => {
             <Title size={44} style={{margin: '18px 0 28px'}}>
               {CREDITS.paper}
             </Title>
-            <Title size={40} color={C.ink}>
-              {CREDITS.author}
-            </Title>
-            <Label size={28}>{CREDITS.orcid}</Label>
-            <div style={{height: 26}} />
             <Label size={30} color={C.ink} style={{fontFamily: FONT.mono}}>
               {CREDITS.code}
             </Label>

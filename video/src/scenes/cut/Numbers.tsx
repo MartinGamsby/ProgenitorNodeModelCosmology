@@ -1,9 +1,9 @@
 import React from 'react';
 import {AbsoluteFill} from 'remotion';
-import {useBeats} from '../beats';
-import {Show} from '../components/Show';
-import {Arrow, At, Card, Label, NodeDot, SvgDefs, Tex, Title} from '../components/ui';
-import {C, FONT, HEIGHT, WIDTH} from '../theme';
+import {useBeats} from '../../beats';
+import {Show} from '../../components/Show';
+import {Arrow, At, Card, Label, NodeDot, SvgDefs, Tex, Title} from '../../components/ui';
+import {C, FONT, HEIGHT, WIDTH} from '../../theme';
 
 export const Numbers: React.FC = () => {
   const b = useBeats();

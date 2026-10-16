@@ -31,6 +31,13 @@ graph LR
 - **Clip cache key** = `sceneId-beat-hash(spokenText)`; voice.mjs regenerates only changed
   lines and deletes orphans. Changing caption-only text (`{shown|…}`) keeps the clip.
 - Scene key in script.ts → component in `src/scenes/index.ts`; unknown key throws.
+- **Cutting room**: removed scenes live in `src/cutting-room.ts` (`CUT_SCENES`, not rendered)
+  with components in `src/scenes/cut/` still registered; restore = move the def into `SCENES`.
+  Holds the tidal-stretch + 2GMR/S³ equations, "how big/how far" (500 M_obs, 39 Gpc) and the
+  shear-matrix / 1/(S−R)² material (cut 2026-10-16 as too long/technical for video 1).
+- **Narration style** (for the neural voice): short sentences, real `?`, commas/periods for
+  pauses, never `…`; numbers/symbols via `{shown|spoken}` (e.g. `{destabilises|becomes
+  unstable}`, `{ΛCDM|Lambda C D M}`); "attractors", never spelled-out "HMEA"; light-years only.
 - **Data is imported JSON** (webpack bundles it); re-run `npm run data` after new sims.
 
 ```ts
@@ -42,7 +49,10 @@ const b = useBeats();
 
 ## Pieces
 - `components/Space3D.tsx` — canvas 3D scatter (points / glow nodes / sphere), yaw-pitch
-  perspective; `cloudAt(frames, f)` interpolates snapshot frames; `project()` for labels.
+  perspective, ONE depth-sorted draw list across all layers (the sphere has a semi-opaque body,
+  so attractors behind our universe pass behind it); `cloudAt(frames, f)` interpolates
+  snapshot frames; `project()` for labels.
+- `Video.tsx` `EndFade` — global fade to black over the last ~1.6 s, 0.6 s of pure black.
 - `components/SceneShell.tsx` — fade in/out, chapter label, "WHAT IF…" stamp → docked badge,
   karaoke captions (`Captions.tsx`).
 - `components/Chart.tsx` (`scales`, `Axes`, `LegendItem`), `components/ui.tsx` (KaTeX `Tex`

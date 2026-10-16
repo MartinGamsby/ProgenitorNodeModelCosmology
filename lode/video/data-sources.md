@@ -18,6 +18,7 @@ graph TD
 | shown | value | how |
 |---|---|---|
 | fit score node model | 0.440 | best-observer a(t) of the hero npz → `sim_to_distance_modulus` → `evaluate_precomputed` (matches the npz's stored 0.4400) |
+| noise band | ±0.005 around ΛCDM | lode PF28: 8k qualifiers 0.433–0.435, 2k none < 0.436, 16k ~+0.005 ⇒ observer-sampling noise; `NOISE` in `scenes/Data.tsx` |
 | fit ΛCDM / EdS | 0.436 / 0.843 | `model_distance_modulus` "lcdm" / "einstein_de_sitter", same engine, all 1580 SNe |
 | supernova count | 1580 (1564 in model range) | `load_pantheon()` (z ≥ 0.01, no calibrators) |
 | growth ×3.30 / ×3.22 / ×2.83 | ΛCDM / model / EdS | a(13.8)/a(2.9); model = best observer |
@@ -36,7 +37,9 @@ cd video && npm run data     # prints chi2s + "68/72" as a self-check
 
 ## Narrated round numbers (script.ts) — check against the paper when it changes
 - observable radius 14 Gpc ≈ 46 Gly; fiducial node 500 M_obs ≈ 5e55 kg, S ≈ 39 Gpc (paper §estimation)
-- 10^120 fine-tuning; Hubble tension 67 vs 73 km/s/Mpc; dark energy 68 / DM 27 / baryons 5 %
+- 10^120 fine-tuning; dark energy 68 / DM 27 / baryons 5 %
+- Hubble tension (Predictions scene): Planck 2018 67.4 ± 0.5 vs SH0ES (Riess 2022) 73.04 ± 1.04 km/s/Mpc, "≈ 8% apart"
+- On-screen distances in light-years via `gly()` (1 Gpc = 3.2616 Gly): S = 89 Gpc → 290, 63 → 205, 15 → 49
 - Hawking T ≈ 2.5e-33 K at 5e55 kg (paper §defenses, `cosmo.constants.hawking_temperature_K`)
 - converged 10k → 100k particles (PF19); centerM range 1 → 3000 (cmx3 grid)
 
@@ -49,6 +52,7 @@ cd video && npm run data     # prints chi2s + "68/72" as a self-check
 - Great Metabolism scene carries a SPECULATIVE stamp and says "no simulation behind this one".
 
 ## Invariants
-- Never caption the model as beating ΛCDM; the Data scene states "matches, does not beat".
+- Never caption the model as beating ΛCDM: the Data scene says "it matches" and that gaps below
+  ±0.005 are simulation noise (some 8k runs score 0.433–0.435 < 0.436; that is within noise).
 - ΛCDM and EdS references appear next to every model fit score.
 - Colours follow the paper: ΛCDM blue, model orange, EdS green.

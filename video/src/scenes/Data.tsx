@@ -34,7 +34,7 @@ export const Data: React.FC = () => {
   const bars = [
     {l: 'No dark energy (EdS)', v: h.chi2.eds, c: C.eds},
     {l: 'ΛCDM', v: h.chi2.lcdm, c: C.lcdm},
-    {l: 'Node model (best observer)', v: h.chi2.model, c: C.model},
+    {l: 'Attractor model (best vantage)', v: h.chi2.model, c: C.model},
   ];
   return (
     <AbsoluteFill>
@@ -78,7 +78,7 @@ export const Data: React.FC = () => {
               <LegendItem x={BOX.x + 30} y={BOX.y + 520} color="#c9d4f5" text={`${h.n_sne.toLocaleString('en-US')} Pantheon+ supernovae (binned)`} />
               <LegendItem x={BOX.x + 30} y={BOX.y + 470} color={C.eds} dashed text="no dark energy" opacity={edsP} />
               <LegendItem x={BOX.x + 700} y={BOX.y + 470} color={C.lcdm} text="ΛCDM" opacity={lcdmP} />
-              <LegendItem x={BOX.x + 700} y={BOX.y + 520} color={C.model} text="node model (from the simulation)" opacity={modelP > 0 ? 1 : 0} />
+              <LegendItem x={BOX.x + 700} y={BOX.y + 520} color={C.model} text="attractor model (from the simulation)" opacity={modelP > 0 ? 1 : 0} />
             </g>
           )}
           {b.on(1) && !b.on(3) && (

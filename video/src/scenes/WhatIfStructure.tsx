@@ -4,7 +4,7 @@ import {useBeats} from '../beats';
 import {Axes, scales} from '../components/Chart';
 import {Show} from '../components/Show';
 import {cloudAt, project, Space3D, V3} from '../components/Space3D';
-import {At, Card, Label, NodeDot, SvgDefs, Title} from '../components/ui';
+import {At, Card, gly, Label, NodeDot, SvgDefs, Title} from '../components/ui';
 import hero from '../../public/data/cloud_hero.json';
 import knot from '../../public/data/cloud_knot.json';
 import verdict from '../../public/data/verdict.json';
@@ -145,7 +145,7 @@ export const WhatIfClose: React.FC = () => {
     ['fits the supernovae', 'best-observer χ²/dof ≤ 0.46'],
     ['grows by the right amount', 'within 20% of ΛCDM'],
     ['core doesn’t collapse', 'knot ratio ≥ 0.9'],
-    ['no node inside the horizon', 'nearest HMEA > 15 Gpc'],
+    ['no attractor inside the horizon', `nearest attractor > ${gly(15)}`],
   ];
   const nOk = CELLS.filter((c) => c.ok).length;
   return (
@@ -183,7 +183,7 @@ export const WhatIfClose: React.FC = () => {
             yaw={yaw}
             good={false}
             title={`core ×${knot.knot.toFixed(2)}: a KNOT`}
-            sub={`S = ${knot.S} Gpc · fit ${knot.best_observer_chi2.toFixed(3)}`}
+            sub={`attractors ~${gly(knot.S)} apart · fit ${knot.best_observer_chi2.toFixed(3)}`}
           />
           {split > 0 && (
             <div style={{opacity: split}}>
@@ -194,7 +194,7 @@ export const WhatIfClose: React.FC = () => {
                 yaw={yaw + 1}
                 good
                 title={`core ×${hero.knot.toFixed(2)}: healthy`}
-                sub={`S = ${hero.S} Gpc · fit ${hero.best_observer_chi2.toFixed(3)}`}
+                sub={`attractors ~${gly(hero.S)} apart · fit ${hero.best_observer_chi2.toFixed(3)}`}
               />
             </div>
           )}
@@ -347,7 +347,7 @@ export const WhatIfMass: React.FC = () => {
         <At x={Math.min(sTop.X(typical), WIDTH - 470)} y={150}>
           <Card accent={C.gold} style={{padding: '12px 24px'}}>
             <Title size={36} color={C.gold}>
-              typical node (as heavy as its neighbours) · most robust
+              typical member (as heavy as its neighbours) · most robust
             </Title>
           </Card>
         </At>

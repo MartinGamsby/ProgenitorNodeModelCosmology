@@ -83,14 +83,14 @@ export const Beyond: React.FC = () => {
         <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
           <line x1={bubbleP.x} y1={bubbleP.y} x2={bubbleP.x + R_OBS * scale} y2={bubbleP.y} stroke={C.gold} strokeWidth={4} strokeDasharray="10 8" />
         </svg>
-        <At x={bubbleP.x + R_OBS * scale + 230} y={bubbleP.y}>
+        <At x={bubbleP.x + R_OBS * scale + 250} y={bubbleP.y}>
           <Card accent={C.bubble}>
-            <Title size={56} color={C.bubble}>
-              R ≈ 14 Gpc
+            <Title size={50} color={C.bubble}>
+              radius ≈ 46 billion
             </Title>
-            <Label size={30} color={C.ink}>
-              ≈ 46 billion light-years
-            </Label>
+            <Title size={50} color={C.bubble}>
+              light-years
+            </Title>
             <Label size={26}>the observable universe</Label>
           </Card>
         </At>

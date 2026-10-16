@@ -4,7 +4,7 @@ import {useBeats} from '../beats';
 import {Axes, LegendItem, scales} from '../components/Chart';
 import {Show} from '../components/Show';
 import {cloudAt, Space3D} from '../components/Space3D';
-import {Arrow, At, Card, Label, pathOf, partial, Title} from '../components/ui';
+import {Arrow, At, Card, gly, Label, pathOf, partial, Title} from '../components/ui';
 import hero from '../../public/data/cloud_hero.json';
 import growth from '../../public/data/growth.json';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
@@ -68,7 +68,7 @@ export const Simulation: React.FC = () => {
         </At>
         <At x={CLOUD_CX} y={870}>
           <Label size={32} color={C.node} style={{fontWeight: 800}}>
-            distant nodes: pull apart →
+            distant attractors: pull apart →
           </Label>
         </At>
       </Show>
@@ -79,7 +79,7 @@ export const Simulation: React.FC = () => {
             <Label size={30} color={C.ink}>
               {hero.n_inner.toLocaleString('en-US')} particles · plain Newtonian gravity
             </Label>
-            <Label size={26}>+ tides from 300 relaxed HMEA nodes (S = {hero.S} Gpc)</Label>
+            <Label size={26}>+ pull from 300 attractors, ~{gly(hero.S)} apart</Label>
           </Card>
         </At>
       </Show>
@@ -100,7 +100,7 @@ export const Simulation: React.FC = () => {
             <line x1={0} x2={0} y1={10} y2={30} stroke={C.dim} strokeWidth={4} />
             <line x1={180} x2={180} y1={10} y2={30} stroke={C.dim} strokeWidth={4} />
             <text x={200} y={30} fill={C.dim} fontFamily={FONT.body} fontWeight={700} fontSize={26}>
-              5 Gpc
+              {gly(5).replace(' light-years', ' ly')}
             </text>
           </svg>
         </div>
@@ -123,7 +123,7 @@ export const Simulation: React.FC = () => {
           <LegendItem x={box.x + 20} y={box.y + 10} color={C.eds} dashed text="no dark energy (EdS)" />
           <LegendItem x={box.x + 20} y={box.y + 55} color="#ffffff" text="sim with M = 0" opacity={zeroDots} />
           <LegendItem x={box.x + 20} y={box.y + 100} color={C.lcdm} text="ΛCDM" opacity={lcdmO} />
-          <LegendItem x={box.x + 20} y={box.y + 145} color={C.model} text="sim with nodes" opacity={modelP > 0 ? 1 : 0} />
+          <LegendItem x={box.x + 20} y={box.y + 145} color={C.model} text="sim with attractors" opacity={modelP > 0 ? 1 : 0} />
           <g opacity={b.p(7, 20)} fontFamily={FONT.body} fontWeight={800} fontSize={26}>
             <text x={X(13.8) + 12} y={Y(last(g.lcdm)) - 12} fill={C.lcdm}>×{last(g.lcdm).toFixed(2)}</text>
             <text x={X(13.8) + 12} y={Y(last(g.model)) + 22} fill={C.model}>×{last(g.model).toFixed(2)}</text>

@@ -69,60 +69,82 @@ export const Space3D: React.FC<{
     if (!cv) return;
     const ctx = cv.getContext('2d')!;
     ctx.clearRect(0, 0, width, height);
+    // One depth-sorted draw list across ALL layers (far first), so e.g. an attractor behind
+    // our universe is drawn behind (and dimmed by) its sphere, and one in front covers it.
+    type Item = {depth: number; draw: () => void};
+    const items: Item[] = [];
     for (const L of layers) {
       if (L.kind === 'sphere') {
         const c = project(L.center, camera, width, height);
         if (!c) continue;
         const r = L.radius * camera.scale * c.k;
-        const g = ctx.createRadialGradient(c.x - r * 0.3, c.y - r * 0.3, r * 0.1, c.x, c.y, r);
         const a = L.alpha ?? 1;
-        g.addColorStop(0, hexA(L.color, 0.35 * a));
-        g.addColorStop(0.85, hexA(L.color, 0.18 * a));
-        g.addColorStop(1, hexA(L.color, 0.0));
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = hexA(L.color, 0.8 * a);
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
+        items.push({
+          depth: c.depth,
+          draw: () => {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = `rgba(4,8,20,${0.55 * a})`; // body: partially hides what is behind
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+            ctx.fill();
+            const g = ctx.createRadialGradient(c.x - r * 0.3, c.y - r * 0.3, r * 0.1, c.x, c.y, r);
+            g.addColorStop(0, hexA(L.color, 0.35 * a));
+            g.addColorStop(0.85, hexA(L.color, 0.18 * a));
+            g.addColorStop(1, hexA(L.color, 0.0));
+            ctx.fillStyle = g;
+            ctx.fill();
+            ctx.strokeStyle = hexA(L.color, 0.8 * a);
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+          },
+        });
         continue;
       }
-      const proj = L.pts.map((p, i) => ({i, q: project(p, camera, width, height)}));
-      proj.sort((a, b) => (b.q?.depth ?? 0) - (a.q?.depth ?? 0));
-      ctx.globalCompositeOperation = 'lighter';
-      for (const {i, q} of proj) {
-        if (!q) continue;
+      L.pts.forEach((p, i) => {
+        const q = project(p, camera, width, height);
+        if (!q) return;
         const a = typeof L.alpha === 'function' ? L.alpha(i) : (L.alpha ?? 1);
-        if (a <= 0.003) continue;
+        if (a <= 0.003) return;
         if (L.kind === 'points') {
           const col = typeof L.color === 'function' ? L.color(i) : L.color;
           const s = Math.max(0.6, L.size * q.k);
-          ctx.fillStyle = hexA(col, Math.min(1, a * Math.min(1.2, q.k)));
-          ctx.beginPath();
-          ctx.arc(q.x, q.y, s, 0, Math.PI * 2);
-          ctx.fill();
+          items.push({
+            depth: q.depth,
+            draw: () => {
+              ctx.globalCompositeOperation = 'lighter';
+              ctx.fillStyle = hexA(col, Math.min(1, a * Math.min(1.2, q.k)));
+              ctx.beginPath();
+              ctx.arc(q.x, q.y, s, 0, Math.PI * 2);
+              ctx.fill();
+            },
+          });
         } else {
           const r = Math.max(1, L.radius(i) * q.k);
-          const g = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, r * 3.2);
-          g.addColorStop(0, hexA(L.core ?? '#ffffff', 0.95 * a));
-          g.addColorStop(0.18, hexA(L.color, 0.75 * a));
-          g.addColorStop(0.45, hexA(L.color, 0.18 * a));
-          g.addColorStop(1, hexA(L.color, 0));
-          ctx.fillStyle = g;
-          ctx.beginPath();
-          ctx.arc(q.x, q.y, r * 3.2, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalCompositeOperation = 'source-over';
-          ctx.fillStyle = hexA('#05030a', a);
-          ctx.beginPath();
-          ctx.arc(q.x, q.y, r * 0.42, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalCompositeOperation = 'lighter';
+          items.push({
+            depth: q.depth,
+            draw: () => {
+              ctx.globalCompositeOperation = 'lighter';
+              const g = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, r * 3.2);
+              g.addColorStop(0, hexA(L.core ?? '#ffffff', 0.95 * a));
+              g.addColorStop(0.18, hexA(L.color, 0.75 * a));
+              g.addColorStop(0.45, hexA(L.color, 0.18 * a));
+              g.addColorStop(1, hexA(L.color, 0));
+              ctx.fillStyle = g;
+              ctx.beginPath();
+              ctx.arc(q.x, q.y, r * 3.2, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.globalCompositeOperation = 'source-over';
+              ctx.fillStyle = hexA('#05030a', a);
+              ctx.beginPath();
+              ctx.arc(q.x, q.y, r * 0.42, 0, Math.PI * 2);
+              ctx.fill();
+            },
+          });
         }
-      }
+      });
     }
+    items.sort((x, y) => y.depth - x.depth);
+    for (const it of items) it.draw();
     ctx.globalCompositeOperation = 'source-over';
   });
   return <canvas ref={ref} width={width} height={height} style={style} />;

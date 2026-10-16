@@ -187,7 +187,7 @@ export const Predictions: React.FC = () => {
             <line x1={box.x} x2={box.x + box.w} y1={sc.Y(-1)} y2={sc.Y(-1)} stroke={C.lcdm} strokeWidth={6} />
             <path d={pathOf(partial(wModel, b.p(6, 50, 10)))} stroke={C.model} strokeWidth={7} fill="none" />
             <LegendItem x={box.x + 30} y={box.y + 30} color={C.lcdm} text="ΛCDM: w = −1 forever" />
-            <LegendItem x={box.x + 30} y={box.y + 80} color={C.model} text="nodes: w drifts below −1 (shape illustrative)" />
+            <LegendItem x={box.x + 30} y={box.y + 80} color={C.model} text="attractors: w drifts below −1 (shape illustrative)" />
           </svg>
           <At x={CX} y={830}>
             <Title size={46}>

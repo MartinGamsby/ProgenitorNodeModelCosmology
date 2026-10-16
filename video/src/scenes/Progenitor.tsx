@@ -80,7 +80,7 @@ export const Progenitor: React.FC = () => {
         <At x={CX} y={150}>
           <Card accent={C.gold}>
             <Title size={50}>
-              What if the Big Bang <span style={{color: C.gold}}>was a node?</span>
+              What if the Big Bang <span style={{color: C.gold}}>was an attractor?</span>
             </Title>
           </Card>
         </At>
@@ -144,7 +144,7 @@ export const Progenitor: React.FC = () => {
         <At x={CX} y={300}>
           <Card accent={C.gold} style={{padding: '14px 30px'}}>
             <Title size={44} color={C.gold}>
-              M<sub style={{fontSize: 24}}>progenitor</sub> = a typical node
+              M<sub style={{fontSize: 24}}>progenitor</sub> = a typical member
             </Title>
           </Card>
         </At>

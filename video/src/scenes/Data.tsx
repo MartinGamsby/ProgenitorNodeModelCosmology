@@ -1,0 +1,146 @@
+import React from 'react';
+import {AbsoluteFill, interpolate} from 'remotion';
+import {useBeats} from '../beats';
+import {Axes, LegendItem, scales} from '../components/Chart';
+import {Show} from '../components/Show';
+import {At, Card, Label, pathOf, partial, Tex, Title} from '../components/ui';
+import hubble from '../../public/data/hubble.json';
+import {C, FONT, HEIGHT, WIDTH} from '../theme';
+
+const BOX = {x: 330, y: 190, w: 1260, h: 560};
+const XD: [number, number] = [0.01, 2.3];
+
+export const Data: React.FC = () => {
+  const b = useBeats();
+  const f = b.frame;
+  const h = hubble;
+  // ---- μ(z) view (beats 1-2)
+  const muView = scales(BOX, XD, [33, 47], true);
+  const dotsP = b.p(1, 50);
+  const nShown = Math.round(h.n_sne * dotsP);
+  const modelMuP = b.p(2, 50, 20);
+  // ---- residual view vs ΛCDM (beats 3+)
+  const RD: [number, number] = [-0.75, 0.3];
+  const rv = scales(BOX, XD, RD, true);
+  const resO = b.p(3, 20);
+  const muO = 1 - resO;
+  const edsP = b.p(3, 40, 20);
+  const lcdmP = b.p(4, 30);
+  const modelP = interpolate(f, [b.at(5, 25), b.at(6, 10)], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const edsRes = h.grid.z.map((z, i) => [rv.X(z), rv.Y(h.resid.eds[i])] as [number, number]);
+  const modelRes = h.model.z.map((z, i) => [rv.X(z), rv.Y(h.model.resid[i])] as [number, number]);
+  const chartGone = b.p(7, 15);
+
+  const bars = [
+    {l: 'No dark energy (EdS)', v: h.chi2.eds, c: C.eds},
+    {l: 'ΛCDM', v: h.chi2.lcdm, c: C.lcdm},
+    {l: 'Node model (best observer)', v: h.chi2.model, c: C.model},
+  ];
+  return (
+    <AbsoluteFill>
+      <Show from={0} until={1}>
+        <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center'}}>
+          <div style={{transform: `rotate(-3deg) scale(${0.6 + 0.4 * b.s(0)})`, background: C.gold, padding: '10px 50px'}}>
+            <Title size={160} color={C.bg}>
+              REAL DATA
+            </Title>
+          </div>
+        </AbsoluteFill>
+      </Show>
+
+      {b.on(1) && chartGone < 1 && (
+        <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute', opacity: 1 - chartGone}}>
+          {/* μ(z) */}
+          <g opacity={muO}>
+            <Axes box={BOX} xd={XD} yd={[33, 47]} logX xticks={[0.01, 0.1, 1, 2]} yticks={[34, 38, 42, 46]} xlabel="redshift z" ylabel="distance modulus μ" />
+            {h.sne.z.slice(0, nShown).map((z, i) => (
+              <circle key={i} cx={muView.X(z)} cy={muView.Y(h.sne.mu[i])} r={3.4} fill="#c9d4f5" opacity={0.55} />
+            ))}
+            <path d={pathOf(partial(h.model.z.map((z, i) => [muView.X(z), muView.Y(h.model.mu[i])] as [number, number]), modelMuP))} stroke={C.model} strokeWidth={6} fill="none" />
+          </g>
+          {/* Δμ vs ΛCDM */}
+          {b.on(3) && (
+            <g opacity={resO}>
+              <Axes box={BOX} xd={XD} yd={RD} logX xticks={[0.01, 0.1, 1, 2]} yticks={[-0.6, -0.4, -0.2, 0, 0.2]} fmtY={(v) => (v > 0 ? `+${v}` : `${v}`)} xlabel="redshift z" ylabel="difference from ΛCDM (mag)" />
+              {h.resid.bins_z.map((z, i) => {
+                const e = (h.resid.bins_err[i] / (RD[1] - RD[0])) * BOX.h;
+                const y = rv.Y(h.resid.bins_d[i]);
+                return (
+                  <g key={i}>
+                    <line x1={rv.X(z)} x2={rv.X(z)} y1={y - e} y2={y + e} stroke="#c9d4f5" strokeWidth={3} opacity={0.7} />
+                    <circle cx={rv.X(z)} cy={y} r={8} fill="#c9d4f5" />
+                  </g>
+                );
+              })}
+              <path d={pathOf(partial(edsRes, edsP))} stroke={C.eds} strokeWidth={6} strokeDasharray="14 10" fill="none" />
+              <line x1={BOX.x} x2={BOX.x + BOX.w * lcdmP} y1={rv.Y(0)} y2={rv.Y(0)} stroke={C.lcdm} strokeWidth={7} />
+              {modelP > 0 && <path d={pathOf(partial(modelRes, modelP))} stroke={C.model} strokeWidth={7} fill="none" />}
+              <LegendItem x={BOX.x + 30} y={BOX.y + 520} color="#c9d4f5" text={`${h.n_sne.toLocaleString('en-US')} Pantheon+ supernovae (binned)`} />
+              <LegendItem x={BOX.x + 30} y={BOX.y + 470} color={C.eds} dashed text="no dark energy" opacity={edsP} />
+              <LegendItem x={BOX.x + 700} y={BOX.y + 470} color={C.lcdm} text="ΛCDM" opacity={lcdmP} />
+              <LegendItem x={BOX.x + 700} y={BOX.y + 520} color={C.model} text="node model (from the simulation)" opacity={modelP > 0 ? 1 : 0} />
+            </g>
+          )}
+          {b.on(1) && !b.on(3) && (
+            <text x={BOX.x + 40} y={BOX.y + 40} fill={C.ink} fontFamily={FONT.display} fontWeight={800} fontSize={40}>
+              {nShown.toLocaleString('en-US')} supernovae
+            </text>
+          )}
+        </svg>
+      )}
+      <Show from={2} until={3} offset={10}>
+        <At x={1300} y={640}>
+          <Card accent={C.model} style={{padding: '18px 26px'}}>
+            <Tex tex={String.raw`\mu(z)=5\log_{10}\frac{(1+z)\,c\int dt/a(t)}{10\,\mathrm{pc}}`} size={40} />
+            <Label size={24} style={{textAlign: 'center'}}>a(t) straight from the particles</Label>
+          </Card>
+        </At>
+      </Show>
+      <Show from={3} until={4} offset={45}>
+        <At x={1250} y={680}>
+          <Title size={48} color={C.eds}>
+            misses ✗
+          </Title>
+        </At>
+      </Show>
+      <Show from={6} until={7}>
+        <At x={WIDTH / 2} y={120}>
+          <Title size={64} color={C.model}>
+            right on top ✓
+          </Title>
+        </At>
+      </Show>
+
+      {/* χ² bars */}
+      <Show from={7}>
+        <AbsoluteFill style={{alignItems: 'center', paddingTop: 150}}>
+          <Title size={58}>
+            Fit score <span style={{color: C.dim, fontSize: 36}}>(χ²/dof · lower is better)</span>
+          </Title>
+          <div style={{marginTop: 60, display: 'flex', flexDirection: 'column', gap: 34, width: 1400}}>
+            {bars.map((bar, i) => {
+              const p = b.p(7, 30, 25 + i * 35);
+              return (
+                <div key={i} style={{display: 'flex', alignItems: 'center', gap: 30}}>
+                  <div style={{width: 470, textAlign: 'right', fontFamily: FONT.body, fontWeight: 700, fontSize: 34, color: C.ink}}>{bar.l}</div>
+                  <div style={{height: 64, width: 800 * (bar.v / 0.9) * p, background: bar.c, borderRadius: 10, boxShadow: `0 0 30px ${bar.c}55`}} />
+                  <div style={{fontFamily: FONT.mono, fontWeight: 500, fontSize: 48, color: bar.c, opacity: p}}>{bar.v.toFixed(3)}</div>
+                </div>
+              );
+            })}
+          </div>
+        </AbsoluteFill>
+      </Show>
+      <Show from={8}>
+        <At x={WIDTH / 2} y={780}>
+          <Card accent={C.gold} style={{textAlign: 'center'}}>
+            <Title size={46}>
+              <span style={{color: C.gold}}>matches</span> ΛCDM · does <span style={{color: C.hot}}>not</span> beat it
+            </Title>
+            <Label size={28}>converged from 10,000 to 100,000 particles</Label>
+          </Card>
+        </At>
+      </Show>
+    </AbsoluteFill>
+  );
+};

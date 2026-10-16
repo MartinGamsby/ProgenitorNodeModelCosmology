@@ -14,7 +14,8 @@ does not beat ΛCDM and is degenerate in M/S³; with node spacing chosen jointly
 stability, 68 of 72 (centerM × realization) cells are universe-like at 8000 particles; the
 discriminating prediction is anisotropy (shear, H0 dipole, bulk flow). Everything runs through
 `sweep.py` + JSON configs with a keyed==run cache; the draft paper is
-`docs/VirializedMetaStructure.tex`; next compute step is a self-hosted GPU (20k+ particles).
+`docs/VirializedMetaStructure.tex`; a code-generated (Remotion) explainer video built from real
+repo data lives in `video/`; next compute step is a self-hosted GPU (20k+ particles).
 
 Start with [lode-map.md](./lode-map.md), [findings/summary.md](./findings/summary.md),
 [practices.md](./practices.md).

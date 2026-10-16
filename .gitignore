@@ -237,3 +237,4 @@ tmpclaude-*
 
 # root scratch dir (one-off scripts, never committed)
 tmp/
+/video/node_modules

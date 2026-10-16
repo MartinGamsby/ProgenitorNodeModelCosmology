@@ -1,0 +1,6 @@
+node_modules/
+out/
+.tts-venv/
+# generated audio: npm run voice / npm run music
+public/voice/
+public/audio/

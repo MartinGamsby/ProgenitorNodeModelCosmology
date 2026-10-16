@@ -66,4 +66,5 @@
 - **PHYSICS_CACHE_VERSION** — manual token (v3) bumped when default physics changes.
 - **Hero run** — very high-N showcase sim saved as `results/hero/*.npz`.
 - **PF##** — pinned finding ID (stable; cited in code), see findings/summary.md.
+- **Beat** (video) — one narration line = one caption = one voice clip in `video/src/script.ts`; animations key to beat numbers.
 - **WS1–WS7** — historical workstream labels in code comments (WS7 = GPU/HF, still open).

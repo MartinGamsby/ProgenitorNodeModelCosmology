@@ -42,6 +42,10 @@ files for the task at hand. [README.md](./README.md) = what Lode coding is.
 - [scripts/sweep-cache.md](./scripts/sweep-cache.md) — cache key anatomy, PHYSICS_CACHE_VERSION, concurrency
 - [scripts/visualization.md](./scripts/visualization.md) — paper figures and their sources, study scripts
 
+## Video
+- [video/summary.md](./video/summary.md) — Remotion explainer in `video/`: script → voice → timeline → scenes, contracts, lessons
+- [video/data-sources.md](./video/data-sources.md) — every on-screen number, its source file, what is illustrative
+
 ## Plans
 - [plans/roadmap.md](./plans/roadmap.md) — ALL open work, pending decisions, housekeeping
 - [plans/scale-out-gpu-hf.md](./plans/scale-out-gpu-hf.md) — self-hosted GPU (`cuda_direct`) + HF Dataset/Space

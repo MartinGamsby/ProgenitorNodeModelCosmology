@@ -1,7 +1,8 @@
 import React from 'react';
 import {Beyond} from './Beyond';
 import {Data} from './Data';
-import {Catch, Limits, Outro, Predictions, WhatIfCycle, WhatIfInvisible} from './Ending';
+import {Catch, Limits, Outro, WhatIfCycle, WhatIfInvisible} from './Ending';
+import {Predictions} from './Predictions';
 import {Hook, TitleCard} from './Intro';
 import {Numbers} from './cut/Numbers';
 import {TidesOriginal} from './cut/TidesOriginal';

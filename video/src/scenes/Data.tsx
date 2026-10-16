@@ -8,6 +8,8 @@ import hubble from '../../public/data/hubble.json';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
 
 const BOX = {x: 330, y: 190, w: 1260, h: 560};
+/** Best-observer χ²/dof moves ~±0.005 with particle count / observer sampling (lode PF28). */
+export const NOISE = 0.005;
 const XD: [number, number] = [0.01, 2.3];
 
 export const Data: React.FC = () => {
@@ -135,9 +137,9 @@ export const Data: React.FC = () => {
         <At x={WIDTH / 2} y={780}>
           <Card accent={C.gold} style={{textAlign: 'center'}}>
             <Title size={46}>
-              <span style={{color: C.gold}}>matches</span> ΛCDM · does <span style={{color: C.hot}}>not</span> beat it
+              it <span style={{color: C.gold}}>matches</span> ΛCDM
             </Title>
-            <Label size={28}>converged from 10,000 to 100,000 particles</Label>
+            <Label size={28}>gaps below ±{NOISE} are simulation noise · converged from 10,000 to 100,000 particles</Label>
           </Card>
         </At>
       </Show>

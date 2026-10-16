@@ -9,6 +9,7 @@ import hero from '../../public/data/cloud_hero.json';
 import knot from '../../public/data/cloud_knot.json';
 import verdict from '../../public/data/verdict.json';
 import hubble from '../../public/data/hubble.json';
+import {NOISE} from './Data';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
 
 type Cell = {cm: number; seed: number; bo: number | null; knot: number | null; ok: boolean};
@@ -84,6 +85,10 @@ export const WhatIfObserver: React.FC = () => {
             Best vantage in {goodCells.length} configurations
           </text>
           <Axes box={box} xd={[0.42, 0.47]} yd={[0, 1]} xticks={[0.42, 0.44, 0.46]} fmtX={(v) => v.toFixed(2)} xlabel="fit score (χ²/dof)" grid={false} />
+          <rect x={sc.X(hubble.chi2.lcdm - NOISE)} y={box.y} width={sc.X(hubble.chi2.lcdm + NOISE) - sc.X(hubble.chi2.lcdm - NOISE)} height={box.h} fill={C.lcdm} opacity={0.14} />
+          <text x={sc.X(hubble.chi2.lcdm)} y={box.y + box.h - 12} fill={C.lcdm} fontFamily={FONT.body} fontWeight={700} fontSize={20} textAnchor="middle" opacity={0.9}>
+            noise ±{NOISE}
+          </text>
           <line x1={sc.X(hubble.chi2.lcdm)} x2={sc.X(hubble.chi2.lcdm)} y1={box.y} y2={box.y + box.h} stroke={C.lcdm} strokeWidth={4} />
           <text x={sc.X(hubble.chi2.lcdm) - 10} y={box.y - 14} fill={C.lcdm} fontFamily={FONT.body} fontWeight={800} fontSize={24} textAnchor="end">
             ΛCDM {hubble.chi2.lcdm}

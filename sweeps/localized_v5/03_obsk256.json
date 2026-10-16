@@ -1,0 +1,54 @@
+{
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_seeds": [
+    42
+  ],
+  "particle_count": 2000,
+  "n_steps": 1092,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "init_distributions": [
+    "grf"
+  ],
+  "grf_support": "sphere",
+  "node_geometries": [
+    "virialized"
+  ],
+  "vir_n_nodes": 300,
+  "vir_mass_rule": "massfunc",
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "lattice",
+  "node_softening_gpc": 1.0,
+  "node_force_law": "plummer",
+  "score_observers": true,
+  "observer_definition": "local_rms",
+  "observer_sample": 2000,
+  "M_values": [
+    100,
+    300,
+    500
+  ],
+  "S_values": [
+    20,
+    25,
+    30
+  ],
+  "vir_mass_spreads": [
+    4.0,
+    6.0,
+    8.0
+  ],
+  "observer_k": 256,
+  "tag": "loc5_obsk256",
+  "figures_dir": "results/figures/loc5_obsk256",
+  "_comment": "localized_v5 observer_k=256 (LOCAL k-NN): best-observer hunt on v4's winning band M[100, 300, 500] x S[20, 25, 30] x sigma[4.0, 6.0, 8.0], observer_sample=2000 (true min + exact frac_below_lcdm). Isolates observer_k."
+}

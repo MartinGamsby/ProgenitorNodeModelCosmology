@@ -1,0 +1,35 @@
+{
+  "_comment": "SATELLITE: start_size_scale shape study (plan-v2 B5). One geometry (virialized Option A lattice, GRF sphere support, bounded close-range law + 1 Gpc cap + adaptive substep threshold=2.0/substeps=8 -- MATCHED to core_v3 arm 05) x start_size_scale in {0.5,0.8,1.0,1.2,1.5,2.0} x a small M grid {35,100,300}, S co-fit [3..35] ternary. start_size_scale is a CONFIG-WIDE scalar in sweep.py (read via cfg.get in _make_sweep_config_for_cell), so each value is its OWN small arm (one arm per scale; the scale=1.0 arm is the byte-identical PF10 reference). This is a SECONDARY shape study, NOT the headline: particle_count is reduced to 1000 (below the 2000 production setting) for speed -- it isolates the a(t)-SHAPE move vs start_size, which PF10 shows is a real lever, and does NOT claim a converged chi2 band. vir_n_nodes=150 matches the core. Run in sequence by launch_sweep_detached.ps1 -IncludeSatellites; each arm writes results/ws1_sweep_<tag>.csv (resumable).",
+  "arms": [
+    {
+      "file": "sweeps/satellite_startsize/01_startsize_0p5.json",
+      "tag": "sat_startsize_0p5",
+      "isolates": "virA GRF bounded+substep | start_size_scale=0.5 (smaller initial cloud)"
+    },
+    {
+      "file": "sweeps/satellite_startsize/02_startsize_0p8.json",
+      "tag": "sat_startsize_0p8",
+      "isolates": "virA GRF bounded+substep | start_size_scale=0.8"
+    },
+    {
+      "file": "sweeps/satellite_startsize/03_startsize_1p0.json",
+      "tag": "sat_startsize_1p0",
+      "isolates": "virA GRF bounded+substep | start_size_scale=1.0 (byte-identical PF10 reference)"
+    },
+    {
+      "file": "sweeps/satellite_startsize/04_startsize_1p2.json",
+      "tag": "sat_startsize_1p2",
+      "isolates": "virA GRF bounded+substep | start_size_scale=1.2"
+    },
+    {
+      "file": "sweeps/satellite_startsize/05_startsize_1p5.json",
+      "tag": "sat_startsize_1p5",
+      "isolates": "virA GRF bounded+substep | start_size_scale=1.5"
+    },
+    {
+      "file": "sweeps/satellite_startsize/06_startsize_2p0.json",
+      "tag": "sat_startsize_2p0",
+      "isolates": "virA GRF bounded+substep | start_size_scale=2.0 (larger initial cloud)"
+    }
+  ]
+}

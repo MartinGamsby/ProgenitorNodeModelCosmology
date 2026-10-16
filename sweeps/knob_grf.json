@@ -1,0 +1,21 @@
+{
+  "_comment": "GRF knob sweep — the consolidated replacement for the retired pantheon_knob_sweep.py. Exercises node_mass_amplitude x node_mass_seed with init_distribution fixed to 'grf' over the user M/S grid. amplitude=0 collapses to a single nm_seed=42 cell (handled by expand_grid). S is co-fit per M (use 'S_values': an explicit list to pin the old fixed S grid instead). sweep.py writes the full ws1_sweep_knob_grf.csv (the knob-summary superset) plus the best-isotropic sweep_results_pantheon_knob_grf.csv (load_best_config-compatible).",
+  "M_values": [50, 100, 250, 500, 700, 750, 800, 850, 900, 1000],
+  "S_values": "co-fit",
+  "s_min_gpc": 20,
+  "s_max_gpc": 80,
+  "s_cofit_method": "linear",
+  "node_mass_amplitudes": [0.0, 0.25, 0.5, 0.75],
+  "node_s_amplitudes": [0.0],
+  "node_mass_seeds": [42, 7],
+  "init_distributions": ["grf"],
+  "node_geometries": ["cube26"],
+  "geometry_kwargs": {},
+  "particle_count": 400,
+  "n_steps": 273,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "tag": "knob_grf"
+}

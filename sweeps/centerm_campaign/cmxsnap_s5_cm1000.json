@@ -1,0 +1,54 @@
+{
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "particle_count": 4000,
+  "n_steps": 1092,
+  "t_start_Gyr": 2.9,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "init_distributions": [
+    "grfmass"
+  ],
+  "grf_support": "sphere",
+  "node_geometries": [
+    "virialized"
+  ],
+  "vir_n_nodes": 300,
+  "vir_mass_rule": "massfunc",
+  "vir_mass_spreads": [
+    0.5
+  ],
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "medium",
+  "node_softening_gpc": 1.0,
+  "node_force_law": "plummer",
+  "score_observers": true,
+  "observer_definition": "local_rms",
+  "observer_sample": 2000,
+  "observer_k": -1,
+  "M_values": [
+    3000
+  ],
+  "S_values": [
+    80
+  ],
+  "outer_particle_cap": 2.0,
+  "node_mass_seeds": [
+    5
+  ],
+  "centerM": 1000.0,
+  "vir_center_mass_frac": 0.3333333333333333,
+  "tag": "cmxsnap_s5_cm1000",
+  "figures_dir": "results/figures/cmxsnap_s5_cm1000",
+  "_comment": "single-cell snapshot rerun of cmx_s5_cm1000 at its co-fit S=80 Gpc (verdict step 3)",
+  "save_interval": 18,
+  "save_snapshots": true,
+  "skip_figures": true,
+  "skip_probe": true
+}

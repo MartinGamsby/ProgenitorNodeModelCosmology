@@ -1,0 +1,70 @@
+{
+  "_comment": "core_v3 sweep family: FEWER but HIGHER-quality sims that SUPERSEDE comparison_v2. 2000p/546 steps, M down to 1 (mean per node), S co-fit [3..35] ternary, GRF (sphere support) headline + a uniform_sphere control on cube26 only, the three MATCHED close-range treatments (none / bounded+substep / Plummer 1 Gpc), and vir_n_nodes=150 for a finer mass function + deeper interior. 12 core arms (9 grf + 3 cube26-uniform) isolate cube-vs-virialized-vs-softening cleanly; arm 13 is the B3a seed sweep. Run in sequence by launch_sweep_detached.ps1; each arm writes results/ws1_sweep_<tag>.csv (resumable).",
+  "arms": [
+    {
+      "file": "sweeps/core_v3/01_cube26_grf_soft0.json",
+      "tag": "core3_01_cube26_grf_soft0",
+      "isolates": "cube26 (control) | init=grf | no softening, plummer law (baseline)"
+    },
+    {
+      "file": "sweeps/core_v3/02_cube26_grf_bounded.json",
+      "tag": "core3_02_cube26_grf_bounded",
+      "isolates": "cube26 (control) | init=grf | bounded close-range law + 1 Gpc cap + adaptive substep (threshold=2.0, substeps=8; Section-4 validated)"
+    },
+    {
+      "file": "sweeps/core_v3/03_cube26_grf_plummer1.json",
+      "tag": "core3_03_cube26_grf_plummer1",
+      "isolates": "cube26 (control) | init=grf | blunt 1 Gpc Plummer floor (old control, kept once)"
+    },
+    {
+      "file": "sweeps/core_v3/04_virA_grf_soft0.json",
+      "tag": "core3_04_virA_grf_soft0",
+      "isolates": "virialized Option A (lattice) | init=grf | no softening, plummer law (baseline)"
+    },
+    {
+      "file": "sweeps/core_v3/05_virA_grf_bounded.json",
+      "tag": "core3_05_virA_grf_bounded",
+      "isolates": "virialized Option A (lattice) | init=grf | bounded close-range law + 1 Gpc cap + adaptive substep (threshold=2.0, substeps=8; Section-4 validated)"
+    },
+    {
+      "file": "sweeps/core_v3/06_virA_grf_plummer1.json",
+      "tag": "core3_06_virA_grf_plummer1",
+      "isolates": "virialized Option A (lattice) | init=grf | blunt 1 Gpc Plummer floor (old control, kept once)"
+    },
+    {
+      "file": "sweeps/core_v3/07_virB_grf_soft0.json",
+      "tag": "core3_07_virB_grf_soft0",
+      "isolates": "virialized Option B (gradient/relaxation) | init=grf | no softening, plummer law (baseline)"
+    },
+    {
+      "file": "sweeps/core_v3/08_virB_grf_bounded.json",
+      "tag": "core3_08_virB_grf_bounded",
+      "isolates": "virialized Option B (gradient/relaxation) | init=grf | bounded close-range law + 1 Gpc cap + adaptive substep (threshold=2.0, substeps=8; Section-4 validated)"
+    },
+    {
+      "file": "sweeps/core_v3/09_virB_grf_plummer1.json",
+      "tag": "core3_09_virB_grf_plummer1",
+      "isolates": "virialized Option B (gradient/relaxation) | init=grf | blunt 1 Gpc Plummer floor (old control, kept once)"
+    },
+    {
+      "file": "sweeps/core_v3/10_cube26_uniform_soft0.json",
+      "tag": "core3_10_cube26_uniform_soft0",
+      "isolates": "cube26 (control) | init=uniform_sphere | no softening, plummer law (baseline)"
+    },
+    {
+      "file": "sweeps/core_v3/11_cube26_uniform_bounded.json",
+      "tag": "core3_11_cube26_uniform_bounded",
+      "isolates": "cube26 (control) | init=uniform_sphere | bounded close-range law + 1 Gpc cap + adaptive substep (threshold=2.0, substeps=8; Section-4 validated)"
+    },
+    {
+      "file": "sweeps/core_v3/12_cube26_uniform_plummer1.json",
+      "tag": "core3_12_cube26_uniform_plummer1",
+      "isolates": "cube26 (control) | init=uniform_sphere | blunt 1 Gpc Plummer floor (old control, kept once)"
+    },
+    {
+      "file": "sweeps/core_v3/13_virA_grf_bounded_seedsweep.json",
+      "tag": "core3_13_virA_grf_bounded_seedsweep",
+      "isolates": "SEED arm (B3a): virA GRF bounded+substep, 5 seeds x 3 M = 15 realizations; chi2 spread across random virialized structure."
+    }
+  ]
+}

@@ -152,22 +152,27 @@ class TestMatchWeights(unittest.TestCase):
     """Test MatchWeights dataclass."""
 
     def test_defaults(self):
-        """Default weights should match expected."""
+        """Default weights should match the current MatchWeights fields."""
         weights = MatchWeights()
-        self.assertEqual(weights.hubble_half_curve, 0.025)
-        self.assertEqual(weights.hubble_curve, 0.025)
-        self.assertEqual(weights.size_half_curve, 0.25)
-        self.assertEqual(weights.size_curve, 0.2)
-        self.assertEqual(weights.endpoint, 0.4)
-        self.assertEqual(weights.max_radius, 0.1)
+        # Size-curve family is scaled by SIZE_WEIGHT_VS_HUBBLE (250).
+        self.assertEqual(weights.curve, 250)
+        self.assertEqual(weights.curve_r2, 250)
+        self.assertEqual(weights.curve_rmse, 250)
+        self.assertEqual(weights.half_curve, 125.0)
+        self.assertEqual(weights.half_rmse, 125.0)
+        self.assertEqual(weights.max, 62.5)
+        self.assertEqual(weights.end, 2500)
+        # Hubble-curve family is the unscaled reference (weight 1).
+        self.assertEqual(weights.hubble_curve, 1)
+        self.assertEqual(weights.hubble_half_curve, 0.5)
+        self.assertEqual(weights.hubble_end, 10)
 
-    def test_weights_sum_to_one(self):
-        """Default weights should sum to 1.0."""
+    def test_weights_are_positive(self):
+        """All default weights should be positive (used as relative weights)."""
+        import dataclasses
         weights = MatchWeights()
-        total = (weights.hubble_half_curve + weights.hubble_curve +
-                 weights.size_half_curve + weights.size_curve +
-                 weights.endpoint + weights.max_radius)
-        self.assertAlmostEqual(total, 1.0)
+        for field in dataclasses.fields(weights):
+            self.assertGreater(getattr(weights, field.name), 0.0)
 
 
 class TestParameterSpaceBuilders(unittest.TestCase):
@@ -204,9 +209,9 @@ class TestParameterSpaceBuilders(unittest.TestCase):
     def test_build_s_list_range(self):
         """S list should cover specified range."""
         s_list = build_s_list(15, 60)
-        self.assertEqual(s_list[0],20)
+        self.assertEqual(s_list[0], 20)
         self.assertEqual(s_list[-1], 60)
-        self.assertEqual(len(s_list), 46)
+        self.assertEqual(len(s_list), 41)
 
     def test_build_s_list_single_value(self):
         """S list with min==max should have one element."""

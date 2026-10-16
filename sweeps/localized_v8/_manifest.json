@@ -1,0 +1,9 @@
+{
+  "family": "localized_v8",
+  "purpose": "4000-particle converged-N multiplicity confirmation: several best-centre configs match LCDM-quality at observer_k=-1 / 4000p (the paper's multiplicity claim at proper resolution).",
+  "arms": [
+    "sweeps/localized_v8/01_M200_N4000.json",
+    "sweeps/localized_v8/02_M300_N4000.json",
+    "sweeps/localized_v8/03_M400_N4000.json"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "family": "rounder",
+  "purpose": "Idea A: MEASURE core-fraction at the rounder anchor-ok corner (per-seed co-fit already shows all seeds match LCDM ~0.433; roundness tracks growth, not seed). Find a seed+config that is anchor-ok AND best_obs ~0.44 AND rounder than fig6 (core 0.253), for a rounder paper cloud figure.",
+  "arms": [
+    "sweeps/rounder/01_ctrl.json",
+    "sweeps/rounder/02_primary.json",
+    "sweeps/rounder/03_sig.json",
+    "sweeps/rounder/04_S.json",
+    "sweeps/rounder/05_seed.json",
+    "sweeps/rounder/06_stretch.json"
+  ]
+}

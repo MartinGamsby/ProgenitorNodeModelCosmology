@@ -28,7 +28,7 @@ from cosmo.factories import (
 )
 
 
-SAVE_INTERVAL = 10  # Must match parameter_sweep.py
+SAVE_INTERVAL = 10  # Must match sweep.py / cosmo.parameter_sweep
 
 
 def run_nbody_simulations(sim_params, box_size, a_start):
@@ -115,7 +115,7 @@ def run_simulation(output_dir, sim_params, use_max_radius=False):
     np.random.seed(sim_params.seed)
     const = CosmologicalConstants()
 
-    # Setup initial conditions and LCDM baseline (shared with parameter_sweep.py)
+    # Setup initial conditions and LCDM baseline (shared with sweep.py)
     box_size, a_at_start, baseline = setup_simulation_context(
         sim_params.t_start_Gyr, sim_params.t_duration_Gyr, sim_params.n_steps, SAVE_INTERVAL
     )

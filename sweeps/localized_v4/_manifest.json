@@ -1,0 +1,40 @@
+{
+  "family": "localized_v4",
+  "purpose": "Production-resolution (2000p/1092 steps) refinement of the high-sigma ridge (sigma 4-8, M 100-500, S 15-30) where the exploration found the best honest centre chi2/dof ~0.46. Plummer 1 Gpc treatment.",
+  "arms": [
+    "sweeps/localized_v4/01_sigma4.json",
+    "sweeps/localized_v4/02_sigma5.json",
+    "sweeps/localized_v4/03_sigma6.json",
+    "sweeps/localized_v4/04_sigma7.json",
+    "sweeps/localized_v4/05_sigma8.json",
+    "sweeps/localized_v4/06_nodes500.json",
+    "sweeps/localized_v4/07_conv_1638steps.json",
+    "sweeps/localized_v4/07_conv_2184steps.json"
+  ],
+  "main_grid": {
+    "M": [
+      100,
+      200,
+      300,
+      400,
+      500
+    ],
+    "S": [
+      15,
+      18,
+      20,
+      25,
+      30
+    ],
+    "sigma": [
+      4.0,
+      5.0,
+      6.0,
+      7.0,
+      8.0
+    ],
+    "particle_count": 2000,
+    "n_steps": 1092,
+    "vir_n_nodes": 300
+  }
+}

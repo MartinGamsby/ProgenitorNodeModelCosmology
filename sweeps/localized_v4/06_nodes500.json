@@ -1,0 +1,49 @@
+{
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_seeds": [
+    42
+  ],
+  "particle_count": 2000,
+  "n_steps": 1092,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "init_distributions": [
+    "grf"
+  ],
+  "grf_support": "sphere",
+  "node_geometries": [
+    "virialized"
+  ],
+  "vir_n_nodes": 500,
+  "vir_mass_rule": "massfunc",
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "lattice",
+  "node_softening_gpc": 1.0,
+  "node_force_law": "plummer",
+  "score_observers": true,
+  "observer_sample": 256,
+  "M_values": [
+    300,
+    500
+  ],
+  "S_values": [
+    20,
+    30
+  ],
+  "vir_mass_spreads": [
+    6.0,
+    8.0
+  ],
+  "tag": "loc4_nodes500",
+  "figures_dir": "results/figures/loc4_nodes500",
+  "_comment": "localized_v4 node-count check: the best corners (M{300,500} x S{20,30} x sigma{6,8}) at vir_n_nodes=500 vs the 300-node main grid -- does a richer mass function move the centre chi2? 2000p/1092, Plummer 1 Gpc."
+}

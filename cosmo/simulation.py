@@ -46,7 +46,19 @@ class CosmologicalSimulation:
         self.use_external_nodes = use_external_nodes
         self.t_start_Gyr = sim_params.t_start_Gyr
         self.a_start = a_start
-        self.box_size_Gpc = box_size_Gpc  # Store initial box size for consistent size calculation
+        # Start-size lever (Section 6): scale the incoming LCDM-implied box BEFORE
+        # building particles. 1.0 (default) -> box unchanged, byte-identical. The
+        # scaled box is what self.box_size_Gpc stores, so size_Gpc = a(t)*box and
+        # the EdS-critical cloud MASS (derived from box volume in ParticleSystem)
+        # both follow the scaled size consistently. The nodes keep their UNSCALED
+        # spacing S, so a bigger/smaller cloud spans a different fraction of S ->
+        # different differential tidal shear -> a(t) SHAPE moves (M_ext>0). a(t) is
+        # an RMS RATIO (scale-free), so a pure size change at M_ext=0 leaves a(t)
+        # identical (density stays EdS-critical) -> M=0 == EdS preserved at any size.
+        start_size_scale = float(getattr(sim_params, 'start_size_scale', 1.0))
+        box_size_Gpc = box_size_Gpc * start_size_scale
+        self.start_size_scale = start_size_scale
+        self.box_size_Gpc = box_size_Gpc  # Store (scaled) initial box size for consistent size calculation
         self.seed = sim_params.seed
         np.random.seed(self.seed)
 
@@ -61,17 +73,31 @@ class CosmologicalSimulation:
         # Calculate total mass from center_node_mass
         total_mass_kg = sim_params.center_node_mass_kg
 
+        # EdS-consistent initial conditions: only meaningful when dark energy is
+        # OFF (matter-only / external-node). When enabled, ParticleSystem ignores
+        # total_mass_kg above and instead carries the EdS critical mass, with a
+        # matching H_EdS Hubble flow, so M_ext=0 reproduces analytic EdS a(t).
+        self.eds_consistent = bool(getattr(sim_params, 'eds_consistent', True)) and (not self.use_dark_energy)
+
         # Initialize particle system
         print(f"Initializing {sim_params.n_particles} particles in {box_size_Gpc} Gpc box...")
         if sim_params.center_node_mass != 1.0:
-            print(f"Total mass: {sim_params.center_node_mass} × M_observable")
+            print(f"centerM={sim_params.center_node_mass} (outer-mass multiplier): "
+                  f"outer particles will be added outside R_obs; R_sim = R_obs × {sim_params.center_node_mass**(1/3):.4f}")
 
         self.particles = ParticleSystem(n_particles=sim_params.n_particles,
                                        box_size_m=box_size_m,
                                        total_mass_kg=total_mass_kg,
                                        a_start=self.a_start,
                                        use_dark_energy=self.use_dark_energy,
-                                       mass_randomize=sim_params.mass_randomize)
+                                       mass_randomize=sim_params.mass_randomize,
+                                       init_distribution=sim_params.init_distribution,
+                                       init_kwargs=sim_params.init_kwargs,
+                                       eds_consistent=self.eds_consistent,
+                                       t_start_Gyr=self.t_start_Gyr,
+                                       center_node_mass=sim_params.center_node_mass,
+                                       outer_density_ceiling=sim_params.outer_density_ceiling,
+                                       outer_particle_cap=getattr(sim_params, 'outer_particle_cap', 0.0))
 
         # Initialize HMEA grid if using External-Node Model
         self.hmea_grid = None
@@ -81,9 +107,30 @@ class CosmologicalSimulation:
         else:
             print("Running standard matter-only (no dark energy)")
 
-        # Calculate softening based on center_node_mass (scales with mass for stability)
-        # 1Gpc softening per Mobs
-        softening_m = sim_params.center_node_mass * 1.0 * self.const.Gpc_to_m
+        # Physical pre-t_start HMEA boost: the cloud should ARRIVE at t_start with a
+        # radial velocity slightly ABOVE pure EdS Hubble flow because the HMEA tidal
+        # field has been pulling on it from the Big Bang to t_start. Applied here
+        # (after particles + grid exist, before any integration), only for the
+        # External-Node + EdS-consistent case. Scales with M_ext so it vanishes as
+        # M_ext -> 0 (M=0 == EdS preserved exactly).
+        self.pre_start_tidal_boost = (
+            bool(getattr(sim_params, 'pre_start_tidal_boost', True))
+            and use_external_nodes
+            and self.eds_consistent
+            and self.hmea_grid is not None
+            and self.t_start_Gyr is not None
+            and self.t_start_Gyr > 0
+        )
+        if self.pre_start_tidal_boost:
+            self._apply_pre_start_tidal_boost()
+
+        # Softening frozen at the centerM=1 baseline (1 Gpc per M_obs). It must NOT
+        # scale with center_node_mass: centerM now means an OUTER-MASS multiplier, and
+        # the old centerM->softening coupling made the centerM->chi2 shift a resolution
+        # ARTIFACT rather than real added gravity. Freezing keeps centerM=1 byte-
+        # identical (the old value WAS 1.0*1.0*Gpc) and makes centerM>1 change a(t)
+        # ONLY via added outer-mass gravity. (WS4 correctness gate.)
+        softening_m = 1.0 * self.const.Gpc_to_m
         # Hubble drag disabled - using velocity calibration instead
         use_hubble_drag = False
 
@@ -95,12 +142,95 @@ class CosmologicalSimulation:
             use_dark_energy=self.use_dark_energy,
             force_method=force_method,
             barnes_hut_theta=barnes_hut_theta,
-            use_hubble_drag=use_hubble_drag
+            use_hubble_drag=use_hubble_drag,
+            # Adaptive KDK sub-stepping (Section 4). Default OFF (threshold 0.0)
+            # -> one plain leapfrog step (byte-identical).
+            node_substep_threshold=float(getattr(sim_params, 'node_substep_threshold', 0.0)),
+            node_substeps=int(getattr(sim_params, 'node_substeps', 1)),
         )
         
         # Simulation results
         self.snapshots = []
         self.expansion_history = []
+
+    def _apply_pre_start_tidal_boost(self) -> None:
+        """Add the pre-t_start HMEA tidal velocity boost to the initial conditions.
+
+        Physical motivation
+        -------------------
+        The EdS-consistent ICs set v_i = H_EdS(t_start) * r_i, i.e. the cloud
+        arrives at t_start moving at PURE matter-only Hubble flow. But for M_ext>0
+        the HMEA nodes have been pulling on the cloud since the Big Bang, so the
+        cloud should actually arrive at t_start moving slightly FASTER (a net
+        outward boost). This term restores that pre-history.
+
+        Derivation (linear / early-time regime, S >> cloud size)
+        --------------------------------------------------------
+        Per particle at displacement r from the cloud centre, the HMEA tidal
+        acceleration is the SAME node sum the integrator uses:
+            g_tid(r, t) = sum_nodes G m_node (r - r_node)/|r - r_node|^3 .
+        At early times the cloud is small, so g_tid is ~linear in r and the node
+        distances are ~constant; the positions track the EdS background,
+        r(t) = r_start * a(t)/a_start. Hence the RADIAL tidal accel scales as
+            g_r(t) ~= g_r(t_start) * a(t)/a_start .
+        The extra radial velocity imparted from t_i to t_start (proper coords,
+        the same frame as v = H_EdS*r) is
+            dv_r = integral_{t_i}^{t_start} g_r(t) dt
+                 = g_r(t_start)/a_start * integral_{t_i}^{t_start} a_EdS(t) dt .
+        With EdS a(t) = a_start (t/t_start)^(2/3):
+            integral_{t_i}^{t_start} a(t) dt
+              = a_start (3/5) t_start (1 - (t_i/t_start)^(5/3)) .
+        Taking t_i -> 0 (full pre-history from the Big Bang) gives the clean,
+        parameter-free factor (3/5) t_start:
+            dv_r(particle) = g_r(t_start) * (3/5) * t_start_seconds .
+
+        Properties
+        ----------
+        * VANISHES as M_ext -> 0 (g_tid is linear in the node masses), so the
+          M_ext=0 == Einstein-de Sitter invariant is preserved EXACTLY.
+        * Monotone-ish increasing in M_ext and decreasing in S (stronger / closer
+          nodes pull harder), as required.
+        * Uses the real node sum (incl. per-node anisotropy), not an analytic
+          Omega_Lambda — it is NOT a fit-to-LCDM knob.
+
+        Only the radial (expansion) component is added; the boost is applied along
+        each particle's radial unit vector. The net COM velocity is removed
+        afterwards so no bulk drift is introduced.
+        """
+        positions = self.particles.get_positions()        # (N,3) m, centred
+        velocities = self.particles.get_velocities()       # (N,3) m/s
+
+        # Tidal acceleration at t_start positions (same path as the integrator).
+        g_tid = self.hmea_grid.calculate_tidal_acceleration_batch(positions)  # (N,3)
+
+        # Radial unit vectors (guard the origin particle).
+        r = np.linalg.norm(positions, axis=1, keepdims=True)
+        r_safe = np.where(r > 0.0, r, 1.0)
+        r_hat = positions / r_safe
+
+        # Radial component of the tidal accel (positive = outward / expansion).
+        g_r = np.sum(g_tid * r_hat, axis=1)                # (N,)
+
+        # Integrated pre-history factor (3/5) t_start, in seconds.
+        t_start_s = self.t_start_Gyr * self.const.Gyr_to_s
+        dv_r = g_r * (3.0 / 5.0) * t_start_s               # (N,) m/s along r_hat
+
+        boosted = velocities + dv_r[:, np.newaxis] * r_hat
+
+        # Remove any net COM velocity the boost introduced (keep the cloud at rest).
+        com_v = np.mean(boosted, axis=0)
+        boosted = boosted - com_v
+        self.particles.set_velocities(boosted)
+
+        rms_dv = float(np.sqrt(np.mean(dv_r ** 2)))
+        rms_v = float(np.sqrt(np.mean(np.sum(velocities ** 2, axis=1))))
+        mean_g_r = float(np.mean(g_r))
+        print(
+            f"[Pre-start tidal boost] Applied: RMS dv_r = {rms_dv/1e3:.1f} km/s "
+            f"({100.0*rms_dv/max(rms_v,1e-30):.3f}% of Hubble flow), "
+            f"mean radial accel = {mean_g_r:.3e} m/s^2 "
+            f"(t_i->0 Big-Bang pre-history, factor (3/5)*t_start)."
+        )
 
     def _calibrate_velocity_for_lcdm_match(self, t_duration_Gyr: float, n_steps: int, damping: float = None,
                                            percent_sim: float = 0.3) -> None:
@@ -128,8 +258,32 @@ class CosmologicalSimulation:
             print(f"[Velocity Calibration] Applied velocity scaling: {damping:.6f}")
             return
 
+        # Velocity-calibration cache key.
+        # NOTE: this whole method is the LEGACY non-EdS calibration path. It is only
+        # reached from run() when NOT (eds_consistent and damping is None) — i.e. for
+        # eds_consistent=False runs without an explicit damping override. Under the
+        # default eds_consistent=True it is NEVER called, so the headline/pinned runs
+        # never touch this cache. generate_output_filename omits start_size_scale,
+        # node_softening_gpc and node_geometry, but those knobs DO change the
+        # calibrated velocity scale (start size changes density/expansion; softening
+        # and geometry change the tidal field measured during the test). We thread
+        # them into the key (only when non-default, to keep existing keys stable) so a
+        # keyed value always matches the run that produced it — closing the
+        # "keyed-but-not-run" foot-gun on this legacy path.
         calib_name = generate_output_filename('', self.sim_params, '', '', include_timestamp=False,
                                                include_S=False, include_M=False, include_D=False)
+        _calib_extra = []
+        _start_size_scale = float(getattr(self.sim_params, 'start_size_scale', 1.0))
+        if _start_size_scale != 1.0:
+            _calib_extra.append(f"{_start_size_scale}ss")
+        _node_softening_gpc = float(getattr(self.sim_params, 'node_softening_gpc', 0.0))
+        if _node_softening_gpc != 0.0:
+            _calib_extra.append(f"{_node_softening_gpc}soft")
+        _node_geometry = getattr(self.sim_params, 'node_geometry', 'cube26')
+        if _node_geometry != 'cube26':
+            _calib_extra.append(f"{_node_geometry}geom")
+        if _calib_extra:
+            calib_name = calib_name + "_" + "_".join(_calib_extra)
         cached_velocity = velocity_cache.get_cached_value(calib_name, CacheType.VELOCITY)
         if cached_velocity:
             self.particles.set_velocities(self.particles.get_velocities()*cached_velocity)
@@ -324,8 +478,18 @@ class CosmologicalSimulation:
         # Velocity calibration: calibrate initial velocity to match LCDM expansion
         # For matter-only: uses N-body test to measure deceleration deficit
         # For External-Node: uses N-body test including HMEA tidal forces
+        #
+        # SKIP calibration when EdS-consistent ICs are active: the Hubble flow and
+        # cloud density are already mutually consistent, so the expansion is set by
+        # real physics (M_ext=0 -> EdS, M_ext>0 -> tidal acceleration). Calibrating
+        # to LCDM here would re-introduce the very fudge this mode removes. An
+        # explicit user-provided damping override is still honoured.
         if not self.use_dark_energy:
-            self._calibrate_velocity_for_lcdm_match(t_end_Gyr, n_steps, damping)
+            if self.eds_consistent and damping is None:
+                print("[Velocity Calibration] Skipped (EdS-consistent ICs: "
+                      "physical Hubble flow + critical density, no calibration).")
+            else:
+                self._calibrate_velocity_for_lcdm_match(t_end_Gyr, n_steps, damping)
 
         # Run integration
         self.snapshots = self.integrator.evolve(t_end, n_steps, save_interval)
@@ -337,30 +501,64 @@ class CosmologicalSimulation:
         return self.snapshots
     
     def _calculate_expansion_history(self) -> None:
-        """Calculate the scale factor a(t) from snapshots."""
+        """Calculate the scale factor a(t) from snapshots.
+
+        WS4 / Section 2 — OBSERVABLE INNER REGION ONLY
+        -----------------------------------------------
+        When centerM > 1 the simulation contains both inner (observable) and
+        outer (shell) particles.  a(t) — and hence H(z), mu(z), and the growth
+        anchor — MUST be computed from the inner observable sub-region only.
+        The outer particles still exert gravity (integrator is UNCHANGED) but
+        must never enter the size/expansion MEASUREMENT.
+
+        Implementation: the observable mask (True for inner particles, always
+        all-True when centerM=1) is applied to every snapshot's position array
+        before passing it to calculate_system_size.  When centerM=1 the mask is
+        all-True so the result is numerically byte-identical to the pre-WS4 code.
+
+        Guard: if the ParticleSystem was constructed without an observable_mask
+        attribute (very old test constructions), we default to all-True.
+        """
         self.expansion_history = []
 
-        rms_initial, max_initial, _ = self.calculate_system_size(self.snapshots[0])
+        # --- Observable mask (Section 2 gate) ---
+        # getattr guard: older ParticleSystem constructions (pre-WS4) may not
+        # have observable_mask; default to all-True for backward compat.
+        raw_mask = getattr(self.particles, 'observable_mask', None)
+        if raw_mask is None:
+            n_total = len(self.particles.particles)
+            mask = np.ones(n_total, dtype=bool)
+        else:
+            mask = np.asarray(raw_mask, dtype=bool)
+
+        # Initial baseline on the INNER observable subset only.
+        inner_pos_initial = self.snapshots[0]['positions'][mask]
+        rms_initial, _, _ = ParticleSystem.calculate_system_size(inner_pos_initial)
 
         for snapshot in self.snapshots:
             t = snapshot['time_s']
-            rms_current, max_current, com = self.calculate_system_size(snapshot)
 
-            # Scale factor a(t) = R(t) / R(t=0)
-            # Use RMS for scale factor (typical expansion)
+            # Inner-subset positions for this snapshot.
+            inner_pos = snapshot['positions'][mask]
+            rms_current, max_current, com = ParticleSystem.calculate_system_size(inner_pos)
+
+            # Scale factor a(t) = R_inner(t) / R_inner(t=0)
+            # Use RMS over the OBSERVABLE sub-region only.
             a = rms_current / rms_initial
 
             # Physical size: consistent with ΛCDM (a * box_size_initial)
             # This ensures all models start from the same physical size
             size_Gpc = a * self.box_size_Gpc
 
-            # diameter_m = 2 × rms_radius_m
+            # max_particle_distance: also restricted to observable subset so
+            # downstream callers see the inner cloud's furthest particle.
+            # diameter_m = 2 × rms_radius_m (inner only)
             self.expansion_history.append({
                 'time': t,
                 'time_Gyr': t / (1e9 * 365.25 * 24 * 3600),
                 'scale_factor': a,
-                'diameter_m': rms_current*2,
-                'size_a': size_Gpc* self.const.Gpc_to_m,
+                'diameter_m': rms_current * 2,
+                'size_a': size_Gpc * self.const.Gpc_to_m,
                 'max_particle_distance': max_current,
                 'com': com,
             })

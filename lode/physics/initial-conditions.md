@@ -1,167 +1,82 @@
-# Initial Conditions
+# Initial conditions — EdS-consistent cloud, samplers, pre-start boost
 
-## Problem
-
-N-body gravity provides ~65-80% of Friedmann deceleration. Without correction, matter-only overexpands relative to analytic Friedmann and can exceed LCDM (physically impossible).
-
-**Solution**: Velocity calibration at `sim.run()` scales initial velocities so matter-only/external-node NEVER exceeds LCDM.
-
-## Position Initialization
-
-**File**: particles.py:100-150
-
-Random uniform within sphere of radius `box_size/2`, centered at origin. Uses rejection sampling from cubic volume.
-
-**CRITICAL: RMS Radius Normalization** (particles.py:128-147)
-
-After centering, positions are scaled to ensure **exact** target RMS radius:
-
-```python
-# After centering positions
-current_rms = np.sqrt(np.mean(np.sum(centered_positions**2, axis=1)))
-target_rms = self.box_size_m / 2  # RMS should be half box size
-scale_factor = target_rms / current_rms
-centered_positions *= scale_factor
-```
-
-**Why essential**: Random rejection sampling creates ~0.1-1% RMS variation even with same seed. Without normalization:
-- Matter-only starts 1% larger than LCDM -> appears to "exceed LCDM" initially
-- This is **initialization artifact**, not physics
-- Violates "never exceed LCDM" physics constraint
-
-**Result**: All models start with **identical** initial size. Any deviation is real physics.
-
-## Velocity Initialization
-
-**File**: particles.py:60-75
-
-Each model uses its **own** Hubble parameter for initial velocity:
-
-```python
-if self.use_dark_energy:
-    H_start = lcdm.H_at_time(self.a_start)      # LCDM: H with Omega_Lambda
-else:
-    H_start = lcdm.H_matter_only(self.a_start)  # Matter-only: H without Omega_Lambda
-```
-
-`v = H(a_start) * pos + v_peculiar`
-
-**Key parameters:**
-- **H(a_start)**: Model-appropriate Hubble parameter
-  - LCDM: `H_lcdm(a) = H0*sqrt(Omega_m/a^3 + Omega_Lambda)` (includes dark energy)
-  - Matter-only: `H_matter(a) = H0*sqrt(Omega_m/a^3)` (no dark energy)
-  - At a=0.839: H_lcdm ~ 2.57e-18 /s, H_matter ~ 2.02e-18 /s (21% lower)
-- **v_peculiar**: Gaussian noise, sigma=100 km/s (realistic galaxy peculiar velocities)
-- **COM removal**: CRITICAL for preventing bulk motion
-
-## Velocity Calibration (Non-LCDM Models)
-
-**File**: simulation.py:91-175
-
-**Damping parameter moved to sim.run(damping=None)**
-
-The damping parameter controls initial velocity scaling and is now passed to `sim.run()` instead of being set during ParticleSystem initialization. This allows:
-1. Same particle positions for all runs (deterministic from seed)
-2. Velocity scaling applied once at simulation start
-3. Auto-calculation based on t_start if damping=None
-
-**Auto-calculation formula** (when damping=None):
-```python
-nbody_decel_factor = (t_start_Gyr / 13.8) ** 0.135
-nbody_decel_factor = clip(nbody_decel_factor, 0.0, 1.0)
-```
-
-Later starts (higher t_start) use larger damping factor (closer to 1.0).
-Earlier starts need more aggressive scaling to prevent overshoot.
-
-**Velocity scaling calculation**:
-```python
-# Get expansion ratios from Friedmann equations
-lcdm_expansion = a_lcdm_end / a_lcdm_start
-matter_expansion = a_matter_end / a_matter_start
-
-overshoot_factor = 1.0 / nbody_decel_factor
-velocity_scale = (lcdm_expansion * 1.0) / (matter_expansion * overshoot_factor)
-velocities *= velocity_scale
-```
-
-**Result**: Matter-only and external-node models NEVER exceed LCDM at any timestep.
-
-## Scale Factor at t_start
-
-**File**: analysis.py:calculate_initial_conditions
-
-Uses `solve_friedmann_at_times` to get exact a_start:
-```python
-solution = solve_friedmann_at_times(np.array([t_start_Gyr, t_today_Gyr]))
-a_start = solution['a'][0]
-box_size_Gpc = 14.5 * (a_start / a_today)
-```
-
-Example: t_start=3.8 Gyr -> a~0.373 -> box_size~5.28 Gpc
-
-## LCDM Baseline Time Alignment
-
-**Critical**: Both `calculate_initial_conditions` and `solve_lcdm_baseline` must use `solve_friedmann_at_times` to ensure `a_start` matches exactly. Otherwise relative expansion starts at ~0.998 instead of 1.0.
-
-## Mass Initialization
-
-**File**: particles.py:76-97
-
-```
-total_mass = Omega_m * rho_crit * box_volume
-particle_mass = total_mass / n_particles
-```
-
-With mass_randomize > 0: masses randomized in [mean-half_range, mean+half_range], then normalized to preserve total mass.
-
-## Summary
-
-| Parameter | LCDM | External-Node | Matter-only |
-|-----------|------|---------------|-------------|
-| Initial H | H0*sqrt(Omega_m/a^3 + Omega_Lambda) | H0*sqrt(Omega_m/a^3) | H0*sqrt(Omega_m/a^3) |
-| Velocity calibration | No | Yes (at run()) | Yes (at run()) |
-| v_init | H_lcdm*r | calibrated | calibrated |
-| External nodes | No | 26 HMEAs | No |
-| Dark energy | H0^2*Omega_Lambda*r | No | No |
-
-## Diagram
+`ParticleSystem` (cosmo/particles.py) builds the cloud; `CosmologicalSimulation.__init__`
+(cosmo/simulation.py) wires the flags and applies the boost. The invariant these protect
+(PF1): [../findings/fit.md](../findings/fit.md). Outer mass beyond the observable sphere:
+[centerm-outer-mass.md](./centerm-outer-mass.md).
 
 ```mermaid
 graph TD
-    A[Solve Friedmann] --> B[a at t_start]
-    B --> C[H at t_start]
-    C --> D[v = H*r + v_pec]
-    D --> E[ParticleSystem]
-    E --> F[sim.run damping]
-    F --> G{Mode?}
-    G -->|LCDM| H[+dark energy]
-    G -->|External| I[velocity calibration + HMEA tidal]
-    G -->|Matter| J[velocity calibration + gravity only]
+    T[t_start_Gyr] --> BOX[calculate_initial_conditions: a_start, box = 14.5 Gpc x a_start/a_today]
+    BOX --> SCALE[box *= start_size_scale]
+    T --> H[H_EdS = 2 / 3 t_start]
+    H --> RHO[rho_crit = 3 H^2 / 8 pi G]
+    SCALE --> RHO
+    RHO --> MASS[inner mass = rho_crit x sphere volume]
+    SCALE --> POS[sampler: uniform_sphere / grf / grfmass]
+    POS --> NORM[centre COM, rescale inner RMS to box/2]
+    NORM --> V[v = H_EdS r + 100 km/s noise, COM velocity removed]
+    MASS --> V
+    V --> BOOST[pre-start tidal boost if M_ext > 0]
 ```
 
-## N-body vs Friedmann Deceleration Deficit
+## EdS-consistent ICs (default `eds_consistent=True`, dark energy off)
+- Hubble flow v = H_EdS·r with H_EdS = 2/(3 t_start) (absolute age, NOT Ω_m=0.3 H(a)).
+- Cloud mass = ρ_crit(H_EdS) × (4/3)π R³ with R = (box/2)/√(3/5) (uniform ball: RMS = R√(3/5)).
+  At t_start 2.9 Gyr that is ≈8.65e53 kg ≈ 8.6 M_obs.
+- Together they make M_ext=0 reproduce EdS (PF1) with NO velocity calibration.
+- `t_start ≤ 0` has no finite H_EdS ⇒ silently falls back to the legacy path.
+- Peculiar velocities: Gaussian σ = 100 km/s per component; COM velocity removed.
+- The inner RMS is renormalized to exactly box/2 after COM centring, so every model starts at
+  the identical size (random sampling would otherwise leave ~0.1–1% scatter).
 
-**Root cause**: N-body uses discrete particles with softening; Friedmann assumes smooth fluid.
+## Samplers (`init_distribution`, `init_kwargs`)
+| value | positions | masses |
+|---|---|---|
+| `uniform_sphere` (default) | rejection-sampled ball (legacy loop, seeded by `np.random.seed(seed)`) | `mass_randomize` ∈ [0,1]: uniform in mean·[1−r, 1+r], renormalized (SimulationParameters default 0.5; sweep default 0.0) |
+| `grf` | BBKS ΛCDM P(k) field + Zel'dovich displacement of an Ng³ grid (`sample_grf`) | as above |
+| `grfmass` | UNDISPLACED jittered grid (quasi-uniform) | weights max(1+δ, 0.05), δ rms 0.5, rescaled to the EdS total (`sample_grf_mass`); `mass_randomize` must be 0 |
+- `support="sphere"` (default for grf/grfmass): Lagrangian grid masked to the uniform_sphere
+  radius, so the only difference vs uniform is clustering. `"box"` is the legacy cube with a fat
+  radial tail — comparison only (PF12). Sweep key `grf_support`; `sphsup` cache slug.
+- GRF seeds derive from the global `np.random` stream (`randint`) ⇒ reproducible per `seed`.
+- Mass-preserving for every sampler: total == EdS mass ⇒ PF1 holds for grf and grfmass.
 
-| Metric | N-body | Friedmann | Ratio |
-|--------|--------|-----------|-------|
-| Deceleration | GM/R^2 | 0.5*H^2*R | ~65-80% |
-| Cumulative effect | Overshoot | Match | ~1.5x over 13 Gyr |
+## start_size_scale (default 1.0)
+`box_size_Gpc *= start_size_scale` before particles are built; the EdS mass scales with
+volume so density (and PF1) is unchanged, but at M>0 the cloud spans a different fraction of
+the fixed S ⇒ different a(t) shape (PF10). ≤ 0 raises. Slug `{x}ssz` when ≠ 1.
 
-**Consequence**: Non-LCDM N-body without velocity calibration overshoots LCDM by 10-25%.
+## Pre-start tidal boost (`pre_start_tidal_boost=True`)
+The nodes pulled on the cloud from the Big Bang to t_start, so it should arrive faster than
+pure EdS flow. Linear early-time derivation (g_r ∝ a(t), EdS a ∝ t^{2/3}, t_i → 0):
+dv_r = g_r(t_start) · (3/5) · t_start along r̂, with g_r the same node sum the integrator uses;
+COM velocity removed after. Active only with external nodes AND eds_consistent AND t_start > 0.
+Vanishes at M=0 (boost ON == OFF byte-identical there). Effect on growth is small (+0.35% at
+M3000/S30 cube26) but it can tip near-runaway cells over. Not a fit knob.
 
-**Current approach**: One-time velocity scaling at sim.run() based on predicted final expansion. Damping factor auto-calculated from t_start or passed explicitly.
+## Why not simply start earlier
+The M=0 control drifts off EdS at early starts (g/EdS 1.001 @2.9, 1.005 @2.0, 1.028 @1.0 Gyr),
+dt-independent ⇒ a discreteness floor (finite N, softening, peculiar noise). t_start = 2.9 Gyr
+(z ≈ 2.2, full Pantheon+ coverage) is the standard; the boost supplies the earlier history.
 
-## Tests
+## Legacy calibrated-velocity path (off by default)
+`_calibrate_velocity_for_lcdm_match` rescales velocities so matter-only tracks ΛCDM (with a
+tiny 1 M_obs cloud). It made M=0 track ΛCDM instead of EdS — the old core bug. Runs only when
+`eds_consistent=False` or an explicit `damping` is passed; its cache key carries
+start-size/softening/geometry slugs. Results produced before 2026-06-24 used this path,
+including the paper's R² table (see [../paper-reference.md](../paper-reference.md)).
 
-**File**: tests/test_early_time_behavior.py
-- test_matter_only_never_exceeds_lcdm: Verifies relative <= 1.0 at all timesteps
-- test_initial_size_exact_match: Verifies identical starting size
-- test_models_use_appropriate_hubble: Verifies H_lcdm vs H_matter
+```python
+from cosmo.constants import SimulationParameters
+from cosmo.factories import setup_simulation_context, run_external_node_simulation
+box, a_start, _ = setup_simulation_context(t_start_Gyr=2.9, t_duration_Gyr=10.9, n_steps=546)
+p = SimulationParameters(M_value=3000, S_value=89, n_particles=2000, t_start_Gyr=2.9,
+                         t_duration_Gyr=10.9, n_steps=546, init_distribution="grfmass",
+                         init_kwargs={"support": "sphere"}, mass_randomize=0.0)
+res = run_external_node_simulation(p, box, a_start)   # res["a"][0] == 1.0
+```
 
-## References
-
-- Implementation: particles.py (velocities), simulation.py (calibration at run())
-- Friedmann solver: analysis.py:solve_friedmann_at_times
-- Hubble param: constants.py:LambdaCDMParameters.H_at_time, H_matter_only
+Tests: `tests/test_matter_only_consistency.py` (PF1, incl. GRF), `tests/test_pre_start_tidal_boost.py`,
+`tests/test_start_size.py`, `tests/test_realistic_init.py`, `tests/test_grfmass.py`,
+`tests/test_early_time_behavior.py` (legacy path), `tests/test_particles.py`.

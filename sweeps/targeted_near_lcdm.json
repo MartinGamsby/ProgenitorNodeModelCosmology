@@ -1,0 +1,20 @@
+{
+  "_comment": "WS1 targeted near-LCDM exploration — maps the low-S band (S=20-60) where chi2/dof~0.48-0.51. First exploration found chi2/dof~0.69 at S=80-90 (too high); the near-LCDM band exists at S<60 with mid-range M. Uses explicit S_values list (not co-fit) to guarantee full S=20..60 coverage; co-fit linear_search can stop too early on the flat M/S^3 landscape.",
+  "M_values": [50, 200, 855, 1500, 3000],
+  "S_values": [20, 25, 30, 35, 40, 45, 50, 55, 60],
+  "s_min_gpc": 20,
+  "s_max_gpc": 60,
+  "node_mass_amplitudes": [0.0, 0.5],
+  "node_s_amplitudes": [0.0],
+  "node_mass_seeds": [42],
+  "init_distributions": ["uniform_sphere"],
+  "node_geometries": ["cube26"],
+  "geometry_kwargs": {},
+  "s_cofit_method": "linear",
+  "particle_count": 400,
+  "n_steps": 273,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "results_dir": "results",
+  "tag": "targeted_near_lcdm"
+}

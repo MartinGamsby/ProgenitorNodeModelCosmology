@@ -1,0 +1,20 @@
+{
+  "_comment": "WS4 BCC coarse sweep (user spec, 2026-06). Grid: M x S x centerM x node_mass_amplitude on the bcc node geometry at default n_shells=2 = 386 external nodes (a volume-filling lattice, ~15x cube26's 26 nodes -> heavier tidal calc per step). 2000 inner particles, so every cell is N>=1000 -> Barnes-Hut self-gravity throughout (one consistent force method, no switch). centerM = outer-mass multiplier (N_total = centerM * particle_count). centerM limited to [1,2] for this first coarse pass (we go from there). amp = per-node HMEA mass anisotropy (mean-preserving; amp=0 collapses to one nm_seed). Objective: minimize chi2/dof vs real Pantheon+; chi2_lcdm~0.436 / chi2_eds~0.843 are reference benchmarks only. init_distribution=uniform_sphere (NOT grf). NOTE: probe_timing in sweep.py hardcodes cube26 for its s/sim estimate, so the printed ETA UNDER-estimates these 386-node bcc cells; judge runtime from the per-cell times in the log.",
+  "M_values": [1, 3, 10, 25, 50, 100, 250, 500],
+  "S_values": [1, 3, 10, 15, 20, 25, 30, 50],
+  "node_mass_amplitudes": [0.0, 0.5, 0.9],
+  "node_s_amplitudes": [0.0],
+  "node_mass_seeds": [42],
+  "init_distributions": ["uniform_sphere"],
+  "node_geometries": ["bcc"],
+  "geometry_kwargs": {},
+  "particle_count": 2000,
+  "n_steps": 273,
+  "t_start_Gyr": 2.9,
+  "centerM": [1.0],
+  "outer_density_ceilings": [1.0],
+  "results_dir": "results",
+  "figures_dir": "results/figures/ws4",
+  "tag": "ws4_bcc",
+  "objective": "pantheon"
+}

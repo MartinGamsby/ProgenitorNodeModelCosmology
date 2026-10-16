@@ -1,0 +1,20 @@
+{
+  "_comment": "WS4 BROAD landscape sweep — granular, UNBIASED map of chi2/dof vs Pantheon+ across M, an explicit S sweep starting at 1 Gpc, and the centerM (outer-mass multiplier) axis. No prior config is privileged. Explicit S (not co-fit) so the full S-dependence is visible; runaway/anchor-failed cells (large M + small S, S_crit~M^(1/3)) are recorded with anchor_ok=False, not hidden. Selection by minimum chi2/dof vs Pantheon+; chi2_lcdm~0.436 / chi2_eds~0.843 are reference benchmarks only. Per the shell theorem the outer-mass shell exerts ~zero net force inside the observable region, so centerM is expected to be ~null for the isotropic chi2 (WS4 saw a(t) growth flat across centerM 1->3); this run tests that across the whole M/S map and out to centerM=10.",
+  "M_values": [1, 2, 3, 5, 8, 13, 20, 35, 60, 100, 175, 300, 500, 900, 1500],
+  "S_values": [1, 2, 4, 7, 11, 16, 22, 30, 40, 55, 75],
+  "node_mass_amplitudes": [0.0],
+  "node_s_amplitudes": [0.0],
+  "node_mass_seeds": [42],
+  "init_distributions": ["uniform_sphere"],
+  "node_geometries": ["cube26"],
+  "geometry_kwargs": {},
+  "particle_count": 400,
+  "n_steps": 273,
+  "t_start_Gyr": 2.9,
+  "centerM": [1.0],
+  "outer_density_ceilings": [1.0],
+  "results_dir": "results",
+  "figures_dir": "results/figures/ws4",
+  "tag": "ws4_broad",
+  "objective": "pantheon"
+}

@@ -1,0 +1,28 @@
+{
+  "family": "seedhunt",
+  "purpose": "Idea A (more seeds): find whether a different node_mass_seed yields a rounder (lower-growth) anchor-ok Pantheon-matching cloud than seed 42. Stage 1 ranks 16 seeds by growth over a rounder-band co-fit grid; Stage 2 snapshots the roundest winners at 4000p to measure core-fraction.",
+  "seeds": [
+    1,
+    2,
+    3,
+    5,
+    7,
+    11,
+    17,
+    23,
+    42,
+    55,
+    77,
+    99,
+    123,
+    314,
+    500,
+    777
+  ],
+  "arms": [
+    "sweeps/seedhunt/a.json",
+    "sweeps/seedhunt/b.json",
+    "sweeps/seedhunt/c.json",
+    "sweeps/seedhunt/d.json"
+  ]
+}

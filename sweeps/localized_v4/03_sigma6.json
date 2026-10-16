@@ -1,0 +1,54 @@
+{
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_seeds": [
+    42
+  ],
+  "particle_count": 2000,
+  "n_steps": 1092,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "init_distributions": [
+    "grf"
+  ],
+  "grf_support": "sphere",
+  "node_geometries": [
+    "virialized"
+  ],
+  "vir_n_nodes": 300,
+  "vir_mass_rule": "massfunc",
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "lattice",
+  "node_softening_gpc": 1.0,
+  "node_force_law": "plummer",
+  "score_observers": true,
+  "observer_sample": 256,
+  "M_values": [
+    100,
+    200,
+    300,
+    400,
+    500
+  ],
+  "S_values": [
+    15,
+    18,
+    20,
+    25,
+    30
+  ],
+  "vir_mass_spreads": [
+    6.0
+  ],
+  "tag": "loc4_sig6",
+  "figures_dir": "results/figures/loc4_sig6",
+  "_comment": "localized_v4 sigma=6.0: refine the high-spread ridge at PRODUCTION res (2000p/1092 steps, Plummer 1 Gpc, virialized lattice 300 nodes). M[100, 200, 300, 400, 500] x S[15, 18, 20, 25, 30]. Honest metric = center_chi2_dof; also best_observer + frac_below_lcdm/eds. explore_vir_spread_hi found ~0.46 here at 1000p/273."
+}

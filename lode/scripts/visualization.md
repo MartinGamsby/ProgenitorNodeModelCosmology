@@ -1,102 +1,61 @@
-# 3D Visualization
+# Figures and one-off scripts
 
-Creates 3D visualizations of cosmological simulations showing particles and HMEA nodes.
+Every claim gets a saved PNG. Shared helpers: `cosmo/plots.py` (style, `figure_path(ws, name)` →
+`results/figures/<ws>/<name>.png`, git-rev footer, CSV → heatmaps) and `cosmo/visualization.py`
+(3D axes, universe sphere, filenames/titles). `results/` is gitignored; the paper's figures are
+copied into `docs/` (only `docs/**/*.png` is tracked). Sweep outputs: [sweep.md](./sweep.md).
 
-## CLI Arguments
-
-Uses shared CLI from `cosmo.cli`:
-```bash
-python visualize_3d.py [sim_file] [output_dir] [--M 855] [--S 25] [--particles 300] ...
-python visualize_3d.py --compare [output_dir] [--M 855] [--S 25] ...
+```mermaid
+graph LR
+    CSV[results/ws1_sweep_*.csv] --> PL[cosmo/plots.py plots_from_csv]
+    CSV --> CAMP[_generate_campaign_figs.py]
+    NPZ[results/hero/*.npz via save_snapshots] --> HERO[_generate_hero_figs.py]
+    SIM[fresh sims] --> PAPER[_generate_paper_figs.py, _gen_fig4_bestobs.py]
+    GRID[build_virialized_grid] --> META[_gen_fig_meta_structure.py]
+    PL & CAMP & HERO & PAPER & META --> FIG[results/figures/...] --> DOCS[docs/fig*.png]
 ```
 
-**All arguments**:
-- `sim_file`: Path to .pkl file (optional positional)
-- `output_dir`: Output directory (optional positional, default: `.`)
-- `--M`: External mass parameter (default: 855)
-- `--S`: Node separation in Gpc (default: 25.0)
-- `--particles`: Number of particles (default: 300)
-- `--seed`: Random seed (default: 42)
-- `--t-start`: Start time in Gyr (default: 5.8)
-- `--t-duration`: Duration in Gyr (default: 10.0)
-- `--n-steps`: Number of timesteps (default: 150)
-- `--damping`: Velocity damping (default: auto)
-- `--center-node-mass`: Central node mass as multiple of M_obs (default: 1.0)
-- `--compare`: Enable 3-way comparison mode
+## Paper figures (docs/)
+| file | source |
+|---|---|
+| `fig_meta_structure.png` | `_gen_fig_meta_structure.py` (§2.1 node points, CLI-parameterized, σ=1) |
+| `fig1-3_4f97dec.png` | legacy `run_simulation.py` size/rate comparison plots (pre-EdS physics) |
+| `fig4_pantheon.png` (+ `.summary.json`) | `_gen_fig4_bestobs.py` (best-observer μ(z), M300/S20/σ6 100k) |
+| `fig5-7_hero_*_66fb244.png` | `_generate_hero_figs.py` from `results/hero/*.npz` (multiplicity, 100k cloud, χ² ladder) |
+| `fig8_centerm_knot.png`, `fig9_universe_candidates.png` | copies of centerM-campaign figures (`results/figures/centerm/`: knot vs centerM, best_compare_v3); `sweeps/_best_compare_figs.py` builds the comparison suite |
 
-## Modes
+## Diagnostic / study scripts (root, `_generate_*`)
+- `_generate_campaign_figs.py` — CSV-only multiplicity/robustness figures (no sims).
+- `_generate_paper_figs.py` — reruns a best config via the sweep's `_build_sim_params`: size/rate
+  vs time, μ(z), particle clouds, observer distribution (legacy lattice headline).
+- `_generate_observer_figs.py` — per-observer χ² distributions (PF13).
+- `_generate_ws2_figs.py` (EdS overlay, shear/dipole vs amplitude, heatmaps), `_generate_ws4_figs.py`
+  (outer mass), `_generate_ws5_grf.py` (GRF statistics + swing decomposition),
+  `_generate_ws8_figs.py` (geometries by mass, slingshot, mass rules),
+  `_generate_ws8_close_encounter.py` (force-law × substep comparison),
+  `_generate_virialization_figs.py` (legacy force-balance study), `_generate_extent_nodecount.py`
+  (PF14). Kept for reproducing pinned findings; most describe superseded lattice-era questions.
+- `visualize_3d.py` (3D evolution/animation, `--compare` mode), `visualize_geometries.py`.
+- `compute_predictions.py` — paper §predictions numbers (w drift, H0 dipole) on the legacy
+  M9000/S38 lattice.
+- `anisotropy_report.py`, `convergence_check.py` (GRF N-ladder), `_validate_cofit.py` (ternary ==
+  brute check), `_calibrate_runtime.py` (core_v3 wall-time projection), `run_simulation.py`
+  (single run, ΛCDM vs External-Node vs matter-only).
+All `_generate_*` scripts force the Agg backend and call `configure_utf8_stdout()`
+(cosmo/encoding.py) so Greek labels print on Windows cp1252.
 
-### Single Simulation Mode (default)
-```bash
-python visualize_3d.py [sim_file.pkl] [output_dir]
-```
-- If no .pkl provided, runs simulation with CLI parameters
-- Generates: multipanel evolution, snapshots, animation
+## Conventions
+- Figure configs must be built by the same code path as the sweep cell (`_build_sim_params`),
+  never hand-rolled (PF11).
+- Clouds: centre on the MEDIAN, common fixed scale per panel set, drop the runaway tail; outer
+  (centerM) tracers are heavier, so size dots by mass or the outer shell looks falsely dense.
+- `cosmo/plots.py` defaults: dpi 150, `bbox_inches="tight"`, log M axis beyond 1.5 dex.
 
-### Comparison Mode
-```bash
-python visualize_3d.py --compare [output_dir] --M 800 --S 24
-```
-- Runs External-Node, Matter-Only, ΛCDM side-by-side
-- Generates: 3-way comparison panel, separate animations
-
-## Output Files
-
-**Single mode**:
-- `3d_evolution_multipanel.png` - 6-panel time series
-- `3d_snapshot_t*.png` - Individual time snapshots
-- `3d_animation.gif` - Rotating expansion animation
-
-**Comparison mode**:
-- `3d_comparison_multipanel.png` - 6×3 panel (times × models)
-- `3d_animation_external_node.gif`
-- `3d_animation_matter_only.gif`
-- `3d_animation_lcdm.gif`
-
-## Key Functions
-
-### Visualization Helpers (cosmo/visualization.py)
-- `get_node_positions(S_Gpc)`: 26 HMEA node positions in 3×3×3 grid
-- `draw_universe_sphere(ax, radius, center_Gpc, ...)`: Wireframe sphere
-- `draw_cube_edges(ax, half_size, ...)`: Grid boundary cube
-- `setup_3d_axes(ax, lim, title, ...)`: Configure 3D plot
-
-### Main Functions (visualize_3d.py)
-- `parse_visualize_arguments()`: Parse CLI args using `cosmo.cli.add_common_arguments()`
-- `load_or_run_simulation(sim_params, sim_file, output_dir)`: Load .pkl or run with given params
-- `create_3d_snapshot(sim_data, idx, start_time, output_dir)`: Single time visualization
-- `create_multi_panel_evolution(sim_data, start_time, output_dir)`: 6-panel time series
-- `create_animation(sim_data, start_time, output_dir, fps)`: GIF with rotating view
-- `run_comparison_simulations(sim_params, output_dir)`: Run all 3 models
-- `create_comparison_multipanel(comparison_data, start_time, output_dir)`: 6×3 comparison grid
-- `create_comparison_animations(comparison_data, start_time, output_dir, fps)`: Separate GIFs per model
-
-### ΛCDM Reference Generation
-For comparison mode, ΛCDM doesn't run N-body. Instead:
-1. Solve Friedmann at exact snapshot times
-2. Generate sphere positions at each a(t): `generate_sphere_positions(radius_max, n_points)`
-3. Create fake "snapshots" for consistent visualization
-
-## Sphere Drawing
-
-Universe boundaries centered on COM:
-- **Outer (red, α=0.03)**: max_particle_distance (shows outliers)
-- **Inner (cyan, α=0.08)**: diameter/2 = RMS radius (typical distribution)
-
-RMS→sphere conversion:
 ```python
-# For uniform sphere of radius R, RMS radius = R * sqrt(3/5)
-radius_max = size_m / 2 / np.sqrt(3/5)
+from cosmo.plots import figure_path, plots_from_csv
+path = figure_path("centerm", "knot_vs_centerm")        # creates results/figures/centerm/
+plots_from_csv("results/ws1_sweep_cmx3.csv", "cmx3")    # heatmaps, growth map, runaway boundary
 ```
 
-## Animation Details
-
-- Frame rate: 10 fps (configurable)
-- Rotation: +2° azimuth per frame
-- View: elev=20°, starting azim=45°
-
-## Dependencies
-
-- matplotlib (3D projection, animation)
-- numpy
-- cosmo.* modules
+Tests: `tests/test_plots.py`, `tests/test_ws8_figs.py`, `tests/test_virialization_figs.py`,
+`tests/test_meta_structure_fig.py`, `tests/test_visualization.py`.

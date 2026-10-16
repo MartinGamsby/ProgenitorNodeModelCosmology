@@ -1,332 +1,68 @@
-# Module Structure
+# Module structure
 
-## Dependency Hierarchy
+Pure-Python package `cosmo/` (numpy, scipy, numba, matplotlib, tqdm; no install step, scripts run
+from the repo root) plus root scripts. How data moves through it: [data-flow.md](./data-flow.md).
 
 ```mermaid
 graph TD
-    constants[constants.py<br/>Constants & Parameters]
-    cli[cli.py<br/>CLI utilities]
-    particles[particles.py<br/>Particle, ParticleSystem, HMEAGrid]
-    integrator[integrator.py<br/>Integrator, LeapfrogIntegrator]
-    simulation[simulation.py<br/>CosmologicalSimulation]
-    analysis[analysis.py<br/>Shared analysis utilities]
-    viz[visualization.py<br/>Shared plotting utilities]
-    factories[factories.py<br/>Simulation utilities]
-    numba_direct[numba_direct.py<br/>Numba JIT O(N²) direct]
-    bh_numba[barnes_hut_numba.py<br/>Barnes-Hut O(N log N) octree]
-    tidal_numba[tidal_forces_numba.py<br/>Numba JIT tidal forces]
-    param_sweep[cosmo/parameter_sweep.py<br/>Search algorithms]
-    run[run_simulation.py<br/>Main entry point]
-    sweep[parameter_sweep.py<br/>Grid search script]
-    viz3d[visualize_3d.py<br/>3D visualizations]
-
-    cli --> constants
-    param_sweep --> analysis
-    particles --> constants
-    integrator --> constants
-    integrator --> particles
-    integrator --> numba_direct
-    integrator --> bh_numba
-    integrator --> tidal_numba
-    simulation --> constants
-    simulation --> particles
-    simulation --> integrator
-    analysis --> constants
-    viz --> constants
-    factories --> simulation
-    factories --> constants
-    factories --> analysis
-    run --> cli
-    run --> simulation
-    run --> constants
-    run --> analysis
-    run --> viz
-    sweep --> param_sweep
-    sweep --> simulation
-    sweep --> constants
-    sweep --> analysis
-    viz3d --> cli
-    viz3d --> simulation
-    viz3d --> constants
-    viz3d --> analysis
-    viz3d --> viz
+    constants --> particles
+    initial_distributions --> particles
+    node_geometry --> particles
+    virialized_medium --> node_geometry
+    tidal_forces_numba --> particles
+    particles --> integrator
+    numba_direct & barnes_hut_numba & cuda_direct --> integrator
+    integrator --> simulation
+    analysis --> simulation
+    cache --> simulation
+    simulation --> factories
+    parameter_sweep --> factories
+    sim_distance --> hubble_diagram_mod[hubble_diagram]
+    distances --> hubble_diagram_mod
+    sim_distance & hubble_diagram_mod & observer_distance & cache --> parameter_sweep
+    factories & parameter_sweep & pantheon & plots --> sweep[sweep.py]
 ```
+(`constants` also imports `node_geometry` lazily inside `ExternalNodeParameters.build_virialized`.)
+
+## cosmo/ — simulation core
+| module | owns |
+|---|---|
+| `constants.py` | SI constants (`Gyr_to_s` = 365-day year), `LambdaCDMParameters` (H0 70, Ω 0.3/0.7, `H_eds_at_time`), `ExternalNodeParameters` (node masses/scale factors, Ω_Λ,eff), `SimulationParameters` (every knob, validation, derived SI values), force-law codes |
+| `particles.py` | `Particle`, `ParticleSystem` (EdS ICs, samplers, outer shell, observable mask), `HMEAGrid` (geometry → nodes, tidal batch) |
+| `initial_distributions.py` | `sample_grf` (BBKS + Zel'dovich), `sample_grf_mass`, GRF diagnostics |
+| `node_geometry.py` | geometry registry, `build_virialized_grid` (lattice/gradient/medium), NN spacing, legacy force-balance metric |
+| `virialized_medium.py` | periodic medium relaxation, `virial_ratio` |
+| `tidal_forces_numba.py`, `numba_direct.py`, `barnes_hut_numba.py`, `cuda_direct.py` | force kernels |
+| `integrator.py` | `LeapfrogIntegrator`: force dispatch, KDK with force reuse, sub-steps, chunked PE |
+| `simulation.py` | `CosmologicalSimulation`: wiring, pre-start boost, legacy calibration, masked a(t) |
+| `factories.py` | `setup_simulation_context`, `run_external_node_simulation`, `run_matter_only_simulation`, `results_to_sim_result` |
+| `analysis.py` | Friedmann solvers, initial box, R², H(t) from a(t), runaway / COM checks |
+
+## cosmo/ — scoring, sweep, output
+| module | owns |
+|---|---|
+| `sim_distance.py` | a(t) → μ(z) |
+| `distances.py` | analytic H(z), d_L, μ for lcdm / matter_only / einstein_de_sitter / external_node |
+| `pantheon.py` | Pantheon+ loader, plot binning |
+| `hubble_diagram.py` | offset fit, χ² engine |
+| `observer_distance.py` | per-particle observers |
+| `anisotropy.py` | shear, dipole, axis RMS |
+| `parameter_sweep.py` | `SweepConfig`, scorers, S searches, `build_cache_name`, `PHYSICS_CACHE_VERSION`, knot ratio |
+| `cache.py` | CSV/JSON/pickle two-level cache, PID locks, concurrent merge mode |
+| `plots.py`, `visualization.py` | figure helpers |
+| `cli.py` | shared argparse knobs → `args_to_sim_params` (all sim knobs reach the sim) |
+| `encoding.py` | `configure_utf8_stdout` for Windows consoles |
+
+## Root
+`sweep.py` (THE sweep driver), `run_simulation.py`, `hubble_diagram_nbody.py`,
+`hubble_diagram.py`, `anisotropy_report.py`, `convergence_check.py`, `compute_predictions.py`,
+figure scripts (`_generate_*`, `_gen_*`, see [../scripts/visualization.md](../scripts/visualization.md)),
+`launch_sweep_detached.ps1`, `sweeps/` (JSON configs + `_gen_*` generators + verdict scripts),
+`hf/` (HuggingFace Dataset push + Gradio Space scaffold), `docs/` (paper + figures), `data/`
+(Pantheon+ README, tracked medium caches; metrics CSVs are gitignored).
 
-## Module Responsibilities
-
-### `cosmo/constants.py`
-**Purpose**: Physical constants and parameter configuration classes.
-
-**Classes**:
-- `CosmologicalConstants`: G, c, Mpc_to_m, Gpc_to_m, Gyr_to_s, M_observable, etc.
-- `LambdaCDMParameters`: H₀, Ω_m, Ω_Λ, method `H_at_time(a)`
-- `ExternalNodeParameters`: M_ext, S, Ω_Λ_eff, method `calculate_required_spacing()`
-- `SimulationParameters`: Unified config (M_value, S_value, n_particles, seed, t_start_Gyr, t_duration_Gyr, n_steps, damping_factor, center_node_mass, mass_randomize)
-
-**Exports**: All four classes.
-
-**Key feature**: SimulationParameters auto-calculates derived quantities (M_ext, S in SI units, t_end_Gyr, center_node_mass_kg, external_params) in `_calculate_derived()`.
-
-### `cosmo/cli.py`
-**Purpose**: Command-line interface utilities shared across scripts.
-
-**Functions**:
-- `add_common_arguments(parser)`: Add shared simulation args (--M, --S, --particles, --seed, --t-start, --t-duration, --n-steps, --damping, --center-node-mass, --mass-randomize, --compare)
-- `parse_arguments(description, add_output_dir)`: Create parser, add common args, parse CLI
-- `args_to_sim_params(args)`: Convert parsed args to SimulationParameters
-
-**Used by**: `run_simulation.py`, `visualize_3d.py`
-
-**Exports**: All three functions.
-
-### `cosmo/particles.py`
-**Purpose**: Physical structures (particles and external nodes).
-
-**Classes**:
-- `Particle`: Single entity with position, velocity, mass, acceleration, id
-- `ParticleSystem`: N particles with update methods, energy calculations
-- `HMEAGrid`: 26-node cubic lattice (3×3×3-1), vectorized tidal force calculation
-
-**Key methods**:
-- `ParticleSystem._initialize_particles()`: Sets up particles with Hubble flow + peculiar velocities (particles.py:60-175)
-  - Velocity uses model-appropriate H (H_lcdm for dark energy, H_matter for non-LCDM)
-  - `mass_randomize` parameter (0.0=equal masses, 1.0=masses from 0 to 2x mean). Default 0.0. Total mass preserved via normalization.
-  - No damping applied here; damping is applied at sim.run() via velocity calibration
-- `ParticleSystem.set_positions(positions)`: Set positions for all particles (used by velocity calibration state restore)
-- `ParticleSystem.set_velocities(velocities)`: Set velocities for all particles
-- `HMEAGrid.calculate_tidal_acceleration_batch()`: Vectorized tidal forces across all 26 nodes
-
-**Exports**: All three classes.
-
-### `cosmo/integrator.py`
-**Purpose**: N-body physics and time evolution.
-
-**Classes**:
-- `Integrator`: Base class calculating forces (internal, external, dark energy, Hubble drag)
-- `LeapfrogIntegrator`: Kick-Drift-Kick time stepping
-
-**Key methods**:
-- `calculate_internal_forces()`: Direct O(N²) gravity with softening (integrator.py:52-87)
-- `calculate_external_forces()`: Delegates to HMEAGrid (integrator.py:89-102)
-- `calculate_dark_energy_forces()`: a_Λ = H₀² Ω_Λ r (integrator.py:104-125)
-- `calculate_hubble_drag()`: a_drag = -2Hr (ΛCDM only) (integrator.py:127-157)
-- `LeapfrogIntegrator.step(dt)`: Single timestep (integrator.py:229-252)
-- `LeapfrogIntegrator.evolve()`: Full simulation loop (integrator.py:254-298)
-
-**Exports**: `Integrator`, `LeapfrogIntegrator`.
-
-### `cosmo/numba_direct.py`
-**Purpose**: Fast O(N²) gravity via Numba JIT compilation.
-
-**Class**: `NumbaDirectSolver`
-
-**Functions**:
-- `calculate_forces_direct_numba()`: JIT-compiled pairwise gravity with softening (exact, 14-17x speedup)
-
-**Used by**: `integrator.py` for N≥100 particles (auto mode default)
-
-### `cosmo/barnes_hut_numba.py`
-**Purpose**: Real Barnes-Hut octree O(N log N) gravity with Numba JIT.
-
-**Class**: `NumbaBarnesHutTree`
-
-**Functions**:
-- `build_octree()`: Iterative particle insertion into octree (max_depth=60)
-- `calculate_forces_barnes_hut()`: Stack-based tree traversal with opening angle criterion
-
-**Parameters**: `theta` controls accuracy/speed tradeoff (0.3=accurate, 0.5=balanced, 0.7=fast)
-
-**Used by**: `integrator.py` when `force_method='barnes_hut'`
-
-### `cosmo/tidal_forces_numba.py`
-**Purpose**: Numba JIT-compiled tidal force calculation from external HMEA nodes.
-
-**Functions**:
-- `calculate_tidal_forces_numba(particle_positions, node_positions, node_masses, G)`: Returns (N, 3) accelerations in m/s²
-
-**Algorithm**: Double loop over N particles × M nodes (M=26), computing attractive acceleration toward each node. Singularity protection at r < 1e10 m.
-
-**Used by**: `integrator.py` for external force calculations
-
-### `cosmo/factories.py`
-**Purpose**: Shared simulation functions used by both run_simulation.py and parameter_sweep.py for consistency. Single source of truth for simulation execution.
-
-**Functions**:
-- `run_and_extract_results(sim, t_duration_Gyr, n_steps, save_interval, damping=None)`: Runs simulation, returns dict with t_Gyr, a, diameter_Gpc, max_radius_Gpc, H_hubble, sim
-- `solve_lcdm_baseline(sim_params, box_size_Gpc, a_start, save_interval)`: Compute ΛCDM analytic baseline at N-body snapshot times
-- `run_external_node_simulation(sim_params, box_size_Gpc, a_start, save_interval)`: Run External-Node N-body simulation
-- `run_matter_only_simulation(sim_params, box_size_Gpc, a_start, save_interval)`: Run matter-only N-body simulation
-- `setup_simulation_context(t_start_Gyr, t_duration_Gyr, n_steps, save_interval)`: Combined initial conditions + LCDM baseline setup, returns (box_size, a_start, baseline_dict)
-- `results_to_sim_result(ext_results, sim_params)`: Convert factory results dict to SimResult for parameter_sweep
-
-**Used by**: `run_simulation.py`, `parameter_sweep.py`
-
-### `cosmo/cache.py`
-**Purpose**: Two-level key-value disk cache with JSON, CSV, and Pickle format support.
-
-**Classes**:
-- `EnhancedJSONEncoder`: Custom JSON encoder that serializes dataclasses via `dataclasses.asdict()`
-- `CacheType`: Enum — VELOCITY, METRICS, RESULTS
-- `CacheFormat`: Enum — JSON, CSV, PICKLE (default: CSV)
-- `CacheLock`: File-based lock with PID staleness detection
-- `Cache`: Two-level `{key: {data_type: value}}` store persisted to `data/<name>.<ext>`
-
-**Constructor**: `Cache(name, format=CacheFormat.CSV, _data_dir="data")`
-
-**Concurrency**: `CacheLock` creates `<filepath>.lock` containing the owning PID. Uses atomic `os.open(O_CREAT|O_EXCL)`. Lock held for entire Cache lifetime (acquired in `__init__`, released in `close()`/`__del__`). `close()` registered via `atexit` for Ctrl+C cleanup; idempotent (`_closed` flag). Three conflict scenarios:
-- **Own PID**: prints BUG warning (duplicate Cache or crash leftover), prompts `[D/Y/n]` — D=delete lock and retry, Y=read-only, n=abort
-- **Other live PID**: prompts `[Y/n/kill]` — Y=read-only, n=abort, kill=terminate owner
-- **Dead PID**: auto-broken silently
-PID liveness: `ctypes`+`OpenProcess`/`GetExitCodeProcess` on Windows, `os.kill(pid, 0)` on Unix. Kill: `taskkill /F` on Windows, `SIGTERM` on Unix.
-
-**Key methods**:
-- `_load_from_disk()`: Loads primary format; falls back to other formats. Locked.
-- `_save_to_disk()`: Saves in configured format. Locked.
-- `get_cached_value(key, data_type)`: Two-level lookup, returns None if missing
-- `add_cached_value(key, data_type, value, save_interval_s=5)`: Set + time-based save
-- `__del__()`: Saves on garbage collection
-
-**CSV format**: One row per cache key. Cache keys are split on `_` into `key.{i}_{suffix}` columns (e.g. `key.0_p`, `key.1_Gyr`, `key.2_M`). Scalar values get a column named after data_type (e.g. `velocity`). Dict values are flattened: each field becomes `data_type.field` (e.g. `metrics.match_avg_pct`, `results.size_final_Gpc`). Nested dicts within fields are JSON-encoded per cell.
-
-**Used by**: `simulation.py` (velocity cache), `parameter_sweep.py` (metrics/results cache)
-
-### `cosmo/simulation.py`
-**Purpose**: High-level simulation orchestration.
-
-**Classes**:
-- `CosmologicalSimulation`: Combines ParticleSystem + Integrator, tracks expansion history
-
-**Key methods**:
-- `__init__()`: Sets up particles, HMEA grid, integrator based on mode flags
-- `run(t_end_Gyr, n_steps, save_interval, damping=None)`: Executes integration, calculates expansion metrics. For non-LCDM models, applies velocity calibration at start.
-- `_calibrate_velocity_for_lcdm_match()`: Runs ~2 Gyr N-body test to measure expansion vs LCDM, scales initial velocity to match LCDM in early phase. Includes 1% safety margin to ensure matter-only never exceeds LCDM. Temporarily disables external nodes during calibration test.
-- `save(filename)`, `load(filename)`: Pickle persistence
-
-**Mode flags**:
-- `use_external_nodes=True, use_dark_energy=False`: External-Node Model
-- `use_external_nodes=False, use_dark_energy=True`: ΛCDM
-- `use_external_nodes=False, use_dark_energy=False`: Matter-only
-
-**Exports**: `CosmologicalSimulation`.
-
-### `cosmo/analysis.py`
-**Purpose**: Shared analysis utilities for cosmological calculations.
-
-**Functions**:
-- `friedmann_equation(a, t, H0, Omega_m, Omega_Lambda)`: ODE for scale factor evolution
-- `solve_friedmann_equation(t_start, t_end, Omega_Lambda, n_points)`: Solve ΛCDM/matter-only evolution
-- `calculate_initial_conditions(t_start, reference_size)`: Compute a_start, box_size from t_start
-- `normalize_to_initial_size(a_array, initial_size)`: Convert scale factors to physical sizes
-- `compare_expansion_histories(size_ext, size_lcdm, return_array=False)`: Calculate match percentage. Returns array if return_array=True and inputs are arrays; otherwise returns scalar averaged match.
-- `detect_runaway_particles(max_distance, rms_size, threshold)`: Detect numerical instability
-- `calculate_today_marker(t_start, t_duration, today)`: Position of "today" in simulation time
-
-**Used by**: `run_simulation.py`, `parameter_sweep.py`, `visualize_3d.py`
-
-**Exports**: All functions listed above.
-
-### `cosmo/visualization.py`
-**Purpose**: Shared visualization utilities for plots and 3D graphics.
-
-**Functions**:
-- `get_node_positions(S_Gpc)`: Calculate 26 HMEA node positions in 3×3×3 grid
-- `draw_universe_sphere(ax, radius, alpha, color, resolution)`: Draw sphere on 3D axes
-- `draw_cube_edges(ax, half_size, color, alpha, linewidth)`: Draw cube outline
-- `setup_3d_axes(ax, lim, title, elev, azim)`: Configure 3D plot axes
-- `generate_output_filename(base_name, sim_params, extension, output_dir, include_timestamp)`: Standardized filenames with parameters
-- `format_simulation_title(sim_params, include_particles)`: Standardized plot titles
-
-**Used by**: `run_simulation.py`, `visualize_3d.py`
-
-**Exports**: All functions listed above.
-
-### `run_simulation.py`
-**Purpose**: Main script orchestrating full comparison workflow. Uses shared functions from factories.py for consistency with parameter_sweep.py.
-
-**Key functions**:
-- `run_simulation(output_dir, sim_params)`: Runs 3 simulations (ΛCDM analytic, External-Node N-body, Matter-only N-body), generates 4-panel plot
-
-**CLI**: Uses `cosmo.cli.parse_arguments()` and `cosmo.cli.args_to_sim_params()` for argument handling. Supports --M, --S, --particles, --seed, --t-start, --t-duration, --n-steps, --damping, --center-node-mass, --mass-randomize, --compare, --output-dir.
-
-**Default values** (aligned with parameter_sweep.py quick_search mode):
-- n_steps=250
-- particles=200
-- mass_randomize=0.0 (deterministic)
-- save_interval=10
-
-**Workflow**:
-1. Calculate initial conditions using `analysis.calculate_initial_conditions()`
-2. Solve ΛCDM baseline using `factories.solve_lcdm_baseline()` (shared with parameter_sweep.py)
-3. Run External-Node N-body using `factories.run_external_node_simulation()`
-4. Run Matter-only N-body using `factories.run_matter_only_simulation()`
-5. Compare using `analysis.compare_expansion_histories()`, detect runaways with `analysis.detect_runaway_particles()`
-6. Generate plot using `visualization.format_simulation_title()`
-7. Save using `visualization.generate_output_filename()`
-
-**Entry point**: `if __name__ == "__main__"`
-
-### `cosmo/parameter_sweep.py`
-**Purpose**: Reusable parameter sweep infrastructure with search algorithms and dataclasses.
-
-**Classes**:
-- `SearchMethod`: Enum (BRUTE_FORCE, TERNARY_SEARCH, LINEAR_SEARCH)
-- `SweepConfig`: Configuration dataclass (quick_search, many_search, search_center_mass, etc.)
-- `MatchWeights`: Match metric weights (hubble_curve, size_curve, endpoint, max_radius)
-- `SimResult`: Raw simulation output dataclass (size_curve_Gpc, hubble_curve, etc.)
-- `LCDMBaseline`: Precomputed LCDM reference data
-
-**Functions**:
-- `build_m_list(many_search)`: Build M value list (descending)
-- `build_s_list(s_min, s_max)`: Build S value list
-- `build_center_mass_list(search_center_mass, many_search)`: Build centerM value list
-- `compute_match_metrics(sim_result, baseline, weights)`: Compute R^2-based match metrics
-- `ternary_search_S(...)`: Ternary search for optimal S
-- `linear_search_S(...)`: Linear search with early stopping
-- `brute_force_search(...)`: Exhaustive grid search
-- `run_sweep(config, method, callback, baseline, weights)`: Main entry point
-
-**Exports**: All classes and functions.
-
-### `parameter_sweep.py`
-**Purpose**: Script wiring simulation callback to sweep module, handling output formatting. Uses shared functions from factories.py for consistency with run_simulation.py.
-
-**Workflow**:
-1. Calculate initial conditions using `analysis.calculate_initial_conditions()`
-2. Compute ΛCDM baseline using `factories.solve_lcdm_baseline()` (shared with run_simulation.py)
-3. Define sim_callback that uses `factories.run_external_node_simulation()`, returns SimResult
-4. Call run_sweep() from cosmo.parameter_sweep module
-5. Format and display results, save best config
-
-**Uses**: `cosmo.parameter_sweep.run_sweep()` for search algorithms, `cosmo.factories` for simulation consistency.
-
-## File Locations
-
-| File | Lines | Purpose |
-|------|-------|---------|
-| `cosmo/cache.py` | 125 | JSON/CSV disk cache |
-| `cosmo/constants.py` | 175 | Parameter definitions |
-| `cosmo/cli.py` | 95 | CLI argument parsing |
-| `cosmo/particles.py` | 340 | Physical structures |
-| `cosmo/integrator.py` | 316 | Force calculations + integration |
-| `cosmo/simulation.py` | 218 | High-level runner |
-| `cosmo/analysis.py` | 382 | Shared analysis utilities |
-| `cosmo/visualization.py` | 213 | Shared plotting utilities |
-| `cosmo/numba_direct.py` | 82 | Numba JIT O(N²) direct |
-| `cosmo/barnes_hut_numba.py` | 200 | Barnes-Hut O(N log N) octree |
-| `cosmo/tidal_forces_numba.py` | 60 | Numba JIT tidal forces |
-| `cosmo/factories.py` | 120 | Shared simulation functions |
-| `cosmo/parameter_sweep.py` | 350 | Search algorithms, dataclasses |
-| `run_simulation.py` | 280 | Main comparison script |
-| `parameter_sweep.py` | 210 | Parameter exploration script |
-| `visualize_3d.py` | 765 | 3D visualization |
-
-## Import Pattern
-
-All scripts import from `cosmo` package:
 ```python
-from cosmo.constants import CosmologicalConstants, LambdaCDMParameters, SimulationParameters
-from cosmo.simulation import CosmologicalSimulation
-from cosmo.cli import parse_arguments, args_to_sim_params
+from cosmo.constants import SimulationParameters          # 1. parameters
+from cosmo.factories import setup_simulation_context, run_external_node_simulation
+from cosmo.parameter_sweep import compute_pantheon_metrics  # 3. scoring
 ```
-
-No circular dependencies. Linear dependency chain: constants → cli → particles → integrator → simulation → scripts.

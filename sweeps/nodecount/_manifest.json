@@ -1,0 +1,13 @@
+{
+  "family": "nodecount",
+  "purpose": "Idea A node-count lever: does raising vir_n_nodes round the cloud? Tests per-node-fixed (extras go far/inert?) vs total-fixed (more, smaller nodes) at the rounder cell S25/sigma5/seed42. Snapshots -> core-fraction vs N.",
+  "arms": [
+    "sweeps/nodecount/01_nc_pernode_N300_M200.json",
+    "sweeps/nodecount/02_nc_pernode_N600_M200.json",
+    "sweeps/nodecount/03_nc_pernode_N1200_M200.json",
+    "sweeps/nodecount/04_nc_pernode_N2400_M200.json",
+    "sweeps/nodecount/05_nc_totalfix_N600_M100.json",
+    "sweeps/nodecount/06_nc_totalfix_N1200_M50.json",
+    "sweeps/nodecount/07_nc_totalfix_N2400_M25.json"
+  ]
+}

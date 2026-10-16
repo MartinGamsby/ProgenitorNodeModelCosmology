@@ -1,0 +1,20 @@
+{
+  "_comment": "WS3 fair cross-geometry comparison. Same per-node mass for every geometry AND nearest node at the same S (geometry_kwargs.normalize_nearest=true), per the near-field-dominance argument (tidal stretch ~1/d^3, so far nodes barely matter; equal-TOTAL-mass would wrongly weaken the near nodes). Isotropic (amp=0) so the comparison isolates the geometry's effect on the fit. Expectation: bars are close (near-field dominated); the near-neighbour multiplicity (cube26:6, fcc:12, bcc:8 nodes at S) is the only real difference.",
+  "M_values": [855, 1500],
+  "S_values": [30, 40, 50],
+  "s_min_gpc": 30,
+  "s_max_gpc": 50,
+  "node_mass_amplitudes": [0.0],
+  "node_s_amplitudes": [0.0],
+  "node_mass_seeds": [42],
+  "init_distributions": ["uniform_sphere"],
+  "node_geometries": ["cube26", "cube_dense", "fcc", "bcc"],
+  "geometry_kwargs": {"normalize_nearest": true},
+  "s_cofit_method": "linear",
+  "particle_count": 400,
+  "n_steps": 273,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "results_dir": "results",
+  "tag": "geometry_compare"
+}

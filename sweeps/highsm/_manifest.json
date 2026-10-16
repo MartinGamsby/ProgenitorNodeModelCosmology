@@ -1,0 +1,12 @@
+{
+  "family": "highsm",
+  "purpose": "Walk the M/S^3 ridge to HIGHER S/M at defensible sigma<=2 (per-M S co-fit). Find the best-observer fit + check if a far/high-S node shell gives a rounder cloud than the low-S configs. 6 arms = N{300,600} x sigma{1,1.5,2}.",
+  "arms": [
+    "sweeps/highsm/highsm_N300_sig1p0.json",
+    "sweeps/highsm/highsm_N300_sig1p5.json",
+    "sweeps/highsm/highsm_N300_sig2p0.json",
+    "sweeps/highsm/highsm_N600_sig1p0.json",
+    "sweeps/highsm/highsm_N600_sig1p5.json",
+    "sweeps/highsm/highsm_N600_sig2p0.json"
+  ]
+}

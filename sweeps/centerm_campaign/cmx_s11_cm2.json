@@ -1,0 +1,51 @@
+{
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "particle_count": 2000,
+  "n_steps": 546,
+  "t_start_Gyr": 2.9,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "init_distributions": [
+    "grfmass"
+  ],
+  "grf_support": "sphere",
+  "node_geometries": [
+    "virialized"
+  ],
+  "vir_n_nodes": 300,
+  "vir_mass_rule": "massfunc",
+  "vir_mass_spreads": [
+    0.5
+  ],
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "medium",
+  "node_softening_gpc": 1.0,
+  "node_force_law": "plummer",
+  "score_observers": true,
+  "observer_definition": "local_rms",
+  "observer_sample": 2000,
+  "observer_k": -1,
+  "M_values": [
+    3000
+  ],
+  "S_values": "co-fit",
+  "s_min_gpc": 40,
+  "s_max_gpc": 160,
+  "s_cofit_method": "ternary",
+  "outer_particle_cap": 2.0,
+  "node_mass_seeds": [
+    11
+  ],
+  "centerM": 2.0,
+  "vir_center_mass_frac": 0.0006666666666666666,
+  "tag": "cmx_s11_cm2",
+  "figures_dir": "results/figures/cmx_s11_cm2",
+  "_comment": "centerM campaign: progenitor mass centerM=2 (vcm=0.00067), medium seed 11, sigma0.5, grfmass, M3000, S co-fit [40,160], outer cap 2x. Gate AFTER co-fit: nearest HMEA > 15 Gpc."
+}

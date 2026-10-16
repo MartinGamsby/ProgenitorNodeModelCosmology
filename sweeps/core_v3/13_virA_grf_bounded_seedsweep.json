@@ -1,0 +1,52 @@
+{
+  "M_values": [
+    35,
+    100,
+    300
+  ],
+  "S_values": "co-fit",
+  "s_min_gpc": 3,
+  "s_max_gpc": 35,
+  "s_cofit_method": "ternary",
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_seeds": [
+    42,
+    7,
+    123,
+    2024,
+    99
+  ],
+  "particle_count": 2000,
+  "n_steps": 546,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "figures_dir": "results/figures/core_v3",
+  "init_distributions": [
+    "grf"
+  ],
+  "grf_support": "sphere",
+  "node_geometries": [
+    "virialized"
+  ],
+  "vir_n_nodes": 300,
+  "vir_mass_rule": "massfunc",
+  "vir_mass_spread": 2.0,
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "lattice",
+  "node_softening_gpc": 1.0,
+  "node_force_law": "bounded",
+  "node_substep_threshold": 2.0,
+  "node_substeps": 8,
+  "tag": "core3_13_virA_grf_bounded_seedsweep",
+  "_comment": "core_v3 SEED arm (B3a): virialized Option A (lattice) GRF bounded+substep, M in [35,100,300], node_mass_seeds=[42,7,123,2024,99]. The R1 cache-collision fix makes the 5 realizations REAL: virialized+massfunc+spread>0 emits one cell per seed (distinct virseed cache keys), so this expands to 3 M x 5 seeds = 15 cells. Reports the chi2 spread across random virialized structures.",
+  "score_observers": true
+}

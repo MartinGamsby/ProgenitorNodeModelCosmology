@@ -2,7 +2,7 @@
 Simulation Utility Functions
 
 Shared functions for running simulations and computing baselines.
-Used by both run_simulation.py and parameter_sweep.py for consistency.
+Used by both run_simulation.py and sweep.py for consistency.
 """
 
 from typing import Dict, Tuple
@@ -116,7 +116,8 @@ def run_external_node_simulation(sim_params: SimulationParameters, box_size_Gpc:
     Returns dict with keys: 't_Gyr', 'a', 'diameter_Gpc', 'max_radius_Gpc', 'H_hubble', 'sim'
     """
     sim = CosmologicalSimulation(sim_params, box_size_Gpc, a_start,
-                                  use_external_nodes=True, use_dark_energy=False)
+                                  use_external_nodes=True, use_dark_energy=False,
+                                  force_method=getattr(sim_params, "force_method", "auto"))
     return run_and_extract_results(sim, sim_params.t_duration_Gyr, sim_params.n_steps,
                                     save_interval, damping=sim_params.damping_factor)
 
@@ -135,7 +136,8 @@ def run_matter_only_simulation(sim_params: SimulationParameters, box_size_Gpc: f
     Returns dict with keys: 't_Gyr', 'a', 'diameter_Gpc', 'max_radius_Gpc', 'H_hubble', 'sim'
     """
     sim = CosmologicalSimulation(sim_params, box_size_Gpc, a_start,
-                                  use_external_nodes=False, use_dark_energy=False)
+                                  use_external_nodes=False, use_dark_energy=False,
+                                  force_method=getattr(sim_params, "force_method", "auto"))
     return run_and_extract_results(sim, sim_params.t_duration_Gyr, sim_params.n_steps,
                                     save_interval, damping=sim_params.damping_factor)
 
@@ -146,7 +148,7 @@ def setup_simulation_context(t_start_Gyr: float, t_duration_Gyr: float,
     Calculate initial conditions and LCDM baseline for a simulation run.
 
     Combines calculate_initial_conditions + solve_lcdm_baseline into one call.
-    This is the standard setup for both run_simulation.py and parameter_sweep.py.
+    This is the standard setup for both run_simulation.py and sweep.py.
 
     Args:
         t_start_Gyr: Start time in Gyr
@@ -200,5 +202,10 @@ def results_to_sim_result(ext_results: Dict, sim_params: SimulationParameters):
             a_final=ext_results['a'][-1],
         ),
         t_Gyr=ext_results['t_Gyr'],
-        params=sim_params.external_params
+        params=sim_params.external_params,
+        a_curve=ext_results['a'],  # Full scale-factor array for from-data chi^2 scoring
+        # Per-particle snapshot history (positions/velocities over time) for the
+        # observer-from-particle scorer. A reference to the sim's already-saved
+        # snapshots (no copy); lives only as long as this transient SimResult.
+        snapshots=getattr(ext_results.get('sim'), 'snapshots', None),
     )

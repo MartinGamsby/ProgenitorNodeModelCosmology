@@ -1,244 +1,65 @@
-# Theoretical Framework
-
-**Status**: Draft theory documented in docs/VirializedMetaStructure.tex (working document, not published)
-
-## Research Goal
-
-Test whether classical gravitational tidal forces from trans-observable massive structures can reproduce ΛCDM late-time acceleration without invoking dark energy. This is a **proof-of-concept toy model**, not a claim to have solved cosmology. Code generates data supporting draft paper development.
-
-## The External-Node Model
-
-### Core Hypothesis (Draft)
-
-Observable universe is finite FRW "bubble" expanding within 3D Euclidean meta-space populated by Hyper-Massive External Attractors (HMEAs). What we interpret as "dark energy" is local misinterpretation of global boundary conditions—rising gravitational potential as bubble expands toward external mass concentrations.
-
-### Progenitor Hypothesis
-
-Resolves Copernican fine-tuning (why are we at center of void?):
-
-1. **Origin**: Big Bang was destabilization of a Progenitor Node in virialized meta-structure
-2. **Prior state**: Node was in gravitational equilibrium with neighbors in lattice
-3. **Event**: Destabilization (critical mass, Hawking radiation, collision) → expansion
-4. **Isotropy**: Matter expands symmetrically from pre-existing equilibrium point → naturally isotropic without tuning
-
-### Virialized Meta-Structure
-
-- Analogous to cosmic web or galaxy cluster, but at super-horizon scales
-- Gravitationally balanced, stable over vast timescales
-- Irregular in detail (not perfect lattice)
-- HMEAs: Eon-spanning black holes, M_ext ≫ M_obs, separated by S ≫ R_H
-- Observable universe expands in void between nodes
-
-## Mathematical Mechanism
-
-### Tidal Acceleration Derivation
-
-Standard Newtonian cosmology: Birkhoff's Theorem → external spherical shells exert no force.
-
-External-Node Model violates Birkhoff: external distribution is discrete grid, not continuous shell.
-
-**Test galaxy at edge of expanding bubble**:
-- At center (R=0): net force from isotropic grid = 0
-- Moving outward: climbs potential gradient of nearest HMEA
-- Tidal force from node at distance S:
-
-```
-a_tidal ≈ GM_ext/(S-R)² - GM_ext/S²
-```
-
-**Taylor expansion** (R ≪ S):
-
-```
-a_tidal ≈ 2GM_ext/S³ × R
-```
-
-**Key insight**: Linear dependence on R, same form as dark energy acceleration H₀²Ω_Λ R.
-
-In non-relativistic limit, uniform external tidal field is **mathematically indistinguishable** from cosmological constant.
-
-### Parameter Estimation
-
-Equate tidal acceleration to observed dark energy:
-
-```
-H₀²Ω_Λ ≈ 2GM_ext/S³
-```
-
-Solve for grid spacing:
-
-```
-S ≈ (2GM_ext / (H₀²Ω_Λ))^(1/3)
-```
-
-**Example calculation** (VirializedMetaStructure.tex:84-91):
-- Assume M_ext = 5×10⁵⁵ kg (500 × M_obs)
-- H₀ ≈ 70 km/s/Mpc = 2.3×10⁻¹⁸ s⁻¹
-- Ω_Λ ≈ 0.7
-
-Result: S ≈ 39 Gpc
-
-**Significance**: Well beyond observable universe extent. HMEAs are electromagnetically silent (ancient black holes without accretion disks), detectable only via gravitational gradient (Section sec:defenses).
-
-## Numerical Validation
-
-### Grid Configuration
-
-3×3×3 cubic lattice = 26 nodes surrounding observable universe (center position = our universe, no node).
-
-**Caveat**: Simplified representation. Real virialized structure has varying masses, irregular spacing. Distant nodes contribute negligibly, so 26-node approximation sufficient for testing mechanism viability.
-
-### Parameter Exploration Results
-
-Multiple balanced-optimization configs across wide mass range (M=92-9000×M_obs, S=15-38 Gpc):
-- M=9000, S=38: 98.02% endpoint, R²_size=0.9954, R²_rate=0.9630 (primary)
-- M=875, S=24: 97.92% endpoint, R²_size=0.9951, R²_rate=0.9603
-- M=92, S=15: 98.67% endpoint, R²_size=0.9966, R²_rate=0.9565
-
-Size-only optimization: M=800, S=22 reaches R²_size=0.9991 but distorts expansion rate.
-
-**Important**: Multiple solutions demonstrate mechanism robustness, not fine-tuning. Complete theory would need to explain why meta-structure adopts these scales.
-
-### Quantitative Agreement
-
-Primary balanced config (M=9000, S=38):
-- ΛCDM final size: 14.50 Gpc, External-node: 14.21 Gpc (98.02%)
-- R²_size=0.9954, R²_rate=0.9630
-- Agreement throughout 8 Gyr evolution (t=5.8→13.8 Gyr)
-- Hubble parameter at present: H ≈ 70 km/s/Mpc (no adjustment needed)
-
-## Scope and Limitations
-
-### What Model Addresses
-
-✓ Late-time cosmic acceleration (8 Gyr: t=5.8→13.8 Gyr)
-✓ Reproduction of ΛCDM expansion: R²_size>0.99, R²_rate>0.95 (balanced)
-✓ Classical gravitational mechanism mimicking dark energy dynamics, not just endpoints
-✓ Resolution of fine-tuning problem (gravity naturally weak)
-✓ Multiple parameter solutions across two orders of magnitude in mass
-
-### What Model Does NOT Address
-
-✗ Early universe physics (inflation, baryogenesis, nucleosynthesis)
-✗ CMB power spectrum, acoustic oscillations
-✗ Structure formation, density perturbations, hierarchical galaxy formation
-✗ Baryon Acoustic Oscillations (BAO)
-✗ General relativity (uses Newtonian gravity in flat Euclidean space)
-  - Needs: relativistic metric, junction conditions, curved spacetime tidal forces
-✗ Trans-observable structure details (formation, observability, verification)
-
-### Philosophical Stance (VirializedMetaStructure.tex:199-207)
-
-**Not claiming physical reality**. Demonstrating:
-1. Dark energy not inevitable—classical alternatives exist
-2. Fundamental assumptions may break down—cosmological principle might not hold at super-horizon scales
-3. Alternative mechanisms viable—external structure could explain acceleration
-4. New research directions—may inspire more complete theories
-
-Value: showing well-motivated alternatives to vacuum energy deserve investigation. 99.4% agreement suggests direction warrants further development.
-
-## Observational Consistency
-
-### "Dark Giant" Principle
-
-**Why don't we see HMEAs?**
-
-HMEAs are Eon-spanning black holes (t_node ≫ 13.8 Gyr) that exhausted local fuel. Without accretion disk: electromagnetically silent. Hawking radiation redshifted/diluted over 30 Gpc → indistinguishable from CMB noise floor.
-
-Detectable through gravitational gradient (dark energy signature), not luminosity.
-
-## Predictions and Falsifiability
-
-### 1. Geometric "Big Rip" (Hyper-Acceleration)
-
-**ΛCDM**: Constant dark energy density → smooth exponential expansion (w=-1) forever.
-
-**External-Node**: As R(t) → S, tidal force scales as (S-R)⁻². Acceleration increases.
-
-**Prediction**: Effective equation of state w drifts below -1 (phantom energy) in deep future. May be measurable in current high-z supernova data as approaching node boundary.
-
-### 2. Dipole Anisotropy
-
-Virialized meta-grid is irregular → nearest HMEAs have different masses/distances.
-
-**Prediction**: Subtle dipole in expansion rate. One hemisphere (facing nearest/largest HMEA) exhibits slightly higher H₀ than opposite hemisphere.
-
-**Possible connection**: Alternative explanation for Hubble Tension (early vs late universe H₀ discrepancy).
-
-**Observable**: Deep-field surveys (Euclid, LSST) should detect anisotropy.
-
-### 3. CMB Axis of Evil (Large-Angle Multipole Alignment)
-
-CMB l=2 (quadrupole) and l=3 (octopole) share anomalous preferred axis (Land & Magueijo 2005). Standard ΛCDM predicts uncorrelated orientations.
-
-**External-Node explanation**: 3×3×3 lattice has nodes at 3 distinct distances (face S, edge S√2, corner S√3). This geometry naturally produces:
-- Quadrupole (l=2) from face-node asymmetries along principal axes
-- Octopole (l=3) from 8 corner nodes with tetrahedral sub-symmetry
-- Guaranteed alignment because all multipoles derive from same lattice
-
-Low quadrupole power explained: cubic symmetry partially cancels l=2 (only asymmetries contribute).
-
-**Cross-check**: Predicted H₀ dipole (Section 7.2) should align with known Axis of Evil direction (l≈260°, b≈60° galactic). Testable with Euclid/LSST.
-
-### 4. Dark Flow (Large-Scale Bulk Motions)
-
-Anomalous coherent bulk flow of galaxy clusters ~400 km/s at ~290 Mpc, 4.8σ tension with ΛCDM (Watkins+ 2023, CosmicFlows-4). Flow dominated by sources external to survey volume (Watkins & Feldman 2025). Original detection by Kashlinsky+ 2008 via kSZ (disputed), but independent distance-indicator measurements confirm the anomaly.
-
-**External-Node explanation**: Asymmetric HMEA lattice produces net gravitational pull on entire bubble. Flow is scale-independent (every object experiences same tidal bias). Predicted ΔH₀/H₀ ~ 4.6% → v_bulk ~ 320 km/s (grid avg), ~790 km/s (single node). Consistent with observed ~400 km/s.
-
-**Directional coherence**: Dark flow direction (l~290-298°, b~-8 to 30°) is in same sky region as Axis of Evil (l~260°, b~60°) and CMB dipole. All three anomalies should point toward nearest/most massive HMEA.
-
-## Great Metabolism Hypothesis
-
-Cyclical evolutionary cosmology:
-
-1. **Expansion/Accretion**: Big Bang fills void, bubble acts as macroscopic accretion disk
-2. **Feeding**: Galaxies stripped and accreted onto HMEAs, adding mass
-3. **Destabilization**: HMEA accumulates critical mass or merges with neighbor
-4. **Re-Ignition**: Node detonates, redistributing mass into void → new Big Bang
-
-Universe as transient structure—pulse facilitating mass transfer between nodes in eternal cosmic lattice. We are fuel for next generation of attractors.
-
-## Future Work
-
-**Theoretical**:
-- Extend to early universe physics
-- Calculate CMB power spectrum effects
-- Develop full GR formulation with proper metric, junction conditions
-- Quantify predictions for anisotropy measurements
-
-**Observational**:
-- Test against CMB data (Planck)
-- Test against large-scale structure (BAO)
-- Analyze high-z supernova for w < -1 signature
-- Search for dipole anisotropy in H₀ measurements
-
-**Philosophical**:
-- Investigate meta-structure formation mechanisms
-- Explore observability of trans-observable structure
-- Consider implications for multiverse, anthropic reasoning
-
-## Diagram: Conceptual Framework
+# Theoretical framework — External-Node Model + Progenitor Hypothesis
+
+Toy model under test (draft paper `docs/VirializedMetaStructure.tex`, see
+[../paper-reference.md](../paper-reference.md)): can Newtonian tidal forces from
+trans-horizon Hyper-Massive External Attractors (HMEAs) reproduce late-time acceleration
+without Λ? Proof of concept only — no claim of physical reality.
 
 ```mermaid
 graph TD
-    A[Observable Universe<br/>Expanding Bubble] --> B{Acceleration Mechanism}
-    B -->|ΛCDM Standard| C[Dark Energy Λ<br/>Vacuum repulsion<br/>Fine-tuning problem]
-    B -->|External-Node Alternative| D[HMEA Tidal Forces<br/>Classical gravity<br/>Natural weakness]
-
-    D --> E[Virialized Meta-Structure<br/>26 nodes, S=15-38 Gpc]
-    E --> F[Progenitor Node Destabilization<br/>Explains isotropy]
-
-    F --> G[Predictions]
-    G --> H[Hyper-acceleration<br/>w < -1 in future]
-    G --> I[Dipole anisotropy<br/>ΔH₀/H₀ ~ 4.6-11.3%]
-    G --> K[Axis of Evil<br/>CMB multipole alignment]
-    G --> L[Dark Flow<br/>~320-790 km/s bulk motions]
-    G --> J[Great Metabolism<br/>Cyclical cosmology]
+    MS[virialized meta-structure: periodic medium of HMEAs, 2K/U ~ 1] --> PN[progenitor = a typical node, mass centerM]
+    PN -->|destabilises: Big Bang| CLOUD[observable cloud + trans-horizon matter]
+    MS -->|tides ~ 2 G M R / S^3| ACC[late-time acceleration, mimics H0^2 Omega_L R]
+    ACC --> TEST[Pantheon+ fit ~ LCDM]
+    MS -->|asymmetric near field| ANI[predictions: H0 dipole, bulk flow, w < -1 drift]
 ```
 
-## References
+## Mechanism
+- A discrete external mass distribution evades Birkhoff (a smooth shell would exert no force).
+  A test galaxy at radius R ≪ S from us feels a_tid ≈ G M/(S−R)² − G M/S² ≈ 2 G M R/S³ toward
+  the nearest node: LINEAR in R, the same form as the Λ term H0² Ω_Λ R.
+- Estimate: H0² Ω_Λ ≈ 2 G M/S³ ⇒ S ≈ (2GM/(H0²Ω_Λ))^{1/3} ≈ 39 Gpc for M = 5e55 kg (500 M_obs).
+  The sim uses the full node sum; the label Ω_Λ,eff = G M/(S³H0²) is order-of-magnitude only.
+- Vacuum rearrangements of node mass are TRACELESS to linear order: they change shear, not the
+  isotropic expansion (PF2) — hence the M/S³ degeneracy of the isotropic fit (PF3).
 
-Cross-reference paper sections via \label keys:
-sec:tidal, sec:estimation, sec:framework, sec:results, sec:tradeoffs, sec:matter-only,
-sec:scope (=sec:limitations), sec:predictions, sec:phantom, sec:dipole, sec:axis-of-evil,
-sec:dark-flow, sec:defenses, sec:metabolism, sec:conclusion
+## Progenitor Hypothesis (settled semantics)
+The Big Bang was the destabilisation of one node of the meta-structure; expansion from a
+pre-existing equilibrium point explains isotropy without fine-tuning our position. The
+progenitor's mass (centerM) is ONE parameter acting in both epochs: pre-BB a member of the
+medium, post-BB the observable universe plus matter beyond it. Distinguished value
+centerM = M_value (a typical node) — also the structurally most robust regime (PF25).
+Mechanics: [centerm-outer-mass.md](./centerm-outer-mass.md).
+
+## Virialized meta-structure
+"Virialized" = virial equilibrium (velocity-dispersion supported, members orbit), realized as a
+snapshot of an infinite periodic self-gravitating medium: homogeneous on average, locally clumpy.
+Node dynamical times ≫ 8 Gyr, so frozen nodes are fair boundary conditions. The ordered lattice
+survives only as the analytic idealization. HMEAs: ancient, accretion-free black holes
+("dark giants"): EM-silent, Hawking temperature T_H = ħc³/(8πGMk_B) ≈ 2.5e-33 K at 5e55 kg
+(500 M_obs; ∝ 1/M, so ~1.4e-34 K at 9000 M_obs) — ~1e33× colder than the CMB; visible only through tides.
+Computed by `cosmo.constants.hawking_temperature_K`; the paper's quoted figure is test-guarded
+(`tests/test_hawking_temperature.py`, see [testing](../architecture/testing.md)).
+
+## Predictions (paper §predictions)
+1. Phantom drift: as R→S the tide grows as (S−R)⁻², so effective w drifts below −1.
+2. H0 dipole from the asymmetric near field; quoted 4.6% (grid) to 11.3% (single node) in the
+   paper via `compute_predictions.py` on the legacy M9000/S38 lattice config.
+3. CMB "Axis of Evil" alignment — argued from CUBIC lattice symmetry (face/edge/corner shells).
+   Open: re-derive for the disordered medium, which has no lattice axes.
+4. Dark flow: net tidal pull on the whole bubble (~320–790 km/s quoted); the sims show a
+   coherent ~30 Gpc drift of the cloud (PF18) — magnitude reconciliation is open.
+
+## Scope
+In: late-time expansion t = 2.9 → 13.8 Gyr (z ≲ 2.3), Newtonian gravity in flat space.
+Out: inflation, nucleosynthesis, CMB spectrum, BAO, structure formation, GR (metric, junction
+conditions). The speculative Great Metabolism cycle (universes feed nodes, nodes re-ignite)
+is paper-only; nothing in code tests it.
+
+```python
+from cosmo.constants import ExternalNodeParameters, CosmologicalConstants as C
+p = ExternalNodeParameters(M_ext_kg=5e55)
+p.calculate_required_spacing(Omega_Lambda_target=0.7) / C.Gpc_to_m   # S from G M/(H0^2 Omega_L)
+```
+Note: `calculate_required_spacing` uses G M/(H0² Ω_Λ) (no factor 2), giving ~31 Gpc; the
+paper's single-node estimate with the factor 2 gives ~39 Gpc.

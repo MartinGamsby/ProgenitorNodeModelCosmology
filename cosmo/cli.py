@@ -48,11 +48,95 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--damping', type=float, default=None,
                         help='Initial velocity damping factor (0-1). Auto-calculated if not specified.')
     parser.add_argument('--center-node-mass', type=float, default=1.0,
-                        help='Central (progenitor) node mass as multiple of M_observable. '
-                             'Affects total_mass_kg and softening_m scaling.')
+                        help='Outer-mass multiplier: total simulated mass / inner observable mass, '
+                             '>= 1.0; particles scale linearly (centerM=2 doubles particle count '
+                             'by adding outer-shell matter at the same density); '
+                             'default 1.0 = observable sphere only (no outer matter).')
+    parser.add_argument('--outer-density-ceiling', type=float, default=1.0,
+                        help='Multiplier on the inner EdS-critical density for outer-shell '
+                             'particles (>= 0, clipped to MAX_OUTER_DENSITY_CEILING). '
+                             'default 1.0 = outer density == inner density (EdS critical).')
     parser.add_argument('--mass-randomize', type=float, default=0.0,
                         help='Particle mass randomization (0.0=equal, 1.0=0 to 2x mean). '
                              'Total mass is preserved. Default 0.0 for deterministic results.')
+    parser.add_argument('--node-mass-seed', type=int, default=0,
+                        help='RNG seed for per-node mass distribution. '
+                             'Independent of particle RNG. Default 0.')
+    parser.add_argument('--node-mass-amplitude', type=float, default=0.0,
+                        help='Log-normal width of per-node mass distribution. '
+                             '0.0 (default) = all 26 nodes uniform = M_ext_kg (backward compatible).')
+    parser.add_argument('--node-s-amplitude', type=float, default=0.0,
+                        help='Log-normal width of per-node RADIAL position perturbation. '
+                             '0.0 (default) = perfect symmetric lattice (backward compatible). '
+                             'Reuses --node-mass-seed. Mean radial scale (S) preserved.')
+
+    # Particle initialisation
+    parser.add_argument('--init-distribution', type=str, default='uniform_sphere',
+                        choices=['uniform_sphere', 'grf'],
+                        help='Initial particle position distribution. '
+                             '"uniform_sphere" (default) is backward-compatible. '
+                             '"grf" uses a Gaussian random field with BBKS LCDM P(k) '
+                             '+ Zel\'dovich displacement for realistic large-scale structure.')
+
+    # Node geometry (WS3)
+    parser.add_argument('--node-geometry', type=str, default='cube26',
+                        choices=['cube26', 'cube_dense', 'fcc', 'bcc', 'virialized'],
+                        help='HMEA node geometry (must be volume-filling / virialized). '
+                             '"cube26" (default) = 3×3×3-1 cubic lattice (26 nodes, '
+                             'backward-compatible). Alternatives: "cube_dense" '
+                             '(5×5×5-1, 124 nodes), "fcc" / "bcc" (close-packed lattices), '
+                             '"virialized" (COUPLED mass-segregated grid; see --vir-* flags). '
+                             'Hollow spherical shells are excluded (opposite of virialized). '
+                             'For a fair Omega_Lambda_eff comparison across geometries, '
+                             'scale --M so M*26/n_nodes is constant.')
+
+    # Virialized-grid parameters (consumed only when --node-geometry virialized)
+    parser.add_argument('--vir-n-nodes', type=int, default=26,
+                        help='Virialized node count (default 26, parity with cube26).')
+    parser.add_argument('--vir-extent', type=float, default=1.0,
+                        help='Virialized radius multiplier; raw outer radius ~ '
+                             'vir_extent*S before NN-spacing rescale (default 1.0).')
+    parser.add_argument('--vir-mass-rule', type=str, default='radial',
+                        choices=['radial', 'massfunc'],
+                        help='Virialized mass<->position rule: "radial" (deterministic '
+                             'mass ~ f(r), default) or "massfunc" (log-normal draw + '
+                             'spatial segregation).')
+    parser.add_argument('--vir-mass-spread', type=float, default=0.0,
+                        help='Virialized node-mass distribution amplitude. 0.0 (default) '
+                             '= uniform masses (the falsifiable knob).')
+    parser.add_argument('--vir-segregation', type=float, default=1.0,
+                        help='Virialized mass<->radius coupling strength (default 1.0). '
+                             '0.0 = mass/radius decoupled (no segregation).')
+    parser.add_argument('--vir-s-metric', type=str, default='median',
+                        choices=['median', 'mean'],
+                        help='Virialized NN-spacing target metric: "median" (default) '
+                             'or "mean".')
+    parser.add_argument('--vir-relax-steps', type=int, default=1,
+                        help='Virialized BALANCE LEVEL (default 1). 0 = realistic '
+                             '(not force-balanced) Fibonacci layout; >= 1 = '
+                             'force-balanced cubic-lattice ball (inner nodes feel '
+                             '~zero net force).')
+
+    # Node softening (Section 4 slingshot taming knob)
+    parser.add_argument('--node-softening-gpc', type=float, default=0.0,
+                        help='Plummer NODE-softening length in Gpc on the tidal '
+                             'force path. 0.0 (default) keeps the legacy hard '
+                             '1e10 m floor (byte-identical, cube26 a(t) unchanged). '
+                             '> 0.0 (e.g. ~1.0) caps the close-pass node kick and '
+                             'tames the runaway slingshot for BOTH cube26 and '
+                             'virialized. Vanishes at M_ext=0 (M=0 == EdS preserved).')
+
+    # Start-size lever (Section 6)
+    parser.add_argument('--start-size-scale', type=float, default=1.0,
+                        help='Multiplier on the LCDM-implied INITIAL cloud size. '
+                             '1.0 (default) = current LCDM-implied size '
+                             '(byte-identical a(t)). > 1.0 starts the cloud bigger '
+                             '(lower density), < 1.0 smaller (higher density). NOT a '
+                             'pure normalization: at fixed node spacing S the cloud '
+                             'spans a different fraction of S, changing the tidal '
+                             'shear and hence the a(t) SHAPE. Must be > 0. '
+                             'Preserves M=0 == EdS at any size (cloud mass scales '
+                             'with volume -> density stays EdS-critical).')
 
     # Mode flags
     parser.add_argument('--compare', action='store_true',
@@ -105,5 +189,20 @@ def args_to_sim_params(args: argparse.Namespace) -> SimulationParameters:
         n_steps=args.n_steps,
         damping_factor=args.damping,
         center_node_mass=args.center_node_mass,
-        mass_randomize=args.mass_randomize
+        outer_density_ceiling=getattr(args, 'outer_density_ceiling', 1.0),
+        mass_randomize=args.mass_randomize,
+        node_mass_seed=args.node_mass_seed,
+        node_mass_amplitude=args.node_mass_amplitude,
+        node_s_amplitude=getattr(args, 'node_s_amplitude', 0.0),
+        init_distribution=args.init_distribution,
+        node_geometry=getattr(args, 'node_geometry', 'cube26'),
+        vir_n_nodes=getattr(args, 'vir_n_nodes', 26),
+        vir_extent=getattr(args, 'vir_extent', 1.0),
+        vir_mass_rule=getattr(args, 'vir_mass_rule', 'radial'),
+        vir_mass_spread=getattr(args, 'vir_mass_spread', 0.0),
+        vir_segregation=getattr(args, 'vir_segregation', 1.0),
+        vir_s_metric=getattr(args, 'vir_s_metric', 'median'),
+        vir_relax_steps=getattr(args, 'vir_relax_steps', 1),
+        node_softening_gpc=getattr(args, 'node_softening_gpc', 0.0),
+        start_size_scale=getattr(args, 'start_size_scale', 1.0),
     )

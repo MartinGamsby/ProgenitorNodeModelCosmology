@@ -1,0 +1,20 @@
+{
+  "_comment": "SATELLITE: particle-count convergence CHECK (plan-v2 B6). ONE headline cell -- cube26 GRF bounded+substep (MATCHED to core_v3 arm 02), M=100, S co-fit [3..35] ternary, 546 steps -- run at particle_count in {1000,2000,4000}. N IS the swept variable (the whole point), so this is NOT a lower-quality study: 2000+4000 are the FULL production+above resolution required to show the chi2/dof plateau and (at N>=2000) the PF2 shear/dipole. particle_count is a CONFIG-WIDE scalar in sweep.py, so each N is its own arm. A CHECK, not a ladder. Run via launch_sweep_detached.ps1 -IncludeSatellites.",
+  "arms": [
+    {
+      "file": "sweeps/satellite_convergence/01_conv_1000p.json",
+      "tag": "sat_conv_1000p",
+      "isolates": "cube26 GRF bounded+substep M=100 | N=1000 (convergence floor)"
+    },
+    {
+      "file": "sweeps/satellite_convergence/02_conv_2000p.json",
+      "tag": "sat_conv_2000p",
+      "isolates": "cube26 GRF bounded+substep M=100 | N=2000 (production)"
+    },
+    {
+      "file": "sweeps/satellite_convergence/03_conv_4000p.json",
+      "tag": "sat_conv_4000p",
+      "isolates": "cube26 GRF bounded+substep M=100 | N=4000 (above production, plateau confirm)"
+    }
+  ]
+}

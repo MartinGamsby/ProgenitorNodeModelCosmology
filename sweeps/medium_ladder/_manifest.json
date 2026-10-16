@@ -1,0 +1,18 @@
+{
+  "family": "medium_ladder",
+  "purpose": "PF23: knot origin \u2014 N-ladder(8k/16k/32k) x GRF-seed(42/7/123) x mass_randomize(0/0.5) on the static (seed1) and collapsing (seed0) cells.",
+  "arms": [
+    "mlad_A_N8k",
+    "mlad_A_N16k",
+    "mlad_A_N32k",
+    "mlad_A_g7",
+    "mlad_A_g123",
+    "mlad_A_mr0p5",
+    "mlad_B_N8k",
+    "mlad_B_N16k",
+    "mlad_B_N32k",
+    "mlad_B_g7",
+    "mlad_B_g123",
+    "mlad_B_mr0p5"
+  ]
+}

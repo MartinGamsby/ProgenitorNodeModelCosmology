@@ -1,0 +1,10 @@
+{
+  "family": "seedhunt2",
+  "purpose": "Does a different seed round the defensible sigma1.5 high-S/M config (M1000/S~45/N600) at fixed LCDM-quality fit? 16 seeds x S{41,48}.",
+  "arms": [
+    "sweeps/seedhunt2/a.json",
+    "sweeps/seedhunt2/b.json",
+    "sweeps/seedhunt2/c.json",
+    "sweeps/seedhunt2/d.json"
+  ]
+}

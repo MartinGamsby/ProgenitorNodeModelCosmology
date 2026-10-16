@@ -1,0 +1,10 @@
+{
+  "family": "localized_v6",
+  "purpose": "CORRECTED observer_k sweep (post cache-key fix): does a local finite-k observer beat LCDM by more / at a larger fraction than whole-cloud k=-1?",
+  "arms": [
+    "sweeps/localized_v6/01_obsk64.json",
+    "sweeps/localized_v6/02_obsk128.json",
+    "sweeps/localized_v6/03_obsk256.json",
+    "sweeps/localized_v6/04_obskall.json"
+  ]
+}

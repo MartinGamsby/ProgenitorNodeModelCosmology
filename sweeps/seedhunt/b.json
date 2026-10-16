@@ -1,0 +1,53 @@
+{
+  "node_s_amplitudes": [
+    0.0
+  ],
+  "node_mass_amplitudes": [
+    0.0
+  ],
+  "particle_count": 2000,
+  "n_steps": 1092,
+  "t_start_Gyr": 2.9,
+  "centerM": 1,
+  "objective": "pantheon",
+  "results_dir": "results",
+  "init_distributions": [
+    "grf"
+  ],
+  "grf_support": "sphere",
+  "node_geometries": [
+    "virialized"
+  ],
+  "vir_n_nodes": 300,
+  "vir_mass_rule": "massfunc",
+  "vir_segregation": 1.0,
+  "vir_s_metric": "median",
+  "vir_relax_steps": 1,
+  "vir_relax_mode": "lattice",
+  "node_softening_gpc": 1.0,
+  "node_force_law": "plummer",
+  "score_observers": true,
+  "observer_definition": "local_rms",
+  "observer_sample": 2000,
+  "observer_k": -1,
+  "M_values": [
+    200
+  ],
+  "S_values": [
+    22,
+    25
+  ],
+  "vir_mass_spreads": [
+    5.0,
+    6.0
+  ],
+  "node_mass_seeds": [
+    7,
+    11,
+    17,
+    23
+  ],
+  "tag": "seedhunt_b",
+  "figures_dir": "results/figures/seedhunt_b",
+  "_comment": "seed-hunt arm b: seeds [7, 11, 17, 23] x M200 x S{22,25} x sigma{5,6} (4 seeds x 4 cells = 16 cells), 2000p/1092, observer_k=-1, NO snapshots. Rank anchor-ok best_obs<=0.46 cells by GROWTH (proxy for core-fraction) to find a seed rounder than 42. Stage 2 snapshots the winners at 4000p."
+}

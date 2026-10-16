@@ -23,7 +23,7 @@ python -m pytest tests/test_force_reuse.py -q
 ## Map (by area)
 | area | files |
 |---|---|
-| constants, units, radius-vs-diameter | `test_constants`, `test_units_validation`, `test_radius_diameter_semantics` |
+| constants, units, radius-vs-diameter | `test_constants`, `test_units_validation`, `test_radius_diameter_semantics`, `test_hawking_temperature` (formula vs literature + scipy CODATA, guards the paper's quoted T_H) |
 | ICs, PF1, samplers, start size, boost | `test_matter_only_consistency`, `test_particles`, `test_realistic_init`, `test_grfmass`, `test_start_size`, `test_pre_start_tidal_boost`, `test_early_time_behavior`, `test_early_start_validation` |
 | forces + kernels | `test_forces`, `test_tidal_numba`, `test_barnes_hut`, `test_cuda_direct` (CUDA simulator subprocess), `test_slingshot`, `test_node_masses`, `test_node_s_amplitude` |
 | integrator | `test_integrator`, `test_force_reuse` (bit-identical oracle), `test_potential_energy_memory` |
@@ -42,6 +42,10 @@ python -m pytest tests/test_force_reuse.py -q
 - Tests that do not depend on the real SNe use `tests/fixtures/pantheon_synthetic.dat`
   (11 SNe, z 0.03–1.5); real-data assertions must skip when the file is absent.
 - Stochastic tests seed explicitly (`np.random.seed` for particles, `default_rng` elsewhere).
+- `pytest.approx(x, rel=...)` still applies the default `abs=1e-12`, so it passes ANY two values
+  below ~1e-12 (e.g. 1e-83 ≈ 2.5e-33 K). For tiny SI quantities pass `abs=0` explicitly.
+- A number quoted in the paper that code can compute gets a guard test that parses the `.tex`
+  (`test_hawking_temperature.py::test_paper_quotes_correct_value`); mutate it once to see it fail.
 - Warnings are part of the contract: assert expected ones (`assertWarnsRegex`) so new ones stand out.
 
 ```python

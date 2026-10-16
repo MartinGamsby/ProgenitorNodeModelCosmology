@@ -39,7 +39,10 @@ class CosmologicalConstants:
     # Physical constants
     G = 6.67430e-11  # Gravitational constant [m^3 kg^-1 s^-2]
     c = 299792458.0  # Speed of light [m/s]
-    
+    hbar = 1.054571817e-34  # Reduced Planck constant [J s] (CODATA 2018)
+    k_B = 1.380649e-23  # Boltzmann constant [J/K] (exact, SI 2019)
+    T_CMB_K = 2.7255  # CMB temperature today [K] (Fixsen 2009)
+
     # Unit conversions
     Mpc_to_m = 3.0857e22  # Megaparsec to meters
     Gpc_to_m = 3.0857e25  # Gigaparsec to meters
@@ -52,7 +55,17 @@ class CosmologicalConstants:
     # Observable universe properties
     M_observable_kg = 1e53  # kg (approximate total mass)
     R_hubble = 4.4e26  # meters (~14 Gpc, current Hubble radius)
-    
+
+
+def hawking_temperature_K(M_kg: float) -> float:
+    """Hawking temperature of a Schwarzschild black hole: T_H = ħc³/(8πGMk_B) [K].
+
+    T_H = ħκ/(2πck_B) with surface gravity κ = c⁴/(4GM). Backs the paper's
+    "dark giant" claim (sec:defenses): a 5e55 kg HMEA sits at ~2.5e-33 K.
+    """
+    cc = CosmologicalConstants
+    return cc.hbar * cc.c**3 / (8.0 * np.pi * cc.G * M_kg * cc.k_B)
+
 
 class LambdaCDMParameters:
     """Standard ΛCDM cosmological parameters"""

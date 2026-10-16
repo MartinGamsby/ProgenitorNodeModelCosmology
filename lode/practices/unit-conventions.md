@@ -20,6 +20,7 @@ graph LR
 | inline `1e9 * 365.25 * 24 * 3600` | 3.15576e16 | Julian year: integrator clock, `time_Gyr`, analysis |
 | `M_observable_kg` | 1e53 | M_value and centerM are in these units |
 | H0 | 70 km/s/Mpc → `LambdaCDMParameters.H0_si` | Ω_m 0.3, Ω_Λ 0.7 |
+| `hbar`, `k_B`, `T_CMB_K` | 1.054571817e-34 J s, 1.380649e-23 J/K, 2.7255 K | only for `hawking_temperature_K(M_kg)` (paper sec:defenses) |
 
 ## Known inconsistency (open decision, not fixed)
 Two year lengths coexist: `Gyr_to_s` (365 d) feeds `H_eds_at_time`, the pre-start boost and

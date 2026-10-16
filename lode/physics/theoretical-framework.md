@@ -36,7 +36,10 @@ Mechanics: [centerm-outer-mass.md](./centerm-outer-mass.md).
 snapshot of an infinite periodic self-gravitating medium: homogeneous on average, locally clumpy.
 Node dynamical times ≫ 8 Gyr, so frozen nodes are fair boundary conditions. The ordered lattice
 survives only as the analytic idealization. HMEAs: ancient, accretion-free black holes
-("dark giants"): EM-silent, Hawking temperature ~1e-83 K, visible only through tides.
+("dark giants"): EM-silent, Hawking temperature T_H = ħc³/(8πGMk_B) ≈ 2.5e-33 K at 5e55 kg
+(500 M_obs; ∝ 1/M, so ~1.4e-34 K at 9000 M_obs) — ~1e33× colder than the CMB; visible only through tides.
+Computed by `cosmo.constants.hawking_temperature_K`; the paper's quoted figure is test-guarded
+(`tests/test_hawking_temperature.py`, see [testing](../architecture/testing.md)).
 
 ## Predictions (paper §predictions)
 1. Phantom drift: as R→S the tide grows as (S−R)⁻², so effective w drifts below −1.

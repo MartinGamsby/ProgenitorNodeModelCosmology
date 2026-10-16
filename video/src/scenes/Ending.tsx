@@ -1,10 +1,9 @@
 import React from 'react';
 import {AbsoluteFill, interpolate} from 'remotion';
 import {useBeats} from '../beats';
-import {Axes, LegendItem, scales} from '../components/Chart';
 import {Show} from '../components/Show';
 import {Space3D} from '../components/Space3D';
-import {Arrow, At, Card, Label, NodeDot, pathOf, partial, SvgDefs, Tex, Title} from '../components/ui';
+import {Arrow, At, Card, Label, NodeDot, SvgDefs, Tex, Title} from '../components/ui';
 import medium from '../../public/data/medium.json';
 import {CREDITS} from '../script';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
@@ -123,14 +122,29 @@ export const WhatIfCycle: React.FC = () => {
   const b = useBeats();
   const f = b.frame;
   const R = 330;
-  const cy = 500;
+  const cy = 530;
   const steps = [
-    {t: 'a node bangs', c: C.gold, beat: 1},
+    {t: 'an attractor bangs', c: C.gold, beat: 1},
     {t: 'matter fills the gap', c: C.bubble, beat: 1},
     {t: 'neighbours feed', c: C.node, beat: 2},
     {t: 'one grows too big…', c: C.hot, beat: 3},
   ];
   const spin = interpolate(f, [b.at(1), b.dur], [0, Math.PI * 2], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  // ---- the mini universe in the middle: A bangs, B and C feed on it, B grows and bangs ----
+  const A = {x: CX - 120, y: cy - 10};
+  const B = {x: CX + 135, y: cy - 75};
+  const Cn = {x: CX + 95, y: cy + 120};
+  const bang1 = interpolate(f, [b.at(1), b.at(1, 50)], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: (t) => 1 - (1 - t) ** 3});
+  const feed = interpolate(f, [b.at(2), b.at(3)], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const swell = interpolate(f, [b.at(3), b.at(3, 45)], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const bang2T = b.at(3, 60);
+  const bang2 = interpolate(f, [bang2T, bang2T + 50], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: (t) => 1 - (1 - t) ** 3});
+  const flash1 = interpolate(f, [b.at(1), b.at(1, 4), b.at(1, 24)], [0, 1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const flash2 = interpolate(f, [bang2T, bang2T + 4, bang2T + 24], [0, 1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const wobble = swell > 0 && bang2 === 0 ? Math.sin(f * 0.9) * 4 * swell : 0;
+  const parts = new Array(90).fill(0).map((_, i) => ({a: (i / 90) * Math.PI * 2 + (i % 7) * 0.13, r: 0.45 + ((i * 37) % 55) / 100, toB: i % 3 !== 0}));
+  const rB = 22 * (1 + 0.6 * feed * 0.67 + 0.35 * swell);
+  const rC = 22 * (1 + 0.6 * feed * 0.33);
   return (
     <AbsoluteFill>
       <At x={1640} y={150} style={{transform: 'translate(-50%,-50%) rotate(6deg)'}}>
@@ -139,6 +153,7 @@ export const WhatIfCycle: React.FC = () => {
         </div>
       </At>
       <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
+        <SvgDefs />
         <circle cx={CX} cy={cy} r={R} fill="none" stroke={C.faint} strokeWidth={4} strokeDasharray="4 14" />
         <g transform={`rotate(${(spin * 180) / Math.PI} ${CX} ${cy})`} opacity={b.p(1, 20)}>
           <circle cx={CX + R} cy={cy} r={12} fill={C.gold} />
@@ -160,20 +175,35 @@ export const WhatIfCycle: React.FC = () => {
             </g>
           );
         })}
+        {/* attractor A: bangs at beat 1 */}
+        {bang1 < 0.05 && <NodeDot x={A.x} y={A.y} r={28} />}
+        {bang1 < 0.05 && <circle cx={A.x} cy={A.y} r={30} fill="none" stroke={C.gold} strokeWidth={4} opacity={b.p(0, 20, 20)} />}
+        <circle cx={A.x} cy={A.y} r={60 * flash1 + 10} fill="#fff" opacity={flash1} filter="url(#soft)" />
+        {/* its matter: bursts out, then drifts into B or C */}
+        {bang1 > 0 &&
+          parts.map((p, i) => {
+            const ox = A.x + Math.cos(p.a) * p.r * 170 * bang1;
+            const oy = A.y + Math.sin(p.a) * p.r * 150 * bang1;
+            const T = p.toB ? B : Cn;
+            const u = Math.max(0, Math.min(1, feed * 1.4 - (i % 10) * 0.04));
+            const x = ox + (T.x - ox) * u;
+            const y = oy + (T.y - oy) * u;
+            return <circle key={i} cx={x} cy={y} r={3} fill={i % 2 ? '#cfe4ff' : '#ffd9a8'} opacity={u > 0.97 ? 0 : 0.9} />;
+          })}
+        {/* the neighbours */}
+        <NodeDot x={Cn.x} y={Cn.y} r={rC} />
+        {bang2 < 0.05 && <NodeDot x={B.x + wobble} y={B.y} r={rB} color={swell > 0 ? C.hot : C.node} />}
+        <circle cx={B.x} cy={B.y} r={70 * flash2 + 10} fill="#fff" opacity={flash2} filter="url(#soft)" />
+        {bang2 > 0 &&
+          parts.map((p, i) => (
+            <circle key={`b${i}`} cx={B.x + Math.cos(p.a + 0.2) * p.r * 160 * bang2} cy={B.y + Math.sin(p.a + 0.2) * p.r * 140 * bang2} r={3} fill={i % 2 ? '#cfe4ff' : '#ffd9a8'} opacity={0.9} />
+          ))}
       </svg>
       <Show from={4}>
-        <At x={CX} y={cy}>
-          <div style={{textAlign: 'center'}}>
-            <Title size={40} color={C.gold}>
-              the great
-            </Title>
-            <Title size={46} color={C.gold}>
-              cosmic
-            </Title>
-            <Title size={46} color={C.gold}>
-              metabolism
-            </Title>
-          </div>
+        <At x={CX} y={110}>
+          <Title size={52} color={C.gold}>
+            the great cosmic metabolism
+          </Title>
         </At>
       </Show>
     </AbsoluteFill>

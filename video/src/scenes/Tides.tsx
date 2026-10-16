@@ -28,7 +28,7 @@ export const Tides: React.FC = () => {
   const lumpPos = LUMPS.map((L) => {
     const d = RING * (1 + (L.d - 1) * uneven);
     const s = 1 + (L.s - 1) * uneven;
-    return {x: CX + Math.cos(L.a) * d, y: CY + Math.sin(L.a) * d, s, d, a: L.a};
+    return {x: CX + Math.cos(L.a) * d, y: CY + Math.sin(L.a) * d * 0.8, s, d, a: L.a};
   });
   // dots of the shell slide into the clumps
   const dots = new Array(N).fill(0).map((_, i) => {
@@ -53,8 +53,8 @@ export const Tides: React.FC = () => {
 
   // beat 4: outward pull grows with distance
   const field: {x: number; y: number; r: number; a: number}[] = [];
-  for (let r = 50; r <= 290; r += 60) for (let k = 0; k < Math.round(r / 22); k++) {
-    const a = (k / Math.round(r / 22)) * Math.PI * 2 + r * 0.01;
+  for (let r = 45; r <= 225; r += 45) for (let k = 0; k < Math.round(r / 18); k++) {
+    const a = (k / Math.round(r / 18)) * Math.PI * 2 + r * 0.01;
     field.push({x: CX + Math.cos(a) * r, y: CY + Math.sin(a) * r, r, a});
   }
   const fieldP = b.p(4, 40);
@@ -107,9 +107,9 @@ export const Tides: React.FC = () => {
         )}
         {b.on(4) && fieldO > 0 && (
           <g opacity={Math.min(b.p(4, 15), fieldO)}>
-            <circle cx={CX} cy={CY} r={320} fill="url(#bubble)" stroke={C.bubble} strokeWidth={3} />
+            <circle cx={CX} cy={CY} r={260} fill="url(#bubble)" stroke={C.bubble} strokeWidth={3} />
             {field.map((p, i) => {
-              const L = (p.r / 290) * 70 * fieldP;
+              const L = (p.r / 225) * 60 * fieldP;
               return <Arrow key={i} x1={p.x} y1={p.y} x2={p.x + Math.cos(p.a) * L} y2={p.y + Math.sin(p.a) * L} color={C.gold} width={4} head={12} />;
             })}
           </g>
@@ -167,9 +167,9 @@ export const Tides: React.FC = () => {
             outward pull, <span style={{color: C.gold}}>stronger farther out</span>
           </Title>
         </At>
-        <At x={CX} y={890}>
+        <At x={CX} y={170}>
           <Label size={32} color={C.ink} style={{fontWeight: 700}}>
-            …just like dark energy
+            just like dark energy
           </Label>
         </At>
       </Show>
@@ -184,7 +184,7 @@ export const Tides: React.FC = () => {
             push from inside
           </Title>
         </At>
-        <At x={CX} y={880}>
+        <At x={CX} y={800}>
           <Label size={34} color={C.eds} style={{fontWeight: 800}}>
             no exotic energy required
           </Label>

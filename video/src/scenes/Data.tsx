@@ -36,7 +36,7 @@ export const Data: React.FC = () => {
   const bars = [
     {l: 'No dark energy (EdS)', v: h.chi2.eds, c: C.eds},
     {l: 'ΛCDM', v: h.chi2.lcdm, c: C.lcdm},
-    {l: 'Attractor model (best vantage)', v: h.chi2.model, c: C.model},
+    {l: 'Attractor model', v: h.chi2.model, c: C.model},
   ];
   return (
     <AbsoluteFill>
@@ -134,7 +134,7 @@ export const Data: React.FC = () => {
         </AbsoluteFill>
       </Show>
       <Show from={8}>
-        <At x={WIDTH / 2} y={780}>
+        <At x={WIDTH / 2} y={700}>
           <Card accent={C.gold} style={{textAlign: 'center'}}>
             <Title size={46}>
               it <span style={{color: C.gold}}>matches</span> ΛCDM

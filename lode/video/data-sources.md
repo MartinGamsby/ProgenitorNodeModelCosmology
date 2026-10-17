@@ -50,6 +50,8 @@ cd video && npm run data     # prints chi2s + "68/72" as a self-check
 - Observer scan cursor hops over random particles; the saved snapshots do NOT identify the
   real best-observer particle, so its fit is shown in a separate card, never pinned to a dot.
 - Great Metabolism scene carries a SPECULATIVE stamp and says "no simulation behind this one".
+- Beyond scene: "edge of the Big Bang" sphere drawn at 3× the observable radius — illustrative,
+  no number on screen (the sim shell extent depends on centerM).
 
 ## Invariants
 - Never caption the model as beating ΛCDM: the Data scene says "it matches" and that gaps below

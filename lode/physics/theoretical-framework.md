@@ -29,6 +29,10 @@ pre-existing equilibrium point explains isotropy without fine-tuning our positio
 progenitor's mass (centerM) is ONE parameter acting in both epochs: pre-BB a member of the
 medium, post-BB the observable universe plus matter beyond it. Distinguished value
 centerM = M_value (a typical node) — also the structurally most robust regime (PF25).
+Beyond our observable horizon the universe is "more of the same" (the progenitor's matter) only
+out to the edge of the Big Bang's ejecta (in sims the outer shell, r ≤ R_obs·centerM^{1/3} at
+t_start), then empty space out to the nodes. Contrast with ΛCDM: more of the same forever.
+Don't conflate "observable universe" with "the universe" here.
 Mechanics: [centerm-outer-mass.md](./centerm-outer-mass.md).
 
 ## Virialized meta-structure

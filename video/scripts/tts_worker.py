@@ -39,7 +39,7 @@ def kokoro_engine():
     speed = float(os.environ.get("KOKORO_SPEED", "1.0"))
     pipe = KPipeline(lang_code=voice[0])  # 'a' American, 'b' British
 
-    def say(text, out):
+    def say(text, out, salt=""):  # kokoro is deterministic; salt unused
         chunks = [a for _, _, a in pipe(text, voice=voice, speed=speed)]
         save(out, np.concatenate([np.asarray(c) for c in chunks]), 24000)
 
@@ -56,8 +56,8 @@ def chatterbox_engine():
     cfg = float(os.environ.get("CB_CFG", "0.5"))
     prompt = os.environ.get("CB_PROMPT") or None
 
-    def say(text, out):
-        torch.manual_seed(zlib.crc32(text.encode()))
+    def say(text, out, salt=""):
+        torch.manual_seed(zlib.crc32((text + salt).encode()))  # salt = retry with a new seed
         wav = model.generate(text, audio_prompt_path=prompt, exaggeration=exag, cfg_weight=cfg)
         save(out, wav.squeeze(0).cpu().numpy(), model.sr)
 

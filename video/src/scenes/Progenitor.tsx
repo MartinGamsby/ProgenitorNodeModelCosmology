@@ -128,12 +128,12 @@ export const Progenitor: React.FC = () => {
               <circle key={i} cx={1400 + Math.cos(p.a) * p.r * 225} cy={540 + Math.sin(p.a) * p.r * 225} r={2.4} fill={p.r < 0.7 ? p.c : C.gold} opacity={0.8} />
             ))}
           </svg>
-          <At x={520} y={770}>
+          <At x={520} y={730}>
             <Label size={34} color={C.ink} style={{textAlign: 'center', fontWeight: 700}}>
               BEFORE: one member of the swarm
             </Label>
           </At>
-          <At x={1400} y={840}>
+          <At x={1400} y={800}>
             <Label size={34} color={C.ink} style={{textAlign: 'center', fontWeight: 700, opacity: b.p(7, 20)}}>
               AFTER: our universe <span style={{color: C.gold}}>+ matter beyond the horizon</span>
             </Label>

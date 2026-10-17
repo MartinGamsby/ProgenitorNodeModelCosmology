@@ -368,7 +368,7 @@ export const WhatIfMass: React.FC = () => {
         </At>
       </Show>
       <Show from={3}>
-        <At x={Math.min(sTop.X(typical), WIDTH - 470)} y={150}>
+        <At x={1280} y={150}>
           <Card accent={C.gold} style={{padding: '12px 24px'}}>
             <Title size={36} color={C.gold}>
               typical member (as heavy as its neighbours) · most robust

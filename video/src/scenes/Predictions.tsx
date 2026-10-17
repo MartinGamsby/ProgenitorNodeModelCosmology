@@ -11,6 +11,8 @@ const SKY = {cx: CX, cy: 470, rx: 560, ry: 280};
 const AXIS = -0.45; // radians: the shared preferred direction on the map
 /** Where the shared axis points, OUTSIDE the sky map: our nearest, heaviest neighbours. */
 const MARK = {x: SKY.cx + Math.cos(AXIS) * 700, y: SKY.cy + Math.sin(AXIS) * 700};
+/** Where the dark flow converges on the map: inside the red region, on the axis toward MARK. */
+const FLOW = {x: SKY.cx + Math.cos(AXIS) * 470, y: SKY.cy + Math.sin(AXIS) * 230};
 // Hubble tension: Planck 2018 (CMB, whole sky) and SH0ES (Riess et al. 2022, distance ladder)
 const H0 = [
   {v: 67.4, e: 0.5, c: C.lcdm, l: 'whole sky (CMB, Planck)'},
@@ -90,16 +92,17 @@ export const Predictions: React.FC = () => {
             <line x1={SKY.cx - 600} x2={SKY.cx + 600} y1={SKY.cy} y2={SKY.cy} stroke={C.gold} strokeWidth={3} strokeDasharray="14 10" />
           </g>
           {flow > 0 &&
-            [-2, -1, 0, 1, 2].flatMap((i) =>
+            [-3, -2, -1, 0, 1, 2, 3].flatMap((i) =>
               [-1, 0, 1].map((j) => {
-                const x = SKY.cx - 350 + i * 120;
-                const y = SKY.cy + j * 120 + i * 10;
+                const x = SKY.cx + i * 140;
+                const y = SKY.cy + j * 110;
+                if (Math.hypot(FLOW.x - x, FLOW.y - y) < 150 || ((x - SKY.cx) / SKY.rx) ** 2 + ((y - SKY.cy) / SKY.ry) ** 2 > 0.85) return null;
                 const L = 70 * flow;
                 const tt = ((f * 2 + i * 20 + j * 37) % 60) / 60;
                 // every region drifts toward the same place: our nearest, heaviest neighbours
-                const dl = Math.hypot(MARK.x - x, MARK.y - y);
-                const ux = (MARK.x - x) / dl;
-                const uy = (MARK.y - y) / dl;
+                const dl = Math.hypot(FLOW.x - x, FLOW.y - y);
+                const ux = (FLOW.x - x) / dl;
+                const uy = (FLOW.y - y) / dl;
                 return <Arrow key={`${i}${j}`} x1={x + ux * L * tt} y1={y + uy * L * tt} x2={x + ux * L * (tt + 0.8)} y2={y + uy * L * (tt + 0.8)} color={C.eds} width={4} head={14} opacity={flow} />;
               }),
             )}
@@ -170,10 +173,10 @@ export const Predictions: React.FC = () => {
             </text>
           </g>
           <g opacity={b.p(4, 20)} fontFamily={FONT.display} fontWeight={800}>
-            <text x={tBox.x + tBox.w / 2} y={tBox.y + tBox.h + 130} fill={C.dim} fontSize={30} textAnchor="middle">
+            <text x={tBox.x + tBox.w / 2} y={tBox.y + tBox.h + 150} fill={C.dim} fontSize={30} textAnchor="middle">
               standard cosmology: a headache
             </text>
-            <text x={tBox.x + tBox.w / 2} y={tBox.y + tBox.h + 180} fill={C.gold} fontSize={36} textAnchor="middle" opacity={b.p(4, 20, 50)}>
+            <text x={tBox.x + tBox.w / 2} y={tBox.y + tBox.h + 200} fill={C.gold} fontSize={36} textAnchor="middle" opacity={b.p(4, 20, 50)}>
               this model: expected (anisotropy)
             </text>
           </g>

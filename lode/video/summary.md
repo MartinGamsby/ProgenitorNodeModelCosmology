@@ -35,6 +35,11 @@ graph LR
   with components in `src/scenes/cut/` still registered; restore = move the def into `SCENES`.
   Holds the tidal-stretch + 2GMR/S³ equations, "how big/how far" (500 M_obs, 39 Gpc) and the
   shear-matrix / 1/(S−R)² material (cut 2026-10-16 as too long/technical for video 1).
+- **Stars** only behind chart/text scenes: `stars: false` on any scene that looks at our
+  universe or the attractor swarm from outside (no stars out there). Global bg = gradient only.
+- **Pacing**: `T.beatGap` 0.8 s after each line, `T.tail` 2 s hold at scene end (viewer digests).
+- Adding a beat mid-scene: renumber the scene's beat refs with `scripts/_shift.py FILE FROM_LINE
+  MIN_BEAT +1` (rewrites b.on/p/at/s/through and from/until).
 - **Narration style** (for the neural voice): short sentences, real `?`, commas/periods for
   pauses, never `…`; numbers/symbols via `{shown|spoken}` (e.g. `{destabilises|becomes
   unstable}`, `{ΛCDM|Lambda C D M}`); "attractors", never spelled-out "HMEA"; light-years only.
@@ -73,6 +78,11 @@ const b = useBeats();
 - Clip filename = `sceneId-beat-hash(spoken)-hash(engine+settings).wav`: switching engines never
   mixes voices; an interrupted neural run resumes (worker writes `.part.wav` then renames).
 - `scripts/voice_samples.py` = A/B audition of 3 fixed lines → `out/voice-samples/*.wav`.
+- Voice cloning: `CB_PROMPT=voice-ref/martin.wav` (20 s cut from Martin's own recording, loudnormed;
+  `voice-ref/` is gitignored, personal audio never committed). Chatterbox at exaggeration 0.8 /
+  CFG 0.35 sounded "stressed" and fast; calmer = lower exaggeration (0.5) and CFG ~0.3–0.5.
+- `scripts/voice_check.py --fix`: Whisper (base.en) QA vs. the script, re-rolls mismatches with a
+  seed salt; number-formatting gives false positives ("1,500" vs "fifteen hundred").
 - Rejected: Breeze TTS 2 — CUDA-only per its model card and weights/outputs non-commercial.
 - Generated audio (`public/voice`, `public/audio`) is gitignored; a fresh clone runs
   `npm run voice && npm run music` before rendering. `src/generated/voice.json` (timing) is committed.

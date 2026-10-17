@@ -1,9 +1,9 @@
 import React, {useMemo} from 'react';
 import {AbsoluteFill, interpolate, random, useCurrentFrame} from 'remotion';
-import {Space3D, V3} from '../components/Space3D';
-import {Arrow, NodeDot, SvgDefs, Title} from '../components/ui';
-import medium from '../../public/data/medium.json';
-import {C, FONT, HEIGHT, WIDTH} from '../theme';
+import {Space3D, V3} from '../../components/Space3D';
+import {Arrow, NodeDot, SvgDefs, Title} from '../../components/ui';
+import medium from '../../../public/data/medium.json';
+import {C, FONT, HEIGHT, WIDTH} from '../../theme';
 
 const CX = WIDTH / 2;
 const CY = HEIGHT / 2;

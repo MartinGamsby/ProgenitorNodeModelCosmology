@@ -2,7 +2,7 @@ import React, {useMemo} from 'react';
 import {AbsoluteFill, interpolate, random, useCurrentFrame} from 'remotion';
 import {useBeats} from '../beats';
 import {Show} from '../components/Show';
-import {Space3D} from '../components/Space3D';
+import {Space3D, V3} from '../components/Space3D';
 import {Arrow, At, Label, NodeDot, SvgDefs, Title} from '../components/ui';
 import medium from '../../public/data/medium.json';
 import {VIDEO_SUBTITLE, VIDEO_TITLE} from '../script';
@@ -38,9 +38,27 @@ export const Hook: React.FC = () => {
       }),
     [],
   );
-  // Expansion factor: slow at first, then accelerating (that's the point).
-  const t = frame / b.fps;
-  const a = 0.45 + 0.05 * t + 0.0042 * t * t * t * 0.4;
+  // ---- silent lead-in (before beat 0): swarm → a bang into galaxies → two neighbours swallow
+  // them → one swells (camera recentres on it) → it bangs on "flying apart" -------------------
+  const lead = b.at(0);
+  const sec = (s: number) => Math.round(s * b.fps);
+  const cl = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'} as const;
+  const swarmO = interpolate(frame, [0, 8, sec(2.8), sec(3.2)], [0, 1, 1, 0], cl);
+  const zoom = interpolate(frame, [0, sec(3.1)], [1.0, 4.5], cl);
+  const flash1 = interpolate(frame, [sec(3.0), sec(3.1), sec(3.7)], [0, 1, 0], cl);
+  const burst = interpolate(frame, [sec(3.0), sec(4.8)], [0, 1], {...cl, easing: (u) => 1 - (1 - u) ** 3});
+  const pairO = interpolate(frame, [sec(4.4), sec(5.0)], [0, 1], cl);
+  const suck = interpolate(frame, [sec(5.0), sec(7.3)], [0, 1], {...cl, easing: (u) => u * u});
+  const swell = interpolate(frame, [sec(7.0), lead], [0, 1], cl);
+  const pan = interpolate(frame, [sec(6.8), lead - 4], [0, 1], {...cl, easing: (u) => u * u * (3 - 2 * u)});
+  const flash2 = interpolate(frame, [lead, lead + 3, lead + 18], [0, 1, 0], cl);
+  const NA = {x: CX - 560, y: CY + 60};
+  const NB = {x: CX + 500, y: CY - 50};
+  const dx = (CX - NB.x) * pan;
+  const dy = (CY - NB.y) * pan;
+  // ---- after the bang: expansion, slow at first, then accelerating (that's the point) ----------
+  const t = Math.max(0, frame - lead) / b.fps;
+  const a = (0.45 + 0.05 * t + 0.0042 * t * t * t * 0.4) * interpolate(t, [0, 1.2], [0, 1], {...cl, easing: (u) => 1 - (1 - u) ** 3});
   const pushP = b.p(5, 18);
   const pullP = b.p(6, 18);
   const pieP = b.p(3, 40);
@@ -54,14 +72,45 @@ export const Hook: React.FC = () => {
   });
   return (
     <AbsoluteFill>
+      {swarmO > 0 && (
+        <Space3D
+          width={WIDTH}
+          height={HEIGHT}
+          camera={{yaw: frame * 0.012, pitch: 0.3, distance: (3 * 540) / zoom, scale: zoom}}
+          layers={[
+            {kind: 'glows', pts: [[0, 0, 0] as V3, ...(medium.pos as V3[])], radius: (i) => (5 + 6 * Math.cbrt(i ? (medium.mass as number[])[i - 1] : 1)) * Math.sqrt(zoom), color: C.nodeGlow, core: C.node, alpha: swarmO},
+          ]}
+          style={{position: 'absolute'}}
+        />
+      )}
+      {frame < lead && (
+        <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
+          <SvgDefs />
+          <g transform={`translate(${dx},${dy})`}>
+            {/* the first bang: galaxies fly out, then the two neighbours swallow them */}
+            {burst > 0 &&
+              gal.map((g, i) => {
+                const ox = CX + Math.cos(g.ang) * g.r * 0.75 * burst * 1.4;
+                const oy = CY + Math.sin(g.ang) * g.r * 0.75 * burst * 0.8;
+                const T = Math.cos(g.ang) < 0 ? NA : NB;
+                const u = Math.min(1, Math.max(0, suck * 1.4 - (i % 9) * 0.05));
+                if (u >= 0.97) return null;
+                return <Galaxy key={i} x={ox + (T.x - ox) * u} y={oy + (T.y - oy) * u} s={g.s * (1 - 0.6 * u)} rot={g.rot + u * 200} hue={g.hue} o={1} />;
+              })}
+            <NodeDot x={NA.x} y={NA.y} r={30 + 16 * suck} opacity={pairO} />
+            <NodeDot x={NB.x + (swell > 0 ? Math.sin(frame * 1.1) * 6 * swell : 0)} y={NB.y} r={30 + 16 * suck + 26 * swell} opacity={pairO} />
+          </g>
+        </svg>
+      )}
       <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
         <SvgDefs />
-        {gal.map((g, i) => {
-          const r = g.r * a;
-          const x = CX + Math.cos(g.ang) * r * 1.5;
-          const y = CY + Math.sin(g.ang) * r * 0.85;
-          return <Galaxy key={i} x={x} y={y} s={g.s} rot={g.rot} hue={g.hue} o={galO} />;
-        })}
+        {frame >= lead &&
+          gal.map((g, i) => {
+            const r = g.r * a;
+            const x = CX + Math.cos(g.ang) * r * 1.5;
+            const y = CY + Math.sin(g.ang) * r * 0.85;
+            return <Galaxy key={i} x={x} y={y} s={g.s} rot={g.rot} hue={g.hue} o={galO} />;
+          })}
         {/* speed arrows on a few galaxies during beat 1 */}
         {b.on(1) &&
           !b.on(2) &&
@@ -143,6 +192,7 @@ export const Hook: React.FC = () => {
           </Title>
         </At>
       </Show>
+      <AbsoluteFill style={{background: '#fff', opacity: Math.max(flash1, flash2) * 0.85}} />
     </AbsoluteFill>
   );
 };

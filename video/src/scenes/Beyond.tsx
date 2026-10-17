@@ -35,11 +35,17 @@ export const Beyond: React.FC = () => {
       }),
     [],
   );
-  const grid = useMemo(() => {
-    const g: V3[] = [];
-    for (let x = -6; x <= 6; x++) for (let y = -6; y <= 6; y++) for (let z = -6; z <= 6; z++) if (x || y || z) g.push([x * 30, y * 30, z * 30]);
-    return g;
-  }, []);
+  // the standard view: beyond our horizon, more of the same (galaxies like ours, everywhere),
+  // drawn exactly like the galaxies inside our bubble, just continuing outward
+  const grid = useMemo(
+    () =>
+      new Array(2600).fill(0).map((_, i): V3 => [
+        (random(`ux${i}`) * 2 - 1) * 190,
+        (random(`uy${i}`) * 2 - 1) * 190,
+        (random(`uz${i}`) * 2 - 1) * 190,
+      ]).filter((p) => Math.hypot(...p) > R_OBS),
+    [],
+  );
 
   // zoom path (px per Gpc), keyed to beats
   const scale = interpolate(
@@ -74,7 +80,7 @@ export const Beyond: React.FC = () => {
         height={HEIGHT}
         camera={cam}
         layers={[
-          {kind: 'points', pts: grid, color: '#9fb2e6', size: 2.2, alpha: gridO * 0.6},
+          {kind: 'points', pts: grid, color: (i) => (i % 3 ? '#cfe4ff' : '#ffd9a8'), size: Math.max(1.1, scale * 0.05), alpha: gridO * 0.55},
           {kind: 'sphere', center: [0, 0, 0], radius: R_OBS, color: C.bubble, alpha: Math.min(1, b.p(0, 30, 10) + 0.0)},
           {kind: 'points', pts: spunDust, color: (i) => (i % 3 ? '#cfe4ff' : '#ffd9a8'), size: Math.max(1.1, scale * 0.05), alpha: interpolate(scale, [1, 8], [0.6, 0.9], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})},
           {kind: 'glows', pts: nodes, radius: (i) => (5 + 6 * Math.cbrt(mass[i])) * Math.max(1, scale / 1.3) ** 0.5, color: C.nodeGlow, core: C.node, alpha: nodeO},
@@ -102,7 +108,7 @@ export const Beyond: React.FC = () => {
       <Show from={2} until={3}>
         <At x={WIDTH / 2} y={170}>
           <Title size={60} style={{textAlign: 'center'}}>
-            “Same out there as in here. Forever.”
+            standard view: more of the same, forever
           </Title>
         </At>
       </Show>
@@ -161,68 +167,70 @@ export const Beyond: React.FC = () => {
   );
 };
 
-/** "Virialized", explained. Left: an ionic crystal (two node sizes, like table salt), frozen.
- *  Right: a 2D slice of the REAL relaxed medium from the simulation (positions and masses from
- *  medium.json). Each member jiggles around its spot (lighter ones a bit more), but the overall
- *  shape never changes. */
+/** "Virialized", explained, in 3D at the same scale. Left: a cube of ionic crystal (two node
+ *  sizes, like table salt), frozen. Right: the REAL relaxed swarm from the simulation (all 300
+ *  nodes of medium.json). Every member jiggles around its spot, lighter ones a bit more, but the
+ *  overall shape never changes. Both rotate together. */
+const BOX = 537; // half-size of the relaxed medium box (Gpc)
+const CRYSTAL: {p: V3; m: number}[] = (() => {
+  const n = 6;
+  const step = (2 * BOX) / (n - 1);
+  const out: {p: V3; m: number}[] = [];
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < n; j++)
+      for (let k = 0; k < n; k++) out.push({p: [-BOX + i * step, -BOX + j * step, -BOX + k * step], m: (i + j + k) % 2 ? 0.45 : 1.6});
+  return out;
+})();
+
 const CrystalVsSwarm: React.FC = () => {
   const b = useBeats();
   const f = b.frame;
-  const L = {x: 540, y: 500};
-  const R = {x: 1380, y: 500};
-  const swarm = useMemo(() => {
-    const S = medium.S;
-    const slab = (medium.pos as V3[])
-      .map((q, i) => ({x: q[0], y: q[1], z: q[2], m: (medium.mass as number[])[i]}))
-      .filter((q) => Math.abs(q.z) < 0.6 * S && Math.hypot(q.x, q.y) < 4.5 * S);
-    // drop the lighter of any pair that overlaps in projection (they are far apart in depth)
-    const keep = slab.filter((q) => !slab.some((o) => o !== q && Math.hypot(o.x - q.x, o.y - q.y) < 0.4 * S && o.m > q.m));
-    const px = 210 / (4.5 * S);
-    return keep.map((q, i) => ({
-      hx: q.x * px,
-      hy: q.y * px,
-      r: 7 + 7 * Math.cbrt(q.m),
-      amp: 9 / Math.sqrt(q.m),
-      w: (0.02 / Math.sqrt(q.m)) * (random(`sd${i}`) > 0.5 ? 1 : -1),
-      ph: random(`sp${i}`) * Math.PI * 2,
-    }));
-  }, []);
+  const W = 840;
+  const cam = {yaw: 0.5 + f * 0.004, pitch: 0.35, distance: 3200, scale: 0.38};
+  const pos = medium.pos as V3[];
+  const mass = medium.mass as number[];
+  const swarm = useMemo(
+    () => pos.map((_, i) => ({ph: random(`vj${i}`) * Math.PI * 2, ax: random(`vx${i}`) * 2 - 1, ay: random(`vy${i}`) * 2 - 1, az: random(`vz${i}`) * 2 - 1})),
+    [pos],
+  );
+  const jig = 0.14 * medium.S;
+  const moving = pos.map((q, i): V3 => {
+    const s = swarm[i];
+    const a = s.ph + f * (0.035 / Math.sqrt(mass[i]));
+    const amp = jig / Math.sqrt(mass[i]);
+    return [q[0] + Math.cos(a) * amp * s.ax, q[1] + Math.sin(a * 1.3) * amp * s.ay, q[2] + Math.cos(a * 0.7) * amp * s.az];
+  });
+  const r = (m: number) => 2.6 + 3.4 * Math.cbrt(m);
   return (
-    <AbsoluteFill style={{background: 'rgba(4,6,13,0.86)'}}>
-      <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
-        {[-2, -1, 0, 1, 2].flatMap((i) =>
-          [-2, -1, 0, 1, 2].map((j) => (
-            <circle key={`${i}${j}`} cx={L.x + i * 70} cy={L.y + j * 70} r={(i + j) % 2 ? 9 : 17} fill={C.node} opacity={(i + j) % 2 ? 0.7 : 0.9} />
-          )),
-        )}
-        {swarm.map((s, i) => {
-          const a = s.ph + f * s.w;
-          return <circle key={i} cx={R.x + s.hx + Math.cos(a) * s.amp} cy={R.y + s.hy + Math.sin(a * 1.3) * s.amp * 0.8} r={s.r} fill={C.node} opacity={0.9} />;
-        })}
-        <circle cx={R.x} cy={R.y} r={235} fill="none" stroke={C.faint} strokeWidth={2} strokeDasharray="6 10" />
-      </svg>
-      <At x={L.x} y={190}>
+    <AbsoluteFill style={{background: 'rgba(4,6,13,0.9)'}}>
+      <div style={{position: 'absolute', left: 540 - W / 2, top: 500 - W / 2}}>
+        <Space3D width={W} height={W} camera={cam} layers={[{kind: 'glows', pts: CRYSTAL.map((c) => c.p), radius: (i) => r(CRYSTAL[i].m), color: C.nodeGlow, core: C.node, alpha: 0.75}]} />
+      </div>
+      <div style={{position: 'absolute', left: 1380 - W / 2, top: 500 - W / 2}}>
+        <Space3D width={W} height={W} camera={cam} layers={[{kind: 'glows', pts: moving, radius: (i) => r(mass[i]), color: C.nodeGlow, core: C.node, alpha: 0.75}]} />
+      </div>
+      <At x={540} y={130}>
         <Title size={52} color={C.dim}>
           crystal
         </Title>
       </At>
-      <At x={L.x} y={765}>
+      <At x={540} y={790}>
         <Label size={30} color={C.ink} style={{fontWeight: 700}}>
           frozen in place
         </Label>
       </At>
-      <At x={R.x} y={190}>
+      <At x={1380} y={130}>
         <Title size={52} color={C.gold}>
           virialized swarm
         </Title>
       </At>
-      <At x={R.x} y={765}>
+      <At x={1380} y={790}>
         <Label size={30} color={C.ink} style={{fontWeight: 700}}>
           always moving · keeps its shape
         </Label>
       </At>
-      <At x={R.x} y={805}>
-        <Label size={22}>a slice of the relaxed swarm from our simulation</Label>
+      <At x={1380} y={828}>
+        <Label size={22}>the relaxed swarm from our simulation (300 attractors)</Label>
       </At>
     </AbsoluteFill>
   );

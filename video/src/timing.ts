@@ -12,7 +12,7 @@ const sec = (s: number) => Math.round(s * FPS);
 export const buildTimeline = (): {scenes: SceneTiming[]; total: number} => {
   let cursor = 0;
   const scenes = SCENES.map((s) => {
-    const intro = s.whatIf ? sec(T.whatIfIntro) : 0;
+    const intro = (s.whatIf ? sec(T.whatIfIntro) : 0) + sec(s.leadSeconds ?? 0);
     let t = intro;
     const beats = s.beats.map((text, i) => {
       const spoken = spokenText(text);

@@ -34,26 +34,17 @@ const LCDM = '{ΛCDM|Lambda CDM}';
 
 export const SCENES: SceneDef[] = [
   {
-    id: 'teaser',
-    stars: false,
-    scene: 'Teaser',
-    chapter: '',
-    beats: [''],
-    minSeconds: 13,
-    sfx: [
-      {beat: 0, sound: 'boom', offset: 3.0, volume: 0.35},
-      {beat: 0, sound: 'boom', offset: 7.4, volume: 0.25},
-    ],
-  },
-  {
     id: 'hook',
     stars: false,
     scene: 'Hook',
+    // silent cold open before the first line: swarm → a bang → neighbours feed → one swells,
+    // and it bangs on "flying apart" (see scenes/Intro.tsx)
+    leadSeconds: 8.5,
     chapter: '',
     beats: [
       'Everything in the universe is flying apart.',
       "And here's the weird part. It's *speeding up*.",
-      'Physicists call whatever is doing this *dark energy*.',
+      'Physicists call whatever is doing this: *dark energy*.',
       "It makes up about seventy percent of everything. And nobody knows what it is.",
       "So here's a what-if.",
       'What if nothing is *pushing* the universe apart?',
@@ -79,7 +70,7 @@ export const SCENES: SceneDef[] = [
       'The fix was a cosmological constant, {Λ|Lambda}: energy built into empty space itself.',
       `Add invisible dark matter, and you get today's standard model of the universe, called ${LCDM}. Lambda for dark energy, CDM for cold dark matter.`,
       'It works beautifully. But it comes with two embarrassing problems.',
-      'First, quantum physics predicts a vacuum energy too big by a factor of {10^120: a one|one,} followed by {120|a hundred and twenty} zeros.',
+      'First, quantum physics predicts a vacuum energy too big by a factor of {10^120: a one|one} followed by {120|a hundred and twenty} zeros.',
       'Second, why is dark energy about equal to matter *right now*, of all the moments we could be living in?',
       'Fitting the data is not the same as *explaining* it.',
     ],
@@ -92,8 +83,8 @@ export const SCENES: SceneDef[] = [
     beats: [
       "Let's zoom out.",
       'Everything we can ever see fits in a sphere about forty-six billion light-years in radius.',
-      'Standard cosmology assumes that out there looks just like in here. Forever.',
-      "But what if it doesn't?",
+      "Standard cosmology assumes that beyond our horizon, there's just more of the same: galaxies like ours, in every direction, forever.",
+      "But what if there isn't?",
       'Picture giant dark masses far beyond our horizon, each *hundreds to thousands* of times heavier than our entire observable universe.',
       'Call them *hyper-massive external attractors*.',
       "They don't form a neat grid. They form a lumpy, settled swarm, like galaxies in a relaxed cluster, only absurdly bigger.",

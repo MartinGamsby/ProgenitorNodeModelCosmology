@@ -21,8 +21,6 @@ const CMB = new Array(140).fill(0).map((_, i) => ({a: (i / 140) * Math.PI * 2 + 
 const NEAR = [[-62, -88], [104, -30], [-118, 47], [38, 96], [151, 64], [-20, 131]].map(([x, y]) => ({x, y}));
 /** Where the shared axis points, OUTSIDE the sky map: our nearest, heaviest neighbours. */
 const MARK = {x: SKY.cx + Math.cos(AXIS) * 700, y: SKY.cy + Math.sin(AXIS) * 700};
-/** Where the dark flow converges on the map: inside the red region, on the axis toward MARK. */
-const FLOW = {x: SKY.cx + Math.cos(AXIS) * 470, y: SKY.cy + Math.sin(AXIS) * 230};
 // Hubble tension: Planck 2018 (CMB, whole sky) and SH0ES (Riess et al. 2022, distance ladder)
 const H0 = [
   {v: 67.4, e: 0.5, c: C.lcdm, l: 'whole sky (CMB, Planck)'},
@@ -106,13 +104,13 @@ export const Predictions: React.FC = () => {
               [-1, 0, 1].map((j) => {
                 const x = SKY.cx + i * 140;
                 const y = SKY.cy + j * 110;
-                if (Math.hypot(FLOW.x - x, FLOW.y - y) < 150 || ((x - SKY.cx) / SKY.rx) ** 2 + ((y - SKY.cy) / SKY.ry) ** 2 > 0.85) return null;
+                if (((x - SKY.cx) / SKY.rx) ** 2 + ((y - SKY.cy) / SKY.ry) ** 2 > 0.85) return null;
                 const L = 70 * flow;
                 const tt = ((f * 2 + i * 20 + j * 37) % 60) / 60;
-                // every region drifts toward the same place: our nearest, heaviest neighbours
-                const dl = Math.hypot(FLOW.x - x, FLOW.y - y);
-                const ux = (FLOW.x - x) / dl;
-                const uy = (FLOW.y - y) / dl;
+                // every region drifts toward the external attractor (revealed at the end, beat 10)
+                const dl = Math.hypot(MARK.x - x, MARK.y - y);
+                const ux = (MARK.x - x) / dl;
+                const uy = (MARK.y - y) / dl;
                 return <Arrow key={`${i}${j}`} x1={x + ux * L * tt} y1={y + uy * L * tt} x2={x + ux * L * (tt + 0.8)} y2={y + uy * L * (tt + 0.8)} color={C.eds} width={4} head={14} opacity={flow} />;
               }),
             )}

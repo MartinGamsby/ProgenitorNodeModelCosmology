@@ -1,5 +1,5 @@
 """QA the neural narration: transcribe every clip with Whisper, compare with the script, and
-re-generate clips that dropped or garbled words (new seed each retry).
+re-generate clips that dropped or garbled words, added words, or paused mid-phrase (new seed each retry).
 
     .tts-venv/Scripts/python scripts/voice_check.py [--fix] [--threshold 0.85]
 
@@ -13,6 +13,7 @@ import os
 import re
 import sys
 
+import numpy as np
 import soundfile as sf
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -51,6 +52,55 @@ def check(ref, hyp):
     return sm.ratio(), problem
 
 
+def silences(x, sr, min_s=0.45):
+    """(midpoint s, duration s) of silences inside the clip (energy below 6% of peak)."""
+    fr = int(0.02 * sr)
+    e = np.array([np.sqrt(np.mean(x[i:i + fr] ** 2)) for i in range(0, len(x) - fr, fr)])
+    quiet, out, start = e < 0.06 * e.max(), [], None
+    for i, v in enumerate(quiet):
+        if v and start is None:
+            start = i
+        if not v and start is not None:
+            if (i - start) * 0.02 >= min_s and start > 5:
+                out.append(((start + i) / 2 * 0.02, (i - start) * 0.02))
+            start = None
+    return out
+
+
+def unnatural_pauses(ref, chunks, x, sr):
+    """Silences that fall after a script word with no punctuation (e.g. 'call ... whatever').
+    Whisper's word timings place each silence after a heard word; difflib maps it to the script."""
+    words = ref.split()
+    rn = [" ".join(norm(w)) or "_" for w in words]
+    hn = [" ".join(norm(c["text"])) or "_" for c in chunks]
+    h2r = {}
+    for a, b, n in difflib.SequenceMatcher(None, rn, hn).get_matching_blocks():
+        for k in range(n):
+            h2r[b + k] = a + k
+    bad = []
+    for t, d in silences(x, sr):
+        idx = max([i for i, c in enumerate(chunks) if c["timestamp"][0] <= t] or [0])
+        r = h2r.get(idx)
+        if r is not None and r < len(words) - 1 and not re.search(r"[,.;:!?…]$", words[r]):
+            bad.append(f"{d:.2f}s pause after '{words[r]}'")
+    return "unnatural pause: " + "; ".join(bad) if bad else ""
+
+
+def listen(asr, path, ref):
+    """Transcribe a clip and return (heard text, similarity, problem)."""
+    x, sr = sf.read(path, dtype="float32")
+    r = asr(to16k(x, sr), return_timestamps="word")
+    sim, problem = check(ref, r["text"])
+    return r["text"], sim, problem or unnatural_pauses(ref, r["chunks"], x, sr)
+
+
+def to16k(x, sr):
+    if sr == 16000:
+        return x
+    import librosa
+    return librosa.resample(x, orig_sr=sr, target_sr=16000)
+
+
 def load_audio(path):
     x, sr = sf.read(path, dtype="float32")
     if sr != 16000:
@@ -72,8 +122,7 @@ def main():
     report, bad = [], []
     for key, c in man["clips"].items():
         path = os.path.join(vdir, c["file"])
-        hyp = asr(load_audio(path))["text"]
-        sim, problem = check(c["text"], hyp)
+        hyp, sim, problem = listen(asr, path, c["text"])
         report.append({"key": key, "sim": round(sim, 3), "problem": problem, "text": c["text"], "heard": hyp.strip()})
         if sim < a.threshold or problem:
             bad.append((key, c, path))
@@ -86,8 +135,7 @@ def main():
             for k in range(a.retries):
                 tmp = path + f".try{k}.wav"
                 say(c["text"], tmp, f"#{k + 1}")
-                hyp = asr(load_audio(tmp))["text"]
-                sim, problem = check(c["text"], hyp)
+                hyp, sim, problem = listen(asr, tmp, c["text"])
                 score = sim - (0.5 if problem else 0)
                 print(f"  retry {k + 1} {sim:.2f} {key} {problem}", flush=True)
                 if best is None or score > best[0]:

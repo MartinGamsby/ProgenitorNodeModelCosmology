@@ -7,11 +7,21 @@
  * - tides-stretch: the original tides scene (tidal stretch of the bubble, 2GMR/S³ vs H0²ΩΛR).
  *   Cut 2026-10-16: too long and too technical for a first video.
  * - numbers: "how big, how far" (500 M_obs, S ≈ 39 Gpc back-of-envelope).
+ * - teaser: 13 s standalone cold open with a sky-map montage and "That was the whole story"
+ *   text. Replaced 2026-10-17 by the hook's silent lead-in (galaxies, no text, no bangs).
  * - center-shear: traceless tides / shear matrix and the 1/(S−R)² pull-growth plot.
  */
 import type {SceneDef} from './types';
 
 export const CUT_SCENES: SceneDef[] = [
+  {
+    id: 'teaser',
+    stars: false,
+    scene: 'Teaser',
+    chapter: '',
+    beats: [''],
+    minSeconds: 13,
+  },
   {
     id: 'tides-stretch',
     scene: 'TidesOriginal',

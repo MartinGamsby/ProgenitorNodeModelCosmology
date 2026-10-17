@@ -38,9 +38,12 @@ graph LR
 - **Stars** only behind chart/text scenes: `stars: false` on any scene that looks at our
   universe or the attractor swarm from outside (no stars out there). Global bg = gradient only.
 - **Pacing**: `T.beatGap` 0.7 s after each line, `T.tail` 2 s hold at scene end (viewer digests).
-- **Teaser** (`scenes/Teaser.tsx`, first scene, no voice): 13 s seconds-timed montage (swarm dive →
-  bang → feeding/second bang → lopsided sky) then "Whoa. Too fast." Its boom sfx use
-  `sfx: {beat, sound, offset (s), volume}`. Default sfx volume 0.4; what-if whoosh 0.12; no ding.
+- **Cold open = hook lead-in**: `SceneDef.leadSeconds` adds silent seconds before beat 0 (timing.ts
+  folds it into `intro`). The hook uses 8.5 s: swarm centred on an ordinary black attractor (the
+  progenitor is NOT special) → it bangs into galaxies → two neighbours swallow them → one swells
+  while the view recentres → it bangs on "flying apart" into the expanding galaxy field. No text, no
+  bang sfx. (The old standalone teaser with sky montage + text is in the cutting room.)
+- sfx: `{beat, sound, offset (s), volume}`; default volume 0.4; what-if whoosh 0.12; no ding.
 - Adding a beat mid-scene: renumber the scene's beat refs with `scripts/_shift.py FILE FROM_LINE
   MIN_BEAT +1` (rewrites b.on/p/at/s/through and from/until).
 - **Narration style** (for the neural voice): short sentences, real `?`, commas/periods for
@@ -89,9 +92,13 @@ const b = useBeats();
   (not "type one A" → "one … a"), "supernovas" (not "supernovae"), "point along the same axis"
   (not "line up along"). Bad seeds happen: QA re-rolls them.
 - `scripts/voice_check.py --fix`: Whisper (base.en) QA vs. the script, re-rolls mismatches with a
-  seed salt. Numbers are normalised with num2words; it flags low similarity (< 0.8) AND extra words
-  at the end (Chatterbox sometimes keeps talking: "…what-if. You can.") or inserted/repeated
-  phrases (a doubled "No shortcuts"). Always run it before rendering.
+  seed salt. Numbers are normalised with num2words; it flags low similarity (< 0.8), extra words at
+  the end (Chatterbox sometimes keeps talking: "…what-if. You can."), inserted/repeated phrases,
+  AND unnatural pauses: an energy silence > 0.45 s that Whisper's word timings place after a script
+  word with no punctuation ("call … whatever"). Whisper's own word timestamps stretch over
+  silences, so gaps must come from the audio energy. Pauses vary by seed; punctuation steers them
+  (a colon before a reveal: "doing this: dark energy"; never a comma inside "one followed by…").
+  Always run it before rendering.
 - Rejected: Breeze TTS 2 — CUDA-only per its model card and weights/outputs non-commercial.
 - Generated audio (`public/voice`, `public/audio`) is gitignored; a fresh clone runs
   `npm run voice && npm run music` before rendering. `src/generated/voice.json` (timing) is committed.

@@ -11,10 +11,10 @@
    "seconds": 2.3928333333333334,
    "text": "And here's the weird part. It's speeding up."
   },
-  "hook-2-mwvxrr": {
-   "file": "hook-2-mwvxrr-1wab7f1.wav",
-   "seconds": 3.2708333333333335,
-   "text": "Physicists call whatever is doing this dark energy."
+  "hook-2-sliaon": {
+   "file": "hook-2-sliaon-1wab7f1.wav",
+   "seconds": 2.7794166666666666,
+   "text": "Physicists call whatever is doing this: dark energy."
   },
   "hook-3-9x4o7z": {
    "file": "hook-3-9x4o7z-1wab7f1.wav",
@@ -61,10 +61,10 @@
    "seconds": 3.379375,
    "text": "It works beautifully. But it comes with two embarrassing problems."
   },
-  "problem-5-1toubgg": {
-   "file": "problem-5-1toubgg-1wab7f1.wav",
-   "seconds": 6.08675,
-   "text": "First, quantum physics predicts a vacuum energy too big by a factor of one, followed by a hundred and twenty zeros."
+  "problem-5-10osgcu": {
+   "file": "problem-5-10osgcu-1wab7f1.wav",
+   "seconds": 6.424416666666667,
+   "text": "First, quantum physics predicts a vacuum energy too big by a factor of one followed by a hundred and twenty zeros."
   },
   "problem-6-1f3hl51": {
    "file": "problem-6-1f3hl51-1wab7f1.wav",
@@ -86,15 +86,15 @@
    "seconds": 5.2709166666666665,
    "text": "Everything we can ever see fits in a sphere about forty-six billion light-years in radius."
   },
-  "beyond-2-1a8zzr7": {
-   "file": "beyond-2-1a8zzr7-1wab7f1.wav",
-   "seconds": 4.189041666666666,
-   "text": "Standard cosmology assumes that out there looks just like in here. Forever."
+  "beyond-2-bro0jl": {
+   "file": "beyond-2-bro0jl-1wab7f1.wav",
+   "seconds": 7.8490416666666665,
+   "text": "Standard cosmology assumes that beyond our horizon, there's just more of the same: galaxies like ours, in every direction, forever."
   },
-  "beyond-3-nenh9d": {
-   "file": "beyond-3-nenh9d-1wab7f1.wav",
-   "seconds": 1.1502083333333333,
-   "text": "But what if it doesn't?"
+  "beyond-3-k8jo53": {
+   "file": "beyond-3-k8jo53-1wab7f1.wav",
+   "seconds": 1.484375,
+   "text": "But what if there isn't?"
   },
   "beyond-4-1q7v3n8": {
    "file": "beyond-4-1q7v3n8-1wab7f1.wav",
@@ -113,7 +113,7 @@
   },
   "beyond-7-7axggf": {
    "file": "beyond-7-7axggf-1wab7f1.wav",
-   "seconds": 7.9055,
+   "seconds": 8.046666666666667,
    "text": "Physicists call that virialized. Not a frozen crystal where everything sits still, but a swarm where everything keeps moving, and the whole thing keeps its shape."
   },
   "beyond-8-1irtfh2": {
@@ -273,7 +273,7 @@
   },
   "data-3-gkcsa5": {
    "file": "data-3-gkcsa5-1wab7f1.wav",
-   "seconds": 5.8453333333333335,
+   "seconds": 5.65025,
    "text": "We turn the simulated expansion into a curve of distance versus redshift, straight from the particles."
   },
   "data-4-fqemvz": {
@@ -353,7 +353,7 @@
   },
   "whatif-close-3-klscwz": {
    "file": "whatif-close-3-klscwz-1wab7f1.wav",
-   "seconds": 7.009708333333333,
+   "seconds": 4.95875,
    "text": "On the left, a run with a decent supernova fit, and a collapsing core. On the right, a healthy one."
   },
   "whatif-close-4-990orb": {
@@ -398,7 +398,7 @@
   },
   "catch-0-3pcs3h": {
    "file": "catch-0-3pcs3h-1wab7f1.wav",
-   "seconds": 2.9392916666666666,
+   "seconds": 2.80025,
    "text": "Now, the catch. Because there is one."
   },
   "catch-1-6h7dtd": {
@@ -428,7 +428,7 @@
   },
   "predictions-2-1yfnlxj": {
    "file": "predictions-2-1yfnlxj-1wab7f1.wav",
-   "seconds": 7.160458333333334,
+   "seconds": 7.594416666666667,
    "text": "Measure the expansion rate from the whole sky at once, and you get 67. Measure it with nearby galaxies, and you get 73."
   },
   "predictions-3-11jssxd": {
@@ -503,7 +503,7 @@
   },
   "whatif-cycle-1-1jbcxue": {
    "file": "whatif-cycle-1-1jbcxue-1wab7f1.wav",
-   "seconds": 2.9821666666666666,
+   "seconds": 3.0405416666666665,
    "text": "An attractor bangs, and its matter fills the gap."
   },
   "whatif-cycle-2-1jwi0as": {

@@ -1,5 +1,5 @@
 import React from 'react';
-import {AbsoluteFill, interpolate} from 'remotion';
+import {AbsoluteFill, interpolate, random} from 'remotion';
 import {useBeats} from '../beats';
 import {Axes, LegendItem, scales} from '../components/Chart';
 import {Show} from '../components/Show';
@@ -9,6 +9,14 @@ import {C, FONT, HEIGHT, WIDTH} from '../theme';
 const CX = WIDTH / 2;
 const SKY = {cx: CX, cy: 470, rx: 560, ry: 280};
 const AXIS = -0.45; // radians: the shared preferred direction on the map
+// Hubble-tension universe: random galaxies, an uneven CMB shell, a few irregular nearby galaxies
+const GAL = new Array(170).fill(0).map((_, i) => {
+  const a = random(`hg${i}`) * Math.PI * 2;
+  const r = Math.sqrt(random(`hr${i}`)) * 0.93;
+  return {x: Math.cos(a) * r, y: Math.sin(a) * r, s: 1.5 + random(`hs${i}`) * 2.5};
+});
+const CMB = new Array(140).fill(0).map((_, i) => ({a: (i / 140) * Math.PI * 2 + random(`ca${i}`) * 0.04, s: 4 + random(`cs${i}`) * 6, o: 0.45 + random(`co${i}`) * 0.55}));
+const NEAR = [[-62, -88], [104, -30], [-118, 47], [38, 96], [151, 64], [-20, 131]].map(([x, y]) => ({x, y}));
 /** Where the shared axis points, OUTSIDE the sky map: our nearest, heaviest neighbours. */
 const MARK = {x: SKY.cx + Math.cos(AXIS) * 700, y: SKY.cy + Math.sin(AXIS) * 700};
 /** Where the dark flow converges on the map: inside the red region, on the axis toward MARK. */
@@ -40,7 +48,7 @@ export const Predictions: React.FC = () => {
   // tension number line
   const tBox = {x: 1080, y: 330, w: 700, h: 260};
   const ts = scales(tBox, [64, 76], [0, 1]);
-  const U = {x: 540, y: 520, r: 300};
+  const U = {x: 520, y: 545, r: 310};
   // beat 2 reveals, in order: us, the whole sky (blue, both sides at once), nearby galaxies (red)
   const usP = b.p(2, 12, 6);
   const blueP = interpolate(b.through(2), [0.12, 0.22], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
@@ -126,15 +134,20 @@ export const Predictions: React.FC = () => {
           <SvgDefs />
           {/* our universe, "us" in the middle */}
           <circle cx={U.x} cy={U.y} r={U.r} fill="url(#bubble)" stroke={C.bubble} strokeWidth={3} />
-          {/* whole sky at once: the cosmic microwave background, all around the edge */}
-          <circle cx={U.x} cy={U.y} r={U.r - 6} fill="none" stroke={C.lcdm} strokeWidth={10} opacity={0.75 * blueP} />
-          {[0, 1, 2, 3, 4, 5].map((k) => {
-            const a = (k / 6) * Math.PI * 2 + 0.2;
-            return <circle key={k} cx={U.x + Math.cos(a) * (U.r - 6)} cy={U.y + Math.sin(a) * (U.r - 6)} r={14} fill={C.lcdm} opacity={blueP} />;
-          })}
-          {/* nearby galaxies (distance ladder), on both sides */}
-          {[[-95, -40], [-70, 55], [-120, 10], [90, -55], [115, 25], [70, 60]].map(([dx, dy], k) => (
-            <circle key={k} cx={U.x + dx} cy={U.y + dy} r={11} fill={C.hot} opacity={redP} />
+          {/* galaxies scattered through our universe */}
+          {GAL.map((g, k) => (
+            <circle key={k} cx={U.x + g.x * U.r} cy={U.y + g.y * U.r} r={g.s} fill="#9fb2e6" opacity={0.45} />
+          ))}
+          {/* whole sky at once: the cosmic microwave background, light from the edge in every direction */}
+          {CMB.map((c, k) => (
+            <circle key={k} cx={U.x + Math.cos(c.a) * (U.r - 5)} cy={U.y + Math.sin(c.a) * (U.r - 5)} r={c.s} fill={C.lcdm} opacity={blueP * c.o} />
+          ))}
+          {/* nearby galaxies (the distance ladder): a handful close to us, in whatever directions they happen to be */}
+          {NEAR.map((g, k) => (
+            <g key={k} opacity={redP}>
+              <circle cx={U.x + g.x} cy={U.y + g.y} r={18} fill="none" stroke={C.hot} strokeWidth={3} />
+              <circle cx={U.x + g.x} cy={U.y + g.y} r={7} fill={C.hot} />
+            </g>
           ))}
           <circle cx={U.x} cy={U.y} r={12} fill="#fff" opacity={usP} />
           <text x={U.x} y={U.y + 42} fill="#fff" fontFamily={FONT.body} fontWeight={800} fontSize={28} textAnchor="middle" opacity={usP}>

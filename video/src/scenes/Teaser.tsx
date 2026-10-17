@@ -14,8 +14,7 @@ const win = (f: number, a: number, b: number, fade = 10) =>
 
 /**
  * Cold-open teaser (no narration): a fast glimpse of the whole story — the attractor swarm, a
- * bang, the metabolism cycle, the lopsided sky — then "Whoa, too fast. Let's start from the
- * beginning." Timing is in seconds below; the scene's minSeconds in script.ts must cover it.
+ * bang, the metabolism cycle, the lopsided sky — then "That was the whole story, in ten seconds. Now let's take it step by step." Timing is in seconds below; the scene's minSeconds in script.ts must cover it.
  */
 export const Teaser: React.FC = () => {
   const f = useCurrentFrame();
@@ -131,9 +130,9 @@ export const Teaser: React.FC = () => {
       <AbsoluteFill style={{background: '#fff', opacity: Math.max(flash, flash2) * 0.9}} />
       {t1 > 0 && (
         <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center', flexDirection: 'column', gap: 24, opacity: t1, background: 'rgba(0,0,0,0.75)'}}>
-          <Title size={110}>Whoa. Too fast.</Title>
+          <Title size={70}>That was the whole story, in ten seconds.</Title>
           <Title size={56} color={C.gold} style={{opacity: t2, fontFamily: FONT.display}}>
-            Let’s start from the beginning.
+            Now let’s take it step by step.
           </Title>
         </AbsoluteFill>
       )}

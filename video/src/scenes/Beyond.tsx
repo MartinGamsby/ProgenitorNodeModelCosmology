@@ -161,63 +161,52 @@ export const Beyond: React.FC = () => {
   );
 };
 
-/** "Virialized", explained: a frozen crystal vs. a settled swarm. In the swarm every member
- *  keeps moving (slow little orbits around its spot, tugged by its neighbours), but the overall
- *  lumpy shape never changes. */
+/** "Virialized", explained. Left: an ionic crystal (two node sizes, like table salt), frozen.
+ *  Right: a 2D slice of the REAL relaxed medium from the simulation (positions and masses from
+ *  medium.json). Each member jiggles around its spot (lighter ones a bit more), but the overall
+ *  shape never changes. */
 const CrystalVsSwarm: React.FC = () => {
   const b = useBeats();
   const f = b.frame;
   const L = {x: 540, y: 500};
   const R = {x: 1380, y: 500};
   const swarm = useMemo(() => {
-    // lumpy, centrally concentrated cluster (fixed "home" spots)
-    const pts = new Array(34).fill(0).map((_, i) => {
-      const a = random(`sa${i}`) * Math.PI * 2;
-      const r = 30 + Math.sqrt(random(`sr${i}`)) * 160;
-      return {
-        hx: Math.cos(a) * r,
-        hy: Math.sin(a) * r * 0.85,
-        amp: 6 + random(`sm${i}`) * 12,
-        w: (0.018 + random(`sw${i}`) * 0.02) * (random(`sd${i}`) > 0.5 ? 1 : -1),
-        ph: random(`sp${i}`) * Math.PI * 2,
-        m: 0.6 + random(`sz${i}`) * 1.1,
-      };
-    });
-    const links: [number, number][] = [];
-    pts.forEach((p, i) => {
-      const near = pts
-        .map((q, j) => ({j, d: Math.hypot(p.hx - q.hx, p.hy - q.hy)}))
-        .filter((o) => o.j !== i)
-        .sort((x, y) => x.d - y.d)
-        .slice(0, 2);
-      near.forEach((o) => i < o.j && links.push([i, o.j]));
-    });
-    return {pts, links};
+    const S = medium.S;
+    const slab = (medium.pos as V3[])
+      .map((q, i) => ({x: q[0], y: q[1], z: q[2], m: (medium.mass as number[])[i]}))
+      .filter((q) => Math.abs(q.z) < 0.6 * S && Math.hypot(q.x, q.y) < 4.5 * S);
+    // drop the lighter of any pair that overlaps in projection (they are far apart in depth)
+    const keep = slab.filter((q) => !slab.some((o) => o !== q && Math.hypot(o.x - q.x, o.y - q.y) < 0.4 * S && o.m > q.m));
+    const px = 210 / (4.5 * S);
+    return keep.map((q, i) => ({
+      hx: q.x * px,
+      hy: q.y * px,
+      r: 7 + 7 * Math.cbrt(q.m),
+      amp: 9 / Math.sqrt(q.m),
+      w: (0.02 / Math.sqrt(q.m)) * (random(`sd${i}`) > 0.5 ? 1 : -1),
+      ph: random(`sp${i}`) * Math.PI * 2,
+    }));
   }, []);
-  const pos = swarm.pts.map((s) => {
-    const a = s.ph + f * s.w;
-    return {x: R.x + s.hx + Math.cos(a) * s.amp, y: R.y + s.hy + Math.sin(a * 1.3) * s.amp * 0.8, m: s.m};
-  });
   return (
     <AbsoluteFill style={{background: 'rgba(4,6,13,0.86)'}}>
       <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
         {[-2, -1, 0, 1, 2].flatMap((i) =>
-          [-2, -1, 0, 1, 2].map((j) => <circle key={`${i}${j}`} cx={L.x + i * 70} cy={L.y + j * 70} r={13} fill={C.node} opacity={0.85} />),
+          [-2, -1, 0, 1, 2].map((j) => (
+            <circle key={`${i}${j}`} cx={L.x + i * 70} cy={L.y + j * 70} r={(i + j) % 2 ? 9 : 17} fill={C.node} opacity={(i + j) % 2 ? 0.7 : 0.9} />
+          )),
         )}
-        {swarm.links.map(([i, j], k) => (
-          <line key={k} x1={pos[i].x} y1={pos[i].y} x2={pos[j].x} y2={pos[j].y} stroke={C.node} strokeWidth={1.5} opacity={0.25} />
-        ))}
-        {pos.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={9 * p.m} fill={C.node} opacity={0.9} />
-        ))}
-        <ellipse cx={R.x} cy={R.y} rx={215} ry={190} fill="none" stroke={C.faint} strokeWidth={2} strokeDasharray="6 10" />
+        {swarm.map((s, i) => {
+          const a = s.ph + f * s.w;
+          return <circle key={i} cx={R.x + s.hx + Math.cos(a) * s.amp} cy={R.y + s.hy + Math.sin(a * 1.3) * s.amp * 0.8} r={s.r} fill={C.node} opacity={0.9} />;
+        })}
+        <circle cx={R.x} cy={R.y} r={235} fill="none" stroke={C.faint} strokeWidth={2} strokeDasharray="6 10" />
       </svg>
       <At x={L.x} y={190}>
         <Title size={52} color={C.dim}>
           crystal
         </Title>
       </At>
-      <At x={L.x} y={790}>
+      <At x={L.x} y={765}>
         <Label size={30} color={C.ink} style={{fontWeight: 700}}>
           frozen in place
         </Label>
@@ -227,10 +216,13 @@ const CrystalVsSwarm: React.FC = () => {
           virialized swarm
         </Title>
       </At>
-      <At x={R.x} y={790}>
+      <At x={R.x} y={765}>
         <Label size={30} color={C.ink} style={{fontWeight: 700}}>
           always moving · keeps its shape
         </Label>
+      </At>
+      <At x={R.x} y={805}>
+        <Label size={22}>a slice of the relaxed swarm from our simulation</Label>
       </At>
     </AbsoluteFill>
   );

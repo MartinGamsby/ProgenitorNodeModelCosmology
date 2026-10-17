@@ -1,544 +1,554 @@
 {
- "engine": "chatterbox;CB_EXAGGERATION=0.7;CB_CFG=0.3;CB_PROMPT=C:/Users/Martin/Documents/GitHub/ProgenitorNodeModelCosmology/video/voice-ref/martin.wav",
+ "engine": "chatterbox;CB_EXAGGERATION=0.6;CB_CFG=0.3;CB_PROMPT=C:/Users/Martin/Documents/GitHub/ProgenitorNodeModelCosmology/video/voice-ref/martin-en.wav",
  "clips": {
   "hook-0-1mbojfw": {
-   "file": "hook-0-1mbojfw-9rdbsw.wav",
-   "seconds": 3.478458333333333,
+   "file": "hook-0-1mbojfw-1wab7f1.wav",
+   "seconds": 1.8377083333333333,
    "text": "Everything in the universe is flying apart."
   },
   "hook-1-1sx38ng": {
-   "file": "hook-1-1sx38ng-9rdbsw.wav",
-   "seconds": 2.518666666666667,
+   "file": "hook-1-1sx38ng-1wab7f1.wav",
+   "seconds": 2.3928333333333334,
    "text": "And here's the weird part. It's speeding up."
   },
   "hook-2-mwvxrr": {
-   "file": "hook-2-mwvxrr-9rdbsw.wav",
-   "seconds": 2.927875,
+   "file": "hook-2-mwvxrr-1wab7f1.wav",
+   "seconds": 3.2708333333333335,
    "text": "Physicists call whatever is doing this dark energy."
   },
   "hook-3-9x4o7z": {
-   "file": "hook-3-9x4o7z-9rdbsw.wav",
-   "seconds": 3.8459166666666667,
+   "file": "hook-3-9x4o7z-1wab7f1.wav",
+   "seconds": 4.827208333333333,
    "text": "It makes up about seventy percent of everything. And nobody knows what it is."
   },
   "hook-4-1nusz56": {
-   "file": "hook-4-1nusz56-9rdbsw.wav",
-   "seconds": 2.0327083333333333,
+   "file": "hook-4-1nusz56-1wab7f1.wav",
+   "seconds": 1.48,
    "text": "So here's a what-if."
   },
   "hook-5-1ushcjw": {
-   "file": "hook-5-1ushcjw-9rdbsw.wav",
-   "seconds": 3.4143333333333334,
+   "file": "hook-5-1ushcjw-1wab7f1.wav",
+   "seconds": 3.1222916666666665,
    "text": "What if nothing is pushing the universe apart?"
   },
   "hook-6-e8aqrd": {
-   "file": "hook-6-e8aqrd-9rdbsw.wav",
-   "seconds": 1.848875,
+   "file": "hook-6-e8aqrd-1wab7f1.wav",
+   "seconds": 1.6,
    "text": "What if something is pulling it?"
   },
-  "problem-0-l9683p": {
-   "file": "problem-0-l9683p-9rdbsw.wav",
-   "seconds": 5.977291666666667,
-   "text": "In 1998, two teams measured distant exploding stars, called type one A supernovas."
+  "problem-0-1xzrj9o": {
+   "file": "problem-0-1xzrj9o-1wab7f1.wav",
+   "seconds": 5.013,
+   "text": "In 1998, two teams measured distant exploding stars, called type 1A supernovas."
   },
   "problem-1-rrnufw": {
-   "file": "problem-1-rrnufw-9rdbsw.wav",
-   "seconds": 4.676708333333333,
+   "file": "problem-1-rrnufw-1wab7f1.wav",
+   "seconds": 3.8877916666666668,
    "text": "They looked too dim. They were farther away than a slowing universe would allow."
   },
   "problem-2-9kz4xc": {
-   "file": "problem-2-9kz4xc-9rdbsw.wav",
-   "seconds": 7.015666666666666,
+   "file": "problem-2-9kz4xc-1wab7f1.wav",
+   "seconds": 5.428583333333333,
    "text": "The fix was a cosmological constant, Lambda: energy built into empty space itself."
   },
   "problem-3-18dbekq": {
-   "file": "problem-3-18dbekq-9rdbsw.wav",
-   "seconds": 8.919875,
+   "file": "problem-3-18dbekq-1wab7f1.wav",
+   "seconds": 10.516916666666667,
    "text": "Add invisible dark matter, and you get today's standard model of the universe, called Lambda CDM. Lambda for dark energy, CDM for cold dark matter."
   },
   "problem-4-294bvx": {
-   "file": "problem-4-294bvx-9rdbsw.wav",
-   "seconds": 3.9927083333333333,
+   "file": "problem-4-294bvx-1wab7f1.wav",
+   "seconds": 3.379375,
    "text": "It works beautifully. But it comes with two embarrassing problems."
   },
-  "problem-5-hi9a0l": {
-   "file": "problem-5-hi9a0l-9rdbsw.wav",
-   "seconds": 6.180291666666666,
-   "text": "First, quantum physics predicts a vacuum energy about ten to the power of one hundred and twenty times too big."
+  "problem-5-1toubgg": {
+   "file": "problem-5-1toubgg-1wab7f1.wav",
+   "seconds": 6.08675,
+   "text": "First, quantum physics predicts a vacuum energy too big by a factor of one, followed by a hundred and twenty zeros."
   },
   "problem-6-1f3hl51": {
-   "file": "problem-6-1f3hl51-9rdbsw.wav",
-   "seconds": 5.203,
+   "file": "problem-6-1f3hl51-1wab7f1.wav",
+   "seconds": 5.67475,
    "text": "Second, why is dark energy about equal to matter right now, of all the moments we could be living in?"
   },
   "problem-7-yvdjdx": {
-   "file": "problem-7-yvdjdx-9rdbsw.wav",
-   "seconds": 3.2630416666666666,
+   "file": "problem-7-yvdjdx-1wab7f1.wav",
+   "seconds": 2.845375,
    "text": "Fitting the data is not the same as explaining it."
   },
   "beyond-0-esgbj7": {
-   "file": "beyond-0-esgbj7-9rdbsw.wav",
-   "seconds": 1.0188333333333333,
+   "file": "beyond-0-esgbj7-1wab7f1.wav",
+   "seconds": 1.0924583333333333,
    "text": "Let's zoom out."
   },
   "beyond-1-1osqtr7": {
-   "file": "beyond-1-1osqtr7-9rdbsw.wav",
-   "seconds": 5.058708333333334,
+   "file": "beyond-1-1osqtr7-1wab7f1.wav",
+   "seconds": 5.2709166666666665,
    "text": "Everything we can ever see fits in a sphere about forty-six billion light-years in radius."
   },
   "beyond-2-1a8zzr7": {
-   "file": "beyond-2-1a8zzr7-9rdbsw.wav",
-   "seconds": 4.541291666666667,
+   "file": "beyond-2-1a8zzr7-1wab7f1.wav",
+   "seconds": 4.189041666666666,
    "text": "Standard cosmology assumes that out there looks just like in here. Forever."
   },
   "beyond-3-nenh9d": {
-   "file": "beyond-3-nenh9d-9rdbsw.wav",
-   "seconds": 1.1007916666666666,
+   "file": "beyond-3-nenh9d-1wab7f1.wav",
+   "seconds": 1.1502083333333333,
    "text": "But what if it doesn't?"
   },
   "beyond-4-1q7v3n8": {
-   "file": "beyond-4-1q7v3n8-9rdbsw.wav",
-   "seconds": 8.556291666666667,
+   "file": "beyond-4-1q7v3n8-1wab7f1.wav",
+   "seconds": 7.791291666666667,
    "text": "Picture giant dark masses far beyond our horizon, each hundreds to thousands of times heavier than our entire observable universe."
   },
   "beyond-5-1ki8v6m": {
-   "file": "beyond-5-1ki8v6m-9rdbsw.wav",
-   "seconds": 3.525916666666667,
+   "file": "beyond-5-1ki8v6m-1wab7f1.wav",
+   "seconds": 3.0940416666666666,
    "text": "Call them hyper-massive external attractors."
   },
   "beyond-6-ixr161": {
-   "file": "beyond-6-ixr161-9rdbsw.wav",
-   "seconds": 7.1862916666666665,
+   "file": "beyond-6-ixr161-1wab7f1.wav",
+   "seconds": 7.582791666666667,
    "text": "They don't form a neat grid. They form a lumpy, settled swarm, like galaxies in a relaxed cluster, only absurdly bigger."
   },
   "beyond-7-7axggf": {
-   "file": "beyond-7-7axggf-9rdbsw.wav",
-   "seconds": 9.017583333333333,
+   "file": "beyond-7-7axggf-1wab7f1.wav",
+   "seconds": 7.9055,
    "text": "Physicists call that virialized. Not a frozen crystal where everything sits still, but a swarm where everything keeps moving, and the whole thing keeps its shape."
   },
   "beyond-8-1irtfh2": {
-   "file": "beyond-8-1irtfh2-9rdbsw.wav",
-   "seconds": 2.9895416666666668,
+   "file": "beyond-8-1irtfh2-1wab7f1.wav",
+   "seconds": 2.3684166666666666,
    "text": "And our universe sits in one of the gaps."
   },
   "tides-0-dmf268": {
-   "file": "tides-0-dmf268-9rdbsw.wav",
-   "seconds": 6.6074166666666665,
+   "file": "tides-0-dmf268-1wab7f1.wav",
+   "seconds": 6.398333333333333,
    "text": "Here's a gravity fact that sounds wrong. Surround yourself with a perfectly smooth shell of mass, and it won't pull you at all."
   },
   "tides-1-1rpl3os": {
-   "file": "tides-1-1rpl3os-9rdbsw.wav",
-   "seconds": 4.197541666666667,
+   "file": "tides-1-1rpl3os-1wab7f1.wav",
+   "seconds": 3.4799166666666665,
    "text": "Every direction cancels out. That's Newton's shell theorem."
   },
   "tides-2-1xrcanj": {
-   "file": "tides-2-1xrcanj-9rdbsw.wav",
-   "seconds": 6.9875,
+   "file": "tides-2-1xrcanj-1wab7f1.wav",
+   "seconds": 6.259708333333333,
    "text": "But clumps don't cancel. The side of our universe facing a clump gets pulled harder than the far side, so it gets pulled apart."
   },
   "tides-3-1phr4v7": {
-   "file": "tides-3-1phr4v7-9rdbsw.wav",
-   "seconds": 6.165666666666667,
+   "file": "tides-3-1phr4v7-1wab7f1.wav",
+   "seconds": 5.70575,
    "text": "And real clumps come in different sizes, at different distances. That makes the pull even more lopsided."
   },
   "tides-4-y3p8pl": {
-   "file": "tides-4-y3p8pl-9rdbsw.wav",
-   "seconds": 5.984708333333334,
+   "file": "tides-4-y3p8pl-1wab7f1.wav",
+   "seconds": 5.420875,
    "text": "An outward pull that gets stronger the farther out you go. That is exactly what dark energy seems to do."
   },
   "tides-5-16t9jrg": {
-   "file": "tides-5-16t9jrg-9rdbsw.wav",
-   "seconds": 5.965833333333333,
+   "file": "tides-5-16t9jrg-1wab7f1.wav",
+   "seconds": 6.758958333333333,
    "text": "So to gravity, a pull from outside can look just like a push from inside. No exotic energy required."
   },
   "whatif-center-0-b8hf13": {
-   "file": "whatif-center-0-b8hf13-9rdbsw.wav",
-   "seconds": 4.6125,
+   "file": "whatif-center-0-b8hf13-1wab7f1.wav",
+   "seconds": 4.724916666666667,
    "text": "What if we sat exactly in the middle, with the neighbours spread evenly all around us?"
   },
   "whatif-center-1-bonbm8": {
-   "file": "whatif-center-1-bonbm8-9rdbsw.wav",
-   "seconds": 3.5258333333333334,
+   "file": "whatif-center-1-bonbm8-1wab7f1.wav",
+   "seconds": 3.2705416666666665,
    "text": "Then every pull would cancel out, and nothing would speed up."
   },
   "whatif-center-2-f2me4y": {
-   "file": "whatif-center-2-f2me4y-9rdbsw.wav",
-   "seconds": 4.198708333333333,
+   "file": "whatif-center-2-f2me4y-1wab7f1.wav",
+   "seconds": 4.730125,
    "text": "But a real swarm is never perfectly even. One side always pulls a little harder."
   },
   "whatif-center-3-1nyp6lb": {
-   "file": "whatif-center-3-1nyp6lb-9rdbsw.wav",
-   "seconds": 7.414416666666667,
+   "file": "whatif-center-3-1nyp6lb-1wab7f1.wav",
+   "seconds": 8.019208333333333,
    "text": "So our universe should expand a little faster in one direction. Keep that in mind. It's a fingerprint we can actually look for."
   },
   "progenitor-0-r0shgp": {
-   "file": "progenitor-0-r0shgp-9rdbsw.wav",
-   "seconds": 3.42525,
+   "file": "progenitor-0-r0shgp-1wab7f1.wav",
+   "seconds": 3.3364166666666666,
    "text": "But wait. Why would we be anywhere near the middle of a gap?"
   },
-  "progenitor-1-1gfdyiw": {
-   "file": "progenitor-1-1gfdyiw-9rdbsw.wav",
-   "seconds": 4.333291666666667,
-   "text": "Here's the boldest what-if. What if the Big Bang was one of these attractors?"
+  "progenitor-1-173gayu": {
+   "file": "progenitor-1-173gayu-1wab7f1.wav",
+   "seconds": 1.9633333333333334,
+   "text": "What if the Big Bang was one of these attractors?"
   },
   "progenitor-2-swkkxx": {
-   "file": "progenitor-2-swkkxx-9rdbsw.wav",
-   "seconds": 3.383375,
+   "file": "progenitor-2-swkkxx-1wab7f1.wav",
+   "seconds": 3.7514583333333333,
    "text": "Picture one of them, sitting at its balance point among its neighbours."
   },
   "progenitor-3-1rkkmtn": {
-   "file": "progenitor-3-1rkkmtn-9rdbsw.wav",
-   "seconds": 1.72,
+   "file": "progenitor-3-1rkkmtn-1wab7f1.wav",
+   "seconds": 1.4152916666666666,
    "text": "Then it becomes unstable."
   },
   "progenitor-4-s5hqz5": {
-   "file": "progenitor-4-s5hqz5-9rdbsw.wav",
-   "seconds": 4.189958333333333,
+   "file": "progenitor-4-s5hqz5-1wab7f1.wav",
+   "seconds": 4.416416666666667,
    "text": "It blows apart, and its matter spreads out evenly into the surrounding gap."
   },
   "progenitor-5-10rmmeh": {
-   "file": "progenitor-5-10rmmeh-9rdbsw.wav",
-   "seconds": 5.17075,
+   "file": "progenitor-5-10rmmeh-1wab7f1.wav",
+   "seconds": 5.200375,
    "text": "That explains why we start near the middle, and why the expansion looks the same in every direction."
   },
   "progenitor-6-13glblv": {
-   "file": "progenitor-6-13glblv-9rdbsw.wav",
-   "seconds": 5.482375,
+   "file": "progenitor-6-13glblv-1wab7f1.wav",
+   "seconds": 4.694583333333333,
    "text": "This is the Progenitor Hypothesis. And it means one mass plays two roles."
   },
   "progenitor-7-m5on2r": {
-   "file": "progenitor-7-m5on2r-9rdbsw.wav",
-   "seconds": 9.648875,
+   "file": "progenitor-7-m5on2r-1wab7f1.wav",
+   "seconds": 8.298583333333333,
    "text": "Before the bang, it was one member of the swarm. After the bang, that same mass became our whole universe, plus whatever lies beyond what we can see."
   },
   "progenitor-8-15nayut": {
-   "file": "progenitor-8-15nayut-9rdbsw.wav",
-   "seconds": 4.46025,
+   "file": "progenitor-8-15nayut-1wab7f1.wav",
+   "seconds": 4.34775,
    "text": "The most natural guess is that our progenitor was just a typical member. Nothing special."
   },
   "simulation-0-15vlykp": {
-   "file": "simulation-0-15vlykp-9rdbsw.wav",
-   "seconds": 4.11275,
+   "file": "simulation-0-15vlykp-1wab7f1.wav",
+   "seconds": 3.78475,
    "text": "Nice story. But does it actually work? Time to simulate."
   },
   "simulation-1-1t5cm56": {
-   "file": "simulation-1-1t5cm56-9rdbsw.wav",
-   "seconds": 4.878833333333334,
+   "file": "simulation-1-1t5cm56-1wab7f1.wav",
+   "seconds": 4.284166666666667,
    "text": "We take thousands of particles in a cloud, and nothing but plain Newtonian gravity."
   },
   "simulation-2-14aje9r": {
-   "file": "simulation-2-14aje9r-9rdbsw.wav",
-   "seconds": 5.239541666666667,
+   "file": "simulation-2-14aje9r-1wab7f1.wav",
+   "seconds": 4.292541666666667,
    "text": "The cloud's own gravity slows it down. The distant attractors pull it apart."
   },
   "simulation-3-f2tjaz": {
-   "file": "simulation-3-f2tjaz-9rdbsw.wav",
-   "seconds": 6.519666666666667,
+   "file": "simulation-3-f2tjaz-1wab7f1.wav",
+   "seconds": 6.965625,
    "text": "We start two point nine billion years after the Big Bang, and run all the way to today, thirteen point eight billion years."
   },
   "simulation-4-3llpz2": {
-   "file": "simulation-4-3llpz2-9rdbsw.wav",
-   "seconds": 4.495958333333333,
+   "file": "simulation-4-3llpz2-1wab7f1.wav",
+   "seconds": 3.6005,
    "text": "First, a sanity check. We set the attractor mass to zero."
   },
   "simulation-5-1vnhrh": {
-   "file": "simulation-5-1vnhrh-9rdbsw.wav",
-   "seconds": 4.84175,
+   "file": "simulation-5-1vnhrh-1wab7f1.wav",
+   "seconds": 4.740291666666667,
    "text": "The simulation gives back the textbook universe with no dark energy. Exactly."
   },
   "simulation-6-16d6xle": {
-   "file": "simulation-6-16d6xle-9rdbsw.wav",
-   "seconds": 2.42325,
+   "file": "simulation-6-16d6xle-1wab7f1.wav",
+   "seconds": 2.1322083333333333,
    "text": "Good. Now we turn the attractors on."
   },
   "simulation-7-1dhsk4s": {
-   "file": "simulation-7-1dhsk4s-9rdbsw.wav",
-   "seconds": 5.19375,
+   "file": "simulation-7-1dhsk4s-1wab7f1.wav",
+   "seconds": 4.710041666666666,
    "text": "The cloud grows by just the right amount, like a universe with dark energy. Without any."
   },
   "data-0-158r826": {
-   "file": "data-0-158r826-9rdbsw.wav",
-   "seconds": 3.21725,
+   "file": "data-0-158r826-1wab7f1.wav",
+   "seconds": 3.0654166666666667,
    "text": "Now, the moment of truth: real data."
   },
-  "data-1-h9u854": {
-   "file": "data-1-h9u854-9rdbsw.wav",
-   "seconds": 5.3935,
-   "text": "More than fifteen hundred type one A supernovas, from the Pantheon plus catalogue."
+  "data-1-1e04bex": {
+   "file": "data-1-1e04bex-1wab7f1.wav",
+   "seconds": 4.786291666666667,
+   "text": "More than fifteen hundred type 1A supernovas, from the Pantheon plus catalogue."
   },
-  "data-2-71ldob": {
-   "file": "data-2-71ldob-9rdbsw.wav",
-   "seconds": 8.297083333333333,
-   "text": "We turn the simulated expansion into a curve of distance versus redshift. No shortcuts."
+  "data-2-1a4rh13": {
+   "file": "data-2-1a4rh13-1wab7f1.wav",
+   "seconds": 7.1730833333333335,
+   "text": "This is the same kind of data that gave Lambda CDM its numbers in the first place. Now we hold our simulation up to it, the exact same way."
   },
-  "data-3-fqemvz": {
-   "file": "data-3-fqemvz-9rdbsw.wav",
-   "seconds": 5.650333333333333,
+  "data-3-gkcsa5": {
+   "file": "data-3-gkcsa5-1wab7f1.wav",
+   "seconds": 5.8453333333333335,
+   "text": "We turn the simulated expansion into a curve of distance versus redshift, straight from the particles."
+  },
+  "data-4-fqemvz": {
+   "file": "data-4-fqemvz-1wab7f1.wav",
+   "seconds": 5.277375,
    "text": "Now zoom in on the differences. A universe without dark energy misses. Badly."
   },
-  "data-4-1ew10lp": {
-   "file": "data-4-1ew10lp-9rdbsw.wav",
-   "seconds": 1.834875,
+  "data-5-1ew10lp": {
+   "file": "data-5-1ew10lp-1wab7f1.wav",
+   "seconds": 1.94275,
    "text": "Standard Lambda CDM nails it."
   },
-  "data-5-1dd2frd": {
-   "file": "data-5-1dd2frd-9rdbsw.wav",
-   "seconds": 1.2155833333333332,
+  "data-6-1dd2frd": {
+   "file": "data-6-1dd2frd-1wab7f1.wav",
+   "seconds": 1.2518333333333334,
    "text": "And the attractor model?"
   },
-  "data-6-b9fz23": {
-   "file": "data-6-b9fz23-9rdbsw.wav",
-   "seconds": 0.925625,
+  "data-7-b9fz23": {
+   "file": "data-7-b9fz23-1wab7f1.wav",
+   "seconds": 1.2950416666666666,
    "text": "Right on top of it."
   },
-  "data-7-1dpa2d5": {
-   "file": "data-7-1dpa2d5-9rdbsw.wav",
-   "seconds": 10.79,
+  "data-8-1dpa2d5": {
+   "file": "data-8-1dpa2d5-1wab7f1.wav",
+   "seconds": 12.141833333333333,
    "text": "Here's the fit score, where lower is better. No dark energy: zero point eight four three. Lambda CDM: zero point four three six. Our model: zero point four four zero."
   },
-  "data-8-8pi5k3": {
-   "file": "data-8-8pi5k3-9rdbsw.wav",
-   "seconds": 10.666833333333333,
+  "data-9-8pi5k3": {
+   "file": "data-9-8pi5k3-1wab7f1.wav",
+   "seconds": 9.764083333333334,
    "text": "Some runs even score zero point four three three, a hair better than Lambda CDM. But that gap is smaller than the simulation's own noise, so the honest word is: it matches."
   },
-  "data-9-7l10i7": {
-   "file": "data-9-7l10i7-9rdbsw.wav",
-   "seconds": 6.263125,
-   "text": "And remember: fitting is not explaining. A good fit alone is not enough to make a universe. More on that in a moment."
+  "data-10-1s46st1": {
+   "file": "data-10-1s46st1-1wab7f1.wav",
+   "seconds": 4.757583333333334,
+   "text": "And with enough tuning, some other setup would surely score even better. But that would prove nothing."
   },
-  "data-10-19igznc": {
-   "file": "data-10-19igznc-9rdbsw.wav",
-   "seconds": 10.391208333333333,
+  "data-11-19igznc": {
+   "file": "data-11-19igznc-1wab7f1.wav",
+   "seconds": 10.285666666666666,
    "text": "As a software developer, this is something I watch for all the time. It's called overfitting. Give a model enough knobs, and it will fit almost anything. Simulations can fall into the same trap."
   },
+  "data-12-1lb1ezr": {
+   "file": "data-12-1lb1ezr-1wab7f1.wav",
+   "seconds": 8.516708333333334,
+   "text": "Fitting is not explaining. So a good fit is only the first test. Next, we check whether the simulated universe actually looks like ours."
+  },
   "whatif-observer-0-1ruqtam": {
-   "file": "whatif-observer-0-1ruqtam-9rdbsw.wav",
-   "seconds": 3.0733333333333333,
+   "file": "whatif-observer-0-1ruqtam-1wab7f1.wav",
+   "seconds": 3.4606666666666666,
    "text": "What if we're not at the centre of the cloud? We almost certainly aren't."
   },
   "whatif-observer-1-ldodyn": {
-   "file": "whatif-observer-1-ldodyn-9rdbsw.wav",
-   "seconds": 4.892708333333333,
+   "file": "whatif-observer-1-ldodyn-1wab7f1.wav",
+   "seconds": 4.683625,
    "text": "So every particle gets a turn being us. Does any vantage point see a universe like ours?"
   },
   "whatif-observer-2-1tjtwvk": {
-   "file": "whatif-observer-2-1tjtwvk-9rdbsw.wav",
-   "seconds": 8.307416666666667,
+   "file": "whatif-observer-2-1tjtwvk-1wab7f1.wav",
+   "seconds": 7.5332083333333335,
    "text": "Plenty do. And not in just one lucky setup. Across seventy-one configurations, the best vantage lands right around Lambda CDM."
   },
   "whatif-close-0-sgoryr": {
-   "file": "whatif-close-0-sgoryr-9rdbsw.wav",
-   "seconds": 4.320833333333334,
+   "file": "whatif-close-0-sgoryr-1wab7f1.wav",
+   "seconds": 2.962625,
    "text": "What if the attractors are too close? Two things can go wrong."
   },
   "whatif-close-1-jazkcu": {
-   "file": "whatif-close-1-jazkcu-9rdbsw.wav",
-   "seconds": 4.4675,
+   "file": "whatif-close-1-jazkcu-1wab7f1.wav",
+   "seconds": 4.634833333333333,
    "text": "The pull can win outright, in a runaway that rips the cloud apart way too fast."
   },
   "whatif-close-2-mrwvha": {
-   "file": "whatif-close-2-mrwvha-9rdbsw.wav",
-   "seconds": 4.958625,
+   "file": "whatif-close-2-mrwvha-1wab7f1.wav",
+   "seconds": 4.4772083333333335,
    "text": "Or something sneakier happens. The core of the cloud collapses into a dense knot."
   },
   "whatif-close-3-klscwz": {
-   "file": "whatif-close-3-klscwz-9rdbsw.wav",
-   "seconds": 6.16,
+   "file": "whatif-close-3-klscwz-1wab7f1.wav",
+   "seconds": 7.009708333333333,
    "text": "On the left, a run with a decent supernova fit, and a collapsing core. On the right, a healthy one."
   },
   "whatif-close-4-990orb": {
-   "file": "whatif-close-4-990orb-9rdbsw.wav",
-   "seconds": 4.13375,
+   "file": "whatif-close-4-990orb-1wab7f1.wav",
+   "seconds": 4.824083333333333,
    "text": "So a good fit isn't enough. A universe-like run has to pass a checklist."
   },
-  "whatif-close-5-3us25d": {
-   "file": "whatif-close-5-3us25d-9rdbsw.wav",
-   "seconds": 7.5761666666666665,
-   "text": "It must fit the supernovae, grow by the right amount, keep its core from collapsing, and keep every attractor outside our horizon."
+  "whatif-close-5-mhgk83": {
+   "file": "whatif-close-5-mhgk83-1wab7f1.wav",
+   "seconds": 7.141375,
+   "text": "It must fit the supernovas, grow by the right amount, keep its core from collapsing, and keep every attractor outside our horizon."
   },
   "whatif-close-6-2dcsgb": {
-   "file": "whatif-close-6-2dcsgb-9rdbsw.wav",
-   "seconds": 5.597708333333333,
+   "file": "whatif-close-6-2dcsgb-1wab7f1.wav",
+   "seconds": 5.899208333333333,
    "text": "Picking runs by fit alone would have chosen the collapsing universes. The checklist catches them."
   },
-  "whatif-close-7-1j5qygk": {
-   "file": "whatif-close-7-1j5qygk-9rdbsw.wav",
-   "seconds": 5.146,
-   "text": "With it, 68 out of 72 configurations are universe-like."
+  "whatif-close-7-174pph5": {
+   "file": "whatif-close-7-174pph5-1wab7f1.wav",
+   "seconds": 10.592125,
+   "text": "We ran thousands of simulations to map where universes like ours can form. Inside the best region, we re-ran 72 configurations with more particles, and 68 of them pass the whole checklist."
   },
   "whatif-mass-0-1kax4ys": {
-   "file": "whatif-mass-0-1kax4ys-9rdbsw.wav",
-   "seconds": 3.257416666666667,
+   "file": "whatif-mass-0-1kax4ys-1wab7f1.wav",
+   "seconds": 2.683,
    "text": "What if the progenitor was tiny? Or enormous?"
   },
   "whatif-mass-1-a4a50r": {
-   "file": "whatif-mass-1-a4a50r-9rdbsw.wav",
-   "seconds": 6.26625,
+   "file": "whatif-mass-1-a4a50r-1wab7f1.wav",
+   "seconds": 5.122583333333333,
    "text": "We tried more than three orders of magnitude, from one observable universe up to three thousand."
   },
   "whatif-mass-2-ueos8x": {
-   "file": "whatif-mass-2-ueos8x-9rdbsw.wav",
-   "seconds": 3.059625,
+   "file": "whatif-mass-2-ueos8x-1wab7f1.wav",
+   "seconds": 2.7725416666666667,
    "text": "The fit barely cares. The structure does."
   },
   "whatif-mass-3-12r6v5h": {
-   "file": "whatif-mass-3-12r6v5h-9rdbsw.wav",
-   "seconds": 5.890125,
+   "file": "whatif-mass-3-12r6v5h-1wab7f1.wav",
+   "seconds": 6.375041666666666,
    "text": "And the most robust choice is the typical member, exactly what the hypothesis preferred before we ran anything."
   },
   "catch-0-3pcs3h": {
-   "file": "catch-0-3pcs3h-9rdbsw.wav",
-   "seconds": 2.559833333333333,
+   "file": "catch-0-3pcs3h-1wab7f1.wav",
+   "seconds": 2.9392916666666666,
    "text": "Now, the catch. Because there is one."
   },
-  "catch-1-18kz7i7": {
-   "file": "catch-1-18kz7i7-9rdbsw.wav",
-   "seconds": 5.401083333333333,
-   "text": "Heavy attractors far away, or lighter ones closer in. The supernovae can't tell them apart."
+  "catch-1-6h7dtd": {
+   "file": "catch-1-6h7dtd-1wab7f1.wav",
+   "seconds": 5.603,
+   "text": "Heavy attractors far away, or lighter ones closer in. The supernovas can't tell them apart."
   },
   "catch-2-tpsmsf": {
-   "file": "catch-2-tpsmsf-9rdbsw.wav",
-   "seconds": 4.574833333333333,
+   "file": "catch-2-tpsmsf-1wab7f1.wav",
+   "seconds": 4.109333333333334,
    "text": "The average expansion only measures the mass divided by the spacing cubed."
   },
-  "catch-3-1g3k1fk": {
-   "file": "catch-3-1g3k1fk-9rdbsw.wav",
-   "seconds": 4.87525,
-   "text": "So the supernovae alone will never prove this model. We need a different test."
+  "catch-3-1bhawr2": {
+   "file": "catch-3-1bhawr2-1wab7f1.wav",
+   "seconds": 4.708375,
+   "text": "So the supernovas alone will never prove this model. We need a different test."
   },
   "predictions-0-1dazm0o": {
-   "file": "predictions-0-1dazm0o-9rdbsw.wav",
-   "seconds": 3.4975833333333335,
+   "file": "predictions-0-1dazm0o-1wab7f1.wav",
+   "seconds": 3.3785,
    "text": "Remember that lopsided fingerprint? That's the test."
   },
   "predictions-1-k0tmdp": {
-   "file": "predictions-1-k0tmdp-9rdbsw.wav",
-   "seconds": 5.5917916666666665,
+   "file": "predictions-1-k0tmdp-1wab7f1.wav",
+   "seconds": 4.840458333333333,
    "text": "Prediction one: a Hubble dipole. One half of the sky should expand a little faster than the other."
   },
   "predictions-2-1yfnlxj": {
-   "file": "predictions-2-1yfnlxj-9rdbsw.wav",
-   "seconds": 8.248916666666666,
+   "file": "predictions-2-1yfnlxj-1wab7f1.wav",
+   "seconds": 7.160458333333334,
    "text": "Measure the expansion rate from the whole sky at once, and you get 67. Measure it with nearby galaxies, and you get 73."
   },
   "predictions-3-11jssxd": {
-   "file": "predictions-3-11jssxd-9rdbsw.wav",
-   "seconds": 3.2317916666666666,
+   "file": "predictions-3-11jssxd-1wab7f1.wav",
+   "seconds": 3.686,
    "text": "Those numbers should agree, and they don't. It's called the Hubble tension."
   },
   "predictions-4-1ynn2nb": {
-   "file": "predictions-4-1ynn2nb-9rdbsw.wav",
-   "seconds": 10.54775,
+   "file": "predictions-4-1ynn2nb-1wab7f1.wav",
+   "seconds": 11.643041666666667,
    "text": "For standard cosmology, that is a headache. For this model, it is expected. A lopsided expansion, what physicists call anisotropy, gives different answers depending on how you look."
   },
-  "predictions-5-1uy5uwn": {
-   "file": "predictions-5-1uy5uwn-9rdbsw.wav",
-   "seconds": 9.11,
-   "text": "Prediction two: the Axis of Evil. The biggest patterns in the cosmic microwave background line up along a strange axis."
+  "predictions-5-mf0var": {
+   "file": "predictions-5-mf0var-1wab7f1.wav",
+   "seconds": 7.835125,
+   "text": "Prediction two: the Axis of Evil. The biggest patterns in the cosmic microwave background all point along the same strange axis."
   },
   "predictions-6-1v6wca4": {
-   "file": "predictions-6-1v6wca4-9rdbsw.wav",
-   "seconds": 3.358833333333333,
+   "file": "predictions-6-1v6wca4-1wab7f1.wav",
+   "seconds": 3.7868333333333335,
    "text": "Lopsided neighbours could imprint exactly that kind of alignment."
   },
-  "predictions-7-1oioq2b": {
-   "file": "predictions-7-1oioq2b-9rdbsw.wav",
-   "seconds": 7.271208333333333,
-   "text": "Prediction three: dark flow. Huge regions of galaxies drifting together, pulled by something outside the survey."
+  "predictions-7-1xnihuo": {
+   "file": "predictions-7-1xnihuo-1wab7f1.wav",
+   "seconds": 7.124625,
+   "text": "Prediction three: dark flow. Huge regions of galaxies drifting together, as if pulled by something we can't see."
   },
   "predictions-8-bvy9po": {
-   "file": "predictions-8-bvy9po-9rdbsw.wav",
-   "seconds": 6.4740416666666665,
+   "file": "predictions-8-bvy9po-1wab7f1.wav",
+   "seconds": 7.752166666666667,
    "text": "Prediction four: the acceleration keeps growing. As we drift toward the attractors, their pull gets stronger, so the speed-up itself speeds up."
   },
   "predictions-9-z4aol6": {
-   "file": "predictions-9-z4aol6-9rdbsw.wav",
-   "seconds": 7.511833333333334,
+   "file": "predictions-9-z4aol6-1wab7f1.wav",
+   "seconds": 6.629958333333334,
    "text": "Cosmologists call that phantom dark energy. A cosmological constant can't do it, because its push never changes."
   },
   "predictions-10-1gs046y": {
-   "file": "predictions-10-1gs046y-9rdbsw.wav",
-   "seconds": 5.009875,
+   "file": "predictions-10-1gs046y-1wab7f1.wav",
+   "seconds": 4.624333333333333,
    "text": "And the kicker: all four should point the same way, toward our nearest, heaviest neighbours."
   },
-  "whatif-invisible-0-st65w8": {
-   "file": "whatif-invisible-0-st65w8-9rdbsw.wav",
-   "seconds": 3.1471666666666667,
-   "text": "If these things are so huge, why can't we see them?"
+  "whatif-invisible-0-1mvdxct": {
+   "file": "whatif-invisible-0-1mvdxct-1wab7f1.wav",
+   "seconds": 3.1004583333333335,
+   "text": "If these things are so massive, why can't we see them?"
   },
   "whatif-invisible-1-17zsk68": {
-   "file": "whatif-invisible-1-17zsk68-9rdbsw.wav",
-   "seconds": 5.655916666666666,
+   "file": "whatif-invisible-1-17zsk68-1wab7f1.wav",
+   "seconds": 5.422833333333333,
    "text": "Distance isn't the answer. They're older than the Big Bang, so their light would have had plenty of time to reach us."
   },
   "whatif-invisible-2-1cj0mze": {
-   "file": "whatif-invisible-2-1cj0mze-9rdbsw.wav",
-   "seconds": 8.341958333333332,
+   "file": "whatif-invisible-2-1cj0mze-1wab7f1.wav",
+   "seconds": 9.507666666666667,
    "text": "The answer is that they have no light left to give. They'd be ancient black holes that swallowed everything around them long ago, and a black hole with nothing left to eat doesn't glow."
   },
-  "whatif-invisible-3-2ft6dz": {
-   "file": "whatif-invisible-3-2ft6dz-9rdbsw.wav",
-   "seconds": 5.313916666666667,
-   "text": "Even their Hawking radiation is absurdly cold: about ten to the minus thirty-three kelvin."
+  "whatif-invisible-3-1a594qu": {
+   "file": "whatif-invisible-3-1a594qu-1wab7f1.wav",
+   "seconds": 7.061,
+   "text": "Even their Hawking radiation is absurdly cold: about ten to the minus thirty-three kelvin. That's as close to absolute zero as it gets."
   },
   "whatif-invisible-4-1jfg6mg": {
-   "file": "whatif-invisible-4-1jfg6mg-9rdbsw.wav",
-   "seconds": 2.631625,
+   "file": "whatif-invisible-4-1jfg6mg-1wab7f1.wav",
+   "seconds": 2.7604583333333332,
    "text": "Dark giants. Seen only by their pull."
   },
   "whatif-cycle-0-mbjl6z": {
-   "file": "whatif-cycle-0-mbjl6z-9rdbsw.wav",
-   "seconds": 5.709791666666667,
+   "file": "whatif-cycle-0-mbjl6z-1wab7f1.wav",
+   "seconds": 5.8842083333333335,
    "text": "One last, wild what-if. This one is pure speculation, with no simulation behind it."
   },
   "whatif-cycle-1-1jbcxue": {
-   "file": "whatif-cycle-1-1jbcxue-9rdbsw.wav",
-   "seconds": 3.606375,
+   "file": "whatif-cycle-1-1jbcxue-1wab7f1.wav",
+   "seconds": 2.9821666666666666,
    "text": "An attractor bangs, and its matter fills the gap."
   },
   "whatif-cycle-2-1jwi0as": {
-   "file": "whatif-cycle-2-1jwi0as-9rdbsw.wav",
-   "seconds": 2.9544166666666665,
+   "file": "whatif-cycle-2-1jwi0as-1wab7f1.wav",
+   "seconds": 2.5122916666666666,
    "text": "Over eons, the neighbours swallow that matter."
   },
   "whatif-cycle-3-1wy1l20": {
-   "file": "whatif-cycle-3-1wy1l20-9rdbsw.wav",
-   "seconds": 3.906,
+   "file": "whatif-cycle-3-1wy1l20-1wab7f1.wav",
+   "seconds": 3.429666666666667,
    "text": "One of them grows too big, becomes unstable, and bangs again."
   },
   "whatif-cycle-4-w9si88": {
-   "file": "whatif-cycle-4-w9si88-9rdbsw.wav",
-   "seconds": 4.92325,
+   "file": "whatif-cycle-4-w9si88-1wab7f1.wav",
+   "seconds": 3.6862916666666665,
    "text": "Our universe would be one breath in a great cosmic metabolism."
   },
   "limits-0-1q7qbls": {
-   "file": "limits-0-1q7qbls-9rdbsw.wav",
-   "seconds": 3.2125416666666666,
+   "file": "limits-0-1q7qbls-1wab7f1.wav",
+   "seconds": 2.87275,
    "text": "Let's be honest about what this is. It's a toy model."
   },
   "limits-1-1vwzfo0": {
-   "file": "limits-1-1vwzfo0-9rdbsw.wav",
-   "seconds": 9.040666666666667,
+   "file": "limits-1-1vwzfo0-1wab7f1.wav",
+   "seconds": 9.253291666666666,
    "text": "Newtonian gravity in flat space. No general relativity, no early universe, no microwave background spectrum, and no baryon acoustic oscillations."
   },
   "limits-2-doyjua": {
-   "file": "limits-2-doyjua-9rdbsw.wav",
-   "seconds": 6.468041666666666,
+   "file": "limits-2-doyjua-1wab7f1.wav",
+   "seconds": 6.0165,
    "text": "It doesn't claim to be reality. It claims that ordinary gravity can fake dark energy. And that's worth checking."
   },
   "outro-0-diqyzd": {
-   "file": "outro-0-diqyzd-9rdbsw.wav",
-   "seconds": 4.791,
+   "file": "outro-0-diqyzd-1wab7f1.wav",
+   "seconds": 4.971291666666667,
    "text": "So, if the Hubble dipole, the Axis of Evil, and the dark flow all line up,"
   },
   "outro-1-1szkkhe": {
-   "file": "outro-1-1szkkhe-9rdbsw.wav",
-   "seconds": 4.04,
+   "file": "outro-1-1szkkhe-1wab7f1.wav",
+   "seconds": 3.1295,
    "text": "then dark energy might not be a property of space at all."
   },
   "outro-2-p4tixh": {
-   "file": "outro-2-p4tixh-9rdbsw.wav",
-   "seconds": 1.3860833333333333,
+   "file": "outro-2-p4tixh-1wab7f1.wav",
+   "seconds": 1.5417916666666667,
    "text": "It might just be the neighbours."
   }
  }

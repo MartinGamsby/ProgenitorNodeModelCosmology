@@ -10,10 +10,12 @@ const CX = WIDTH / 2;
 const SKY = {cx: CX, cy: 470, rx: 560, ry: 280};
 const AXIS = -0.45; // radians: the shared preferred direction on the map
 // Hubble-tension universe: random galaxies, an uneven CMB shell, a few irregular nearby galaxies
-const GAL = new Array(170).fill(0).map((_, i) => {
+// drawn like a logarithmic map of the observable universe: each step outward holds far more
+// volume, so galaxies crowd toward the edge and look smaller with distance
+const GAL = new Array(700).fill(0).map((_, i) => {
   const a = random(`hg${i}`) * Math.PI * 2;
-  const r = Math.sqrt(random(`hr${i}`)) * 0.93;
-  return {x: Math.cos(a) * r, y: Math.sin(a) * r, s: 1.5 + random(`hs${i}`) * 2.5};
+  const r = 0.96 * random(`hr${i}`) ** 0.22;
+  return {x: Math.cos(a) * r, y: Math.sin(a) * r, s: (1 + random(`hs${i}`) * 1.6) * (1.6 - r), o: 0.25 + 0.4 * (1 - r)};
 });
 const CMB = new Array(140).fill(0).map((_, i) => ({a: (i / 140) * Math.PI * 2 + random(`ca${i}`) * 0.04, s: 4 + random(`cs${i}`) * 6, o: 0.45 + random(`co${i}`) * 0.55}));
 const NEAR = [[-62, -88], [104, -30], [-118, 47], [38, 96], [151, 64], [-20, 131]].map(([x, y]) => ({x, y}));
@@ -136,7 +138,7 @@ export const Predictions: React.FC = () => {
           <circle cx={U.x} cy={U.y} r={U.r} fill="url(#bubble)" stroke={C.bubble} strokeWidth={3} />
           {/* galaxies scattered through our universe */}
           {GAL.map((g, k) => (
-            <circle key={k} cx={U.x + g.x * U.r} cy={U.y + g.y * U.r} r={g.s} fill="#9fb2e6" opacity={0.45} />
+            <circle key={k} cx={U.x + g.x * U.r} cy={U.y + g.y * U.r} r={g.s} fill="#9fb2e6" opacity={g.o + 0.2} />
           ))}
           {/* whole sky at once: the cosmic microwave background, light from the edge in every direction */}
           {CMB.map((c, k) => (
@@ -149,6 +151,9 @@ export const Predictions: React.FC = () => {
               <circle cx={U.x + g.x} cy={U.y + g.y} r={7} fill={C.hot} />
             </g>
           ))}
+          <text x={U.x} y={U.y + U.r + 34} fill={C.dim} fontFamily={FONT.body} fontWeight={600} fontSize={22} textAnchor="middle">
+            distances on a log scale
+          </text>
           <circle cx={U.x} cy={U.y} r={12} fill="#fff" opacity={usP} />
           <text x={U.x} y={U.y + 42} fill="#fff" fontFamily={FONT.body} fontWeight={800} fontSize={28} textAnchor="middle" opacity={usP}>
             us

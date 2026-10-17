@@ -66,6 +66,8 @@ export const WhatIfInvisible: React.FC = () => {
   const b = useBeats();
   const f = b.frame;
   const cy = 440;
+  // the disk flashes in to show what's missing, then fades away
+  const diskO = interpolate(f, [b.at(2), b.at(2, 20), b.at(2, 70), b.at(2, 100)], [0, 1, 1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   return (
     <AbsoluteFill>
       <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
@@ -77,11 +79,10 @@ export const WhatIfInvisible: React.FC = () => {
             <stop offset="100%" stopColor={C.nodeGlow} stopOpacity={0} />
           </radialGradient>
         </defs>
+        {/* the disk it no longer has: far half behind the black hole, near half in front */}
+        <path d={`M${CX - 330},${cy} A330,60 0 0 1 ${CX + 330},${cy}`} fill="none" stroke={C.gold} strokeWidth={14} opacity={0.6 * diskO} />
         <circle cx={CX} cy={cy} r={260 + 6 * Math.sin(f * 0.05)} fill="url(#lens)" opacity={b.p(0, 30)} />
-        {/* the disk it no longer has */}
-        <g opacity={interpolate(f, [b.at(2), b.at(2, 20), b.at(3)], [0, 0.8, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})}>
-          <ellipse cx={CX} cy={cy} rx={330} ry={60} fill="none" stroke={C.gold} strokeWidth={14} opacity={0.6} />
-        </g>
+        <path d={`M${CX - 330},${cy} A330,60 0 0 0 ${CX + 330},${cy}`} fill="none" stroke={C.gold} strokeWidth={14} opacity={0.6 * diskO} />
       </svg>
       {/* beat 1: distance isn't the reason; their light would have had time to reach us */}
       <Show from={1} until={2}>
@@ -106,9 +107,9 @@ export const WhatIfInvisible: React.FC = () => {
         </At>
       </Show>
       <Show from={2} until={3} offset={30}>
-        <At x={CX} y={cy}>
-          <Title size={44} color={C.dim} style={{textDecoration: 'line-through'}}>
-            glowing disk
+        <At x={CX} y={cy + 330}>
+          <Title size={40} color={C.dim}>
+            ✗ no glowing disk
           </Title>
         </At>
         <At x={CX} y={150}>
@@ -124,7 +125,7 @@ export const WhatIfInvisible: React.FC = () => {
               Hawking temperature
             </Label>
             <Tex tex={String.raw`T_H=\frac{\hbar c^3}{8\pi G M k_B}\approx 2.5\times10^{-33}\,\mathrm{K}`} size={46} />
-            <Label size={26}>(for M ≈ 5×10⁵⁵ kg)</Label>
+            <Label size={26}>(for M ≈ 5×10⁵⁵ kg) · ≈ absolute zero</Label>
           </Card>
         </At>
       </Show>

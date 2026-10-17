@@ -39,8 +39,11 @@ export const SCENES: SceneDef[] = [
     scene: 'Teaser',
     chapter: '',
     beats: [''],
-    minSeconds: 12,
-    sfx: [{beat: 0, sound: 'boom', offset: 1.4, volume: 0.35}],
+    minSeconds: 13,
+    sfx: [
+      {beat: 0, sound: 'boom', offset: 3.0, volume: 0.35},
+      {beat: 0, sound: 'boom', offset: 7.4, volume: 0.25},
+    ],
   },
   {
     id: 'hook',

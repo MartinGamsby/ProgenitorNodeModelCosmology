@@ -13,8 +13,8 @@ const AXIS = -0.45; // radians: the shared preferred direction on the map
 const MARK = {x: SKY.cx + Math.cos(AXIS) * 700, y: SKY.cy + Math.sin(AXIS) * 700};
 // Hubble tension: Planck 2018 (CMB, whole sky) and SH0ES (Riess et al. 2022, distance ladder)
 const H0 = [
-  {v: 67.4, e: 0.5, c: C.lcdm, l: 'whole sky at once (CMB, Planck)'},
-  {v: 73.04, e: 1.04, c: C.hot, l: 'nearby galaxies (distance ladder, SH0ES)'},
+  {v: 67.4, e: 0.5, c: C.lcdm, l: 'whole sky (CMB, Planck)'},
+  {v: 73.04, e: 1.04, c: C.hot, l: 'nearby galaxies (SH0ES)'},
 ];
 
 /** Beats: 0 fingerprint · 1 dipole · 2-3 Hubble tension · 4 tension expected here (anisotropy) ·
@@ -36,8 +36,13 @@ export const Predictions: React.FC = () => {
   const final = b.p(10, 30);
 
   // tension number line
-  const tBox = {x: 360, y: 250, w: 1200, h: 360};
+  const tBox = {x: 1080, y: 330, w: 700, h: 260};
   const ts = scales(tBox, [64, 76], [0, 1]);
+  const U = {x: 540, y: 520, r: 300};
+  // beat 2 reveals, in order: us, the whole sky (blue, both sides at once), nearby galaxies (red)
+  const usP = b.p(2, 12, 6);
+  const blueP = interpolate(b.through(2), [0.12, 0.22], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const redP = interpolate(b.through(2), [0.55, 0.65], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   const tensionO = Math.min(b.p(2, 15), 1 - b.p(5, 12));
 
   // phantom: drift toward the attractor (beat 7), then w(t) (beat 8)
@@ -91,7 +96,11 @@ export const Predictions: React.FC = () => {
                 const y = SKY.cy + j * 120 + i * 10;
                 const L = 70 * flow;
                 const tt = ((f * 2 + i * 20 + j * 37) % 60) / 60;
-                return <Arrow key={`${i}${j}`} x1={x + ax * L * tt} y1={y + ay * L * tt} x2={x + ax * L * (tt + 0.8)} y2={y + ay * L * (tt + 0.8)} color={C.eds} width={4} head={14} opacity={flow} />;
+                // every region drifts toward the same place: our nearest, heaviest neighbours
+                const dl = Math.hypot(MARK.x - x, MARK.y - y);
+                const ux = (MARK.x - x) / dl;
+                const uy = (MARK.y - y) / dl;
+                return <Arrow key={`${i}${j}`} x1={x + ux * L * tt} y1={y + uy * L * tt} x2={x + ux * L * (tt + 0.8)} y2={y + uy * L * (tt + 0.8)} color={C.eds} width={4} head={14} opacity={flow} />;
               }),
             )}
         </g>
@@ -108,37 +117,63 @@ export const Predictions: React.FC = () => {
         )}
       </svg>
 
-      {/* ---- Hubble tension ---- */}
+      {/* ---- Hubble tension: our universe on the left, the two measurements on the right ---- */}
       {tensionO > 0 && (
         <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute', opacity: tensionO}}>
-          <Axes box={tBox} xd={[64, 76]} yd={[0, 1]} xticks={[64, 66, 68, 70, 72, 74, 76]} xlabel="expansion rate today, H₀ (km/s per megaparsec)" grid={false} />
+          <SvgDefs />
+          {/* our universe, "us" in the middle */}
+          <circle cx={U.x} cy={U.y} r={U.r} fill="url(#bubble)" stroke={C.bubble} strokeWidth={3} />
+          {/* whole sky at once: the cosmic microwave background, all around the edge */}
+          <circle cx={U.x} cy={U.y} r={U.r - 6} fill="none" stroke={C.lcdm} strokeWidth={10} opacity={0.75 * blueP} />
+          {[0, 1, 2, 3, 4, 5].map((k) => {
+            const a = (k / 6) * Math.PI * 2 + 0.2;
+            return <circle key={k} cx={U.x + Math.cos(a) * (U.r - 6)} cy={U.y + Math.sin(a) * (U.r - 6)} r={14} fill={C.lcdm} opacity={blueP} />;
+          })}
+          {/* nearby galaxies (distance ladder), on both sides */}
+          {[[-95, -40], [-70, 55], [-120, 10], [90, -55], [115, 25], [70, 60]].map(([dx, dy], k) => (
+            <circle key={k} cx={U.x + dx} cy={U.y + dy} r={11} fill={C.hot} opacity={redP} />
+          ))}
+          <circle cx={U.x} cy={U.y} r={12} fill="#fff" opacity={usP} />
+          <text x={U.x} y={U.y + 42} fill="#fff" fontFamily={FONT.body} fontWeight={800} fontSize={28} textAnchor="middle" opacity={usP}>
+            us
+          </text>
+          {/* beat 4: a lopsided (anisotropic) expansion: faster toward one side */}
+          {b.on(4) &&
+            [0, 1, 2, 3, 4, 5, 6, 7].map((k) => {
+              const a = (k / 8) * Math.PI * 2;
+              const L = (90 + 70 * Math.max(0, Math.cos(a - AXIS))) * b.p(4, 30, 30);
+              return <Arrow key={k} x1={U.x + Math.cos(a) * 30} y1={U.y + Math.sin(a) * 30} x2={U.x + Math.cos(a) * (30 + L)} y2={U.y + Math.sin(a) * (30 + L)} color={C.gold} width={5} head={16} />;
+            })}
+
+          {/* the two measurements */}
+          <Axes box={tBox} xd={[64, 76]} yd={[0, 1]} xticks={[64, 68, 72, 76]} xlabel="expansion rate H₀ (km/s/Mpc)" grid={false} />
           {H0.map((m, i) => {
-            const y = tBox.y + 110 + i * 130;
-            const p = b.p(2, 20, 20 + i * 45);
+            const y = tBox.y + 70 + i * 100;
+            const p = i ? redP : blueP;
             return (
               <g key={i} opacity={p}>
                 <line x1={ts.X(m.v - m.e)} x2={ts.X(m.v + m.e)} y1={y} y2={y} stroke={m.c} strokeWidth={6} />
-                <circle cx={ts.X(m.v)} cy={y} r={16} fill={m.c} />
-                <text x={ts.X(m.v)} y={y - 34} fill={m.c} fontFamily={FONT.display} fontWeight={900} fontSize={54} textAnchor="middle">
+                <circle cx={ts.X(m.v)} cy={y} r={14} fill={m.c} />
+                <text x={ts.X(m.v)} y={y - 26} fill={m.c} fontFamily={FONT.display} fontWeight={900} fontSize={46} textAnchor="middle">
                   {Math.round(m.v)}
                 </text>
-                <text x={i ? ts.X(m.v) - 40 : ts.X(m.v) + 40} y={y + 10} fill={C.ink} fontFamily={FONT.body} fontWeight={700} fontSize={28} textAnchor={i ? 'end' : 'start'}>
+                <text x={ts.X(m.v)} y={y + 42} fill={C.ink} fontFamily={FONT.body} fontWeight={700} fontSize={22} textAnchor="middle">
                   {m.l}
                 </text>
               </g>
             );
           })}
           <g opacity={b.p(3, 20)}>
-            <rect x={ts.X(H0[0].v)} y={tBox.y + 20} width={ts.X(H0[1].v) - ts.X(H0[0].v)} height={tBox.h - 40} fill={C.gold} opacity={0.08} />
-            <text x={(ts.X(H0[0].v) + ts.X(H0[1].v)) / 2} y={tBox.y + tBox.h - 30} fill={C.gold} fontFamily={FONT.display} fontWeight={800} fontSize={36} textAnchor="middle">
+            <rect x={ts.X(H0[0].v)} y={tBox.y + 10} width={ts.X(H0[1].v) - ts.X(H0[0].v)} height={tBox.h - 20} fill={C.gold} opacity={0.08} />
+            <text x={tBox.x + tBox.w / 2} y={tBox.y - 30} fill={C.gold} fontFamily={FONT.display} fontWeight={800} fontSize={34} textAnchor="middle">
               ≈ 8% apart: the Hubble tension
             </text>
           </g>
           <g opacity={b.p(4, 20)} fontFamily={FONT.display} fontWeight={800}>
-            <text x={CX} y={tBox.y + tBox.h + 150} fill={C.dim} fontSize={34} textAnchor="middle">
+            <text x={tBox.x + tBox.w / 2} y={tBox.y + tBox.h + 130} fill={C.dim} fontSize={30} textAnchor="middle">
               standard cosmology: a headache
             </text>
-            <text x={CX} y={tBox.y + tBox.h + 205} fill={C.gold} fontSize={40} textAnchor="middle" opacity={b.p(4, 20, 50)}>
+            <text x={tBox.x + tBox.w / 2} y={tBox.y + tBox.h + 180} fill={C.gold} fontSize={36} textAnchor="middle" opacity={b.p(4, 20, 50)}>
               this model: expected (anisotropy)
             </text>
           </g>

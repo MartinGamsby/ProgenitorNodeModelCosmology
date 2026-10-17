@@ -54,8 +54,12 @@ Neural engines run in an isolated venv (keeps the research Python env untouched)
 py -3.12 -m venv .tts-venv
 .tts-venv/Scripts/python -m pip install chatterbox-tts kokoro soundfile "setuptools<81" --extra-index-url https://download.pytorch.org/whl/cpu
 .tts-venv/Scripts/python scripts/voice_samples.py        # A/B audition -> out/voice-samples/*.wav
-VOICE_ENGINE=chatterbox CB_EXAGGERATION=0.8 npm run voice # all clips; resumable if interrupted
+VOICE_ENGINE=chatterbox CB_EXAGGERATION=0.8 CB_CFG=0.35 npm run voice   # all clips (~1 h on CPU), resumable
+CB_EXAGGERATION=0.8 CB_CFG=0.35 .tts-venv/Scripts/python scripts/voice_check.py --fix  # Whisper QA, re-rolls bad clips
+VOICE_ENGINE=chatterbox CB_EXAGGERATION=0.8 CB_CFG=0.35 npm run voice   # refresh timing after a fix
 ```
+
+The current narration is Chatterbox's default voice at exaggeration 0.8, CFG 0.35.
 
 Clip files carry a hash of engine + settings, so only missing or changed lines are generated.
 

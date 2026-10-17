@@ -19,7 +19,8 @@ export type GlowLayer = {
   alpha?: number | ((i: number) => number);
 };
 
-export type SphereLayer = {kind: 'sphere'; center: V3; radius: number; color: string; alpha?: number; label?: string};
+/** outline: draw only the rim (no body, no fill), e.g. for a boundary you can see through. */
+export type SphereLayer = {kind: 'sphere'; center: V3; radius: number; color: string; alpha?: number; label?: string; outline?: boolean};
 
 export type Layer = PointLayer | GlowLayer | SphereLayer;
 
@@ -83,6 +84,16 @@ export const Space3D: React.FC<{
           depth: c.depth,
           draw: () => {
             ctx.globalCompositeOperation = 'source-over';
+            if (L.outline) {
+              ctx.setLineDash([10, 10]);
+              ctx.strokeStyle = hexA(L.color, 0.7 * a);
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+              ctx.stroke();
+              ctx.setLineDash([]);
+              return;
+            }
             ctx.fillStyle = `rgba(4,8,20,${0.55 * a})`; // body: partially hides what is behind
             ctx.beginPath();
             ctx.arc(c.x, c.y, r, 0, Math.PI * 2);

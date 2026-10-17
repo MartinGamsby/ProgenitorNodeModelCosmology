@@ -39,13 +39,14 @@ export const Beyond: React.FC = () => {
   // drawn exactly like the galaxies inside our bubble, just continuing outward
   const grid = useMemo(
     () =>
-      new Array(2600).fill(0).map((_, i): V3 => [
-        (random(`ux${i}`) * 2 - 1) * 190,
-        (random(`uy${i}`) * 2 - 1) * 190,
-        (random(`uz${i}`) * 2 - 1) * 190,
+      new Array(5200).fill(0).map((_, i): V3 => [
+        (random(`ux${i}`) * 2 - 1) * 100,
+        (random(`uy${i}`) * 2 - 1) * 100,
+        (random(`uz${i}`) * 2 - 1) * 100,
       ]).filter((p) => Math.hypot(...p) > R_OBS),
     [],
   );
+  const gridR = useMemo(() => grid.map((p) => Math.hypot(...p)), [grid]);
 
   // zoom path (px per Gpc), keyed to beats
   const scale = interpolate(
@@ -55,7 +56,12 @@ export const Beyond: React.FC = () => {
     {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'},
   );
   const cam = camAt(scale, f * 0.0035 + 0.3);
-  const gridO = Math.min(b.p(2, 20), 1 - b.p(3, 25, 10));
+  // standard view (beat 2): more of the same, forever. This model (beat 3+): more of the same
+  // only out to the edge of the Big Bang's matter (illustrative radius), then empty space.
+  const R_BANG = 3 * R_OBS;
+  const insideO = b.p(2, 20) * 0.55;
+  const outsideO = Math.min(b.p(2, 20), 1 - b.p(3, 25, 10)) * 0.55;
+  const edgeO = b.p(3, 25, 20);
   // our universe turns on its own axis too, so it never looks frozen while the camera orbits
   const spin = -f * 0.012; // same sense as the camera orbit
   const spunDust = dust.map(([x, y, z]): V3 => [x * Math.cos(spin) - z * Math.sin(spin), y, x * Math.sin(spin) + z * Math.cos(spin)]);
@@ -80,7 +86,8 @@ export const Beyond: React.FC = () => {
         height={HEIGHT}
         camera={cam}
         layers={[
-          {kind: 'points', pts: grid, color: (i) => (i % 3 ? '#cfe4ff' : '#ffd9a8'), size: Math.max(1.1, scale * 0.05), alpha: gridO * 0.55},
+          {kind: 'points', pts: grid, color: (i) => (i % 3 ? '#cfe4ff' : '#ffd9a8'), size: Math.max(1.1, scale * 0.05), alpha: (i) => (gridR[i] <= R_BANG ? insideO : outsideO)},
+          {kind: 'sphere', center: [0, 0, 0], radius: R_BANG, color: C.gold, alpha: edgeO * 0.8, outline: true},
           {kind: 'sphere', center: [0, 0, 0], radius: R_OBS, color: C.bubble, alpha: Math.min(1, b.p(0, 30, 10) + 0.0)},
           {kind: 'points', pts: spunDust, color: (i) => (i % 3 ? '#cfe4ff' : '#ffd9a8'), size: Math.max(1.1, scale * 0.05), alpha: interpolate(scale, [1, 8], [0.6, 0.9], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})},
           {kind: 'glows', pts: nodes, radius: (i) => (5 + 6 * Math.cbrt(mass[i])) * Math.max(1, scale / 1.3) ** 0.5, color: C.nodeGlow, core: C.node, alpha: nodeO},
@@ -114,8 +121,8 @@ export const Beyond: React.FC = () => {
       </Show>
       <Show from={3} until={4}>
         <At x={WIDTH / 2} y={170}>
-          <Title size={100} color={C.gold}>
-            …or not?
+          <Title size={46} color={C.gold} style={{textAlign: 'center'}}>
+            this model: more of the same, up to the edge of the Big Bang
           </Title>
         </At>
       </Show>

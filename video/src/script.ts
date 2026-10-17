@@ -84,7 +84,7 @@ export const SCENES: SceneDef[] = [
       "Let's zoom out.",
       'Everything we can ever see fits in a sphere about forty-six billion light-years in radius.',
       "Standard cosmology assumes that beyond our horizon, there's just more of the same: galaxies like ours, in every direction, forever.",
-      "But what if there isn't?",
+      "But what if it only goes so far? Out to the edge of what the Big Bang threw out, and beyond that, empty space.",
       'Picture giant dark masses far beyond our horizon, each *hundreds to thousands* of times heavier than our entire observable universe.',
       'Call them *hyper-massive external attractors*.',
       "They don't form a neat grid. They form a lumpy, settled swarm, like galaxies in a relaxed cluster, only absurdly bigger.",

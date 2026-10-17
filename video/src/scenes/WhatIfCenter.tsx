@@ -10,8 +10,15 @@ const CY = HEIGHT / 2 - 10;
 // the "real swarm" version of each lattice site: offset (px) and mass factor
 const JITTER = [
   [40, -30, 1.6], [-20, 50, 0.7], [-60, 20, 1.1], [30, 40, 0.6],
-  [-30, -40, 1.3], [50, 10, 0.8], [-10, -60, 1.0], [20, 30, 1.9],
+  [-30, -40, 1.3], [50, 10, 0.8], [-110, 10, 1.7], [20, 30, 1.1],
 ];
+
+const SITES = [-1, 0, 1].flatMap((i) => [-1, 0, 1].filter((j) => i || j).map((j) => [i, j]));
+const DOMINANT = SITES.reduce((best, [i, j], k) => {
+  const [dx, dy, m] = JITTER[k];
+  const g = m / ((i * 375 + dx) ** 2 + (j * 270 + dy) ** 2);
+  return g > best.g ? {k, g} : best;
+}, {k: 0, g: -1}).k;
 
 export const WhatIfCenter: React.FC = () => {
   const b = useBeats();
@@ -25,21 +32,13 @@ export const WhatIfCenter: React.FC = () => {
       const [dx, dy, m] = JITTER[k++];
       nodes.push({x: CX + i * sp * 1.25 + dx * real, y: CY + j * sp * 0.9 + dy * real, m: 1 + (m - 1) * real});
     }
-  // net pull on the centre: Σ m r̂ / d²
-  let nx = 0;
-  let ny = 0;
-  nodes.forEach((n) => {
-    const dx = n.x - CX;
-    const dy = n.y - CY;
-    const d = Math.hypot(dx, dy) / sp;
-    nx += (n.m * dx) / (d ** 3 * sp);
-    ny += (n.m * dy) / (d ** 3 * sp);
-  });
-  const nL = Math.hypot(nx, ny) || 1;
-  const netLen = Math.min(220, 160 * nL) * real;
+  // the dominant neighbour in the final swarm (largest m / d²): arrow and stretch point at it
+  const dom = nodes[DOMINANT];
+  const dL = Math.hypot(dom.x - CX, dom.y - CY) || 1;
+  const ax = (dom.x - CX) / dL;
+  const ay = (dom.y - CY) / dL;
+  const netLen = Math.min(dL - 80, 200) * real;
   const lop = b.p(3, 40);
-  const ax = nx / nL;
-  const ay = ny / nL;
   return (
     <AbsoluteFill>
       <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>

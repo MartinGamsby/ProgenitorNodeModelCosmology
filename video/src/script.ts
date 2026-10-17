@@ -48,6 +48,7 @@ export const SCENES: SceneDef[] = [
   },
   {
     id: 'title',
+    stars: false,
     scene: 'Title',
     chapter: '',
     beats: [''],
@@ -59,9 +60,10 @@ export const SCENES: SceneDef[] = [
     scene: 'Problem',
     chapter: 'The problem',
     beats: [
-      'In 1998, two teams measured distant exploding stars, called {Type Ia|type one A} supernovae.',
+      'In 1998, two teams measured distant exploding stars, called {Type Ia supernovae|type one A supernovas}.',
       'They looked too dim. They were farther away than a slowing universe would allow.',
       'The fix was a cosmological constant, {Λ|Lambda}: energy built into empty space itself.',
+      `Add invisible dark matter, and you get today's standard model of the universe, called ${LCDM}. Lambda for dark energy, C D M for cold dark matter.`,
       'It works beautifully. But it comes with two embarrassing problems.',
       'First, quantum physics predicts a vacuum energy about {10^120|ten to the power of one hundred and twenty} times too big.',
       'Second, why is dark energy about equal to matter *right now*, of all the moments we could be living in?',
@@ -70,6 +72,7 @@ export const SCENES: SceneDef[] = [
   },
   {
     id: 'beyond',
+    stars: false,
     scene: 'Beyond',
     chapter: 'Beyond the horizon',
     beats: [
@@ -80,11 +83,13 @@ export const SCENES: SceneDef[] = [
       'Picture giant dark masses far beyond our horizon, each *hundreds to thousands* of times heavier than our entire observable universe.',
       'Call them *hyper-massive external attractors*.',
       "They don't form a neat grid. They form a lumpy, settled swarm, like galaxies in a relaxed cluster, only absurdly bigger.",
+      "Physicists call that *virialized*. Not a frozen crystal where everything sits still, but a swarm where everything keeps moving, and the whole thing keeps its shape.",
       'And our universe sits in one of the gaps.',
     ],
   },
   {
     id: 'tides',
+    stars: false,
     scene: 'Tides',
     chapter: 'Pulled apart',
     beats: [
@@ -98,6 +103,7 @@ export const SCENES: SceneDef[] = [
   },
   {
     id: 'whatif-center',
+    stars: false,
     scene: 'WhatIfCenter',
     chapter: 'What if…',
     whatIf: 'we sat dead centre?',
@@ -110,6 +116,7 @@ export const SCENES: SceneDef[] = [
   },
   {
     id: 'progenitor',
+    stars: false,
     scene: 'Progenitor',
     chapter: 'The Progenitor Hypothesis',
     beats: [
@@ -127,6 +134,7 @@ export const SCENES: SceneDef[] = [
   },
   {
     id: 'simulation',
+    stars: false,
     scene: 'Simulation',
     chapter: 'The simulation',
     beats: [
@@ -146,19 +154,21 @@ export const SCENES: SceneDef[] = [
     chapter: 'Moment of truth',
     beats: [
       'Now, the moment of truth: *real data*.',
-      'More than fifteen hundred {Type Ia|type one A} supernovae, from the {Pantheon+|Pantheon plus} catalogue.',
+      'More than fifteen hundred {Type Ia supernovae|type one A supernovas}, from the {Pantheon+|Pantheon plus} catalogue.',
       'We turn the simulated expansion into a curve of distance versus redshift. No shortcuts.',
       'Now zoom in on the differences. A universe without dark energy misses. *Badly*.',
       `Standard ${LCDM} nails it.`,
       'And the attractor model?',
       'Right on top of it.',
       `Here's the fit score, where lower is better. No dark energy: {0.843|zero point eight four three}. ${LCDM}: {0.436|zero point four three six}. Our model: {0.440|zero point four four zero}.`,
-      `Some runs even edge past ${LCDM}, but by less than the simulation's own noise. So the honest word is: it *matches*. From ten thousand to a hundred thousand particles.`,
+      `Some runs even score {0.433|zero point four three three}, a hair better than ${LCDM}. But that gap is smaller than the simulation's own noise, so the honest word is: it *matches*.`,
+      'And remember: fitting is not explaining. A good fit alone is not enough to make a universe. More on that in a moment.',
     ],
     sfx: [{beat: 6, sound: 'ding'}],
   },
   {
     id: 'whatif-observer',
+    stars: false,
     scene: 'WhatIfObserver',
     chapter: 'What if…',
     whatIf: "we're not at the centre?",
@@ -170,6 +180,7 @@ export const SCENES: SceneDef[] = [
   },
   {
     id: 'whatif-close',
+    stars: false,
     scene: 'WhatIfClose',
     chapter: 'What if…',
     whatIf: 'the attractors are too close?',
@@ -198,6 +209,7 @@ export const SCENES: SceneDef[] = [
   },
   {
     id: 'catch',
+    stars: false,
     scene: 'Catch',
     chapter: 'The catch',
     beats: [
@@ -215,7 +227,8 @@ export const SCENES: SceneDef[] = [
       "Remember that lopsided fingerprint? *That's* the test.",
       'Prediction one: a *Hubble dipole*. One half of the sky should expand a little faster than the other.',
       'Measure the expansion rate from the whole sky at once, and you get 67. Measure it with nearby galaxies, and you get 73.',
-      'Those numbers should agree, and they don\'t. It\'s called the *Hubble tension*, and a lopsided expansion could be part of the reason.',
+      "Those numbers should agree, and they don't. It's called the *Hubble tension*.",
+      'For standard cosmology, that is a headache. For this model, it is expected. A lopsided expansion, what physicists call *anisotropy*, gives different answers depending on how you look.',
       "Prediction two: the *Axis of Evil*. The biggest patterns in the cosmic microwave background line up along a strange axis.",
       'Lopsided neighbours could imprint exactly that kind of alignment.',
       'Prediction three: *dark flow*. Huge regions of galaxies drifting together, pulled by something outside the survey.',
@@ -226,18 +239,21 @@ export const SCENES: SceneDef[] = [
   },
   {
     id: 'whatif-invisible',
+    stars: false,
     scene: 'WhatIfInvisible',
     chapter: 'What if…',
     whatIf: 'they’re real? Why can’t we see them?',
     beats: [
       "If these things are so huge, why can't we see them?",
-      "First, they're beyond our horizon. But they would also be ancient black holes that swallowed everything nearby long ago.",
-      'No food means no glowing disk. And their Hawking radiation is absurdly cold: about {10^-33|ten to the minus thirty-three} kelvin.',
+      "Distance isn't the answer. They're older than the Big Bang, so their light would have had plenty of time to reach us.",
+      "The answer is that they have no light left to give. They'd be ancient black holes that swallowed everything around them long ago, and a black hole with nothing left to eat doesn't glow.",
+      'Even their Hawking radiation is absurdly cold: about {10^-33|ten to the minus thirty-three} kelvin.',
       '*Dark giants*. Seen only by their pull.',
     ],
   },
   {
     id: 'whatif-cycle',
+    stars: false,
     scene: 'WhatIfCycle',
     chapter: 'What if…',
     whatIf: 'it’s a cycle?',
@@ -261,6 +277,7 @@ export const SCENES: SceneDef[] = [
   },
   {
     id: 'outro',
+    stars: false,
     scene: 'Outro',
     chapter: '',
     beats: [

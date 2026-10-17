@@ -79,18 +79,45 @@ export const WhatIfInvisible: React.FC = () => {
         </defs>
         <circle cx={CX} cy={cy} r={260 + 6 * Math.sin(f * 0.05)} fill="url(#lens)" opacity={b.p(0, 30)} />
         {/* the disk it no longer has */}
-        <g opacity={interpolate(f, [b.at(1), b.at(1, 20), b.at(2)], [0, 0.8, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})}>
+        <g opacity={interpolate(f, [b.at(2), b.at(2, 20), b.at(3)], [0, 0.8, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})}>
           <ellipse cx={CX} cy={cy} rx={330} ry={60} fill="none" stroke={C.gold} strokeWidth={14} opacity={0.6} />
         </g>
       </svg>
-      <Show from={1} until={2} offset={30}>
+      {/* beat 1: distance isn't the reason; their light would have had time to reach us */}
+      <Show from={1} until={2}>
+        <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
+          <SvgDefs />
+          <circle cx={1700} cy={cy} r={70} fill="url(#bubble)" stroke={C.bubble} strokeWidth={3} />
+          {[-1, 0, 1].map((k) => {
+            const t = ((f - b.at(1)) * 0.012 + k * 0.33) % 1;
+            const x = CX + 280 + t * (1700 - 90 - CX - 280);
+            return <Arrow key={k} x1={x - 60} y1={cy + k * 40} x2={x} y2={cy + k * 40} color={C.gold} width={5} head={16} />;
+          })}
+        </svg>
+        <At x={1700} y={cy + 110}>
+          <Label size={28} color={C.bubble} style={{fontWeight: 700}}>
+            us
+          </Label>
+        </At>
+        <At x={CX} y={150}>
+          <Title size={46}>
+            older than the Big Bang → <span style={{color: C.gold}}>their light had time to reach us</span>
+          </Title>
+        </At>
+      </Show>
+      <Show from={2} until={3} offset={30}>
         <At x={CX} y={cy}>
           <Title size={44} color={C.dim} style={{textDecoration: 'line-through'}}>
             glowing disk
           </Title>
         </At>
+        <At x={CX} y={150}>
+          <Title size={50}>
+            nothing left to eat → <span style={{color: C.node}}>no light left to give</span>
+          </Title>
+        </At>
       </Show>
-      <Show from={2} until={3}>
+      <Show from={3} until={4}>
         <At x={CX} y={790}>
           <Card accent={C.lcdm} style={{display: 'flex', alignItems: 'center', gap: 40}}>
             <Label size={30} color={C.ink} style={{fontWeight: 700}}>
@@ -101,7 +128,7 @@ export const WhatIfInvisible: React.FC = () => {
           </Card>
         </At>
       </Show>
-      <Show from={3}>
+      <Show from={4}>
         <At x={CX} y={cy}>
           <Title size={120} style={{textShadow: `0 0 40px ${C.nodeGlow}`}}>
             DARK GIANTS

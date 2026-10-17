@@ -26,6 +26,10 @@ VARIANTS = {
     "kokoro-heart": ("kokoro", {"KOKORO_VOICE": "af_heart"}),
     "chatterbox-0.5": ("chatterbox", {"CB_EXAGGERATION": "0.5", "CB_CFG": "0.5"}),
     "chatterbox-0.8": ("chatterbox", {"CB_EXAGGERATION": "0.8", "CB_CFG": "0.35"}),
+    "chatterbox-calm": ("chatterbox", {"CB_EXAGGERATION": "0.5", "CB_CFG": "0.3"}),
+    "martin-0.5": ("chatterbox", {"CB_EXAGGERATION": "0.5", "CB_CFG": "0.5", "CB_PROMPT": os.path.join(ROOT, "voice-ref", "martin.wav")}),
+    "martin-0.7": ("chatterbox", {"CB_EXAGGERATION": "0.7", "CB_CFG": "0.3", "CB_PROMPT": os.path.join(ROOT, "voice-ref", "martin.wav")}),
+    "kokoro-george-slow": ("kokoro", {"KOKORO_VOICE": "bm_george", "KOKORO_SPEED": "0.9"}),
 }
 
 

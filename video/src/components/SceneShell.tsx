@@ -2,6 +2,7 @@ import React from 'react';
 import {AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {C, FONT, T} from '../theme';
 import type {SceneDef, SceneTiming} from '../types';
+import {Starfield} from './Background';
 import {Captions} from './Captions';
 
 /** Big tilted "WHAT IF…?" stamp shown during the scene intro, then docked as a badge. */
@@ -101,6 +102,7 @@ export const SceneShell: React.FC<{def: SceneDef; timing: SceneTiming; children:
   );
   return (
     <AbsoluteFill style={{opacity: fade}}>
+      {def.stars !== false && <Starfield starsOnly />}
       {children}
       {def.chapter && !def.whatIf && <Chapter label={def.chapter} />}
       <Captions timing={timing} />

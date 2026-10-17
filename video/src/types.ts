@@ -11,6 +11,9 @@ export type SceneDef = {
   whatIf?: string;
   /** Narration, one caption/voice clip per entry. '' = silent beat. */
   beats: string[];
+  /** Twinkling stars behind this scene (default true). Off whenever we look at the universe
+   *  or the attractor swarm from outside: there are no stars out there. */
+  stars?: boolean;
   /** Pad the scene to at least this long. */
   minSeconds?: number;
   sfx?: {beat: number; sound: Sound}[];

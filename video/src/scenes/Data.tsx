@@ -5,11 +5,14 @@ import {Axes, LegendItem, scales} from '../components/Chart';
 import {Show} from '../components/Show';
 import {At, Card, Label, pathOf, partial, Tex, Title} from '../components/ui';
 import hubble from '../../public/data/hubble.json';
+import verdict from '../../public/data/verdict.json';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
 
 const BOX = {x: 330, y: 190, w: 1260, h: 560};
 /** Best-observer χ²/dof moves ~±0.005 with particle count / observer sampling (lode PF28). */
 export const NOISE = 0.005;
+/** Best best-observer fit among the 68 universe-like cells of the 72-cell campaign. */
+const BEST_RUN = Math.min(...(verdict.cells as {bo: number | null; ok: boolean}[]).filter((c) => c.ok && c.bo !== null).map((c) => c.bo as number));
 const XD: [number, number] = [0.01, 2.3];
 
 export const Data: React.FC = () => {
@@ -34,9 +37,10 @@ export const Data: React.FC = () => {
   const chartGone = b.p(7, 15);
 
   const bars = [
-    {l: 'No dark energy (EdS)', v: h.chi2.eds, c: C.eds},
-    {l: 'ΛCDM', v: h.chi2.lcdm, c: C.lcdm},
-    {l: 'Attractor model', v: h.chi2.model, c: C.model},
+    {l: 'No dark energy (EdS)', v: h.chi2.eds, c: C.eds, beat: 7},
+    {l: 'ΛCDM', v: h.chi2.lcdm, c: C.lcdm, beat: 7},
+    {l: 'Attractor model', v: h.chi2.model, c: C.model, beat: 7},
+    {l: 'Best universe-like run', v: BEST_RUN, c: '#ffc27a', beat: 8},
   ];
   return (
     <AbsoluteFill>
@@ -119,9 +123,9 @@ export const Data: React.FC = () => {
           <Title size={58}>
             Fit score <span style={{color: C.dim, fontSize: 36}}>(χ²/dof · lower is better)</span>
           </Title>
-          <div style={{marginTop: 60, display: 'flex', flexDirection: 'column', gap: 34, width: 1400}}>
+          <div style={{marginTop: 50, display: 'flex', flexDirection: 'column', gap: 26, width: 1400}}>
             {bars.map((bar, i) => {
-              const p = b.p(7, 30, 25 + i * 35);
+              const p = bar.beat === 7 ? b.p(7, 30, 25 + i * 35) : b.p(bar.beat, 30, 10);
               return (
                 <div key={i} style={{display: 'flex', alignItems: 'center', gap: 30}}>
                   <div style={{width: 470, textAlign: 'right', fontFamily: FONT.body, fontWeight: 700, fontSize: 34, color: C.ink}}>{bar.l}</div>
@@ -133,13 +137,23 @@ export const Data: React.FC = () => {
           </div>
         </AbsoluteFill>
       </Show>
-      <Show from={8}>
-        <At x={WIDTH / 2} y={700}>
+      <Show from={8} until={9} offset={40}>
+        <At x={WIDTH / 2} y={760}>
           <Card accent={C.gold} style={{textAlign: 'center'}}>
             <Title size={46}>
               it <span style={{color: C.gold}}>matches</span> ΛCDM
             </Title>
             <Label size={28}>gaps below ±{NOISE} are simulation noise · converged from 10,000 to 100,000 particles</Label>
+          </Card>
+        </At>
+      </Show>
+      <Show from={9}>
+        <At x={WIDTH / 2} y={760}>
+          <Card accent={C.hot} style={{textAlign: 'center'}}>
+            <Title size={50}>
+              fitting <span style={{color: C.hot}}>≠</span> explaining
+            </Title>
+            <Label size={28}>a good fit alone doesn’t make a universe · more on that in a moment</Label>
           </Card>
         </At>
       </Show>

@@ -162,12 +162,26 @@ export const WhatIfClose: React.FC = () => {
           {[-1, 1].map((s) => (
             <NodeDot key={s} x={CX + s * (720 - 330 * close)} y={CY} r={46} />
           ))}
-          <circle cx={CX} cy={CY} r={110 + 600 * run ** 2} fill="url(#bubble)" stroke={C.bubble} strokeWidth={3} opacity={1 - run * 0.6} />
-          {b.on(1) &&
-            parts.map((p, i) => {
-              const r = p.r * (110 + 800 * run ** 2);
-              return <circle key={i} cx={CX + Math.cos(p.a) * r} cy={CY + Math.sin(p.a) * r * 0.9} r={2.4} fill="#cfe4ff" />;
-            })}
+          {/* the cloud is stretched toward both attractors, then torn apart */}
+          <ellipse cx={CX} cy={CY} rx={110 * (1 + 2.6 * run ** 2)} ry={110 * (1 - 0.35 * run)} fill="url(#bubble)" stroke={C.bubble} strokeWidth={3} opacity={1 - run} />
+          {parts.map((p, i) => {
+            const x0 = CX + Math.cos(p.a) * p.r * 105;
+            const y0 = CY + Math.sin(p.a) * p.r * 105;
+            const side = Math.cos(p.a) >= 0 ? 1 : -1;
+            const nx = CX + side * (720 - 330 * close);
+            const u = run ** 2 * (1.1 + 0.5 * random(`ru${i}`)); // accelerating, each at its own pace
+            if (random(`rf${i}`) < 0.62) {
+              // swallowed: falls straight into the attractor
+              const k = Math.min(1, u);
+              return k >= 0.98 ? null : <circle key={i} cx={x0 + (nx - x0) * k} cy={y0 + (CY - y0) * k} r={2.6} fill="#cfe4ff" />;
+            }
+            // slingshot: whips past the attractor and is flung away on a bent path
+            const off = (Math.sin(p.a) >= 0 ? 1 : -1) * (40 + 40 * random(`ro${i}`));
+            if (u < 1) return <circle key={i} cx={x0 + (nx - x0) * u} cy={y0 + (CY + off - y0) * u} r={2.6} fill="#ffd9a8" />;
+            const t = u - 1;
+            const ang = (off > 0 ? 1 : -1) * (0.6 + 1.2 * t);
+            return <circle key={i} cx={nx + side * Math.cos(ang) * t * 700} cy={CY + off + Math.sin(ang) * t * 700} r={2.6} fill="#ffd9a8" />;
+          })}
         </svg>
       )}
       <Show from={1} until={2} offset={10}>
@@ -175,6 +189,11 @@ export const WhatIfClose: React.FC = () => {
           <Title size={90} color={C.hot}>
             RUNAWAY
           </Title>
+        </At>
+        <At x={CX} y={240}>
+          <Label size={32} color={C.ink} style={{fontWeight: 700}}>
+            stretched · swallowed · slingshot away
+          </Label>
         </At>
       </Show>
 

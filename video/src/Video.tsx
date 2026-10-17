@@ -43,7 +43,7 @@ const EndFade: React.FC = () => {
 
 export const Explainer: React.FC = () => (
   <AbsoluteFill style={{background: '#04060d'}}>
-    <Starfield />
+    <Starfield count={0} />
     <Music />
     {TIMELINE.scenes.map((t, k) => {
       const def = SCENES[k];

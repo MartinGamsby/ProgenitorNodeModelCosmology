@@ -9,14 +9,17 @@ import {C, FONT, HEIGHT, WIDTH} from '../theme';
 const CX = WIDTH / 2;
 const SKY = {cx: CX, cy: 470, rx: 560, ry: 280};
 const AXIS = -0.45; // radians: the shared preferred direction on the map
+/** Where the shared axis points, OUTSIDE the sky map: our nearest, heaviest neighbours. */
+const MARK = {x: SKY.cx + Math.cos(AXIS) * 700, y: SKY.cy + Math.sin(AXIS) * 700};
 // Hubble tension: Planck 2018 (CMB, whole sky) and SH0ES (Riess et al. 2022, distance ladder)
 const H0 = [
   {v: 67.4, e: 0.5, c: C.lcdm, l: 'whole sky at once (CMB, Planck)'},
   {v: 73.04, e: 1.04, c: C.hot, l: 'nearby galaxies (distance ladder, SH0ES)'},
 ];
 
-/** Beats: 0 fingerprint · 1 dipole · 2-3 Hubble tension · 4-5 Axis of Evil · 6 dark flow ·
- *  7 phantom: pull grows as we drift · 8 phantom: w < −1 · 9 all the same way */
+/** Beats: 0 fingerprint · 1 dipole · 2-3 Hubble tension · 4 tension expected here (anisotropy) ·
+ *  5-6 Axis of Evil · 7 dark flow · 8 phantom: pull grows as we drift (accelerating) ·
+ *  9 phantom: w < −1 · 10 all the same way (attractor marker outside the map, on the axis) */
 export const Predictions: React.FC = () => {
   const b = useBeats();
   const f = b.frame;
@@ -24,22 +27,23 @@ export const Predictions: React.FC = () => {
   const ay = Math.sin(AXIS);
   // sky map visible except during the tension (2-3) and phantom (7-8) beats
   const skyO = Math.min(
-    1 - b.p(2, 12) + b.p(4, 12),
-    1 - b.p(7, 12) + b.p(9, 12),
+    1 - b.p(2, 12) + b.p(5, 12),
+    1 - b.p(8, 12) + b.p(10, 12),
   );
   const dip = b.p(1, 30);
-  const multi = b.p(4, 30);
-  const flow = b.p(6, 30);
-  const final = b.p(9, 30);
+  const multi = b.p(5, 30);
+  const flow = b.p(7, 30);
+  const final = b.p(10, 30);
 
   // tension number line
   const tBox = {x: 360, y: 250, w: 1200, h: 360};
   const ts = scales(tBox, [64, 76], [0, 1]);
-  const tensionO = Math.min(b.p(2, 15), 1 - b.p(4, 12));
+  const tensionO = Math.min(b.p(2, 15), 1 - b.p(5, 12));
 
   // phantom: drift toward the attractor (beat 7), then w(t) (beat 8)
-  const drift = interpolate(f, [b.at(7), b.at(8)], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-  const driftO = Math.min(b.p(7, 15), 1 - b.p(8, 12));
+  // starts slow and speeds up as the pull grows: the speed-up speeds up
+  const drift = interpolate(f, [b.at(8), b.at(9)], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: (t) => t ** 2.6});
+  const driftO = Math.min(b.p(8, 15), 1 - b.p(9, 12));
   const bx = 520 + 520 * drift;
   const nodeX = 1500;
   const pull = 60 + 260 / ((nodeX - bx) / 400) ** 2 * 0.25;
@@ -47,7 +51,7 @@ export const Predictions: React.FC = () => {
   const ws = scales(wBox, [0, 1], [-1.35, -0.85]);
   const xs = new Array(60).fill(0).map((_, i) => i / 59);
   const wModel = xs.map((u) => [ws.X(u), ws.Y(-1 - 0.25 * u ** 2.2)] as [number, number]);
-  const wO = Math.min(b.p(8, 15), 1 - b.p(9, 12));
+  const wO = Math.min(b.p(9, 15), 1 - b.p(10, 12));
   return (
     <AbsoluteFill>
       {/* ---- sky map ---- */}
@@ -93,9 +97,13 @@ export const Predictions: React.FC = () => {
         </g>
         {final > 0 && (
           <g opacity={final}>
-            <circle cx={SKY.cx + ax * 470} cy={SKY.cy + ay * 235} r={30 + 8 * Math.sin(f * 0.2)} fill="none" stroke={C.gold} strokeWidth={6} />
+            <line x1={SKY.cx} y1={SKY.cy} x2={MARK.x} y2={MARK.y} stroke={C.gold} strokeWidth={4} strokeDasharray="14 10" />
+            <circle cx={MARK.x} cy={MARK.y} r={46 + 8 * Math.sin(f * 0.2)} fill="none" stroke={C.gold} strokeWidth={6} />
+            <text x={MARK.x} y={MARK.y + 100} fill={C.gold} fontFamily={FONT.body} fontWeight={800} fontSize={28} textAnchor="middle">
+              nearest, heaviest neighbours
+            </text>
             <SvgDefs />
-            <NodeDot x={SKY.cx + ax * 470} y={SKY.cy + ay * 235} r={16} />
+            <NodeDot x={MARK.x} y={MARK.y} r={26} />
           </g>
         )}
       </svg>
@@ -126,6 +134,14 @@ export const Predictions: React.FC = () => {
               ≈ 8% apart: the Hubble tension
             </text>
           </g>
+          <g opacity={b.p(4, 20)} fontFamily={FONT.display} fontWeight={800}>
+            <text x={CX} y={tBox.y + tBox.h + 150} fill={C.dim} fontSize={34} textAnchor="middle">
+              standard cosmology: a headache
+            </text>
+            <text x={CX} y={tBox.y + tBox.h + 205} fill={C.gold} fontSize={40} textAnchor="middle" opacity={b.p(4, 20, 50)}>
+              this model: expected (anisotropy)
+            </text>
+          </g>
         </svg>
       )}
 
@@ -145,7 +161,7 @@ export const Predictions: React.FC = () => {
         <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute', opacity: wO}}>
           <Axes box={wBox} xd={[0, 1]} yd={[-1.35, -0.85]} xticks={[0, 1]} fmtX={(v) => (v ? 'later' : 'earlier')} yticks={[-1.3, -1.2, -1.1, -1, -0.9]} fmtY={(v) => v.toFixed(1)} xlabel="time →" ylabel="w (dark-energy “type”)" />
           <line x1={wBox.x} x2={wBox.x + wBox.w} y1={ws.Y(-1)} y2={ws.Y(-1)} stroke={C.lcdm} strokeWidth={6} />
-          <path d={pathOf(partial(wModel, b.p(8, 50, 10)))} stroke={C.model} strokeWidth={7} fill="none" />
+          <path d={pathOf(partial(wModel, b.p(9, 50, 10)))} stroke={C.model} strokeWidth={7} fill="none" />
           <LegendItem x={wBox.x + 30} y={wBox.y + 30} color={C.lcdm} text="cosmological constant: w = −1, forever" />
           <LegendItem x={wBox.x + 30} y={wBox.y + 80} color={C.model} text="attractors: w drifts below −1 (shape illustrative)" />
           <text x={ws.X(0.62)} y={ws.Y(-1.21)} fill={C.model} fontFamily={FONT.display} fontWeight={800} fontSize={36}>
@@ -169,33 +185,33 @@ export const Predictions: React.FC = () => {
           </Title>
         </At>
       </Show>
-      <Show from={2} until={4}>
+      <Show from={2} until={5}>
         <At x={CX} y={150}>
           <Title size={50}>Two ways to measure the expansion rate</Title>
         </At>
       </Show>
-      <Show from={4} until={6}>
+      <Show from={5} until={7}>
         <At x={CX} y={830}>
           <Title size={46}>
             <span style={{color: C.gold}}>#2</span> CMB “Axis of Evil”: biggest patterns share one axis
           </Title>
         </At>
       </Show>
-      <Show from={6} until={7}>
+      <Show from={7} until={8}>
         <At x={CX} y={830}>
           <Title size={46}>
             <span style={{color: C.gold}}>#3</span> Dark flow: galaxies drifting in bulk
           </Title>
         </At>
       </Show>
-      <Show from={7} until={9}>
+      <Show from={8} until={10}>
         <At x={CX} y={130}>
           <Title size={46}>
             <span style={{color: C.gold}}>#4</span> Phantom acceleration: the speed-up speeds up
           </Title>
         </At>
       </Show>
-      <Show from={9}>
+      <Show from={10}>
         <At x={CX} y={830}>
           <Title size={50}>
             all pointing <span style={{color: C.gold}}>the same way</span>

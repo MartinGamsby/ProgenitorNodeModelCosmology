@@ -123,8 +123,33 @@ export const Problem: React.FC = () => {
         </At>
       </Show>
 
-      {/* beat 3: two problems */}
+      {/* beat 3: what ΛCDM means */}
       <Show from={3} until={4}>
+        <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center', flexDirection: 'column', gap: 40}}>
+          <Label size={36} color={C.dim} style={{fontFamily: FONT.display, fontWeight: 800, letterSpacing: 2}}>
+            THE STANDARD MODEL OF THE UNIVERSE
+          </Label>
+          <Title size={170} style={{letterSpacing: 4}}>
+            <span style={{color: C.lcdm}}>Λ</span>
+            <span style={{color: '#8fa3d8'}}>CDM</span>
+          </Title>
+          <div style={{display: 'flex', gap: 120, opacity: b.p(3, 20, 25)}}>
+            <div style={{textAlign: 'center'}}>
+              <Title size={64} color={C.lcdm}>Λ</Title>
+              <Label size={34} color={C.ink}>dark energy</Label>
+              <Label size={26}>(“Lambda”)</Label>
+            </div>
+            <div style={{textAlign: 'center'}}>
+              <Title size={64} color="#8fa3d8">CDM</Title>
+              <Label size={34} color={C.ink}>cold dark matter</Label>
+              <Label size={26}>(invisible, slow-moving matter)</Label>
+            </div>
+          </div>
+        </AbsoluteFill>
+      </Show>
+
+      {/* beat 4: two problems */}
+      <Show from={4} until={5}>
         <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center', flexDirection: 'column', gap: 30}}>
           <Title size={120}>It works. But…</Title>
           <Title size={70} color={C.hot}>
@@ -134,12 +159,12 @@ export const Problem: React.FC = () => {
       </Show>
 
       {/* beat 4: 10^120 */}
-      <Show from={4} until={5}>
+      <Show from={5} until={6}>
         <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center', flexDirection: 'column', gap: 10}}>
           <Label size={44} color={C.dim} style={{fontFamily: FONT.display, fontWeight: 800}}>
             PROBLEM #1 · FINE-TUNING
           </Label>
-          <div style={{display: 'flex', alignItems: 'baseline', gap: 30, transform: `scale(${0.7 + 0.3 * b.s(4, 8)})`}}>
+          <div style={{display: 'flex', alignItems: 'baseline', gap: 30, transform: `scale(${0.7 + 0.3 * b.s(5, 8)})`}}>
             <Tex tex={'10^{120}'} size={250} color={C.hot} />
             <Title size={90}>× too big</Title>
           </div>
@@ -154,20 +179,20 @@ export const Problem: React.FC = () => {
               lineHeight: 1.25,
             }}
           >
-            1{'0'.repeat(Math.round(120 * b.p(4, 60, 10)))}
+            1{'0'.repeat(Math.round(120 * b.p(5, 60, 10)))}
           </div>
         </AbsoluteFill>
       </Show>
 
       {/* beat 5: coincidence */}
-      <Show from={5} until={6}>
+      <Show from={6} until={7}>
         <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
           <Axes box={cBox} xd={[0.5, 30]} yd={[-1.6, 2.4]} xticks={[1, 5, 10, 13.8, 20, 30]} fmtX={(v) => (v === 13.8 ? 'now' : `${v}`)} xlabel="cosmic time (billion years)" ylabel="density (log)" grid={false} />
-          <path d={pathOf(partial(rhoM, b.p(5, 50)))} stroke={C.gold} strokeWidth={7} fill="none" />
-          <path d={pathOf(partial(rhoL, b.p(5, 50)))} stroke={C.node} strokeWidth={7} fill="none" />
+          <path d={pathOf(partial(rhoM, b.p(6, 50)))} stroke={C.gold} strokeWidth={7} fill="none" />
+          <path d={pathOf(partial(rhoL, b.p(6, 50)))} stroke={C.node} strokeWidth={7} fill="none" />
           <text x={cs.X(2.2)} y={cs.Y(1.9)} fill={C.gold} fontFamily={FONT.body} fontWeight={700} fontSize={32}>matter (thins out)</text>
           <text x={cs.X(21)} y={cs.Y(0) - 22} fill={C.node} fontFamily={FONT.body} fontWeight={700} fontSize={32}>dark energy (constant)</text>
-          <g opacity={b.p(5, 15, 55)}>
+          <g opacity={b.p(6, 15, 55)}>
             <line x1={cs.X(13.8)} x2={cs.X(13.8)} y1={cBox.y} y2={cBox.y + cBox.h} stroke={C.ink} strokeWidth={3} strokeDasharray="8 8" />
             <circle cx={cs.X(13.8)} cy={cs.Y(Math.log10(0.3 / 0.7))} r={16} fill="none" stroke={C.hot} strokeWidth={5} />
             <text x={cs.X(13.8) + 26} y={cBox.y + 40} fill={C.hot} fontFamily={FONT.display} fontWeight={800} fontSize={40}>us. right now?!</text>
@@ -181,7 +206,7 @@ export const Problem: React.FC = () => {
       </Show>
 
       {/* beat 6 */}
-      <Show from={6}>
+      <Show from={7}>
         <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center', flexDirection: 'column', gap: 20}}>
           <Title size={110}>Fitting</Title>
           <Title size={140} color={C.hot}>≠</Title>

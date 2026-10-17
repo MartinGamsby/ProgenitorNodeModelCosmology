@@ -4,3 +4,5 @@ out/
 # generated audio: npm run voice / npm run music
 public/voice/
 public/audio/
+# personal voice reference (never commit)
+voice-ref/

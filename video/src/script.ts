@@ -29,7 +29,8 @@ export const CREDITS = {
   doi: 'doi.org/10.5281/zenodo.20481859',
 };
 
-const LCDM = '{ΛCDM|Lambda C D M}';
+// 'Lambda CDM' (CDM as one word) gave the shortest Lambda→CDM gap and the cleanest transcript
+const LCDM = '{ΛCDM|Lambda CDM}';
 
 export const SCENES: SceneDef[] = [
   {
@@ -63,7 +64,7 @@ export const SCENES: SceneDef[] = [
       'In 1998, two teams measured distant exploding stars, called {Type Ia supernovae|type one A supernovas}.',
       'They looked too dim. They were farther away than a slowing universe would allow.',
       'The fix was a cosmological constant, {Λ|Lambda}: energy built into empty space itself.',
-      `Add invisible dark matter, and you get today's standard model of the universe, called ${LCDM}. Lambda for dark energy, C D M for cold dark matter.`,
+      `Add invisible dark matter, and you get today's standard model of the universe, called ${LCDM}. Lambda for dark energy, CDM for cold dark matter.`,
       'It works beautifully. But it comes with two embarrassing problems.',
       'First, quantum physics predicts a vacuum energy about {10^120|ten to the power of one hundred and twenty} times too big.',
       'Second, why is dark energy about equal to matter *right now*, of all the moments we could be living in?',
@@ -163,6 +164,7 @@ export const SCENES: SceneDef[] = [
       `Here's the fit score, where lower is better. No dark energy: {0.843|zero point eight four three}. ${LCDM}: {0.436|zero point four three six}. Our model: {0.440|zero point four four zero}.`,
       `Some runs even score {0.433|zero point four three three}, a hair better than ${LCDM}. But that gap is smaller than the simulation's own noise, so the honest word is: it *matches*.`,
       'And remember: fitting is not explaining. A good fit alone is not enough to make a universe. More on that in a moment.',
+      "As a software developer, this is something I watch for all the time. It's called *overfitting*. Give a model enough knobs, and it will fit almost anything. Simulations can fall into the same trap.",
     ],
     sfx: [{beat: 6, sound: 'ding'}],
   },

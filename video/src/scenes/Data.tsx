@@ -118,7 +118,7 @@ export const Data: React.FC = () => {
       </Show>
 
       {/* χ² bars */}
-      <Show from={7}>
+      <Show from={7} until={10}>
         <AbsoluteFill style={{alignItems: 'center', paddingTop: 150}}>
           <Title size={58}>
             Fit score <span style={{color: C.dim, fontSize: 36}}>(χ²/dof · lower is better)</span>
@@ -147,7 +147,7 @@ export const Data: React.FC = () => {
           </Card>
         </At>
       </Show>
-      <Show from={9}>
+      <Show from={9} until={10}>
         <At x={WIDTH / 2} y={760}>
           <Card accent={C.hot} style={{textAlign: 'center'}}>
             <Title size={50}>
@@ -157,6 +157,57 @@ export const Data: React.FC = () => {
           </Card>
         </At>
       </Show>
+      <Show from={10}>
+        <Overfit />
+      </Show>
+    </AbsoluteFill>
+  );
+};
+
+/** Overfitting, illustrated: an honest trend line vs. a curve that threads every noisy point. */
+const Overfit: React.FC = () => {
+  const b = useBeats();
+  const box = {x: 380, y: 230, w: 1160, h: 480};
+  const pts = new Array(11).fill(0).map((_, i) => {
+    const x = box.x + 40 + (i / 10) * (box.w - 80);
+    const trend = box.y + box.h - 80 - (i / 10) * (box.h - 180);
+    const noise = [30, -42, 18, 50, -35, 8, -55, 40, -20, 45, -30][i];
+    return [x, trend + noise] as [number, number];
+  });
+  const honest = `M${pts[0][0]},${box.y + box.h - 80} L${pts[10][0]},${box.y + 100}`;
+  // a cubic through every point, with control handles swung far up/down: fits all, means nothing
+  let wiggle = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 0; i < 10; i++) {
+    const [x0, y0] = pts[i];
+    const [x1, y1] = pts[i + 1];
+    const s = i % 2 ? 1 : -1;
+    wiggle += ` C${x0 + (x1 - x0) / 3},${y0 + s * 110} ${x1 - (x1 - x0) / 3},${y1 - s * 110} ${x1},${y1}`;
+  }
+  const honestP = b.p(10, 30, 20);
+  const wiggleP = b.p(10, 50, 60);
+  return (
+    <AbsoluteFill>
+      <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
+        <line x1={box.x} y1={box.y + box.h} x2={box.x + box.w} y2={box.y + box.h} stroke={C.dim} strokeWidth={2.5} />
+        <line x1={box.x} y1={box.y} x2={box.x} y2={box.y + box.h} stroke={C.dim} strokeWidth={2.5} />
+        <path d={honest} stroke={C.eds} strokeWidth={6} fill="none" strokeDasharray="2000" strokeDashoffset={2000 * (1 - honestP)} />
+        <path d={wiggle} stroke={C.hot} strokeWidth={5} fill="none" strokeDasharray="6000" strokeDashoffset={6000 * (1 - wiggleP)} />
+        {pts.map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r={11} fill="#c9d4f5" />
+        ))}
+        <LegendItem x={box.x + 40} y={box.y - 20} color={C.eds} text="simple model: captures the trend" opacity={honestP} />
+        <LegendItem x={box.x + 640} y={box.y - 20} color={C.hot} text="too many knobs: hits every point" opacity={wiggleP} />
+      </svg>
+      <At x={WIDTH / 2} y={120}>
+        <Title size={64}>
+          over<span style={{color: C.hot}}>fitting</span>
+        </Title>
+      </At>
+      <At x={WIDTH / 2} y={800}>
+        <Label size={32} color={C.ink} style={{fontWeight: 700, opacity: b.p(10, 20, 90)}}>
+          a perfect fit can explain nothing · that’s why the fit is only the first test
+        </Label>
+      </At>
     </AbsoluteFill>
   );
 };

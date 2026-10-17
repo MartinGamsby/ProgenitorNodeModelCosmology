@@ -18,16 +18,37 @@ import soundfile as sf
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
+SAME = {"neighbors": "neighbours", "neighbor": "neighbour", "catalog": "catalogue", "disc": "disk",
+        "percent": "%", "zeroes": "zeros"}
+
+
 def norm(s):
-    s = s.lower().replace("-", " ")
-    s = re.sub(r"[^a-z0-9' ]", " ", s)
-    return [w for w in s.split() if w]
+    from num2words import num2words
+    s = s.lower().replace("-", " ").replace(",", "")
+    s = re.sub(r"(\d+(?:\.\d+)?)%", r" percent", s)
+    out = []
+    for w in re.sub(r"[^a-z0-9.' ]", " ", s).split():
+        w = w.strip(".'")
+        if re.fullmatch(r"\d+(\.\d+)?", w):
+            out += norm(num2words(float(w) if "." in w else int(w)))
+        elif w:
+            out.append(SAME.get(w, w))
+    return out
 
 
-def similarity(ref, hyp):
-    """Word-level similarity of the script text vs. what Whisper heard."""
+def check(ref, hyp):
+    """(similarity, problem) of script text vs. what Whisper heard. problem flags extra words
+    appended at the end (Chatterbox sometimes keeps talking) or a repeated/inserted phrase."""
     r, h = norm(ref), norm(hyp)
-    return difflib.SequenceMatcher(None, r, h).ratio()
+    sm = difflib.SequenceMatcher(None, r, h)
+    problem = ""
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        extra = j2 - j1 - (i2 - i1)
+        if tag in ("insert", "replace") and extra >= 2 and i2 == len(r):
+            problem = "extra words at the end: " + " ".join(h[j1:j2])
+        elif tag in ("insert", "replace") and extra >= 3:
+            problem = "inserted words: " + " ".join(h[j1:j2])
+    return sm.ratio(), problem
 
 
 def load_audio(path):
@@ -52,11 +73,11 @@ def main():
     for key, c in man["clips"].items():
         path = os.path.join(vdir, c["file"])
         hyp = asr(load_audio(path))["text"]
-        sim = similarity(c["text"], hyp)
-        report.append({"key": key, "sim": round(sim, 3), "text": c["text"], "heard": hyp.strip()})
-        if sim < a.threshold:
+        sim, problem = check(c["text"], hyp)
+        report.append({"key": key, "sim": round(sim, 3), "problem": problem, "text": c["text"], "heard": hyp.strip()})
+        if sim < a.threshold or problem:
             bad.append((key, c, path))
-        print(f"{sim:.2f} {key}", flush=True)
+        print(f"{sim:.2f} {key} {problem}", flush=True)
     if a.fix and bad:
         import tts_worker
         say = tts_worker.chatterbox_engine()
@@ -66,11 +87,12 @@ def main():
                 tmp = path + f".try{k}.wav"
                 say(c["text"], tmp, f"#{k + 1}")
                 hyp = asr(load_audio(tmp))["text"]
-                sim = similarity(c["text"], hyp)
-                print(f"  retry {k + 1} {sim:.2f} {key}", flush=True)
-                if best is None or sim > best[0]:
-                    best = (sim, tmp, hyp)
-                if sim >= a.threshold:
+                sim, problem = check(c["text"], hyp)
+                score = sim - (0.5 if problem else 0)
+                print(f"  retry {k + 1} {sim:.2f} {key} {problem}", flush=True)
+                if best is None or score > best[0]:
+                    best = (score, tmp, hyp, sim, problem)
+                if sim >= a.threshold and not problem:
                     break
             os.replace(best[1], path)
             for f in os.listdir(vdir):
@@ -78,9 +100,9 @@ def main():
                     os.remove(os.path.join(vdir, f))
             for r in report:
                 if r["key"] == key:
-                    r.update(sim=round(best[0], 3), heard=best[2].strip(), regenerated=True)
+                    r.update(sim=round(best[3], 3), problem=best[4], heard=best[2].strip(), regenerated=True)
     json.dump(report, open(os.path.join(ROOT, "out", "voice-check.json"), "w"), indent=1)
-    low = [r for r in report if r["sim"] < a.threshold]
+    low = [r for r in report if r["sim"] < a.threshold or r.get("problem")]
     print(f"checked {len(report)} clips, {len(bad)} flagged, {len(low)} still below {a.threshold}")
 
 

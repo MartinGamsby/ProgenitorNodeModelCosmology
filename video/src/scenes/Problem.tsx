@@ -40,12 +40,18 @@ export const Problem: React.FC = () => {
 
   // coincidence chart (beat 5): densities vs time
   const cBox = {x: 360, y: 200, w: 1200, h: 520};
-  const ts = new Array(120).fill(0).map((_, i) => 0.5 + i * 0.25); // Gyr
+  // log time axis 0.3 → 300 Gyr: on this scale "now" and the crossing sit together
+  const ts = new Array(160).fill(0).map((_, i) => 0.3 * 1000 ** (i / 159)); // Gyr
   const H0 = 70 / 977.792;
   const aOf = (t: number) => Math.sinh(1.5 * Math.sqrt(0.7) * H0 * t) ** (2 / 3) / Math.sinh(1.5 * Math.sqrt(0.7) * H0 * 13.8) ** (2 / 3);
-  const cs = scales(cBox, [0.5, 30], [-1.6, 2.4]);
-  const rhoM = ts.map((t) => [cs.X(t), cs.Y(Math.log10(0.3 / 0.7 / aOf(t) ** 3))] as [number, number]);
+  const CY_D: [number, number] = [-3, 3];
+  const cs = scales(cBox, [0.3, 300], CY_D, true);
+  const ratio = (t: number) => Math.log10(0.3 / 0.7 / aOf(t) ** 3); // log10(matter / dark energy)
+  const rhoM = ts.filter((t) => Math.abs(ratio(t)) <= 3).map((t) => [cs.X(t), cs.Y(ratio(t))] as [number, number]);
   const rhoL = ts.map((t) => [cs.X(t), cs.Y(0)] as [number, number]);
+  // the window where the two are within a factor of 3 of each other
+  const within = ts.filter((t) => Math.abs(ratio(t)) <= Math.log10(3));
+  const win = [within[0], within[within.length - 1]];
 
   return (
     <AbsoluteFill>
@@ -187,11 +193,15 @@ export const Problem: React.FC = () => {
       {/* beat 5: coincidence */}
       <Show from={6} until={7}>
         <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
-          <Axes box={cBox} xd={[0.5, 30]} yd={[-1.6, 2.4]} xticks={[1, 5, 10, 13.8, 20, 30]} fmtX={(v) => (v === 13.8 ? 'now' : `${v}`)} xlabel="cosmic time (billion years)" ylabel="density (log)" grid={false} />
+          <rect x={cs.X(win[0])} y={cBox.y} width={cs.X(win[1]) - cs.X(win[0])} height={cBox.h} fill={C.gold} opacity={0.1 * b.p(6, 15, 40)} />
+          <Axes box={cBox} xd={[0.3, 300]} yd={CY_D} logX xticks={[1, 13.8, 100]} fmtX={(v) => (v === 13.8 ? 'now' : `${v}`)} xlabel="cosmic time (billion years, log scale)" ylabel="density (log)" grid={false} />
           <path d={pathOf(partial(rhoM, b.p(6, 50)))} stroke={C.gold} strokeWidth={7} fill="none" />
           <path d={pathOf(partial(rhoL, b.p(6, 50)))} stroke={C.node} strokeWidth={7} fill="none" />
-          <text x={cs.X(2.2)} y={cs.Y(1.9)} fill={C.gold} fontFamily={FONT.body} fontWeight={700} fontSize={32}>matter (thins out)</text>
-          <text x={cs.X(21)} y={cs.Y(0) - 22} fill={C.node} fontFamily={FONT.body} fontWeight={700} fontSize={32}>dark energy (constant)</text>
+          <text x={cs.X(0.45)} y={cs.Y(2.3)} fill={C.gold} fontFamily={FONT.body} fontWeight={700} fontSize={32}>matter (thins out)</text>
+          <text x={cs.X(40)} y={cs.Y(0) - 22} fill={C.node} fontFamily={FONT.body} fontWeight={700} fontSize={32}>dark energy (constant)</text>
+          <text x={(cs.X(win[0]) + cs.X(win[1])) / 2} y={cBox.y + cBox.h - 24} fill={C.gold} fontFamily={FONT.body} fontWeight={700} fontSize={26} textAnchor="middle" opacity={b.p(6, 15, 40)}>
+            comparable only here
+          </text>
           <g opacity={b.p(6, 15, 55)}>
             <line x1={cs.X(13.8)} x2={cs.X(13.8)} y1={cBox.y} y2={cBox.y + cBox.h} stroke={C.ink} strokeWidth={3} strokeDasharray="8 8" />
             <circle cx={cs.X(13.8)} cy={cs.Y(Math.log10(0.3 / 0.7))} r={16} fill="none" stroke={C.hot} strokeWidth={5} />

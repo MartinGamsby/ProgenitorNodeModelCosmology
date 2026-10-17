@@ -51,7 +51,7 @@ export const Beyond: React.FC = () => {
   const cam = camAt(scale, f * 0.0035 + 0.3);
   const gridO = Math.min(b.p(2, 20), 1 - b.p(3, 25, 10));
   // our universe turns on its own axis too, so it never looks frozen while the camera orbits
-  const spin = f * 0.012;
+  const spin = -f * 0.012; // same sense as the camera orbit
   const spunDust = dust.map(([x, y, z]): V3 => [x * Math.cos(spin) - z * Math.sin(spin), y, x * Math.sin(spin) + z * Math.cos(spin)]);
   const nodeO = b.p(4, 40);
   const nodes = pos;
@@ -161,39 +161,56 @@ export const Beyond: React.FC = () => {
   );
 };
 
-/** "Virialized", explained: a frozen crystal vs. a swarm that keeps moving but keeps its shape. */
+/** "Virialized", explained: a frozen crystal vs. a settled swarm. In the swarm every member
+ *  keeps moving (slow little orbits around its spot, tugged by its neighbours), but the overall
+ *  lumpy shape never changes. */
 const CrystalVsSwarm: React.FC = () => {
   const b = useBeats();
   const f = b.frame;
-  const swarm = useMemo(
-    () =>
-      new Array(36).fill(0).map((_, i) => ({
-        r: 40 + random(`sw${i}`) * 150,
-        e: 0.4 + random(`se${i}`) * 0.6,
-        tilt: random(`st${i}`) * Math.PI,
-        w: (0.012 + random(`sv${i}`) * 0.02) * (random(`sd${i}`) > 0.5 ? 1 : -1),
-        ph: random(`sp${i}`) * Math.PI * 2,
-        m: 0.6 + random(`sm${i}`) * 1.2,
-      })),
-    [],
-  );
   const L = {x: 540, y: 500};
   const R = {x: 1380, y: 500};
+  const swarm = useMemo(() => {
+    // lumpy, centrally concentrated cluster (fixed "home" spots)
+    const pts = new Array(34).fill(0).map((_, i) => {
+      const a = random(`sa${i}`) * Math.PI * 2;
+      const r = 30 + Math.sqrt(random(`sr${i}`)) * 160;
+      return {
+        hx: Math.cos(a) * r,
+        hy: Math.sin(a) * r * 0.85,
+        amp: 6 + random(`sm${i}`) * 12,
+        w: (0.018 + random(`sw${i}`) * 0.02) * (random(`sd${i}`) > 0.5 ? 1 : -1),
+        ph: random(`sp${i}`) * Math.PI * 2,
+        m: 0.6 + random(`sz${i}`) * 1.1,
+      };
+    });
+    const links: [number, number][] = [];
+    pts.forEach((p, i) => {
+      const near = pts
+        .map((q, j) => ({j, d: Math.hypot(p.hx - q.hx, p.hy - q.hy)}))
+        .filter((o) => o.j !== i)
+        .sort((x, y) => x.d - y.d)
+        .slice(0, 2);
+      near.forEach((o) => i < o.j && links.push([i, o.j]));
+    });
+    return {pts, links};
+  }, []);
+  const pos = swarm.pts.map((s) => {
+    const a = s.ph + f * s.w;
+    return {x: R.x + s.hx + Math.cos(a) * s.amp, y: R.y + s.hy + Math.sin(a * 1.3) * s.amp * 0.8, m: s.m};
+  });
   return (
     <AbsoluteFill style={{background: 'rgba(4,6,13,0.86)'}}>
       <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
         {[-2, -1, 0, 1, 2].flatMap((i) =>
           [-2, -1, 0, 1, 2].map((j) => <circle key={`${i}${j}`} cx={L.x + i * 70} cy={L.y + j * 70} r={13} fill={C.node} opacity={0.85} />),
         )}
-        {swarm.map((s, i) => {
-          const a = s.ph + f * s.w;
-          const x0 = Math.cos(a) * s.r;
-          const y0 = Math.sin(a) * s.r * s.e;
-          const x = R.x + x0 * Math.cos(s.tilt) - y0 * Math.sin(s.tilt);
-          const y = R.y + x0 * Math.sin(s.tilt) + y0 * Math.cos(s.tilt);
-          return <circle key={i} cx={x} cy={y} r={9 * s.m} fill={C.node} opacity={0.85} />;
-        })}
-        <circle cx={R.x} cy={R.y} r={200} fill="none" stroke={C.faint} strokeWidth={2} strokeDasharray="6 10" />
+        {swarm.links.map(([i, j], k) => (
+          <line key={k} x1={pos[i].x} y1={pos[i].y} x2={pos[j].x} y2={pos[j].y} stroke={C.node} strokeWidth={1.5} opacity={0.25} />
+        ))}
+        {pos.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={9 * p.m} fill={C.node} opacity={0.9} />
+        ))}
+        <ellipse cx={R.x} cy={R.y} rx={215} ry={190} fill="none" stroke={C.faint} strokeWidth={2} strokeDasharray="6 10" />
       </svg>
       <At x={L.x} y={190}>
         <Title size={52} color={C.dim}>

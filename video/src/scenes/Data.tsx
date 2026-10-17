@@ -23,24 +23,24 @@ export const Data: React.FC = () => {
   const muView = scales(BOX, XD, [33, 47], true);
   const dotsP = b.p(1, 50);
   const nShown = Math.round(h.n_sne * dotsP);
-  const modelMuP = b.p(2, 50, 20);
+  const modelMuP = b.p(3, 50, 20);
   // ---- residual view vs ΛCDM (beats 3+)
   const RD: [number, number] = [-0.75, 0.3];
   const rv = scales(BOX, XD, RD, true);
-  const resO = b.p(3, 20);
+  const resO = b.p(4, 20);
   const muO = 1 - resO;
-  const edsP = b.p(3, 40, 20);
-  const lcdmP = b.p(4, 30);
-  const modelP = interpolate(f, [b.at(5, 25), b.at(6, 10)], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const edsP = b.p(4, 40, 20);
+  const lcdmP = b.p(5, 30);
+  const modelP = interpolate(f, [b.at(6, 25), b.at(7, 10)], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   const edsRes = h.grid.z.map((z, i) => [rv.X(z), rv.Y(h.resid.eds[i])] as [number, number]);
   const modelRes = h.model.z.map((z, i) => [rv.X(z), rv.Y(h.model.resid[i])] as [number, number]);
-  const chartGone = b.p(7, 15);
+  const chartGone = b.p(8, 15);
 
   const bars = [
-    {l: 'No dark energy (EdS)', v: h.chi2.eds, c: C.eds, beat: 7},
-    {l: 'ΛCDM', v: h.chi2.lcdm, c: C.lcdm, beat: 7},
-    {l: 'Attractor model', v: h.chi2.model, c: C.model, beat: 7},
-    {l: 'Best universe-like run', v: BEST_RUN, c: '#ffc27a', beat: 8},
+    {l: 'No dark energy (EdS)', v: h.chi2.eds, c: C.eds, beat: 8},
+    {l: 'ΛCDM', v: h.chi2.lcdm, c: C.lcdm, beat: 8},
+    {l: 'Attractor model', v: h.chi2.model, c: C.model, beat: 8},
+    {l: 'Best universe-like run', v: BEST_RUN, c: '#ffc27a', beat: 9},
   ];
   return (
     <AbsoluteFill>
@@ -62,10 +62,24 @@ export const Data: React.FC = () => {
             {h.sne.z.slice(0, nShown).map((z, i) => (
               <circle key={i} cx={muView.X(z)} cy={muView.Y(h.sne.mu[i])} r={3.4} fill="#c9d4f5" opacity={0.55} />
             ))}
+            {/* beat 2: this is the data Λ was fitted to */}
+            {b.on(2) && (
+              <path d={pathOf(partial(h.grid.z.map((z, i) => [muView.X(z), muView.Y(h.grid.lcdm[i])] as [number, number]), b.p(2, 40, 10)))} stroke={C.lcdm} strokeWidth={6} fill="none" opacity={1 - b.p(3, 15)} />
+            )}
             <path d={pathOf(partial(h.model.z.map((z, i) => [muView.X(z), muView.Y(h.model.mu[i])] as [number, number]), modelMuP))} stroke={C.model} strokeWidth={6} fill="none" />
+            {b.on(2) && !b.on(3) && (
+              <text x={muView.X(0.3)} y={muView.Y(37.5)} fill={C.lcdm} fontFamily={FONT.display} fontWeight={800} fontSize={36} opacity={b.p(2, 15, 40)}>
+                ← ΛCDM: fitted to this same data
+              </text>
+            )}
+            {b.on(3) && !b.on(4) && (
+              <text x={muView.X(0.3)} y={muView.Y(37.5)} fill={C.model} fontFamily={FONT.display} fontWeight={800} fontSize={36} opacity={b.p(3, 15, 40)}>
+                ← our simulation, same test
+              </text>
+            )}
           </g>
           {/* Δμ vs ΛCDM */}
-          {b.on(3) && (
+          {b.on(4) && (
             <g opacity={resO}>
               <Axes box={BOX} xd={XD} yd={RD} logX xticks={[0.01, 0.1, 1, 2]} yticks={[-0.6, -0.4, -0.2, 0, 0.2]} fmtY={(v) => (v > 0 ? `+${v}` : `${v}`)} xlabel="redshift z" ylabel="difference from ΛCDM (mag)" />
               {h.resid.bins_z.map((z, i) => {
@@ -87,14 +101,14 @@ export const Data: React.FC = () => {
               <LegendItem x={BOX.x + 700} y={BOX.y + 520} color={C.model} text="attractor model (from the simulation)" opacity={modelP > 0 ? 1 : 0} />
             </g>
           )}
-          {b.on(1) && !b.on(3) && (
+          {b.on(1) && !b.on(4) && (
             <text x={BOX.x + 40} y={BOX.y + 40} fill={C.ink} fontFamily={FONT.display} fontWeight={800} fontSize={40}>
               {nShown.toLocaleString('en-US')} supernovae
             </text>
           )}
         </svg>
       )}
-      <Show from={2} until={3} offset={10}>
+      <Show from={3} until={4} offset={10}>
         <At x={1300} y={640}>
           <Card accent={C.model} style={{padding: '18px 26px'}}>
             <Tex tex={String.raw`\mu(z)=5\log_{10}\frac{(1+z)\,c\int dt/a(t)}{10\,\mathrm{pc}}`} size={40} />
@@ -102,14 +116,14 @@ export const Data: React.FC = () => {
           </Card>
         </At>
       </Show>
-      <Show from={3} until={4} offset={45}>
+      <Show from={4} until={5} offset={45}>
         <At x={1250} y={680}>
           <Title size={48} color={C.eds}>
             misses ✗
           </Title>
         </At>
       </Show>
-      <Show from={6} until={7}>
+      <Show from={7} until={8}>
         <At x={WIDTH / 2} y={120}>
           <Title size={64} color={C.model}>
             right on top ✓
@@ -118,14 +132,14 @@ export const Data: React.FC = () => {
       </Show>
 
       {/* χ² bars */}
-      <Show from={7} until={10}>
+      <Show from={8} until={11}>
         <AbsoluteFill style={{alignItems: 'center', paddingTop: 150}}>
           <Title size={58}>
             Fit score <span style={{color: C.dim, fontSize: 36}}>(χ²/dof · lower is better)</span>
           </Title>
           <div style={{marginTop: 50, display: 'flex', flexDirection: 'column', gap: 26, width: 1400}}>
             {bars.map((bar, i) => {
-              const p = bar.beat === 7 ? b.p(7, 30, 25 + i * 35) : b.p(bar.beat, 30, 10);
+              const p = bar.beat === 8 ? b.p(8, 30, 25 + i * 35) : b.p(bar.beat, 30, 10);
               return (
                 <div key={i} style={{display: 'flex', alignItems: 'center', gap: 30}}>
                   <div style={{width: 470, textAlign: 'right', fontFamily: FONT.body, fontWeight: 700, fontSize: 34, color: C.ink}}>{bar.l}</div>
@@ -137,7 +151,7 @@ export const Data: React.FC = () => {
           </div>
         </AbsoluteFill>
       </Show>
-      <Show from={8} until={9} offset={40}>
+      <Show from={9} until={10} offset={40}>
         <At x={WIDTH / 2} y={760}>
           <Card accent={C.gold} style={{textAlign: 'center'}}>
             <Title size={46}>
@@ -147,18 +161,28 @@ export const Data: React.FC = () => {
           </Card>
         </At>
       </Show>
-      <Show from={9} until={10}>
+      <Show from={10} until={11}>
         <At x={WIDTH / 2} y={760}>
           <Card accent={C.hot} style={{textAlign: 'center'}}>
             <Title size={50}>
-              fitting <span style={{color: C.hot}}>≠</span> explaining
+              more tuning → better score → <span style={{color: C.hot}}>proves nothing</span>
             </Title>
-            <Label size={28}>a good fit alone doesn’t make a universe · more on that in a moment</Label>
           </Card>
         </At>
       </Show>
-      <Show from={10}>
+      <Show from={11} until={12}>
         <Overfit />
+      </Show>
+      <Show from={12}>
+        <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center', flexDirection: 'column', gap: 30}}>
+          <Title size={110}>
+            fitting <span style={{color: C.hot}}>≠</span> explaining
+          </Title>
+          <Label size={38} color={C.ink} style={{fontWeight: 700}}>
+            the fit is only the <span style={{color: C.gold}}>first</span> test
+          </Label>
+          <Label size={30} style={{opacity: b.p(12, 20, 60)}}>next: does the simulated universe look like ours?</Label>
+        </AbsoluteFill>
       </Show>
     </AbsoluteFill>
   );
@@ -183,8 +207,8 @@ const Overfit: React.FC = () => {
     const s = i % 2 ? 1 : -1;
     wiggle += ` C${x0 + (x1 - x0) / 3},${y0 + s * 110} ${x1 - (x1 - x0) / 3},${y1 - s * 110} ${x1},${y1}`;
   }
-  const honestP = b.p(10, 30, 20);
-  const wiggleP = b.p(10, 50, 60);
+  const honestP = b.p(11, 30, 20);
+  const wiggleP = b.p(11, 50, 60);
   return (
     <AbsoluteFill>
       <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
@@ -204,7 +228,7 @@ const Overfit: React.FC = () => {
         </Title>
       </At>
       <At x={WIDTH / 2} y={800}>
-        <Label size={32} color={C.ink} style={{fontWeight: 700, opacity: b.p(10, 20, 90)}}>
+        <Label size={32} color={C.ink} style={{fontWeight: 700, opacity: b.p(11, 20, 90)}}>
           a perfect fit can explain nothing · that’s why the fit is only the first test
         </Label>
       </At>

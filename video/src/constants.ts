@@ -7,7 +7,7 @@ export const HEIGHT = 1080;
 export const T = {
   fade: 12,
   whatIfIntro: 2.6, // the "WHAT IF…" stamp before beat 0
-  beatGap: 0.8, // silence after each spoken line
+  beatGap: 0.7, // silence after each spoken line
   silentBeat: 1.4, // '' beats
   tail: 2.0, // hold after the last beat, so the viewer can digest
 };

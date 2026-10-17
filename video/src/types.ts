@@ -16,7 +16,8 @@ export type SceneDef = {
   stars?: boolean;
   /** Pad the scene to at least this long. */
   minSeconds?: number;
-  sfx?: {beat: number; sound: Sound}[];
+  /** offset: seconds after the beat starts; volume: 0..1 (default 0.4). */
+  sfx?: {beat: number; sound: Sound; offset?: number; volume?: number}[];
 };
 
 /** Per-beat timing in frames, relative to the scene start. */

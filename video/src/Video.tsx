@@ -64,13 +64,13 @@ export const Explainer: React.FC = () => (
             ) : null,
           )}
           {(def.sfx ?? []).map((s, i) => (
-            <Sequence key={`sfx${i}`} from={t.beats[s.beat]?.from ?? 0} name={`sfx ${s.sound}`}>
-              <Audio src={staticFile(`audio/${s.sound}.wav`)} volume={0.55} />
+            <Sequence key={`sfx${i}`} from={(t.beats[s.beat]?.from ?? 0) + Math.round((s.offset ?? 0) * 30)} name={`sfx ${s.sound}`}>
+              <Audio src={staticFile(`audio/${s.sound}.wav`)} volume={s.volume ?? 0.4} />
             </Sequence>
           ))}
           {def.whatIf && (
             <Sequence from={0} name="sfx whoosh">
-              <Audio src={staticFile('audio/whoosh.wav')} volume={0.4} />
+              <Audio src={staticFile('audio/whoosh.wav')} volume={0.12} />
             </Sequence>
           )}
         </Sequence>

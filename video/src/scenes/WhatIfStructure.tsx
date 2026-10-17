@@ -175,12 +175,18 @@ export const WhatIfClose: React.FC = () => {
               const k = Math.min(1, u);
               return k >= 0.98 ? null : <circle key={i} cx={x0 + (nx - x0) * k} cy={y0 + (CY - y0) * k} r={2.6} fill="#cfe4ff" />;
             }
-            // slingshot: whips past the attractor and is flung away on a bent path
+            // close pass: falls toward the attractor, swings AROUND it (a particle passing above
+            // curves down behind it and is flung out underneath, and vice versa); some spiral in
             const off = (Math.sin(p.a) >= 0 ? 1 : -1) * (40 + 40 * random(`ro${i}`));
             if (u < 1) return <circle key={i} cx={x0 + (nx - x0) * u} cy={y0 + (CY + off - y0) * u} r={2.6} fill="#ffd9a8" />;
             const t = u - 1;
-            const ang = (off > 0 ? 1 : -1) * (0.6 + 1.2 * t);
-            return <circle key={i} cx={nx + side * Math.cos(ang) * t * 700} cy={CY + off + Math.sin(ang) * t * 700} r={2.6} fill="#ffd9a8" />;
+            const a0 = off < 0 ? -Math.PI / 2 : Math.PI / 2; // starts right above / below the attractor
+            const dir = side * (off < 0 ? 1 : -1); // sweep in the direction of travel, around the far side
+            const ang = a0 + dir * Math.min(2.7, t * 3.2);
+            const rams = random(`rk${i}`) < 0.3;
+            const rr = rams ? Math.abs(off) * Math.max(0, 1 - t * 1.6) : Math.abs(off) * (1 + 6 * t ** 1.6);
+            if (rams && rr < 4) return null;
+            return <circle key={i} cx={nx + Math.cos(ang) * rr} cy={CY + Math.sin(ang) * rr} r={2.6} fill="#ffd9a8" />;
           })}
         </svg>
       )}
@@ -265,7 +271,10 @@ export const WhatIfClose: React.FC = () => {
       {/* beat 7: 72-cell grid */}
       <Show from={7}>
         <AbsoluteFill style={{alignItems: 'center', paddingTop: 120}}>
-          <Title size={50}>
+          <Label size={30} color={C.dim} style={{fontFamily: FONT.display, fontWeight: 800, letterSpacing: 2}}>
+            FROM THOUSANDS OF RUNS → THE BEST REGION, RE-RUN WITH MORE PARTICLES
+          </Label>
+          <Title size={50} style={{marginTop: 10}}>
             {CMS.length} progenitor masses × {SEEDS.length} random realizations
           </Title>
           <div style={{display: 'grid', gridTemplateColumns: `140px repeat(${CMS.length}, 104px)`, gap: 10, marginTop: 40}}>
@@ -315,8 +324,9 @@ export const WhatIfMass: React.FC = () => {
   const b = useBeats();
   const f = b.frame;
   const CX = WIDTH / 2;
-  const grow = interpolate(f, [b.at(0), b.at(1)], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-  const size = 8 * Math.pow(18, Math.sin(grow * Math.PI * 1.5) * 0.5 + 0.5);
+  // matches the line "tiny? or enormous?": tiny first, then it swells
+  const grow = interpolate(f, [b.at(0) + (b.at(1) - b.at(0)) * 0.45, b.at(1) - 10], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: (t) => t * t * (3 - 2 * t)});
+  const size = 6 * Math.pow(22, grow);
   const top = {x: 380, y: 210, w: 1200, h: 240};
   const bot = {x: 380, y: 540, w: 1200, h: 240};
   const sTop = scales(top, [0.7, 4500], [0.42, 0.47], true);
@@ -326,8 +336,14 @@ export const WhatIfMass: React.FC = () => {
     <AbsoluteFill>
       {!b.on(1) && (
         <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute', opacity: 1 - b.p(1, 12)}}>
-          <circle cx={CX} cy={HEIGHT / 2} r={size * 3} fill={C.gold} opacity={0.15} />
+          <circle cx={CX} cy={HEIGHT / 2} r={size * 2.2} fill={C.gold} opacity={0.12} />
           <circle cx={CX} cy={HEIGHT / 2} r={size} fill="#120a00" stroke={C.gold} strokeWidth={5} />
+          <text x={CX} y={HEIGHT / 2 + 80} fill={C.ink} fontFamily={FONT.display} fontWeight={800} fontSize={44} textAnchor="middle" opacity={1 - grow}>
+            tiny?
+          </text>
+          <text x={CX} y={160} fill={C.ink} fontFamily={FONT.display} fontWeight={800} fontSize={60} textAnchor="middle" opacity={grow}>
+            …or enormous?
+          </text>
         </svg>
       )}
       {b.on(1) && (

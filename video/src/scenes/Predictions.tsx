@@ -3,7 +3,7 @@ import {AbsoluteFill, interpolate, random} from 'remotion';
 import {useBeats} from '../beats';
 import {Axes, LegendItem, scales} from '../components/Chart';
 import {Show} from '../components/Show';
-import {Arrow, At, NodeDot, pathOf, partial, SvgDefs, Title} from '../components/ui';
+import {Arrow, At, Galaxy, NodeDot, pathOf, partial, SvgDefs, Title} from '../components/ui';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
 
 const CX = WIDTH / 2;
@@ -204,9 +204,10 @@ export const Predictions: React.FC = () => {
         <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute', opacity: driftO}}>
           <SvgDefs />
           <NodeDot x={nodeX} y={480} r={70} />
-          <circle cx={bx} cy={480} r={110} fill="url(#bubble)" stroke={C.bubble} strokeWidth={3} />
-          <Arrow x1={bx + 120} y1={480} x2={bx + 120 + Math.min(pull, nodeX - bx - 220)} y2={480} color={C.node} width={10} head={30} />
-          <text x={bx} y={660} fill={C.ink} fontFamily={FONT.body} fontWeight={700} fontSize={30} textAnchor="middle">
+          {/* it's not the bubble that accelerates: it's the galaxies in it */}
+          <Galaxy x={bx} y={480} s={4} rot={-20} hue="#cfe4ff" o={1} />
+          <Arrow x1={bx + 70} y1={480} x2={bx + 70 + Math.min(pull, nodeX - bx - 170)} y2={480} color={C.node} width={10} head={30} />
+          <text x={bx} y={580} fill={C.ink} fontFamily={FONT.body} fontWeight={700} fontSize={30} textAnchor="middle">
             closer → stronger pull
           </text>
         </svg>

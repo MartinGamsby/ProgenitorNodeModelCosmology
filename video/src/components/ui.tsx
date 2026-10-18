@@ -87,6 +87,15 @@ export const Arrow: React.FC<{
   );
 };
 
+/** Little spiral-ish galaxy glyph. */
+export const Galaxy: React.FC<{x: number; y: number; s: number; rot: number; hue: string; o: number}> = ({x, y, s, rot, hue, o}) => (
+  <g transform={`translate(${x},${y}) rotate(${rot}) scale(${s})`} opacity={o}>
+    <ellipse rx={14} ry={5} fill={hue} opacity={0.35} />
+    <ellipse rx={7} ry={2.6} fill={hue} opacity={0.7} />
+    <circle r={2.2} fill="#fff" />
+  </g>
+);
+
 /** Glowing HMEA "dark giant" icon for 2D diagrams. */
 export const NodeDot: React.FC<{x: number; y: number; r: number; opacity?: number; color?: string}> = ({
   x,

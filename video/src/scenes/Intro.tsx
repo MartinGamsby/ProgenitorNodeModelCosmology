@@ -3,7 +3,7 @@ import {AbsoluteFill, interpolate, random, useCurrentFrame} from 'remotion';
 import {useBeats} from '../beats';
 import {Show} from '../components/Show';
 import {Space3D, V3} from '../components/Space3D';
-import {Arrow, At, Label, NodeDot, SvgDefs, Title} from '../components/ui';
+import {Arrow, At, Galaxy, Label, NodeDot, SvgDefs, Title} from '../components/ui';
 import medium from '../../public/data/medium.json';
 import {VIDEO_SUBTITLE, VIDEO_TITLE} from '../script';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
@@ -11,14 +11,6 @@ import {C, FONT, HEIGHT, WIDTH} from '../theme';
 const CX = WIDTH / 2;
 const CY = HEIGHT / 2 - 40;
 
-/** Little spiral-ish galaxy glyph. */
-const Galaxy: React.FC<{x: number; y: number; s: number; rot: number; hue: string; o: number}> = ({x, y, s, rot, hue, o}) => (
-  <g transform={`translate(${x},${y}) rotate(${rot}) scale(${s})`} opacity={o}>
-    <ellipse rx={14} ry={5} fill={hue} opacity={0.35} />
-    <ellipse rx={7} ry={2.6} fill={hue} opacity={0.7} />
-    <circle r={2.2} fill="#fff" />
-  </g>
-);
 
 export const Hook: React.FC = () => {
   const b = useBeats();
@@ -43,14 +35,21 @@ export const Hook: React.FC = () => {
   const lead = b.at(0);
   const sec = (s: number) => Math.round(s * b.fps);
   const cl = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'} as const;
-  const swarmO = interpolate(frame, [0, 8, sec(2.8), sec(3.2)], [0, 1, 1, 0], cl);
-  const zoom = interpolate(frame, [0, sec(3.1)], [1.0, 4.5], cl);
-  const flash1 = interpolate(frame, [sec(3.0), sec(3.1), sec(3.7)], [0, 1, 0], cl);
-  const burst = interpolate(frame, [sec(3.0), sec(4.8)], [0, 1], {...cl, easing: (u) => 1 - (1 - u) ** 3});
-  const pairO = interpolate(frame, [sec(4.4), sec(5.0)], [0, 1], cl);
-  const suck = interpolate(frame, [sec(5.0), sec(7.3)], [0, 1], {...cl, easing: (u) => u * u});
-  const swell = interpolate(frame, [sec(7.0), lead], [0, 1], cl);
-  const pan = interpolate(frame, [sec(6.8), lead - 4], [0, 1], {...cl, easing: (u) => u * u * (3 - 2 * u)});
+  // The progenitor sits at the swarm's origin, which Space3D draws at the exact screen centre.
+  const O = {x: WIDTH / 2, y: HEIGHT / 2};
+  const bangF = sec(3.0);
+  const tau = (frame - bangF) / b.fps; // seconds since the first bang
+  const swarmO = interpolate(frame, [0, 8, bangF, bangF + sec(0.5)], [0, 1, 1, 0], cl);
+  const zoom = interpolate(frame, [0, bangF], [1.0, 4.5], cl);
+  const flash1 = interpolate(frame, [bangF, bangF + 3, bangF + sec(0.6)], [0, 1, 0], cl);
+  // one continuous motion: a fast bang that keeps slowing down (exponential), while the two
+  // neighbours' pull smoothly takes over and accelerates the galaxies into them
+  const outward = tau > 0 ? 1 - Math.exp(-tau / 0.7) : 0;
+  const pairO = interpolate(tau, [0.5, 1.3], [0, 1], cl);
+  const suckAt = (k: number) => Math.min(1, Math.max(0, (tau - 0.8) / (3.8 * k)) ** 2.4);
+  const suck = suckAt(1);
+  const swell = interpolate(frame, [bangF + sec(4.0), lead], [0, 1], cl);
+  const pan = interpolate(frame, [bangF + sec(3.8), lead - 4], [0, 1], {...cl, easing: (u) => u * u * (3 - 2 * u)});
   const flash2 = interpolate(frame, [lead, lead + 3, lead + 18], [0, 1, 0], cl);
   const NA = {x: CX - 560, y: CY + 60};
   const NB = {x: CX + 500, y: CY - 50};
@@ -87,13 +86,15 @@ export const Hook: React.FC = () => {
         <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
           <SvgDefs />
           <g transform={`translate(${dx},${dy})`}>
-            {/* the first bang: galaxies fly out, then the two neighbours swallow them */}
-            {burst > 0 &&
+            {/* the progenitor itself, until it blows */}
+            {tau < 0.2 && <NodeDot x={O.x} y={O.y} r={22} opacity={swarmO > 0 ? 1 - Math.max(0, tau) * 5 : 0} />}
+            {/* the first bang: galaxies burst from the progenitor, slow down, then fall into the neighbours */}
+            {tau > 0 &&
               gal.map((g, i) => {
-                const ox = CX + Math.cos(g.ang) * g.r * 0.75 * burst * 1.4;
-                const oy = CY + Math.sin(g.ang) * g.r * 0.75 * burst * 0.8;
+                const ox = O.x + Math.cos(g.ang) * g.r * 0.75 * outward * 1.4;
+                const oy = O.y + Math.sin(g.ang) * g.r * 0.75 * outward * 0.8;
                 const T = Math.cos(g.ang) < 0 ? NA : NB;
-                const u = Math.min(1, Math.max(0, suck * 1.4 - (i % 9) * 0.05));
+                const u = suckAt(0.85 + 0.3 * ((i * 37) % 10) / 10);
                 if (u >= 0.97) return null;
                 return <Galaxy key={i} x={ox + (T.x - ox) * u} y={oy + (T.y - oy) * u} s={g.s * (1 - 0.6 * u)} rot={g.rot + u * 200} hue={g.hue} o={1} />;
               })}

@@ -34,7 +34,7 @@ export const Progenitor: React.FC = () => {
   );
   // timeline: bubble (b0) -> rewinds into a node (b1) -> wobble (b2) -> boom (b3) -> expansion (b4+)
   const rewind = b.p(1, 40);
-  const wobble = b.on(2) && !b.on(3) ? Math.sin((f - b.at(2)) * 0.9) * 4 * b.p(2, 30) : 0;
+  const wobble = b.on(2) && !b.on(3) ? Math.sin((f - b.at(2)) * 0.5) * 1.5 * b.p(2, 30) : 0;
   const boom = b.p(3, 6);
   const flash = interpolate(f, [b.at(3), b.at(3, 4), b.at(3, 30)], [0, 1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   const expand = interpolate(f, [b.at(3), b.at(5)], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: (t) => 1 - (1 - t) ** 3});
@@ -56,8 +56,8 @@ export const Progenitor: React.FC = () => {
         {!b.on(3) && bubbleR > 2 && <circle cx={CX} cy={CY} r={bubbleR} fill="url(#bubble)" stroke={C.bubble} strokeWidth={3} />}
         {b.on(1, 20) && !b.on(3) && (
           <g transform={`translate(${wobble},${0})`}>
-            <circle cx={CX} cy={CY} r={70} fill={C.gold} opacity={0.25 * rewind} filter="url(#soft)" />
-            <circle cx={CX} cy={CY} r={30} fill="#120a00" stroke={C.gold} strokeWidth={5} opacity={rewind} />
+            {/* an ordinary member of the swarm: drawn like all the others */}
+            <NodeDot x={CX} y={CY} r={14 + 10 * Math.cbrt(1)} opacity={rewind} />
           </g>
         )}
         {b.on(3) &&
@@ -116,7 +116,7 @@ export const Progenitor: React.FC = () => {
             {[[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1.4], [0, 1.4], [-1.5, 0], [1.5, 0]].map(([dx, dy], i) => (
               <NodeDot key={i} x={520 + dx * 150} y={560 + dy * 120} r={22} />
             ))}
-            <circle cx={520} cy={560} r={34} fill="#120a00" stroke={C.gold} strokeWidth={6} />
+            <NodeDot x={520} y={560} r={22} />
             {/* arrow */}
             <text x={CX} y={580} fill={C.ink} fontSize={90} fontFamily={FONT.display} fontWeight={900} textAnchor="middle">
               →

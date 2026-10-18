@@ -157,7 +157,6 @@ export const WhatIfCycle: React.FC = () => {
     {t: 'neighbours feed', c: C.node, beat: 2},
     {t: 'one grows too big…', c: C.hot, beat: 3},
   ];
-  const spin = interpolate(f, [b.at(1), b.dur], [0, Math.PI * 2], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   // ---- the mini universe in the middle: A bangs, B and C feed on it, B grows and bangs ----
   const A = {x: CX - 120, y: cy - 10};
   const B = {x: CX + 135, y: cy - 75};
@@ -166,6 +165,7 @@ export const WhatIfCycle: React.FC = () => {
   const feed = interpolate(f, [b.at(2), b.at(3)], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   const swell = interpolate(f, [b.at(3), b.at(3, 45)], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   const bang2T = b.at(3, 60);
+  const dotA = (interpolate(f, [b.at(1), b.at(2), b.at(3), bang2T, bang2T + 20], [-90, 0, 90, 180, 270], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}) * Math.PI) / 180;
   const bang2 = interpolate(f, [bang2T, bang2T + 50], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: (t) => 1 - (1 - t) ** 3});
   const flash1 = interpolate(f, [b.at(1), b.at(1, 4), b.at(1, 24)], [0, 1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   const flash2 = interpolate(f, [bang2T, bang2T + 4, bang2T + 24], [0, 1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
@@ -183,9 +183,6 @@ export const WhatIfCycle: React.FC = () => {
       <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
         <SvgDefs />
         <circle cx={CX} cy={cy} r={R} fill="none" stroke={C.faint} strokeWidth={4} strokeDasharray="4 14" />
-        <g transform={`rotate(${(spin * 180) / Math.PI} ${CX} ${cy})`} opacity={b.p(1, 20)}>
-          <circle cx={CX + R} cy={cy} r={12} fill={C.gold} />
-        </g>
         {steps.map((s, i) => {
           const a = -Math.PI / 2 + (i / steps.length) * Math.PI * 2;
           const x = CX + Math.cos(a) * R;
@@ -203,6 +200,9 @@ export const WhatIfCycle: React.FC = () => {
             </g>
           );
         })}
+        {/* the marker follows the animation: 1→2 bang & fill, 2→3 feeding, 3→4 swelling,
+            back to 1 on the second bang, then it rests */}
+        <circle cx={CX + Math.cos(dotA) * R} cy={cy + Math.sin(dotA) * R} r={12} fill={C.gold} opacity={b.p(1, 20)} />
         {/* attractor A: bangs at beat 1 */}
         {bang1 < 0.05 && <NodeDot x={A.x} y={A.y} r={28} />}
         {bang1 < 0.05 && <circle cx={A.x} cy={A.y} r={30} fill="none" stroke={C.gold} strokeWidth={4} opacity={b.p(0, 20, 20)} />}

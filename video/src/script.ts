@@ -40,6 +40,7 @@ export const SCENES: SceneDef[] = [
     // silent cold open before the first line: swarm → a bang → neighbours feed → one swells,
     // and it bangs on "flying apart" (see scenes/Intro.tsx)
     leadSeconds: 8.5,
+    voice: {1: {exaggeration: 0.55}}, // "It's speeding up" read calmer
     chapter: '',
     beats: [
       'Everything in the universe is flying apart.',

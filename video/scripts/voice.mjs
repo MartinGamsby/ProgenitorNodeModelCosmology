@@ -65,12 +65,14 @@ for (const s of SCENES) {
     const spoken = spokenText(text);
     if (!spoken) return;
     const key = clipKey(s.id, i, text);
-    const file = `${key}-${hash(SIG)}.wav`;
+    const ov = s.voice?.[i] ?? {}; // per-line overrides (exaggeration / cfg) for neural engines
+    const file = `${key}-${hash(SIG + JSON.stringify(ov))}.wav`;
     const abs = path.join(VOICE_DIR, file);
+    const extra = {exag: ov.exaggeration, cfg: ov.cfg};
     if (ENGINE !== 'none' && fs.existsSync(abs)) {
-      clips[key] = {file, seconds: wavSeconds(abs), text: spoken};
+      clips[key] = {file, seconds: wavSeconds(abs), text: spoken, ...extra};
     } else if (ENGINE !== 'none') {
-      jobs.push({key, text: spoken, out: abs, file});
+      jobs.push({key, text: spoken, out: abs, file, ...extra});
     }
   });
 }
@@ -91,7 +93,7 @@ $s.Dispose()`;
   execFileSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', ps], {stdio: 'inherit'});
 } else if (jobs.length && (ENGINE === 'kokoro' || ENGINE === 'chatterbox')) {
   const jobFile = path.join(cache, 'jobs.json');
-  fs.writeFileSync(jobFile, JSON.stringify(jobs.map(({text, out}) => ({text, out}))));
+  fs.writeFileSync(jobFile, JSON.stringify(jobs.map(({text, out, exag, cfg}) => ({text, out, exag, cfg}))));
   execFileSync(VENV_PY, [path.join(ROOT, 'scripts', 'tts_worker.py'), '--engine', ENGINE, '--jobs', jobFile], {stdio: 'inherit'});
 } else if (jobs.length && ENGINE === 'piper') {
   const model = process.env.PIPER_MODEL;
@@ -101,7 +103,7 @@ $s.Dispose()`;
     if (r.status !== 0) throw new Error(`piper failed: ${r.stderr}`);
   }
 }
-for (const j of jobs) clips[j.key] = {file: j.file, seconds: wavSeconds(j.out), text: j.text};
+for (const j of jobs) clips[j.key] = {file: j.file, seconds: wavSeconds(j.out), text: j.text, exag: j.exag, cfg: j.cfg};
 
 // Drop clips no beat uses any more.
 const keep = new Set(Object.values(clips).map((c) => c.file));

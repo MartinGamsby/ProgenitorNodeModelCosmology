@@ -86,12 +86,30 @@ def unnatural_pauses(ref, chunks, x, sr):
     return "unnatural pause: " + "; ".join(bad) if bad else ""
 
 
+def hanging_ending(ref, x, sr):
+    """A statement should end on a falling pitch. Flags lines ending in '.'/'!' whose pitch over
+    the final voiced 0.5 s is flat or rising (sounds unfinished, like 'would allow, ...')."""
+    if not re.search(r"[.!]$", ref.strip()):
+        return ""
+    import librosa
+    f0, vf, _ = librosa.pyin(x, fmin=60, fmax=300, sr=sr, frame_length=1024, hop_length=256)
+    t = np.arange(len(f0)) * 256 / sr
+    v = np.where(vf & ~np.isnan(f0))[0]
+    if len(v) < 8:
+        return ""
+    last = v[t[v] >= t[v[-1]] - 0.5]
+    if len(last) < 4:
+        return ""
+    slope = np.polyfit(t[last], 12 * np.log2(f0[last] / np.median(f0[v])), 1)[0]
+    return f"hanging ending (final pitch {slope:+.0f} st/s)" if slope > -3 else ""
+
+
 def listen(asr, path, ref):
     """Transcribe a clip and return (heard text, similarity, problem)."""
     x, sr = sf.read(path, dtype="float32")
     r = asr(to16k(x, sr), return_timestamps="word")
     sim, problem = check(ref, r["text"])
-    return r["text"], sim, problem or unnatural_pauses(ref, r["chunks"], x, sr)
+    return r["text"], sim, problem or unnatural_pauses(ref, r["chunks"], x, sr) or hanging_ending(ref, x, sr)
 
 
 def to16k(x, sr):
@@ -134,7 +152,7 @@ def main():
             best = None
             for k in range(a.retries):
                 tmp = path + f".try{k}.wav"
-                say(c["text"], tmp, f"#{k + 1}")
+                say(c["text"], tmp, f"#{k + 1}", c.get("exag"), c.get("cfg"))
                 hyp, sim, problem = listen(asr, tmp, c["text"])
                 score = sim - (0.5 if problem else 0)
                 print(f"  retry {k + 1} {sim:.2f} {key} {problem}", flush=True)

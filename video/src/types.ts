@@ -11,6 +11,8 @@ export type SceneDef = {
   whatIf?: string;
   /** Narration, one caption/voice clip per entry. '' = silent beat. */
   beats: string[];
+  /** Per-line voice overrides for neural engines, keyed by beat index (e.g. a calmer line). */
+  voice?: Record<number, {exaggeration?: number; cfg?: number}>;
   /** Silent seconds before beat 0 (an animation-only lead-in). */
   leadSeconds?: number;
   /** Twinkling stars behind this scene (default true). Off whenever we look at the universe

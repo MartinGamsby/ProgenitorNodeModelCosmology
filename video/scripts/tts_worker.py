@@ -39,7 +39,7 @@ def kokoro_engine():
     speed = float(os.environ.get("KOKORO_SPEED", "1.0"))
     pipe = KPipeline(lang_code=voice[0])  # 'a' American, 'b' British
 
-    def say(text, out, salt=""):  # kokoro is deterministic; salt unused
+    def say(text, out, salt="", exag=None, cfg=None):  # kokoro: deterministic, no expressiveness knobs
         chunks = [a for _, _, a in pipe(text, voice=voice, speed=speed)]
         save(out, np.concatenate([np.asarray(c) for c in chunks]), 24000)
 
@@ -56,9 +56,11 @@ def chatterbox_engine():
     cfg = float(os.environ.get("CB_CFG", "0.5"))
     prompt = os.environ.get("CB_PROMPT") or None
 
-    def say(text, out, salt=""):
+    def say(text, out, salt="", exag_=None, cfg_=None):
         torch.manual_seed(zlib.crc32((text + salt).encode()))  # salt = retry with a new seed
-        wav = model.generate(text, audio_prompt_path=prompt, exaggeration=exag, cfg_weight=cfg)
+        wav = model.generate(text, audio_prompt_path=prompt,
+                             exaggeration=exag if exag_ is None else exag_,
+                             cfg_weight=cfg if cfg_ is None else cfg_)
         save(out, wav.squeeze(0).cpu().numpy(), model.sr)
 
     return say
@@ -74,7 +76,7 @@ def main():
     t0 = time.time()
     for k, j in enumerate(jobs):
         tmp = j["out"] + ".part.wav"
-        say(j["text"], tmp)
+        say(j["text"], tmp, "", j.get("exag"), j.get("cfg"))
         os.replace(tmp, j["out"])  # only finished clips land, so an interrupted run resumes
         el = time.time() - t0
         print(f"[{k + 1}/{len(jobs)}] {el / 60:.1f} min, ~{el / (k + 1) * (len(jobs) - k - 1) / 60:.0f} min left", flush=True)

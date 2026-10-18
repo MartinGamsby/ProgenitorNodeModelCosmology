@@ -9,5 +9,5 @@ export const T = {
   whatIfIntro: 2.6, // the "WHAT IF…" stamp before beat 0
   beatGap: 0.7, // silence after each spoken line
   silentBeat: 1.4, // '' beats
-  tail: 2.0, // hold after the last beat, so the viewer can digest
+  tail: 1.5, // hold after the last beat, so the viewer can digest
 };

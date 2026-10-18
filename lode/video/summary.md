@@ -37,7 +37,7 @@ graph LR
   shear-matrix / 1/(S−R)² material (cut 2026-10-16 as too long/technical for video 1).
 - **Stars** only behind chart/text scenes: `stars: false` on any scene that looks at our
   universe or the attractor swarm from outside (no stars out there). Global bg = gradient only.
-- **Pacing**: `T.beatGap` 0.7 s after each line, `T.tail` 2 s hold at scene end (viewer digests).
+- **Pacing**: `T.beatGap` 0.7 s after each line, `T.tail` 1.5 s hold at scene end (viewer digests).
 - **Cold open = hook lead-in**: `SceneDef.leadSeconds` adds silent seconds before beat 0 (timing.ts
   folds it into `intro`). The hook uses 8.5 s: swarm centred on an ordinary black attractor (the
   progenitor is NOT special) → it bangs into galaxies → two neighbours swallow them → one swells
@@ -84,9 +84,12 @@ const b = useBeats();
 - Clip filename = `sceneId-beat-hash(spoken)-hash(engine+settings).wav`: switching engines never
   mixes voices; an interrupted neural run resumes (worker writes `.part.wav` then renames).
 - `scripts/voice_samples.py` = A/B audition of 3 fixed lines → `out/voice-samples/*.wav`.
-- Voice cloning: `CB_PROMPT=voice-ref/martin-en.wav` (Martin's own 30 s trimmed sample,
-  loudnormed; `voice-ref/` is gitignored, personal audio never committed; `martin-fr.wav` waits for
+- Voice cloning: `CB_PROMPT=voice-ref/martin-en-cut.wav` (Martin's own sample, cut at 19.1 s so it
+  ENDS ON A FULL SENTENCE: "…to fix your hiccup."; the uncut 30 s version ends mid-sentence and
+  made 2/4 takes end with a rising "unfinished" pitch vs 0/4 with the cut one; loudnormed; `voice-ref/` is gitignored, personal audio never committed; `martin-fr.wav` waits for
   the French version). Current: exaggeration 0.6, CFG 0.3. 0.8/0.35 sounded "stressed" and fast.
+- Per-line overrides: `SceneDef.voice = {beat: {exaggeration, cfg}}` (e.g. "It's speeding up" at
+  0.55); caption `*emphasis*` never reaches the voice.
 - Pronunciation fixes found by measuring the longest internal pause + Whisper transcript over
   spelling variants: "Lambda CDM" (not "LambdaCDM" → "Land of CDM", not hyphenated), "type 1A"
   (not "type one A" → "one … a"), "supernovas" (not "supernovae"), "point along the same axis"
@@ -96,7 +99,8 @@ const b = useBeats();
   the end (Chatterbox sometimes keeps talking: "…what-if. You can."), inserted/repeated phrases,
   AND unnatural pauses: an energy silence > 0.45 s that Whisper's word timings place after a script
   word with no punctuation ("call … whatever"). Whisper's own word timestamps stretch over
-  silences, so gaps must come from the audio energy. Pauses vary by seed; punctuation steers them
+  silences, so gaps must come from the audio energy. It also flags HANGING ENDINGS: a line ending
+  in '.'/'!' whose pitch (pyin) over the final voiced 0.5 s doesn't fall (slope > −3 st/s). Pauses vary by seed; punctuation steers them
   (a colon before a reveal: "doing this: dark energy"; never a comma inside "one followed by…").
   Always run it before rendering.
 - Rejected: Breeze TTS 2 — CUDA-only per its model card and weights/outputs non-commercial.

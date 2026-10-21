@@ -270,14 +270,14 @@ export const WhatIfClose: React.FC = () => {
 
       {/* beat 7: 72-cell grid */}
       <Show from={7}>
-        <AbsoluteFill style={{alignItems: 'center', paddingTop: 120}}>
+        <AbsoluteFill style={{alignItems: 'center', paddingTop: 95}}>
           <Label size={30} color={C.dim} style={{fontFamily: FONT.display, fontWeight: 800, letterSpacing: 2}}>
             FROM THOUSANDS OF RUNS → THE BEST REGION, RE-RUN WITH MORE PARTICLES
           </Label>
           <Title size={50} style={{marginTop: 10}}>
             {CMS.length} progenitor masses × {SEEDS.length} random realizations
           </Title>
-          <div style={{display: 'grid', gridTemplateColumns: `140px repeat(${CMS.length}, 104px)`, gap: 10, marginTop: 40}}>
+          <div style={{display: 'grid', gridTemplateColumns: `140px repeat(${CMS.length}, 104px)`, gap: 8, marginTop: 24}}>
             <div />
             {CMS.map((cm) => (
               <div key={cm} style={{textAlign: 'center', fontFamily: FONT.body, fontWeight: 700, fontSize: 24, color: C.dim}}>
@@ -286,7 +286,7 @@ export const WhatIfClose: React.FC = () => {
             ))}
             {SEEDS.map((seed, r) => (
               <React.Fragment key={seed}>
-                <div style={{fontFamily: FONT.body, fontWeight: 700, fontSize: 22, color: C.dim, textAlign: 'right', paddingRight: 10, lineHeight: '50px'}}>seed {seed}</div>
+                <div style={{fontFamily: FONT.body, fontWeight: 700, fontSize: 22, color: C.dim, textAlign: 'right', paddingRight: 10, lineHeight: '42px'}}>seed {seed}</div>
                 {CMS.map((cm, k) => {
                   const c = CELLS.find((x) => x.cm === cm && x.seed === seed);
                   const p = b.p(7, 10, 8 + (r * CMS.length + k) * 0.9);
@@ -294,7 +294,7 @@ export const WhatIfClose: React.FC = () => {
                     <div
                       key={cm}
                       style={{
-                        height: 50,
+                        height: 42,
                         borderRadius: 8,
                         background: !c ? C.faint : c.ok ? C.eds : C.hot,
                         opacity: p,
@@ -306,7 +306,7 @@ export const WhatIfClose: React.FC = () => {
               </React.Fragment>
             ))}
           </div>
-          <div style={{display: 'flex', gap: 40, alignItems: 'baseline', marginTop: 30}}>
+          <div style={{display: 'flex', gap: 40, alignItems: 'baseline', marginTop: 16}}>
             <Label size={26}>progenitor mass (× our universe) →</Label>
             <Title size={80} color={C.eds}>
               {Math.round(nOk * b.p(7, 60, 30))} / {CELLS.length}

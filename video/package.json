@@ -15,7 +15,8 @@
     "thumbnail": "remotion still Thumbnail out/thumbnail.png",
     "stills": "node scripts/stills.mjs",
     "frames": "node scripts/frames.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "i18n:review": "node scripts/i18n-review.mjs"
   },
   "dependencies": {
     "@remotion/cli": "4.0.536",

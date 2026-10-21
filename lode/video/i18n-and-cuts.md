@@ -54,8 +54,18 @@ gly(89, true)        // tr('units.gly_short', {n: 290}) → "290 billion ly"
 - Refactor guard: EN frame count (20572) + 112 per-beat stills diffed against a pre-refactor
   baseline (`scripts/diff_stills.py`) — 0 differ. Grouping of axis ticks was the one regression found.
 - Scene code names the translator `tr` (not `t`: `t` is time in many scenes).
-- French typography: decimal comma, space thousands (fr-CA), « » quotes with narrow spaces in labels;
-  voice text avoids symbols (spell them through `{shown|spoken}` like EN).
+- French typography (OQLF): decimal comma, space thousands (fr-CA), space before « : » only (not
+  ; ! ?). `captionTokens` glues a spaced « : » to the previous word with a no-break space, and keeps an
+  elision before a highlight as one highlighted word (`l’*énergie sombre*` → « l’énergie sombre »).
+  `spokenText` turns ’ into ' for the TTS (EN narration has none, so EN clip hashes didn't move).
+- French voice text spells every number out (`{1998|mille neuf cent quatre-vingt-dix-huit}`,
+  `{0,436|zéro virgule quatre cent trente-six}`): the multilingual model is less reliable on digits.
+- Translation choices (draft, Martin reviewing): clumps → « grumeaux »; knot → « boule » (not « nœud »:
+  clashes with « nœud progéniteur »); overfitting → « surajustement »; dark flow → « flot sombre »;
+  Axis of Evil → « axe du mal »; toy model → « modèle jouet »; HMEA → « AEH »; Gyr → « Ga »; the paper
+  title stays English (credits). Labels are ~20–30 % longer than EN: check stills for overflow
+  (cards with fixed width, docked what-if badge vs. titles, panel subtitles side by side).
+- Review sheet: `npm run i18n:review` → `lode/tmp/fr-review.md` (EN | FR per beat, voice text when it differs).
 
 ## Cuts (planned)
 | cut | format | content |

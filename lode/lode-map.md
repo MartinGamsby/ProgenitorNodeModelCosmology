@@ -45,6 +45,7 @@ files for the task at hand. [README.md](./README.md) = what Lode coding is.
 ## Video
 - [video/summary.md](./video/summary.md) — Remotion explainer in `video/`: script → voice → timeline → scenes, contracts, lessons
 - [video/data-sources.md](./video/data-sources.md) — every on-screen number, its source file, what is illustrative
+- [video/i18n-and-cuts.md](./video/i18n-and-cuts.md) — languages (en/fr) and cuts (full / idea / vertical short) from one codebase
 
 ## Plans
 - [plans/roadmap.md](./plans/roadmap.md) — ALL open work, pending decisions, housekeeping

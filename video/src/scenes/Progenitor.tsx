@@ -5,6 +5,7 @@ import {Show} from '../components/Show';
 import {At, Card, Label, NodeDot, SvgDefs, Title} from '../components/ui';
 import medium from '../../public/data/medium.json';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
+import {useT} from '../i18n';
 
 const CX = WIDTH / 2;
 const CY = HEIGHT / 2 - 20;
@@ -20,6 +21,7 @@ const useSlice = (scale: number) =>
   }, [scale]);
 
 export const Progenitor: React.FC = () => {
+  const tr = useT();
   const b = useBeats();
   const f = b.frame;
   const nodes = useSlice(3.4);
@@ -72,15 +74,14 @@ export const Progenitor: React.FC = () => {
       <Show from={0} until={1}>
         <At x={CX} y={CY - 200}>
           <Title size={120} color={C.gold}>
-            ?
-          </Title>
+            {tr('progenitor.x')}</Title>
         </At>
       </Show>
       <Show from={1} until={3} offset={30}>
         <At x={CX} y={150}>
           <Card accent={C.gold}>
             <Title size={50}>
-              What if the Big Bang <span style={{color: C.gold}}>was an attractor?</span>
+              {tr('progenitor.what_if_the_big')}<span style={{color: C.gold}}>{tr('progenitor.was_an_attractor')}</span>
             </Title>
           </Card>
         </At>
@@ -88,15 +89,14 @@ export const Progenitor: React.FC = () => {
       <Show from={2} until={3} offset={20}>
         <At x={CX} y={CY + 120}>
           <Label size={32} color={C.gold} style={{fontFamily: FONT.display, fontWeight: 800}}>
-            balanced… for now
-          </Label>
+            {tr('progenitor.balanced_for_now')}</Label>
         </At>
       </Show>
       <Show from={5} until={6}>
         <At x={CX} y={130}>
           <Card accent={C.bubble}>
             <Title size={48}>
-              starts in the middle · <span style={{color: C.bubble}}>same in every direction</span>
+              {tr('progenitor.starts_in_the_middle')}<span style={{color: C.bubble}}>{tr('progenitor.same_in_every_direction')}</span>
             </Title>
           </Card>
         </At>
@@ -107,7 +107,7 @@ export const Progenitor: React.FC = () => {
         <AbsoluteFill style={{opacity: split}}>
           <At x={CX} y={140}>
             <Title size={76}>
-              One mass, <span style={{color: C.gold}}>two epochs</span>
+              {tr('progenitor.one_mass')}<span style={{color: C.gold}}>{tr('progenitor.two_epochs')}</span>
             </Title>
           </At>
           <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
@@ -130,12 +130,11 @@ export const Progenitor: React.FC = () => {
           </svg>
           <At x={520} y={730}>
             <Label size={34} color={C.ink} style={{textAlign: 'center', fontWeight: 700}}>
-              BEFORE: one member of the swarm
-            </Label>
+              {tr('progenitor.before_one_member_of')}</Label>
           </At>
           <At x={1400} y={800}>
             <Label size={34} color={C.ink} style={{textAlign: 'center', fontWeight: 700, opacity: b.p(7, 20)}}>
-              AFTER: our universe <span style={{color: C.gold}}>+ matter beyond the horizon</span>
+              {tr('progenitor.after_our_universe')}<span style={{color: C.gold}}>{tr('progenitor.matter_beyond_the_horizon')}</span>
             </Label>
           </At>
         </AbsoluteFill>
@@ -144,8 +143,7 @@ export const Progenitor: React.FC = () => {
         <At x={CX} y={300}>
           <Card accent={C.gold} style={{padding: '14px 30px'}}>
             <Title size={44} color={C.gold}>
-              M<sub style={{fontSize: 24}}>progenitor</sub> = a typical member
-            </Title>
+              {tr('progenitor.m')}<sub style={{fontSize: 24}}>{tr('progenitor.progenitor')}</sub> {tr('progenitor.a_typical_member')}</Title>
           </Card>
         </At>
       </Show>

@@ -12,7 +12,8 @@ const frames = process.argv.slice(2).map((a) =>
   /^\d+$/.test(a) ? Number(a) : Number(execFileSync('node', [path.join(ROOT, 'scripts/frames.mjs'), ...a.split(':')]).toString().trim()),
 );
 const serveUrl = await bundle({entryPoint: path.join(ROOT, 'src/index.ts')});
-const composition = await selectComposition({serveUrl, id: 'Explainer'});
+const COMP = `${process.env.CUT || 'full'}-${process.env.LOCALE || 'en'}`;
+const composition = await selectComposition({serveUrl, id: COMP, inputProps: {cut: process.env.CUT || 'full', locale: process.env.LOCALE || 'en'}});
 fs.mkdirSync(path.join(ROOT, 'out/stills'), {recursive: true});
 for (const frame of frames) {
   const output = path.join(ROOT, 'out/stills', `${frame}.jpg`);

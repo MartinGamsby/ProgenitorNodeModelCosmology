@@ -23,15 +23,18 @@ SAME = {"neighbors": "neighbours", "neighbor": "neighbour", "catalog": "catalogu
         "percent": "%", "zeroes": "zeros"}
 
 
+LANG = "en"
+
+
 def norm(s):
     from num2words import num2words
     s = s.lower().replace("-", " ").replace(",", "")
     s = re.sub(r"(\d+(?:\.\d+)?)%", r" percent", s)
     out = []
-    for w in re.sub(r"[^a-z0-9.' ]", " ", s).split():
+    for w in re.sub(r"[^a-z0-9.'àâäçéèêëîïôöùûüÿœæ ]", " ", s).split():
         w = w.strip(".'")
         if re.fullmatch(r"\d+(\.\d+)?", w):
-            out += norm(num2words(float(w) if "." in w else int(w)))
+            out += norm(num2words(float(w) if "." in w else int(w), lang=LANG))
         elif w:
             out.append(SAME.get(w, w))
     return out
@@ -135,9 +138,14 @@ def main():
     ap.add_argument("--seed-offset", type=int, default=0, help="start re-roll seeds further on (a second pass tries new takes)")
     a = ap.parse_args()
     from transformers import pipeline
-    asr = pipeline("automatic-speech-recognition", model="openai/whisper-base.en", device="cpu")
-    man = json.load(open(os.path.join(ROOT, "src", "generated", "voice.json"), encoding="utf-8"))
-    vdir = os.path.join(ROOT, "public", "voice")
+    global LANG
+    LANG = os.environ.get("LOCALE", "en")
+    model = "openai/whisper-base.en" if LANG == "en" else "openai/whisper-base"
+    kw = {} if LANG == "en" else {"generate_kwargs": {"language": LANG, "task": "transcribe"}}
+    _asr = pipeline("automatic-speech-recognition", model=model, device="cpu")
+    asr = lambda x, **k: _asr(x, **k, **kw)
+    man = json.load(open(os.path.join(ROOT, "src", "generated", f"voice.{LANG}.json"), encoding="utf-8"))
+    vdir = os.path.join(ROOT, "public", "voice", LANG)
     report, bad = [], []
     for key, c in man["clips"].items():
         path = os.path.join(vdir, c["file"])
@@ -168,7 +176,7 @@ def main():
             for r in report:
                 if r["key"] == key:
                     r.update(sim=round(best[3], 3), problem=best[4], heard=best[2].strip(), regenerated=True)
-    json.dump(report, open(os.path.join(ROOT, "out", "voice-check.json"), "w"), indent=1)
+    json.dump(report, open(os.path.join(ROOT, "out", f"voice-check.{LANG}.json"), "w"), indent=1)
     low = [r for r in report if r["sim"] < a.threshold or r.get("problem")]
     print(f"checked {len(report)} clips, {len(bad)} flagged, {len(low)} still below {a.threshold}")
 

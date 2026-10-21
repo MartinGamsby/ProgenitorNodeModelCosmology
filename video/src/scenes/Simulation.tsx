@@ -4,15 +4,19 @@ import {useBeats} from '../beats';
 import {Axes, LegendItem, scales} from '../components/Chart';
 import {Show} from '../components/Show';
 import {cloudAt, Space3D} from '../components/Space3D';
-import {Arrow, At, Card, gly, Label, pathOf, partial, Title} from '../components/ui';
+import {Arrow, At, Card, Label, pathOf, partial, Title} from '../components/ui';
 import hero from '../../public/data/cloud_hero.json';
 import growth from '../../public/data/growth.json';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
+import {useFmt, useGly, useT} from '../i18n';
 
 const CLOUD_W = 1000;
 const CLOUD_CX = 520;
 
 export const Simulation: React.FC = () => {
+  const tr = useT();
+  const fmt = useFmt();
+  const gly = useGly();
   const b = useBeats();
   const f = b.frame;
   const frames = hero.frames as number[][][];
@@ -63,23 +67,20 @@ export const Simulation: React.FC = () => {
         </svg>
         <At x={CLOUD_CX} y={130}>
           <Label size={32} color={C.lcdm} style={{fontWeight: 800}}>
-            ← self-gravity: brakes
-          </Label>
+            {tr('simulation.self_gravity_brakes')}</Label>
         </At>
         <At x={CLOUD_CX} y={870}>
           <Label size={32} color={C.node} style={{fontWeight: 800}}>
-            distant attractors: pull apart →
-          </Label>
+            {tr('simulation.distant_attractors_pull_apart')}</Label>
         </At>
       </Show>
       <Show from={1} until={2}>
         <At x={1460} y={420}>
           <Card>
-            <Title size={50}>N-body simulation</Title>
+            <Title size={50}>{tr('simulation.n_body_simulation')}</Title>
             <Label size={30} color={C.ink}>
-              {hero.n_inner.toLocaleString('en-US')} particles · plain Newtonian gravity
-            </Label>
-            <Label size={26}>+ pull from 300 attractors, ~{gly(hero.S)} apart</Label>
+              {fmt(hero.n_inner)} {tr('simulation.particles_plain_newtonian_gravity')}</Label>
+            <Label size={26}>{tr('simulation.pull_from_300_attractors')}{gly(hero.S)} {tr('simulation.apart')}</Label>
           </Card>
         </At>
       </Show>
@@ -88,11 +89,9 @@ export const Simulation: React.FC = () => {
       <Show from={3}>
         <div style={{position: 'absolute', left: 80, top: 120}}>
           <Label size={26} style={{fontFamily: FONT.display, fontWeight: 800, letterSpacing: 2}}>
-            AGE OF THE UNIVERSE
-          </Label>
+            {tr('simulation.age_of_the_universe')}</Label>
           <Title size={72} color={C.gold} style={{fontFamily: FONT.mono}}>
-            {tNow.toFixed(1)} Gyr
-          </Title>
+            {fmt(tNow, 1)} {tr('simulation.gyr')}</Title>
         </div>
         <div style={{position: 'absolute', left: 84, top: 230}}>
           <svg width={400} height={60}>
@@ -100,7 +99,7 @@ export const Simulation: React.FC = () => {
             <line x1={0} x2={0} y1={10} y2={30} stroke={C.dim} strokeWidth={4} />
             <line x1={180} x2={180} y1={10} y2={30} stroke={C.dim} strokeWidth={4} />
             <text x={200} y={30} fill={C.dim} fontFamily={FONT.body} fontWeight={700} fontSize={26}>
-              {gly(5).replace(' light-years', ' ly')}
+              {gly(5, true)}
             </text>
           </svg>
         </div>
@@ -111,31 +110,29 @@ export const Simulation: React.FC = () => {
         <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute', opacity: chartO}}>
           <rect x={box.x - 150} y={box.y - 110} width={box.w + 200} height={box.h + 230} rx={22} fill="rgba(10,16,34,0.85)" stroke={C.faint} strokeWidth={2} />
           <text x={box.x - 120} y={box.y - 60} fill={C.ink} fontFamily={FONT.display} fontWeight={800} fontSize={34}>
-            How much the cloud has grown
-          </text>
-          <Axes box={box} xd={[2.9, 13.8]} yd={[1, 3.6]} xticks={[2.9, 6, 10, 13.8]} yticks={[1, 2, 3]} fmtY={(v) => `×${v}`} xlabel="time (Gyr)" />
+            {tr('simulation.how_much_the_cloud')}</text>
+          <Axes box={box} xd={[2.9, 13.8]} yd={[1, 3.6]} xticks={[2.9, 6, 10, 13.8]} yticks={[1, 2, 3]} fmtY={(v) => `×${v}`} xlabel={tr('simulation.time_gyr')} />
           <path d={pathOf(partial(line(g.eds), edsP))} stroke={C.eds} strokeWidth={6} strokeDasharray="12 9" fill="none" />
           {g.t.map((tt, i) =>
             i % 8 === 0 && i / g.t.length < zeroDots ? <circle key={i} cx={X(tt)} cy={Y(g.eds[i])} r={8} fill="none" stroke="#fff" strokeWidth={3} /> : null,
           )}
           <path d={pathOf(line(g.lcdm))} stroke={C.lcdm} strokeWidth={6} fill="none" opacity={lcdmO} />
           {b.on(6) && <path d={pathOf(partial(line(g.model), modelP))} stroke={C.model} strokeWidth={7} fill="none" />}
-          <LegendItem x={box.x + 20} y={box.y + 10} color={C.eds} dashed text="no dark energy (EdS)" />
-          <LegendItem x={box.x + 20} y={box.y + 55} color="#ffffff" text="sim with M = 0" opacity={zeroDots} />
-          <LegendItem x={box.x + 20} y={box.y + 100} color={C.lcdm} text="ΛCDM" opacity={lcdmO} />
-          <LegendItem x={box.x + 20} y={box.y + 145} color={C.model} text="sim with attractors" opacity={modelP > 0 ? 1 : 0} />
+          <LegendItem x={box.x + 20} y={box.y + 10} color={C.eds} dashed text={tr('simulation.no_dark_energy_eds')} />
+          <LegendItem x={box.x + 20} y={box.y + 55} color="#ffffff" text={tr('simulation.sim_with_m_0')} opacity={zeroDots} />
+          <LegendItem x={box.x + 20} y={box.y + 100} color={C.lcdm} text={tr('simulation.cdm')} opacity={lcdmO} />
+          <LegendItem x={box.x + 20} y={box.y + 145} color={C.model} text={tr('simulation.sim_with_attractors')} opacity={modelP > 0 ? 1 : 0} />
           <g opacity={b.p(7, 20)} fontFamily={FONT.body} fontWeight={800} fontSize={26}>
-            <text x={X(13.8) + 12} y={Y(last(g.lcdm)) - 12} fill={C.lcdm}>×{last(g.lcdm).toFixed(2)}</text>
-            <text x={X(13.8) + 12} y={Y(last(g.model)) + 22} fill={C.model}>×{last(g.model).toFixed(2)}</text>
-            <text x={X(13.8) + 12} y={Y(last(g.eds)) + 10} fill={C.eds}>×{last(g.eds).toFixed(2)}</text>
+            <text x={X(13.8) + 12} y={Y(last(g.lcdm)) - 12} fill={C.lcdm}>{tr('simulation.x')}{fmt(last(g.lcdm), 2)}</text>
+            <text x={X(13.8) + 12} y={Y(last(g.model)) + 22} fill={C.model}>{tr('simulation.x')}{fmt(last(g.model), 2)}</text>
+            <text x={X(13.8) + 12} y={Y(last(g.eds)) + 10} fill={C.eds}>{tr('simulation.x')}{fmt(last(g.eds), 2)}</text>
           </g>
         </svg>
       )}
       <Show from={5} until={6} offset={30}>
         <At x={1490} y={850}>
           <Title size={40} color={C.eds}>
-            M = 0 → exactly Einstein–de Sitter ✓
-          </Title>
+            {tr('simulation.m_0_exactly_einstein')}</Title>
         </At>
       </Show>
     </AbsoluteFill>

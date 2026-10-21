@@ -35,7 +35,7 @@ n_inner, n_inner = n_total / (1 + min(centerM−1, 2))). Knot ratio = `_universe
 cd video && npm run data     # prints chi2s + "68/72" as a self-check
 ```
 
-## Narrated round numbers (script.ts) — check against the paper when it changes
+## Narrated round numbers (src/i18n/en.ts + fr.ts) — check against the paper when it changes
 - observable radius 14 Gpc ≈ 46 Gly; fiducial node 500 M_obs ≈ 5e55 kg, S ≈ 39 Gpc (paper §estimation)
 - 10^120 fine-tuning; dark energy 68 / DM 27 / baryons 5 %
 - Hubble tension (Predictions scene): Planck 2018 67.4 ± 0.5 vs SH0ES (Riess 2022) 73.04 ± 1.04 km/s/Mpc, "≈ 8% apart"

@@ -4,13 +4,14 @@ import {useBeats} from '../beats';
 import {Axes, scales} from '../components/Chart';
 import {Show} from '../components/Show';
 import {cloudAt, project, Space3D, V3} from '../components/Space3D';
-import {At, Card, gly, Label, NodeDot, SvgDefs, Title} from '../components/ui';
+import {At, Card, Label, NodeDot, SvgDefs, Title} from '../components/ui';
 import hero from '../../public/data/cloud_hero.json';
 import knot from '../../public/data/cloud_knot.json';
 import verdict from '../../public/data/verdict.json';
 import hubble from '../../public/data/hubble.json';
 import {NOISE} from './Data';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
+import {useFmt, useGly, useT} from '../i18n';
 
 type Cell = {cm: number; seed: number; bo: number | null; knot: number | null; ok: boolean};
 const CELLS = verdict.cells as Cell[];
@@ -19,6 +20,9 @@ const SEEDS = [...new Set(CELLS.map((c) => c.seed))].sort((a, b) => a - b);
 
 // ---------------------------------------------------------------------------------------------
 export const WhatIfObserver: React.FC = () => {
+  const tr = useT();
+  const fmt = useFmt();
+  const gly = useGly();
   const b = useBeats();
   const f = b.frame;
   const frames = hero.frames as number[][][];
@@ -50,8 +54,7 @@ export const WhatIfObserver: React.FC = () => {
               <circle cx={W / 2} cy={W / 2} r={26} fill="none" stroke={C.hot} strokeWidth={5} />
               <line x1={W / 2 - 40} y1={W / 2 - 40} x2={W / 2 + 40} y2={W / 2 + 40} stroke={C.hot} strokeWidth={6} />
               <text x={W / 2} y={W / 2 + 80} fill={C.hot} fontFamily={FONT.display} fontWeight={800} fontSize={34} textAnchor="middle">
-                the exact centre? unlikely
-              </text>
+                {tr('whatifstructure.the_exact_centre_unlikely')}</text>
             </g>
           )}
           {b.on(1) && q && (
@@ -64,7 +67,7 @@ export const WhatIfObserver: React.FC = () => {
       <Show from={1} until={2}>
         <At x={WIDTH / 2} y={140}>
           <Label size={30} color={C.ink} style={{fontWeight: 700}}>
-            vantage points tested: <span style={{color: C.gold, fontFamily: FONT.mono}}>{tested}</span>
+            {tr('whatifstructure.vantage_points_tested')}<span style={{color: C.gold, fontFamily: FONT.mono}}>{tested}</span>
           </Label>
         </At>
       </Show>
@@ -72,26 +75,24 @@ export const WhatIfObserver: React.FC = () => {
         <At x={1560} y={540}>
           <Card accent={C.gold} style={{textAlign: 'center'}}>
             <Label size={26} color={C.gold} style={{fontFamily: FONT.display, fontWeight: 800}}>
-              BEST VANTAGE IN THIS RUN
-            </Label>
-            <Title size={60}>{hubble.chi2.model.toFixed(3)}</Title>
-            <Label size={24}>ΛCDM: {hubble.chi2.lcdm.toFixed(3)}</Label>
+              {tr('whatifstructure.best_vantage_in_this')}</Label>
+            <Title size={60}>{fmt(hubble.chi2.model, 3)}</Title>
+            <Label size={24}>{tr('whatifstructure.cdm')}{fmt(hubble.chi2.lcdm, 3)}</Label>
           </Card>
         </At>
       </Show>
       <Show from={2}>
         <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
           <text x={box.x} y={box.y - 70} fill={C.ink} fontFamily={FONT.display} fontWeight={800} fontSize={34}>
-            Best vantage in {goodCells.length} configurations
-          </text>
-          <Axes box={box} xd={[0.42, 0.47]} yd={[0, 1]} xticks={[0.42, 0.44, 0.46]} fmtX={(v) => v.toFixed(2)} xlabel="fit score (χ²/dof)" grid={false} />
+            {tr('whatifstructure.best_vantage_in')}{goodCells.length} {tr('whatifstructure.configurations')}</text>
+          <Axes box={box} xd={[0.42, 0.47]} yd={[0, 1]} xticks={[0.42, 0.44, 0.46]} fmtX={(v) => fmt(v, 2)} xlabel={tr('whatifstructure.fit_score_2_dof')} grid={false} />
           <rect x={sc.X(hubble.chi2.lcdm - NOISE)} y={box.y} width={sc.X(hubble.chi2.lcdm + NOISE) - sc.X(hubble.chi2.lcdm - NOISE)} height={box.h} fill={C.lcdm} opacity={0.14} />
           <text x={sc.X(hubble.chi2.lcdm)} y={box.y + box.h - 12} fill={C.lcdm} fontFamily={FONT.body} fontWeight={700} fontSize={20} textAnchor="middle" opacity={0.9}>
-            noise ±{NOISE}
+            {tr('whatifstructure.noise')}{NOISE}
           </text>
           <line x1={sc.X(hubble.chi2.lcdm)} x2={sc.X(hubble.chi2.lcdm)} y1={box.y} y2={box.y + box.h} stroke={C.lcdm} strokeWidth={4} />
           <text x={sc.X(hubble.chi2.lcdm) - 10} y={box.y - 14} fill={C.lcdm} fontFamily={FONT.body} fontWeight={800} fontSize={24} textAnchor="end">
-            ΛCDM {hubble.chi2.lcdm}
+            {tr('whatifstructure.cdm_2')}{hubble.chi2.lcdm}
           </text>
           {goodCells.map((c, i) => {
             const x = sc.X(Math.min(0.47, c.bo!));
@@ -136,6 +137,9 @@ const CloudPanel: React.FC<{data: typeof hero; cx: number; p: number; yaw: numbe
 };
 
 export const WhatIfClose: React.FC = () => {
+  const tr = useT();
+  const fmt = useFmt();
+  const gly = useGly();
   const b = useBeats();
   const f = b.frame;
   const CX = WIDTH / 2;
@@ -147,10 +151,10 @@ export const WhatIfClose: React.FC = () => {
   const yaw = f * 0.005;
   const parts = useMemo(() => new Array(220).fill(0).map((_, i) => ({a: random(`ra${i}`) * Math.PI * 2, r: Math.sqrt(random(`rr${i}`))})), []);
   const checks = [
-    ['fits the supernovae', 'best-observer χ²/dof ≤ 0.46'],
-    ['grows by the right amount', 'within 20% of ΛCDM'],
-    ['core doesn’t collapse', 'knot ratio ≥ 0.9'],
-    ['no attractor inside the horizon', `nearest attractor > ${gly(15)}`],
+    [tr('whatifstructure.check1'), tr('whatifstructure.check1_d', {v: fmt(0.46, 2)})],
+    [tr('whatifstructure.check2'), tr('whatifstructure.check2_d')],
+    [tr('whatifstructure.check3'), tr('whatifstructure.check3_d', {v: fmt(0.9, 1)})],
+    [tr('whatifstructure.check4'), tr('whatifstructure.check4_d', {d: gly(15)})],
   ];
   const nOk = CELLS.filter((c) => c.ok).length;
   return (
@@ -193,13 +197,11 @@ export const WhatIfClose: React.FC = () => {
       <Show from={1} until={2} offset={10}>
         <At x={CX} y={160}>
           <Title size={90} color={C.hot}>
-            RUNAWAY
-          </Title>
+            {tr('whatifstructure.runaway')}</Title>
         </At>
         <At x={CX} y={240}>
           <Label size={32} color={C.ink} style={{fontWeight: 700}}>
-            stretched · swallowed · slingshot away
-          </Label>
+            {tr('whatifstructure.stretched_swallowed_slingshot_away')}</Label>
         </At>
       </Show>
 
@@ -212,8 +214,8 @@ export const WhatIfClose: React.FC = () => {
             p={simP}
             yaw={yaw}
             good={false}
-            title={`core ×${knot.knot.toFixed(2)}: a KNOT`}
-            sub={`attractors ~${gly(knot.S)} apart · fit ${knot.best_observer_chi2.toFixed(3)}`}
+            title={tr('whatifstructure.knot_title', {k: fmt(knot.knot, 2)})}
+            sub={tr('whatifstructure.panel_sub', {d: gly(knot.S), f: fmt(knot.best_observer_chi2, 3)})}
           />
           {split > 0 && (
             <div style={{opacity: split}}>
@@ -223,15 +225,14 @@ export const WhatIfClose: React.FC = () => {
                 p={simP}
                 yaw={yaw + 1}
                 good
-                title={`core ×${hero.knot.toFixed(2)}: healthy`}
-                sub={`attractors ~${gly(hero.S)} apart · fit ${hero.best_observer_chi2.toFixed(3)}`}
+                title={tr('whatifstructure.healthy_title', {k: fmt(hero.knot, 2)})}
+                sub={tr('whatifstructure.panel_sub', {d: gly(hero.S), f: fmt(hero.best_observer_chi2, 3)})}
               />
             </div>
           )}
           <At x={CX} y={120}>
             <Label size={30} color={C.dim} style={{fontFamily: FONT.display, fontWeight: 800, letterSpacing: 2}}>
-              REAL SIMULATIONS · CORE PARTICLES HIGHLIGHTED · {knot.t_Gyr[0]} → 13.8 Gyr
-            </Label>
+              {tr('whatifstructure.real_simulations_core_particles')}{knot.t_Gyr[0]} {tr('whatifstructure.13_8_gyr')}</Label>
           </At>
         </AbsoluteFill>
       )}
@@ -241,7 +242,7 @@ export const WhatIfClose: React.FC = () => {
         <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center'}}>
           <Card accent={C.gold} style={{padding: '40px 60px'}}>
             <Title size={56} style={{marginBottom: 26}}>
-              Universe-like? <span style={{color: C.gold}}>Checklist</span>
+              {tr('whatifstructure.universe_like')}<span style={{color: C.gold}}>{tr('whatifstructure.checklist')}</span>
             </Title>
             {checks.map(([a, d], i) => {
               const p = b.p(5, 15, i * Math.max(12, (b.at(6) - b.at(5)) / 5));
@@ -263,8 +264,7 @@ export const WhatIfClose: React.FC = () => {
       <Show from={6} until={7} offset={20}>
         <At x={CX} y={160}>
           <Title size={44} color={C.hot}>
-            fit alone → picks the collapsing ones
-          </Title>
+            {tr('whatifstructure.fit_alone_picks_the')}</Title>
         </At>
       </Show>
 
@@ -272,11 +272,9 @@ export const WhatIfClose: React.FC = () => {
       <Show from={7}>
         <AbsoluteFill style={{alignItems: 'center', paddingTop: 95}}>
           <Label size={30} color={C.dim} style={{fontFamily: FONT.display, fontWeight: 800, letterSpacing: 2}}>
-            FROM THOUSANDS OF RUNS → THE BEST REGION, RE-RUN WITH MORE PARTICLES
-          </Label>
+            {tr('whatifstructure.from_thousands_of_runs')}</Label>
           <Title size={50} style={{marginTop: 10}}>
-            {CMS.length} progenitor masses × {SEEDS.length} random realizations
-          </Title>
+            {CMS.length} {tr('whatifstructure.progenitor_masses')}{SEEDS.length} {tr('whatifstructure.random_realizations')}</Title>
           <div style={{display: 'grid', gridTemplateColumns: `140px repeat(${CMS.length}, 104px)`, gap: 8, marginTop: 24}}>
             <div />
             {CMS.map((cm) => (
@@ -286,7 +284,7 @@ export const WhatIfClose: React.FC = () => {
             ))}
             {SEEDS.map((seed, r) => (
               <React.Fragment key={seed}>
-                <div style={{fontFamily: FONT.body, fontWeight: 700, fontSize: 22, color: C.dim, textAlign: 'right', paddingRight: 10, lineHeight: '42px'}}>seed {seed}</div>
+                <div style={{fontFamily: FONT.body, fontWeight: 700, fontSize: 22, color: C.dim, textAlign: 'right', paddingRight: 10, lineHeight: '42px'}}>{tr('whatifstructure.seed')}{seed}</div>
                 {CMS.map((cm, k) => {
                   const c = CELLS.find((x) => x.cm === cm && x.seed === seed);
                   const p = b.p(7, 10, 8 + (r * CMS.length + k) * 0.9);
@@ -307,11 +305,11 @@ export const WhatIfClose: React.FC = () => {
             ))}
           </div>
           <div style={{display: 'flex', gap: 40, alignItems: 'baseline', marginTop: 16}}>
-            <Label size={26}>progenitor mass (× our universe) →</Label>
+            <Label size={26}>{tr('whatifstructure.progenitor_mass_our_universe')}</Label>
             <Title size={80} color={C.eds}>
               {Math.round(nOk * b.p(7, 60, 30))} / {CELLS.length}
             </Title>
-            <Label size={30} color={C.ink}>universe-like</Label>
+            <Label size={30} color={C.ink}>{tr('whatifstructure.universe_like_2')}</Label>
           </div>
         </AbsoluteFill>
       </Show>
@@ -321,6 +319,9 @@ export const WhatIfClose: React.FC = () => {
 
 // ---------------------------------------------------------------------------------------------
 export const WhatIfMass: React.FC = () => {
+  const tr = useT();
+  const fmt = useFmt();
+  const gly = useGly();
   const b = useBeats();
   const f = b.frame;
   const CX = WIDTH / 2;
@@ -339,21 +340,19 @@ export const WhatIfMass: React.FC = () => {
           <circle cx={CX} cy={HEIGHT / 2} r={size * 2.2} fill={C.gold} opacity={0.12} />
           <circle cx={CX} cy={HEIGHT / 2} r={size} fill="#120a00" stroke={C.gold} strokeWidth={5} />
           <text x={CX} y={HEIGHT / 2 + 80} fill={C.ink} fontFamily={FONT.display} fontWeight={800} fontSize={44} textAnchor="middle" opacity={1 - grow}>
-            tiny?
-          </text>
+            {tr('whatifstructure.tiny')}</text>
           <text x={CX} y={160} fill={C.ink} fontFamily={FONT.display} fontWeight={800} fontSize={60} textAnchor="middle" opacity={grow}>
-            …or enormous?
-          </text>
+            {tr('whatifstructure.or_enormous')}</text>
         </svg>
       )}
       {b.on(1) && (
         <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute', opacity: b.p(1, 15)}}>
-          <Axes box={top} xd={[0.7, 4500]} yd={[0.42, 0.47]} logX xticks={CMS} yticks={[0.43, 0.45, 0.47]} fmtY={(v) => v.toFixed(2)} ylabel="fit" />
-          <Axes box={bot} xd={[0.7, 4500]} yd={[0.4, 1.6]} logX xticks={CMS} yticks={[0.6, 1, 1.4]} xlabel="progenitor mass (× our observable universe)" ylabel="core ratio" />
+          <Axes box={top} xd={[0.7, 4500]} yd={[0.42, 0.47]} logX xticks={CMS} yticks={[0.43, 0.45, 0.47]} fmtY={(v) => fmt(v, 2)} ylabel={tr('whatifstructure.fit')} />
+          <Axes box={bot} xd={[0.7, 4500]} yd={[0.4, 1.6]} logX xticks={CMS} yticks={[0.6, 1, 1.4]} xlabel={tr('whatifstructure.progenitor_mass_our_observable')} ylabel={tr('whatifstructure.core_ratio')} />
           <line x1={top.x} x2={top.x + top.w} y1={sTop.Y(hubble.chi2.lcdm)} y2={sTop.Y(hubble.chi2.lcdm)} stroke={C.lcdm} strokeWidth={3} strokeDasharray="8 8" />
           <line x1={bot.x} x2={bot.x + bot.w} y1={sBot.Y(0.9)} y2={sBot.Y(0.9)} stroke={C.hot} strokeWidth={3} strokeDasharray="8 8" />
-          <text x={bot.x + bot.w + 10} y={sBot.Y(0.9) + 8} fill={C.hot} fontFamily={FONT.body} fontWeight={700} fontSize={22}>collapse</text>
-          <text x={top.x + top.w + 10} y={sTop.Y(hubble.chi2.lcdm) + 8} fill={C.lcdm} fontFamily={FONT.body} fontWeight={700} fontSize={22}>ΛCDM</text>
+          <text x={bot.x + bot.w + 10} y={sBot.Y(0.9) + 8} fill={C.hot} fontFamily={FONT.body} fontWeight={700} fontSize={22}>{tr('whatifstructure.collapse')}</text>
+          <text x={top.x + top.w + 10} y={sTop.Y(hubble.chi2.lcdm) + 8} fill={C.lcdm} fontFamily={FONT.body} fontWeight={700} fontSize={22}>{tr('whatifstructure.cdm_3')}</text>
           {CELLS.map((c, i) => {
             const jx = Math.pow(1.12, random(`mx${i}`) * 2 - 1);
             const p = b.p(2, 15, (i % 20) * 1.5);
@@ -374,21 +373,18 @@ export const WhatIfMass: React.FC = () => {
       <Show from={2}>
         <At x={1700} y={330}>
           <Label size={30} color={C.model} style={{fontWeight: 800}}>
-            fit: flat
-          </Label>
+            {tr('whatifstructure.fit_flat')}</Label>
         </At>
         <At x={1720} y={660}>
           <Label size={30} color={C.eds} style={{fontWeight: 800}}>
-            structure: varies
-          </Label>
+            {tr('whatifstructure.structure_varies')}</Label>
         </At>
       </Show>
       <Show from={3}>
         <At x={1280} y={150}>
           <Card accent={C.gold} style={{padding: '12px 24px'}}>
             <Title size={36} color={C.gold}>
-              typical member (as heavy as its neighbours) · most robust
-            </Title>
+              {tr('whatifstructure.typical_member_as_heavy')}</Title>
           </Card>
         </At>
       </Show>

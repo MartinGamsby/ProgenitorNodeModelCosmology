@@ -4,6 +4,7 @@ import {useBeats} from '../beats';
 import {Show} from '../components/Show';
 import {Arrow, At, Label, NodeDot, SvgDefs, Title} from '../components/ui';
 import {C, HEIGHT, WIDTH} from '../theme';
+import {useT} from '../i18n';
 
 const CX = WIDTH / 2;
 const CY = HEIGHT / 2 - 10;
@@ -21,6 +22,7 @@ const DOMINANT = SITES.reduce((best, [i, j], k) => {
 }, {k: 0, g: -1}).k;
 
 export const WhatIfCenter: React.FC = () => {
+  const tr = useT();
   const b = useBeats();
   const sp = 300;
   const real = b.p(2, 40);
@@ -74,27 +76,25 @@ export const WhatIfCenter: React.FC = () => {
       <Show from={1} until={2} offset={20}>
         <At x={CX} y={110}>
           <Title size={64}>
-            net pull = <span style={{color: C.gold}}>0</span>
+            {tr('whatifcenter.net_pull')}<span style={{color: C.gold}}>0</span>
           </Title>
         </At>
       </Show>
       <Show from={2} until={3}>
         <At x={CX} y={110}>
           <Title size={58}>
-            real swarm: <span style={{color: C.hot}}>one side pulls harder</span>
+            {tr('whatifcenter.real_swarm')}<span style={{color: C.hot}}>{tr('whatifcenter.one_side_pulls_harder')}</span>
           </Title>
         </At>
       </Show>
       <Show from={3}>
         <At x={CX} y={100}>
           <Title size={64} color={C.gold}>
-            a fingerprint
-          </Title>
+            {tr('whatifcenter.a_fingerprint')}</Title>
         </At>
         <At x={CX} y={170}>
           <Label size={32} color={C.ink} style={{fontWeight: 700}}>
-            expansion slightly faster in one direction
-          </Label>
+            {tr('whatifcenter.expansion_slightly_faster_in')}</Label>
         </At>
       </Show>
     </AbsoluteFill>

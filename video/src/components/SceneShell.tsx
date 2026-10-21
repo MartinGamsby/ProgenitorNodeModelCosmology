@@ -4,9 +4,11 @@ import {C, FONT, T} from '../theme';
 import type {SceneDef, SceneTiming} from '../types';
 import {Starfield} from './Background';
 import {Captions} from './Captions';
+import {useT} from '../i18n';
 
 /** Big tilted "WHAT IF…?" stamp shown during the scene intro, then docked as a badge. */
 const WhatIf: React.FC<{q: string; intro: number}> = ({q, intro}) => {
+  const tr = useT();
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const pop = spring({frame, fps, config: {damping: 9, mass: 0.7}});
@@ -39,7 +41,7 @@ const WhatIf: React.FC<{q: string; intro: number}> = ({q, intro}) => {
               boxShadow: `0 0 80px ${C.gold}66`,
             }}
           >
-            WHAT IF…
+            {tr('shell.what_if')}
           </div>
           <div
             style={{
@@ -72,7 +74,7 @@ const WhatIf: React.FC<{q: string; intro: number}> = ({q, intro}) => {
           }}
         >
           <span style={{background: C.gold, color: C.bg, fontWeight: 900, fontSize: 30, padding: '4px 14px', transform: 'rotate(-3deg)'}}>
-            WHAT IF…
+            {tr('shell.what_if')}
           </span>
           <span style={{color: C.ink, fontWeight: 700, fontSize: 30}}>{q}</span>
         </div>

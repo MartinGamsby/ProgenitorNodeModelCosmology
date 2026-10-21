@@ -1,27 +1,31 @@
 # Explainer video — Remotion pipeline (`video/`)
 
-~10 min YouTube-style explainer ("What If Dark Energy Is Just… the Neighbours?"), 1920×1080 @
+~11.5 min YouTube-style explainer ("What If Dark Energy Is Just… the Neighbours?"), 1920×1080 @
 30 fps, rendered from code with Remotion 4 (React → MP4). Self-contained Node project in
 `video/` (own package.json, node_modules gitignored). User guide: `video/README.md`.
-On-screen numbers and their sources: [data-sources.md](./data-sources.md).
+On-screen numbers and their sources: [data-sources.md](./data-sources.md). Languages (EN/FR) and
+cuts (full / idea / short): [i18n-and-cuts.md](./i18n-and-cuts.md).
 
 ```mermaid
 graph LR
-    SCRIPT[src/script.ts: scenes + narration beats] --> VOICE[scripts/voice.mjs: 1 wav per beat]
-    VOICE --> MAN[src/generated/voice.json: seconds per clip]
-    SCRIPT --> TL[src/timing.ts TIMELINE]
+    SPEC[src/content/scenes.ts: scene structure] --> TL[src/timing.ts buildTimeline cut, locale]
+    TXT[src/i18n/LOCALE.ts: narration beats + labels] --> VOICE[scripts/voice.mjs: 1 wav per beat]
+    VOICE --> MAN[src/generated/voice.LOCALE.json: seconds per clip]
+    TXT --> TL
     MAN --> TL
     REPO[repo data: Pantheon+, results/hero, vir_medium, cmx3 verdict] --> EXP[scripts/export_data.py] --> JSON[public/data/*.json]
     TL --> VID[src/Video.tsx: Sequence per scene + voice/sfx/music]
     JSON --> SCN[src/scenes/*.tsx]
     VID --> SCN
     SYN[scripts/music.py: synthesised pad + sfx] --> VID
-    VID --> MP4[npm run render: explainer-raw.mp4 -> loudnorm -14 LUFS -> explainer.mp4]
+    VID --> MP4[scripts/render.mjs cut locale: raw -> loudnorm -14 LUFS -> out/cut-locale.mp4]
 ```
 
 ## Contracts
-- **script.ts is the only place narration lives.** One beat = one caption line = one voice
-  clip. Markup: `*em*`, `{shown|spoken}`, `10^120` (caption superscript).
+- **All words live in `src/i18n/<locale>.ts`** (narration per cut, chapters, what-if questions,
+  on-screen labels); structure in `src/content/scenes.ts` (`beats` = count, must equal narration
+  length or timing throws). One beat = one caption line = one voice clip. Markup: `*em*`,
+  `{shown|spoken}`, `10^120` (caption superscript).
 - **Timing derives from audio.** beat dur = clip seconds + `T.beatGap`; silent `''` beats =
   `T.silentBeat`; what-if scenes prepend `T.whatIfIntro`; scene ≥ `minSeconds`. No clip →
   word-count estimate (2.6 words/s). Knobs in `src/constants.ts` (dependency-free, also read
@@ -30,9 +34,9 @@ graph LR
   (eased 0→1), `s(i)` (spring), `on(i)`, `through(i)`; `<Show from until>` fades blocks.
 - **Clip cache key** = `sceneId-beat-hash(spokenText)`; voice.mjs regenerates only changed
   lines and deletes orphans. Changing caption-only text (`{shown|…}`) keeps the clip.
-- Scene key in script.ts → component in `src/scenes/index.ts`; unknown key throws.
+- `SceneSpec.scene` → component in `src/scenes/index.ts`; unknown key throws.
 - **Cutting room**: removed scenes live in `src/cutting-room.ts` (`CUT_SCENES`, not rendered)
-  with components in `src/scenes/cut/` still registered; restore = move the def into `SCENES`.
+  with components in `src/scenes/cut/` still registered; restore = SceneSpec + text + cut entry.
   Holds the tidal-stretch + 2GMR/S³ equations, "how big/how far" (500 M_obs, 39 Gpc) and the
   shear-matrix / 1/(S−R)² material (cut 2026-10-16 as too long/technical for video 1).
 - **Stars** only behind chart/text scenes: `stars: false` on any scene that looks at our
@@ -71,7 +75,10 @@ const b = useBeats();
 - Audio: voice per beat; music loop ducks under speech with an 18-frame ramp; sfx per beat
   (`sfx: [{beat, sound}]`), whoosh on every what-if.
 - Review: `node scripts/stills.mjs scene:beat:offset …` renders stills with one bundle and
-  tiles them into `out/sheet-*.jpg`; `npm run frames` lists scene/beat frames.
+  tiles them into `out/sheet-*.jpg`; `npm run frames` lists scene/beat frames (both take `CUT` /
+  `LOCALE` env). `scripts/diff_stills.py` compares two still dirs (refactor guard).
+- Node scripts read the TS sources through `scripts/load-ts.mjs` (`loadTs('timing')`): transpiles
+  src/**/*.ts (not scenes/components) to node_modules/.cache/ts, inlines JSON imports.
 
 ## Voice engines
 - `sapi` (default; offline Windows "Microsoft David Desktop", rate 1) — robotic; only SAPI desktop
@@ -84,11 +91,11 @@ const b = useBeats();
 - Clip filename = `sceneId-beat-hash(spoken)-hash(engine+settings).wav`: switching engines never
   mixes voices; an interrupted neural run resumes (worker writes `.part.wav` then renames).
 - `scripts/voice_samples.py` = A/B audition of 3 fixed lines → `out/voice-samples/*.wav`.
-- Voice cloning: `CB_PROMPT=voice-ref/martin-en-cut.wav` (Martin's own sample, cut at 19.1 s so it
+- Voice cloning (EN): `CB_PROMPT=voice-ref/martin-en-cut.wav` (Martin's own sample, cut at 19.1 s so it
   ENDS ON A FULL SENTENCE: "…to fix your hiccup."; the uncut 30 s version ends mid-sentence and
   made 2/4 takes end with a rising "unfinished" pitch vs 0/4 with the cut one; loudnormed; `voice-ref/` is gitignored, personal audio never committed; `martin-fr.wav` waits for
   the French version). Current: exaggeration 0.6, CFG 0.3. 0.8/0.35 sounded "stressed" and fast.
-- Per-line overrides: `SceneDef.voice = {beat: {exaggeration, cfg}}` (e.g. "It's speeding up" at
+- Per-line overrides: `SceneSpec.voice = {beat: {exaggeration, cfg}}` (e.g. "It's speeding up" at
   0.55); caption `*emphasis*` never reaches the voice.
 - Pronunciation fixes found by measuring the longest internal pause + Whisper transcript over
   spelling variants: "Lambda CDM" (not "LambdaCDM" → "Land of CDM", not hyphenated), "type 1A"
@@ -105,7 +112,8 @@ const b = useBeats();
   Always run it before rendering.
 - Rejected: Breeze TTS 2 — CUDA-only per its model card and weights/outputs non-commercial.
 - Generated audio (`public/voice`, `public/audio`) is gitignored; a fresh clone runs
-  `npm run voice && npm run music` before rendering. `src/generated/voice.json` (timing) is committed.
+  `LOCALE=<l> npm run voice && npm run music` before rendering. `src/generated/voice.<locale>.json`
+  (timing) is committed; clips live in `public/voice/<locale>/`.
 
 ## Lessons learned
 - Python edits on Windows: always `encoding='utf-8'` + write to a temp file then `os.replace`;

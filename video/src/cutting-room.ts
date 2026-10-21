@@ -1,7 +1,8 @@
 /**
  * CUTTING ROOM — scenes removed from the explainer, kept for future videos.
  *
- * Not rendered. To bring one back, move its entry into SCENES in script.ts (the components
+ * Not rendered. To bring one back, add a SceneSpec to src/content/scenes.ts, its text to src/i18n/en.ts
+ * and its id to a cut in src/cuts.ts (the components
  * are still registered in src/scenes/index.ts, under src/scenes/cut/).
  *
  * - tides-stretch: the original tides scene (tidal stretch of the bubble, 2GMR/S³ vs H0²ΩΛR).

@@ -5,13 +5,15 @@ import {Show} from '../components/Show';
 import {Space3D} from '../components/Space3D';
 import {Arrow, At, Card, Label, NodeDot, SvgDefs, Tex, Title} from '../components/ui';
 import medium from '../../public/data/medium.json';
-import {CREDITS} from '../script';
+import {LOCALES, useLocale, useT} from '../i18n';
+import {en} from '../i18n/en';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
 
 const CX = WIDTH / 2;
 
 // ---------------------------------------------------------------------------------------------
 export const Catch: React.FC = () => {
+  const tr = useT();
   const b = useBeats();
   const y = 470;
   return (
@@ -19,8 +21,7 @@ export const Catch: React.FC = () => {
       <Show from={0} until={1}>
         <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center'}}>
           <Title size={130} color={C.hot}>
-            The catch.
-          </Title>
+            {tr('ending.the_catch')}</Title>
         </AbsoluteFill>
       </Show>
       <Show from={1}>
@@ -30,12 +31,12 @@ export const Catch: React.FC = () => {
           <circle cx={300} cy={y} r={70} fill="url(#bubble)" stroke={C.bubble} strokeWidth={3} />
           <NodeDot x={820} y={y} r={56} />
           <Arrow x1={390} y1={y} x2={730} y2={y} color={C.node} width={5} p={b.p(1, 20)} />
-          <text x={560} y={y + 140} fill={C.ink} fontFamily={FONT.display} fontWeight={800} fontSize={38} textAnchor="middle">heavy, far</text>
+          <text x={560} y={y + 140} fill={C.ink} fontFamily={FONT.display} fontWeight={800} fontSize={38} textAnchor="middle">{tr('ending.heavy_far')}</text>
           {/* light & near */}
           <circle cx={1150} cy={y} r={70} fill="url(#bubble)" stroke={C.bubble} strokeWidth={3} />
           <NodeDot x={1480} y={y} r={26} opacity={b.p(1, 20, 20)} />
           <Arrow x1={1240} y1={y} x2={1440} y2={y} color={C.node} width={5} p={b.p(1, 20, 20)} />
-          <text x={1330} y={y + 140} fill={C.ink} fontFamily={FONT.display} fontWeight={800} fontSize={38} textAnchor="middle" opacity={b.p(1, 20, 20)}>light, near</text>
+          <text x={1330} y={y + 140} fill={C.ink} fontFamily={FONT.display} fontWeight={800} fontSize={38} textAnchor="middle" opacity={b.p(1, 20, 20)}>{tr('ending.light_near')}</text>
           <text x={CX - 25} y={y + 30} fill={C.gold} fontFamily={FONT.display} fontWeight={900} fontSize={110} textAnchor="middle" opacity={b.p(1, 20, 45)}>=</text>
         </svg>
       </Show>
@@ -43,8 +44,7 @@ export const Catch: React.FC = () => {
         <At x={CX} y={200}>
           <Card accent={C.gold} style={{display: 'flex', alignItems: 'center', gap: 30}}>
             <Label size={34} color={C.ink} style={{fontWeight: 700}}>
-              supernovae only see
-            </Label>
+              {tr('ending.supernovae_only_see')}</Label>
             <Tex tex={String.raw`\frac{M}{S^3}`} size={80} color={C.gold} />
           </Card>
         </At>
@@ -52,7 +52,7 @@ export const Catch: React.FC = () => {
       <Show from={3}>
         <At x={CX} y={800}>
           <Title size={52}>
-            → we need a <span style={{color: C.gold}}>different test</span>
+            {tr('ending.we_need_a')}<span style={{color: C.gold}}>{tr('ending.different_test')}</span>
           </Title>
         </At>
       </Show>
@@ -63,6 +63,8 @@ export const Catch: React.FC = () => {
 // ---------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------
 export const WhatIfInvisible: React.FC = () => {
+  const tr = useT();
+  const {locale} = useLocale();
   const b = useBeats();
   const f = b.frame;
   const cy = 440;
@@ -97,24 +99,22 @@ export const WhatIfInvisible: React.FC = () => {
         </svg>
         <At x={1700} y={cy + 110}>
           <Label size={28} color={C.bubble} style={{fontWeight: 700}}>
-            us
-          </Label>
+            {tr('ending.us')}</Label>
         </At>
         <At x={CX} y={150}>
           <Title size={46}>
-            older than the Big Bang → <span style={{color: C.gold}}>their light had time to reach us</span>
+            {tr('ending.older_than_the_big')}<span style={{color: C.gold}}>{tr('ending.their_light_had_time')}</span>
           </Title>
         </At>
       </Show>
       <Show from={2} until={3} offset={30}>
         <At x={CX} y={cy + 330}>
           <Title size={40} color={C.dim}>
-            ✗ no glowing disk
-          </Title>
+            {tr('ending.no_glowing_disk')}</Title>
         </At>
         <At x={CX} y={150}>
           <Title size={50}>
-            nothing left to eat → <span style={{color: C.node}}>no light left to give</span>
+            {tr('ending.nothing_left_to_eat')}<span style={{color: C.node}}>{tr('ending.no_light_left_to')}</span>
           </Title>
         </At>
       </Show>
@@ -122,23 +122,20 @@ export const WhatIfInvisible: React.FC = () => {
         <At x={CX} y={790}>
           <Card accent={C.lcdm} style={{display: 'flex', alignItems: 'center', gap: 40}}>
             <Label size={30} color={C.ink} style={{fontWeight: 700}}>
-              Hawking temperature
-            </Label>
-            <Tex tex={String.raw`T_H=\frac{\hbar c^3}{8\pi G M k_B}\approx 2.5\times10^{-33}\,\mathrm{K}`} size={46} />
-            <Label size={26}>(for M ≈ 5×10⁵⁵ kg) · ≈ absolute zero</Label>
+              {tr('ending.hawking_temperature')}</Label>
+            <Tex tex={String.raw`T_H=\frac{\hbar c^3}{8\pi G M k_B}\approx ${locale === 'fr' ? '2{,}5' : '2.5'}\times10^{-33}\,\mathrm{K}`} size={46} />
+            <Label size={26}>{tr('ending.for_m_5_1055')}</Label>
           </Card>
         </At>
       </Show>
       <Show from={4}>
         <At x={CX} y={cy}>
           <Title size={120} style={{textShadow: `0 0 40px ${C.nodeGlow}`}}>
-            DARK GIANTS
-          </Title>
+            {tr('ending.dark_giants')}</Title>
         </At>
         <At x={CX} y={830}>
           <Label size={36} color={C.node} style={{fontWeight: 800}}>
-            seen only by their pull
-          </Label>
+            {tr('ending.seen_only_by_their')}</Label>
         </At>
       </Show>
     </AbsoluteFill>
@@ -147,15 +144,16 @@ export const WhatIfInvisible: React.FC = () => {
 
 // ---------------------------------------------------------------------------------------------
 export const WhatIfCycle: React.FC = () => {
+  const tr = useT();
   const b = useBeats();
   const f = b.frame;
   const R = 330;
   const cy = 530;
   const steps = [
-    {t: 'an attractor bangs', c: C.gold, beat: 1},
-    {t: 'matter fills the gap', c: C.bubble, beat: 1},
-    {t: 'neighbours feed', c: C.node, beat: 2},
-    {t: 'one grows too big…', c: C.hot, beat: 3},
+    {t: tr('ending.step1'), c: C.gold, beat: 1},
+    {t: tr('ending.step2'), c: C.bubble, beat: 1},
+    {t: tr('ending.step3'), c: C.node, beat: 2},
+    {t: tr('ending.step4'), c: C.hot, beat: 3},
   ];
   // ---- the mini universe in the middle: A bangs, B and C feed on it, B grows and bangs ----
   const A = {x: CX - 120, y: cy - 10};
@@ -177,8 +175,7 @@ export const WhatIfCycle: React.FC = () => {
     <AbsoluteFill>
       <At x={1640} y={150} style={{transform: 'translate(-50%,-50%) rotate(6deg)'}}>
         <div style={{border: `5px solid ${C.hot}`, color: C.hot, fontFamily: FONT.display, fontWeight: 900, fontSize: 44, padding: '6px 22px', borderRadius: 10, opacity: b.p(0, 15, 10)}}>
-          SPECULATIVE
-        </div>
+          {tr('ending.speculative')}</div>
       </At>
       <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute'}}>
         <SvgDefs />
@@ -230,8 +227,7 @@ export const WhatIfCycle: React.FC = () => {
       <Show from={4}>
         <At x={CX} y={110}>
           <Title size={52} color={C.gold}>
-            the great cosmic metabolism
-          </Title>
+            {tr('ending.the_great_cosmic_metabolism')}</Title>
         </At>
       </Show>
     </AbsoluteFill>
@@ -240,21 +236,21 @@ export const WhatIfCycle: React.FC = () => {
 
 // ---------------------------------------------------------------------------------------------
 export const Limits: React.FC = () => {
+  const tr = useT();
   const b = useBeats();
-  const ins = ['Newtonian gravity, flat space', 'late universe: 2.9 → 13.8 Gyr', 'real supernova fit'];
-  const outs = ['general relativity', 'the early universe', 'CMB spectrum', 'baryon acoustic oscillations'];
+  const ins = [tr('ending.in1'), tr('ending.in2'), tr('ending.in3')];
+  const outs = [tr('ending.out1'), tr('ending.out2'), tr('ending.out3'), tr('ending.out4')];
   return (
     <AbsoluteFill style={{alignItems: 'center', paddingTop: 130}}>
       <div style={{transform: `scale(${0.8 + 0.2 * b.s(0)})`, opacity: b.p(0, 12)}}>
         <Title size={90}>
-          a <span style={{color: C.gold}}>toy model</span>
+          {tr('ending.a')}<span style={{color: C.gold}}>{tr('ending.toy_model')}</span>
         </Title>
       </div>
       <div style={{display: 'flex', gap: 60, marginTop: 50}}>
         <Card accent={C.eds} style={{width: 640}}>
           <Title size={40} color={C.eds} style={{marginBottom: 16}}>
-            IN
-          </Title>
+            {tr('ending.in')}</Title>
           {ins.map((t, i) => (
             <Label key={i} size={34} color={C.ink} style={{margin: '10px 0', opacity: b.p(1, 15, i * 8)}}>
               ✓ {t}
@@ -263,8 +259,7 @@ export const Limits: React.FC = () => {
         </Card>
         <Card accent={C.hot} style={{width: 640}}>
           <Title size={40} color={C.hot} style={{marginBottom: 16}}>
-            NOT (YET)
-          </Title>
+            {tr('ending.not_yet')}</Title>
           {outs.map((t, i) => (
             <Label key={i} size={34} color={C.ink} style={{margin: '10px 0', opacity: b.p(1, 15, 30 + i * 18)}}>
               ✗ {t}
@@ -275,7 +270,7 @@ export const Limits: React.FC = () => {
       <Show from={2}>
         <At x={CX} y={830}>
           <Title size={44}>
-            claim: <span style={{color: C.gold}}>ordinary gravity can fake dark energy</span>
+            {tr('ending.claim')}<span style={{color: C.gold}}>{tr('ending.ordinary_gravity_can_fake')}</span>
           </Title>
         </At>
       </Show>
@@ -285,7 +280,10 @@ export const Limits: React.FC = () => {
 
 // ---------------------------------------------------------------------------------------------
 export const Outro: React.FC = () => {
+  const tr = useT();
   const b = useBeats();
+  const {locale} = useLocale();
+  const credit = (k: string) => LOCALES[locale].credits[k] ?? en.credits[k];
   const f = b.frame;
   const nodes = medium.pos as [number, number, number][];
   const mass = medium.mass as number[];
@@ -306,18 +304,18 @@ export const Outro: React.FC = () => {
       <AbsoluteFill style={{opacity: 1 - credits}}>
         <Show from={0} until={1}>
           <At x={CX} y={160}>
-            <Title size={48}>dipole · axis · flow → aligned?</Title>
+            <Title size={48}>{tr('ending.dipole_axis_flow_aligned')}</Title>
           </At>
         </Show>
         <Show from={1} until={2}>
           <At x={CX} y={160}>
-            <Title size={52}>dark energy ≠ a property of space?</Title>
+            <Title size={52}>{tr('ending.dark_energy_a_property')}</Title>
           </At>
         </Show>
         <Show from={2}>
           <At x={CX} y={190}>
             <Title size={96} style={{textShadow: `0 0 50px ${C.nodeGlow}`}}>
-              just <span style={{color: C.node}}>the neighbours</span>.
+              {tr('ending.just')}<span style={{color: C.node}}>{tr('ending.the_neighbours')}</span>.
             </Title>
           </At>
         </Show>
@@ -326,19 +324,18 @@ export const Outro: React.FC = () => {
         <AbsoluteFill style={{opacity: credits, background: 'rgba(4,6,13,0.78)', justifyContent: 'center', alignItems: 'center'}}>
           <Card accent={C.gold} style={{maxWidth: 1400, textAlign: 'center', padding: '50px 70px'}}>
             <Label size={26} color={C.gold} style={{fontFamily: FONT.display, fontWeight: 800, letterSpacing: 3}}>
-              BASED ON THE PAPER
-            </Label>
+              {tr('ending.based_on_the_paper')}</Label>
             <Title size={44} style={{margin: '18px 0 28px'}}>
-              {CREDITS.paper}
+              {credit('paper')}
             </Title>
             <Label size={30} color={C.ink} style={{fontFamily: FONT.mono}}>
-              {CREDITS.code}
+              {credit('code')}
             </Label>
             <Label size={30} color={C.ink} style={{fontFamily: FONT.mono}}>
-              {CREDITS.doi}
+              {credit('doi')}
             </Label>
             <div style={{height: 22}} />
-            <Label size={24}>Real data: Pantheon+SH0ES (Brout et al. 2022) · simulations from the repository above</Label>
+            <Label size={24}>{tr('ending.real_data_pantheon_sh0es')}</Label>
           </Card>
         </AbsoluteFill>
       )}

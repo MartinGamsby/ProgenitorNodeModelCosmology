@@ -4,6 +4,7 @@ import {useBeats} from '../beats';
 import {Show} from '../components/Show';
 import {Arrow, At, Label, NodeDot, SvgDefs, Title} from '../components/ui';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
+import {useT} from '../i18n';
 
 const CX = WIDTH / 2;
 const CY = HEIGHT / 2 - 20;
@@ -19,6 +20,7 @@ const LUMPS = [
 ];
 
 export const Tides: React.FC = () => {
+  const tr = useT();
   const b = useBeats();
   const f = b.frame;
   const clump = b.p(2, 35);
@@ -73,8 +75,7 @@ export const Tides: React.FC = () => {
               <>
                 <circle cx={CX} cy={CY} r={16} fill={C.bubble} />
                 <text x={CX} y={CY + 52} fill={C.bubble} fontFamily={FONT.body} fontWeight={700} fontSize={30} textAnchor="middle">
-                  you
-                </text>
+                  {tr('tides.you')}</text>
                 {new Array(12).fill(0).map((_, i) => {
                   const a = (i / 12) * Math.PI * 2;
                   return <Arrow key={i} x1={CX + Math.cos(a) * 28} y1={CY + Math.sin(a) * 28} x2={CX + Math.cos(a) * (28 + shellPull)} y2={CY + Math.sin(a) * (28 + shellPull)} color={C.gold} width={5} head={16} />;
@@ -143,51 +144,46 @@ export const Tides: React.FC = () => {
       <Show from={0} until={2} offset={20}>
         <At x={CX} y={110}>
           <Title size={54}>
-            Smooth shell → net pull = <span style={{color: C.gold}}>{interpolate(shellPull, [0, 140], [0, 1]) < 0.05 ? '0' : '…'}</span>
+            {tr('tides.smooth_shell_net_pull')}<span style={{color: C.gold}}>{interpolate(shellPull, [0, 140], [0, 1]) < 0.05 ? '0' : '…'}</span>
           </Title>
         </At>
       </Show>
       <Show from={2} until={3}>
         <At x={CX} y={110}>
           <Title size={58} color={C.node}>
-            Clumps don’t cancel: pulled apart
-          </Title>
+            {tr('tides.clumps_don_t_cancel')}</Title>
         </At>
       </Show>
       <Show from={3} until={4}>
         <At x={CX} y={110}>
           <Title size={54}>
-            different sizes, different distances → <span style={{color: C.hot}}>lopsided</span>
+            {tr('tides.different_sizes_different_distances')}<span style={{color: C.hot}}>{tr('tides.lopsided')}</span>
           </Title>
         </At>
       </Show>
       <Show from={4} until={5}>
         <At x={CX} y={110}>
           <Title size={54}>
-            outward pull, <span style={{color: C.gold}}>stronger farther out</span>
+            {tr('tides.outward_pull')}<span style={{color: C.gold}}>{tr('tides.stronger_farther_out')}</span>
           </Title>
         </At>
         <At x={CX} y={170}>
           <Label size={32} color={C.ink} style={{fontWeight: 700}}>
-            just like dark energy
-          </Label>
+            {tr('tides.just_like_dark_energy')}</Label>
         </At>
       </Show>
       <Show from={5}>
         <At x={520} y={120}>
           <Title size={50} color={C.node}>
-            pull from outside
-          </Title>
+            {tr('tides.pull_from_outside')}</Title>
         </At>
         <At x={1400} y={120}>
           <Title size={50} color={C.lcdm}>
-            push from inside
-          </Title>
+            {tr('tides.push_from_inside')}</Title>
         </At>
         <At x={CX} y={800}>
           <Label size={34} color={C.eds} style={{fontWeight: 800}}>
-            no exotic energy required
-          </Label>
+            {tr('tides.no_exotic_energy_required')}</Label>
         </At>
       </Show>
     </AbsoluteFill>

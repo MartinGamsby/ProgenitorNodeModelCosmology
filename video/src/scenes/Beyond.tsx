@@ -6,6 +6,7 @@ import {Camera, project, Space3D, V3} from '../components/Space3D';
 import {At, Card, Label, Title} from '../components/ui';
 import medium from '../../public/data/medium.json';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
+import {useT} from '../i18n';
 
 const R_OBS = 14; // Gpc
 
@@ -21,6 +22,7 @@ export const useMedium = () =>
   useMemo(() => ({pos: medium.pos as V3[], mass: medium.mass as number[], S: medium.S}), []);
 
 export const Beyond: React.FC = () => {
+  const tr = useT();
   const b = useBeats();
   const f = b.frame;
   const {pos, mass} = useMedium();
@@ -102,12 +104,10 @@ export const Beyond: React.FC = () => {
         <At x={bubbleP.x + R_OBS * scale + 250} y={bubbleP.y}>
           <Card accent={C.bubble}>
             <Title size={50} color={C.bubble}>
-              radius ≈ 46 billion
-            </Title>
+              {tr('beyond.radius_46_billion')}</Title>
             <Title size={50} color={C.bubble}>
-              light-years
-            </Title>
-            <Label size={26}>the observable universe</Label>
+              {tr('beyond.light_years')}</Title>
+            <Label size={26}>{tr('beyond.the_observable_universe')}</Label>
           </Card>
         </At>
       </Show>
@@ -115,15 +115,13 @@ export const Beyond: React.FC = () => {
       <Show from={2} until={3}>
         <At x={WIDTH / 2} y={170}>
           <Title size={60} style={{textAlign: 'center'}}>
-            standard view: more of the same, forever
-          </Title>
+            {tr('beyond.standard_view_more_of')}</Title>
         </At>
       </Show>
       <Show from={3} until={4}>
         <At x={WIDTH / 2} y={170}>
           <Title size={46} color={C.gold} style={{textAlign: 'center'}}>
-            this model: more of the same, up to the edge of the Big Bang
-          </Title>
+            {tr('beyond.this_model_more_of')}</Title>
         </At>
       </Show>
 
@@ -136,12 +134,10 @@ export const Beyond: React.FC = () => {
             <div style={{position: 'absolute', left: lp.x + 150, top: lp.y - 200}}>
               <Card accent={C.node} style={{padding: '20px 28px'}}>
                 <Title size={58} color={C.node}>
-                  HMEA
-                </Title>
+                  {tr('beyond.hmea')}</Title>
                 <Label size={28} color={C.ink}>
-                  Hyper-Massive External Attractor
-                </Label>
-                <Label size={24}>≫ mass of our whole universe · dark</Label>
+                  {tr('beyond.hyper_massive_external_attractor')}</Label>
+                <Label size={24}>{tr('beyond.mass_of_our_whole')}</Label>
               </Card>
             </div>
           </>
@@ -151,9 +147,9 @@ export const Beyond: React.FC = () => {
         <At x={WIDTH / 2} y={150}>
           <Card style={{textAlign: 'center'}}>
             <Title size={44} color={C.ink}>
-              a lumpy, <span style={{color: C.gold}}>settled swarm</span>
+              {tr('beyond.a_lumpy')}<span style={{color: C.gold}}>{tr('beyond.settled_swarm')}</span>
             </Title>
-            <Label size={28}>like galaxies in a relaxed cluster, only absurdly bigger</Label>
+            <Label size={28}>{tr('beyond.like_galaxies_in_a')}</Label>
           </Card>
         </At>
       </Show>
@@ -166,8 +162,7 @@ export const Beyond: React.FC = () => {
         </svg>
         <At x={bubbleP.x} y={bubbleP.y + R_OBS * scale + 60}>
           <Label size={36} color={C.gold} style={{fontFamily: FONT.display, fontWeight: 900}}>
-            YOU ARE HERE
-          </Label>
+            {tr('beyond.you_are_here')}</Label>
         </At>
       </Show>
     </AbsoluteFill>
@@ -190,6 +185,7 @@ const CRYSTAL: {p: V3; m: number}[] = (() => {
 })();
 
 const CrystalVsSwarm: React.FC = () => {
+  const tr = useT();
   const b = useBeats();
   const f = b.frame;
   const W = 840;
@@ -218,26 +214,22 @@ const CrystalVsSwarm: React.FC = () => {
       </div>
       <At x={540} y={130}>
         <Title size={52} color={C.dim}>
-          crystal
-        </Title>
+          {tr('beyond.crystal')}</Title>
       </At>
       <At x={540} y={790}>
         <Label size={30} color={C.ink} style={{fontWeight: 700}}>
-          frozen in place
-        </Label>
+          {tr('beyond.frozen_in_place')}</Label>
       </At>
       <At x={1380} y={130}>
         <Title size={52} color={C.gold}>
-          virialized swarm
-        </Title>
+          {tr('beyond.virialized_swarm')}</Title>
       </At>
       <At x={1380} y={790}>
         <Label size={30} color={C.ink} style={{fontWeight: 700}}>
-          always moving · keeps its shape
-        </Label>
+          {tr('beyond.always_moving_keeps_its')}</Label>
       </At>
       <At x={1380} y={828}>
-        <Label size={22}>the relaxed swarm from our simulation (300 attractors)</Label>
+        <Label size={22}>{tr('beyond.the_relaxed_swarm_from')}</Label>
       </At>
     </AbsoluteFill>
   );

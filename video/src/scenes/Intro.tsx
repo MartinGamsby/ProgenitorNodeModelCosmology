@@ -5,7 +5,7 @@ import {Show} from '../components/Show';
 import {Space3D, V3} from '../components/Space3D';
 import {Arrow, At, Galaxy, Label, NodeDot, SvgDefs, Title} from '../components/ui';
 import medium from '../../public/data/medium.json';
-import {VIDEO_SUBTITLE, VIDEO_TITLE} from '../script';
+import {LOCALES, useLocale, useT} from '../i18n';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
 
 const CX = WIDTH / 2;
@@ -13,6 +13,7 @@ const CY = HEIGHT / 2 - 40;
 
 
 export const Hook: React.FC = () => {
+  const tr = useT();
   const b = useBeats();
   const frame = b.frame;
   const gal = useMemo(
@@ -165,13 +166,11 @@ export const Hook: React.FC = () => {
       <Show from={2} until={4}>
         <At x={CX} y={interpolate(frame, [b.at(3), b.at(3) + 20], [CY - 40, 200], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})}>
           <Title size={interpolate(frame, [b.at(3), b.at(3) + 20], [150, 100], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})} style={{textShadow: `0 0 60px ${C.nodeGlow}`, letterSpacing: 6, whiteSpace: 'nowrap'}}>
-            DARK ENERGY
-          </Title>
+            {tr('intro.dark_energy')}</Title>
         </At>
         <At x={CX} y={CY + 90}>
           <Title size={120} color={C.gold} style={{opacity: interpolate(frame, [b.at(3) - 20, b.at(3)], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})}}>
-            ???
-          </Title>
+            {tr('intro.x')}</Title>
         </At>
       </Show>
 
@@ -182,15 +181,13 @@ export const Hook: React.FC = () => {
       <Show from={5} until={6}>
         <At x={CX} y={CY}>
           <Title size={110} color={C.hot} style={{textShadow: `0 0 30px ${C.bg}, 0 0 60px ${C.bg}`}}>
-            PUSHING?
-          </Title>
+            {tr('intro.pushing')}</Title>
         </At>
       </Show>
       <Show from={6}>
         <At x={CX} y={CY}>
           <Title size={110} color={C.node} style={{textShadow: `0 0 40px ${C.nodeGlow}, 0 0 30px ${C.bg}`, whiteSpace: 'nowrap'}}>
-            …OR PULLING?
-          </Title>
+            {tr('intro.or_pulling')}</Title>
         </At>
       </Show>
       <AbsoluteFill style={{background: '#fff', opacity: Math.max(flash1, flash2) * 0.85}} />
@@ -199,10 +196,11 @@ export const Hook: React.FC = () => {
 };
 
 const Pie: React.FC<{p: number}> = ({p}) => {
+  const tr = useT();
   const parts = [
-    {v: 0.68, c: C.node, l: 'Dark energy 68%'},
-    {v: 0.27, c: '#5a6ea8', l: 'Dark matter 27%'},
-    {v: 0.05, c: C.gold, l: 'Everything we see 5%'},
+    {v: 0.68, c: C.node, l: tr('intro.pie_de')},
+    {v: 0.27, c: '#5a6ea8', l: tr('intro.pie_dm')},
+    {v: 0.05, c: C.gold, l: tr('intro.pie_seen')},
   ];
   const R = 150;
   const x0 = WIDTH / 2;
@@ -233,6 +231,7 @@ const Pie: React.FC<{p: number}> = ({p}) => {
 
 export const TitleCard: React.FC = () => {
   const b = useBeats();
+  const {locale} = useLocale();
   const frame = b.frame;
   const nodes = medium.pos as [number, number, number][];
   const mass = medium.mass as number[];
@@ -261,10 +260,10 @@ export const TitleCard: React.FC = () => {
             textShadow: `0 0 50px ${C.nodeGlow}aa`,
           }}
         >
-          {VIDEO_TITLE}
+          {LOCALES[locale].title}
         </Title>
         <Label size={42} color={C.gold} style={{opacity: b.p(0, 20, 20), letterSpacing: 4, textTransform: 'uppercase', fontFamily: FONT.display, fontWeight: 800}}>
-          {VIDEO_SUBTITLE}
+          {LOCALES[locale].subtitle}
         </Label>
       </AbsoluteFill>
     </AbsoluteFill>

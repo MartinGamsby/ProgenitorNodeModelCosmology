@@ -1,5 +1,44 @@
 export type Sound = 'boom' | 'ding' | 'whoosh';
 
+export type LocaleId = 'en' | 'fr';
+export type CutId = 'full' | 'idea' | 'short';
+
+/** Language-independent scene structure (src/content/scenes.ts). */
+export type SceneSpec = {
+  id: string;
+  scene: string;
+  whatIf?: boolean;
+  voice?: Record<number, {exaggeration?: number; cfg?: number}>;
+  leadSeconds?: number;
+  stars?: boolean;
+  minSeconds?: number;
+  sfx?: {beat: number; sound: Sound; offset?: number; volume?: number}[];
+  /** number of narration beats the visuals are keyed to */
+  beats: number;
+};
+
+/** Everything a language says (src/i18n/<locale>.ts). */
+export type Locale = {
+  title: string;
+  subtitle: string;
+  credits: Record<string, string>;
+  chapters: Record<string, string>;
+  whatIf: Record<string, string>;
+  /** narration[cut][sceneId] = one string per beat; cuts other than 'full' override only some scenes */
+  narration: Partial<Record<CutId, Record<string, string[]>>>;
+  /** on-screen labels, keyed 'scene.name' */
+  labels: Record<string, string>;
+};
+
+/** A video: which scenes, in what order, which beats to skip, which frame format. */
+export type CutDef = {
+  id: CutId;
+  format: 'landscape' | 'vertical';
+  scenes: string[];
+  /** beats that take zero time in this cut, e.g. the ones that talk about numbers */
+  skip?: Record<string, number[]>;
+};
+
 export type SceneDef = {
   /** Stable id: names the voice clips and the timing entry. */
   id: string;

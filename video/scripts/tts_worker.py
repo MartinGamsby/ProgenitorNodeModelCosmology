@@ -48,10 +48,17 @@ def kokoro_engine():
 
 def chatterbox_engine():
     import torch
-    from chatterbox.tts import ChatterboxTTS
 
     torch.set_num_threads(os.cpu_count() or 4)
-    model = ChatterboxTTS.from_pretrained(device="cpu")
+    lang = os.environ.get("CB_LANGUAGE", "en")
+    if lang == "en":
+        from chatterbox.tts import ChatterboxTTS
+        model = ChatterboxTTS.from_pretrained(device="cpu")
+        extra = {}
+    else:  # Chatterbox Multilingual (fr, es, de, …)
+        from chatterbox.mtl_tts import ChatterboxMultilingualTTS
+        model = ChatterboxMultilingualTTS.from_pretrained(device=torch.device("cpu"))
+        extra = {"language_id": lang}
     exag = float(os.environ.get("CB_EXAGGERATION", "0.6"))
     cfg = float(os.environ.get("CB_CFG", "0.5"))
     prompt = os.environ.get("CB_PROMPT") or None
@@ -60,7 +67,7 @@ def chatterbox_engine():
         torch.manual_seed(zlib.crc32((text + salt).encode()))  # salt = retry with a new seed
         wav = model.generate(text, audio_prompt_path=prompt,
                              exaggeration=exag if exag_ is None else exag_,
-                             cfg_weight=cfg if cfg_ is None else cfg_)
+                             cfg_weight=cfg if cfg_ is None else cfg_, **extra)
         save(out, wav.squeeze(0).cpu().numpy(), model.sr)
 
     return say

@@ -1,21 +1,20 @@
-// Generate one voice clip per narration beat from src/script.ts.
-//   npm run voice                      (Windows SAPI, offline, default)
-//   VOICE_ENGINE=chatterbox npm run voice   (neural, expressive; CB_EXAGGERATION, CB_CFG, CB_PROMPT)
-//   VOICE_ENGINE=kokoro npm run voice       (neural, fast; KOKORO_VOICE, KOKORO_SPEED)
-//   VOICE_ENGINE=piper PIPER_MODEL=path/to/voice.onnx npm run voice
+// Generate one voice clip per narration line, for one language, covering every cut (full, idea,
+// short): a line shared by two cuts is voiced once. Text: src/i18n/<locale>.ts.
+//   LOCALE=en VOICE_ENGINE=chatterbox npm run voice   (neural; CB_EXAGGERATION, CB_CFG, CB_PROMPT)
+//   LOCALE=fr VOICE_ENGINE=chatterbox CB_LANGUAGE=fr …  (Chatterbox Multilingual)
+//   VOICE_ENGINE=kokoro (KOKORO_VOICE, KOKORO_SPEED) · piper (PIPER_MODEL) · sapi (default) · none
 // chatterbox/kokoro run scripts/tts_worker.py inside video/.tts-venv (see README).
 // Clip files carry a hash of engine + settings, so switching engines never mixes voices and an
-// interrupted neural run resumes where it stopped.
-//   VOICE_ENGINE=none npm run voice    (no audio; timing estimated from word count)
-// Only clips whose spoken text changed are regenerated. Writes public/voice/*.wav and
-// src/generated/voice.json (read by the video to time every beat).
+// interrupted neural run resumes where it stopped. Only changed lines are regenerated.
+// Writes public/voice/<locale>/*.wav and src/generated/voice.<locale>.json (beat timing).
 import {execFileSync, spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import {fileURLToPath, pathToFileURL} from 'node:url';
-import ts from 'typescript';
+import {fileURLToPath} from 'node:url';
+import {loadTs} from './load-ts.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const LOCALE = process.env.LOCALE || 'en';
 const ENGINE = process.env.VOICE_ENGINE || 'sapi';
 const SAPI_VOICE = process.env.SAPI_VOICE || 'Microsoft David Desktop';
 const SAPI_RATE = process.env.SAPI_RATE || '1';
@@ -26,24 +25,19 @@ const ENV_KEYS = {
   piper: ['PIPER_MODEL'],
   none: [],
 };
-const SIG = [ENGINE, ...(ENV_KEYS[ENGINE] ?? []).map((k) => `${k}=${process.env[k] ?? ''}`)].join(';');
+// CB_LANGUAGE joins the signature only when set, so existing English clips keep their names
+const SIG = [ENGINE, ...(ENV_KEYS[ENGINE] ?? []).map((k) => `${k}=${process.env[k] ?? ''}`), ...(process.env.CB_LANGUAGE ? [`CB_LANGUAGE=${process.env.CB_LANGUAGE}`] : [])].join(';');
 const VENV_PY = path.join(ROOT, '.tts-venv', 'Scripts', 'python.exe');
-const VOICE_DIR = path.join(ROOT, 'public', 'voice');
-const MANIFEST = path.join(ROOT, 'src', 'generated', 'voice.json');
-
-// --- load src/script.ts + src/markup.ts without a TS runtime --------------------------------
+const VOICE_DIR = path.join(ROOT, 'public', 'voice', LOCALE);
+const MANIFEST = path.join(ROOT, 'src', 'generated', `voice.${LOCALE}.json`);
 const cache = path.join(ROOT, 'node_modules', '.cache', 'voice');
 fs.mkdirSync(cache, {recursive: true});
-for (const f of ['script', 'markup', 'types']) {
-  const src = fs.readFileSync(path.join(ROOT, 'src', `${f}.ts`), 'utf8');
-  let js = ts.transpileModule(src, {
-    compilerOptions: {module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022},
-  }).outputText;
-  js = js.replace(/from '\.\/(\w+)'/g, "from './$1.mjs'");
-  fs.writeFileSync(path.join(cache, `${f}.mjs`), js);
-}
-const {SCENES} = await import(pathToFileURL(path.join(cache, 'script.mjs')).href + `?t=${Date.now()}`);
-const {spokenText, clipKey, hash} = await import(pathToFileURL(path.join(cache, 'markup.mjs')).href);
+
+const {resolveScenes} = await loadTs('timing');
+const {CUTS} = await loadTs('cuts');
+const {spokenText, clipKey, hash} = await loadTs('markup');
+// every scene of every cut in this language (a scene used by several cuts is listed once per text)
+const SCENES = Object.keys(CUTS).flatMap((cut) => resolveScenes(cut, LOCALE).map((s) => ({...s, skip: new Set(CUTS[cut].skip?.[s.id] ?? [])})));
 
 const wavSeconds = (file) => {
   const b = fs.readFileSync(file);
@@ -63,8 +57,9 @@ const jobs = [];
 for (const s of SCENES) {
   s.beats.forEach((text, i) => {
     const spoken = spokenText(text);
-    if (!spoken) return;
+    if (!spoken || s.skip.has(i)) return;
     const key = clipKey(s.id, i, text);
+    if (clips[key] || jobs.some((j) => j.key === key)) return; // already listed by another cut
     const ov = s.voice?.[i] ?? {}; // per-line overrides (exaggeration / cfg) for neural engines
     const file = `${key}-${hash(SIG + JSON.stringify(ov))}.wav`;
     const abs = path.join(VOICE_DIR, file);
@@ -77,6 +72,11 @@ for (const s of SCENES) {
   });
 }
 
+if (process.env.VOICE_DRY) {
+  console.log(`dry run (${LOCALE}): ${Object.keys(clips).length} clips present, ${jobs.length} to generate`);
+  for (const j of jobs.slice(0, 10)) console.log('  would voice:', j.key, '|', j.text.slice(0, 60));
+  process.exit(0);
+}
 fs.mkdirSync(VOICE_DIR, {recursive: true});
 if (jobs.length && ENGINE === 'sapi') {
   const jobFile = path.join(cache, 'jobs.json');

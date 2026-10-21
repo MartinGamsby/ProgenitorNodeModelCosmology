@@ -66,5 +66,7 @@
 - **PHYSICS_CACHE_VERSION** — manual token (v3) bumped when default physics changes.
 - **Hero run** — very high-N showcase sim saved as `results/hero/*.npz`.
 - **PF##** — pinned finding ID (stable; cited in code), see findings/summary.md.
-- **Beat** (video) — one narration line = one caption = one voice clip in `video/src/script.ts`; animations key to beat numbers.
+- **Beat** (video) — one narration line = one caption = one voice clip, text in `video/src/i18n/<locale>.ts`; animations key to beat numbers.
+- **Cut** (video) — one video assembled from the shared scenes: scene list + skipped beats + format (`video/src/cuts.ts`): full, idea, short.
+- **Locale** (video) — narration + label language (en, fr); compositions are named `<cut>-<locale>`.
 - **WS1–WS7** — historical workstream labels in code comments (WS7 = GPU/HF, still open).

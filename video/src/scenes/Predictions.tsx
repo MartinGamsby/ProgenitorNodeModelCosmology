@@ -5,6 +5,7 @@ import {Axes, LegendItem, scales} from '../components/Chart';
 import {Show} from '../components/Show';
 import {Arrow, At, Galaxy, NodeDot, pathOf, partial, SvgDefs, Title} from '../components/ui';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
+import {useFmt, useT} from '../i18n';
 
 const CX = WIDTH / 2;
 const SKY = {cx: CX, cy: 470, rx: 560, ry: 280};
@@ -23,14 +24,16 @@ const NEAR = [[-62, -88], [104, -30], [-118, 47], [38, 96], [151, 64], [-20, 131
 const MARK = {x: SKY.cx + Math.cos(AXIS) * 700, y: SKY.cy + Math.sin(AXIS) * 700};
 // Hubble tension: Planck 2018 (CMB, whole sky) and SH0ES (Riess et al. 2022, distance ladder)
 const H0 = [
-  {v: 67.4, e: 0.5, c: C.lcdm, l: 'whole sky (CMB, Planck)'},
-  {v: 73.04, e: 1.04, c: C.hot, l: 'nearby galaxies (SH0ES)'},
+  {v: 67.4, e: 0.5, c: C.lcdm, l: 'predictions.h0_cmb'},
+  {v: 73.04, e: 1.04, c: C.hot, l: 'predictions.h0_ladder'},
 ];
 
 /** Beats: 0 fingerprint · 1 dipole · 2-3 Hubble tension · 4 tension expected here (anisotropy) ·
  *  5-6 Axis of Evil · 7 dark flow · 8 phantom: pull grows as we drift (accelerating) ·
  *  9 phantom: w < −1 · 10 all the same way (attractor marker outside the map, on the axis) */
 export const Predictions: React.FC = () => {
+  const tr = useT();
+  const fmt = useFmt();
   const b = useBeats();
   const f = b.frame;
   const ax = Math.cos(AXIS);
@@ -120,8 +123,7 @@ export const Predictions: React.FC = () => {
             <line x1={SKY.cx} y1={SKY.cy} x2={MARK.x} y2={MARK.y} stroke={C.gold} strokeWidth={4} strokeDasharray="14 10" />
             <circle cx={MARK.x} cy={MARK.y} r={46 + 8 * Math.sin(f * 0.2)} fill="none" stroke={C.gold} strokeWidth={6} />
             <text x={MARK.x} y={MARK.y + 100} fill={C.gold} fontFamily={FONT.body} fontWeight={800} fontSize={28} textAnchor="middle">
-              nearest, heaviest neighbours
-            </text>
+              {tr('predictions.nearest_heaviest_neighbours')}</text>
             <SvgDefs />
             <NodeDot x={MARK.x} y={MARK.y} r={26} />
           </g>
@@ -150,12 +152,10 @@ export const Predictions: React.FC = () => {
             </g>
           ))}
           <text x={U.x} y={U.y + U.r + 34} fill={C.dim} fontFamily={FONT.body} fontWeight={600} fontSize={22} textAnchor="middle">
-            distances on a log scale
-          </text>
+            {tr('predictions.distances_on_a_log')}</text>
           <circle cx={U.x} cy={U.y} r={12} fill="#fff" opacity={usP} />
           <text x={U.x} y={U.y + 42} fill="#fff" fontFamily={FONT.body} fontWeight={800} fontSize={28} textAnchor="middle" opacity={usP}>
-            us
-          </text>
+            {tr('predictions.us')}</text>
           {/* beat 4: a lopsided (anisotropic) expansion: faster toward one side */}
           {b.on(4) &&
             [0, 1, 2, 3, 4, 5, 6, 7].map((k) => {
@@ -165,7 +165,7 @@ export const Predictions: React.FC = () => {
             })}
 
           {/* the two measurements */}
-          <Axes box={tBox} xd={[64, 76]} yd={[0, 1]} xticks={[64, 68, 72, 76]} xlabel="expansion rate H₀ (km/s/Mpc)" grid={false} />
+          <Axes box={tBox} xd={[64, 76]} yd={[0, 1]} xticks={[64, 68, 72, 76]} xlabel={tr('predictions.expansion_rate_h0_km')} grid={false} />
           {H0.map((m, i) => {
             const y = tBox.y + 70 + i * 100;
             const p = i ? redP : blueP;
@@ -177,7 +177,7 @@ export const Predictions: React.FC = () => {
                   {Math.round(m.v)}
                 </text>
                 <text x={ts.X(m.v)} y={y + 42} fill={C.ink} fontFamily={FONT.body} fontWeight={700} fontSize={22} textAnchor="middle">
-                  {m.l}
+                  {tr(m.l)}
                 </text>
               </g>
             );
@@ -185,16 +185,13 @@ export const Predictions: React.FC = () => {
           <g opacity={b.p(3, 20)}>
             <rect x={ts.X(H0[0].v)} y={tBox.y + 10} width={ts.X(H0[1].v) - ts.X(H0[0].v)} height={tBox.h - 20} fill={C.gold} opacity={0.08} />
             <text x={tBox.x + tBox.w / 2} y={tBox.y - 30} fill={C.gold} fontFamily={FONT.display} fontWeight={800} fontSize={34} textAnchor="middle">
-              ≈ 8% apart: the Hubble tension
-            </text>
+              {tr('predictions.8_apart_the_hubble')}</text>
           </g>
           <g opacity={b.p(4, 20)} fontFamily={FONT.display} fontWeight={800}>
             <text x={tBox.x + tBox.w / 2} y={tBox.y + tBox.h + 150} fill={C.dim} fontSize={30} textAnchor="middle">
-              standard cosmology: a headache
-            </text>
+              {tr('predictions.standard_cosmology_a_headache')}</text>
             <text x={tBox.x + tBox.w / 2} y={tBox.y + tBox.h + 200} fill={C.gold} fontSize={36} textAnchor="middle" opacity={b.p(4, 20, 50)}>
-              this model: expected (anisotropy)
-            </text>
+              {tr('predictions.this_model_expected_anisotropy')}</text>
           </g>
         </svg>
       )}
@@ -208,20 +205,18 @@ export const Predictions: React.FC = () => {
           <Galaxy x={bx} y={480} s={4} rot={-20} hue="#cfe4ff" o={1} />
           <Arrow x1={bx + 70} y1={480} x2={bx + 70 + Math.min(pull, nodeX - bx - 170)} y2={480} color={C.node} width={10} head={30} />
           <text x={bx} y={580} fill={C.ink} fontFamily={FONT.body} fontWeight={700} fontSize={30} textAnchor="middle">
-            closer → stronger pull
-          </text>
+            {tr('predictions.closer_stronger_pull')}</text>
         </svg>
       )}
       {wO > 0 && (
         <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute', opacity: wO}}>
-          <Axes box={wBox} xd={[0, 1]} yd={[-1.35, -0.85]} xticks={[0, 1]} fmtX={(v) => (v ? 'later' : 'earlier')} yticks={[-1.3, -1.2, -1.1, -1, -0.9]} fmtY={(v) => v.toFixed(1)} xlabel="time →" ylabel="w (dark-energy “type”)" />
+          <Axes box={wBox} xd={[0, 1]} yd={[-1.35, -0.85]} xticks={[0, 1]} fmtX={(v) => (v ? tr('predictions.later') : tr('predictions.earlier'))} yticks={[-1.3, -1.2, -1.1, -1, -0.9]} fmtY={(v) => fmt(v, 1)} xlabel={tr('predictions.time')} ylabel={tr('predictions.w_dark_energy_type')} />
           <line x1={wBox.x} x2={wBox.x + wBox.w} y1={ws.Y(-1)} y2={ws.Y(-1)} stroke={C.lcdm} strokeWidth={6} />
           <path d={pathOf(partial(wModel, b.p(9, 50, 10)))} stroke={C.model} strokeWidth={7} fill="none" />
-          <LegendItem x={wBox.x + 30} y={wBox.y + 30} color={C.lcdm} text="cosmological constant: w = −1, forever" />
-          <LegendItem x={wBox.x + 30} y={wBox.y + 80} color={C.model} text="attractors: w drifts below −1 (shape illustrative)" />
+          <LegendItem x={wBox.x + 30} y={wBox.y + 30} color={C.lcdm} text={tr('predictions.cosmological_constant_w_1')} />
+          <LegendItem x={wBox.x + 30} y={wBox.y + 80} color={C.model} text={tr('predictions.attractors_w_drifts_below')} />
           <text x={ws.X(0.62)} y={ws.Y(-1.21)} fill={C.model} fontFamily={FONT.display} fontWeight={800} fontSize={36}>
-            phantom
-          </text>
+            {tr('predictions.phantom')}</text>
         </svg>
       )}
 
@@ -229,47 +224,42 @@ export const Predictions: React.FC = () => {
       <Show from={0} until={1}>
         <At x={CX} y={830}>
           <Title size={54}>
-            the fingerprint: a <span style={{color: C.gold}}>lopsided</span> expansion
-          </Title>
+            {tr('predictions.the_fingerprint_a')}<span style={{color: C.gold}}>{tr('predictions.lopsided')}</span> {tr('predictions.expansion')}</Title>
         </At>
       </Show>
       <Show from={1} until={2}>
         <At x={CX} y={830}>
           <Title size={46}>
-            <span style={{color: C.gold}}>#1</span> Hubble dipole: <span style={{color: C.hot}}>faster</span> one way, <span style={{color: C.lcdm}}>slower</span> the other
-          </Title>
+            <span style={{color: C.gold}}>#1</span> {tr('predictions.hubble_dipole')}<span style={{color: C.hot}}>{tr('predictions.faster')}</span> {tr('predictions.one_way')}<span style={{color: C.lcdm}}>{tr('predictions.slower')}</span> {tr('predictions.the_other')}</Title>
         </At>
       </Show>
       <Show from={2} until={5}>
         <At x={CX} y={150}>
-          <Title size={50}>Two ways to measure the expansion rate</Title>
+          <Title size={50}>{tr('predictions.two_ways_to_measure')}</Title>
         </At>
       </Show>
       <Show from={5} until={7}>
         <At x={CX} y={830}>
           <Title size={46}>
-            <span style={{color: C.gold}}>#2</span> CMB “Axis of Evil”: biggest patterns share one axis
-          </Title>
+            <span style={{color: C.gold}}>#2</span> {tr('predictions.cmb_axis_of_evil')}</Title>
         </At>
       </Show>
       <Show from={7} until={8}>
         <At x={CX} y={830}>
           <Title size={46}>
-            <span style={{color: C.gold}}>#3</span> Dark flow: galaxies drifting in bulk
-          </Title>
+            <span style={{color: C.gold}}>#3</span> {tr('predictions.dark_flow_galaxies_drifting')}</Title>
         </At>
       </Show>
       <Show from={8} until={10}>
         <At x={CX} y={130}>
           <Title size={46}>
-            <span style={{color: C.gold}}>#4</span> Phantom acceleration: the speed-up speeds up
-          </Title>
+            <span style={{color: C.gold}}>#4</span> {tr('predictions.phantom_acceleration_the_speed')}</Title>
         </At>
       </Show>
       <Show from={10}>
         <At x={CX} y={830}>
           <Title size={50}>
-            all pointing <span style={{color: C.gold}}>the same way</span>
+            {tr('predictions.all_pointing')}<span style={{color: C.gold}}>{tr('predictions.the_same_way')}</span>
           </Title>
         </At>
       </Show>

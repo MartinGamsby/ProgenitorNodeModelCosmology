@@ -133,8 +133,6 @@ export const Count: React.FC<{value: number; p: number; decimals?: number; style
   <span style={style}>{(value * p).toFixed(decimals)}</span>
 );
 
-/** On-screen distances are in light-years (the data is in Gpc). */
-export const gly = (gpc: number) => `${Math.round(gpc * 3.2616)} billion light-years`;
 
 /** Path string from points. */
 export const pathOf = (pts: [number, number][]) =>

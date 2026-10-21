@@ -1,6 +1,6 @@
 # Explainer video — "What If Dark Energy Is Just… the Neighbours?"
 
-A ~10-minute YouTube-style explainer of the Progenitor Node Model, generated entirely from
+A ~11-minute YouTube-style explainer of the Progenitor Node Model, generated entirely from
 code with [Remotion](https://www.remotion.dev) (React → MP4). No video editor: change a
 line of text or a number, re-render.
 
@@ -13,7 +13,8 @@ verdict.
 ```bash
 npm install          # once
 npm run studio       # live preview in the browser, scrub the timeline
-npm run render       # out/explainer.mp4 (≈30 min; loudness-normalised to -14 LUFS)
+npm run render       # out/full-en.mp4 (≈30-45 min; loudness-normalised to -14 LUFS)
+node scripts/render.mjs full fr   # any cut x language: out/<cut>-<locale>.mp4
 npm run thumbnail    # out/thumbnail.png (1280x720)
 ```
 
@@ -21,19 +22,27 @@ npm run thumbnail    # out/thumbnail.png (1280x720)
 
 | I want to…                         | Edit                                     | Then                       |
 |-----------------------------------|------------------------------------------|----------------------------|
-| reword narration / captions        | `src/script.ts` (`beats`)                | `npm run voice`            |
-| reorder, drop or add a scene       | `src/script.ts` (`SCENES` array)         | —                          |
+| reword narration / captions        | `src/i18n/en.ts`, `src/i18n/fr.ts` (`narration`) | `LOCALE=en npm run voice` |
+| on-screen labels                   | `src/i18n/<locale>.ts` (`labels`)        | `npm run i18n:check`       |
+| scene structure (sfx, lead-in…)    | `src/content/scenes.ts`                  | —                          |
+| which scenes a video uses          | `src/cuts.ts` (full / idea / short)      | —                          |
 | change a scene's visuals           | `src/scenes/*.tsx` (keys in `scenes/index.ts`) | —                    |
 | colours / fonts                    | `src/theme.ts`                           | —                          |
 | pacing (gaps, what-if stamp length)| `src/constants.ts` (`T`)                 | —                          |
 | update numbers after new sims      | `scripts/export_data.py` (source files)  | `npm run data`             |
 | music / sound effects              | `scripts/music.py` (synthesised)         | `npm run music`            |
 
-Caption markup in `script.ts`: `*word*` highlights, `{shown|spoken}` separates caption text
+Caption markup in narration: `*word*` highlights, `{shown|spoken}` separates caption text
 from what the voice says, `10^120` renders as a superscript.
 
 Timing is automatic: each narration line is one voice clip, every animation is keyed to a
 beat number, so rewording re-times the whole video.
+
+## Languages and cuts
+
+Every word is in `src/i18n/<locale>.ts` (English is the reference; a missing French string falls
+back to English and `npm run i18n:check` lists it). Each video ("cut") is a scene list plus beats to
+skip, in `src/cuts.ts`; compositions are named `<cut>-<locale>` (`full-en`, `full-fr`, …).
 
 ## Voice
 
@@ -54,30 +63,33 @@ Neural engines run in an isolated venv (keeps the research Python env untouched)
 py -3.12 -m venv .tts-venv
 .tts-venv/Scripts/python -m pip install chatterbox-tts kokoro soundfile "setuptools<81" --extra-index-url https://download.pytorch.org/whl/cpu
 .tts-venv/Scripts/python scripts/voice_samples.py        # A/B audition -> out/voice-samples/*.wav
-VOICE_ENGINE=chatterbox CB_EXAGGERATION=0.8 CB_CFG=0.35 npm run voice   # all clips (~1 h on CPU), resumable
-CB_EXAGGERATION=0.8 CB_CFG=0.35 .tts-venv/Scripts/python scripts/voice_check.py --fix  # Whisper QA, re-rolls bad clips
-VOICE_ENGINE=chatterbox CB_EXAGGERATION=0.8 CB_CFG=0.35 npm run voice   # refresh timing after a fix
+export VOICE_ENGINE=chatterbox CB_EXAGGERATION=0.6 CB_CFG=0.3 CB_PROMPT=voice-ref/martin-en-cut.wav
+LOCALE=en npm run voice                                          # all clips (hours on CPU), resumable
+LOCALE=en .tts-venv/Scripts/python scripts/voice_check.py --fix  # Whisper QA, re-rolls bad clips
+LOCALE=en npm run voice                                          # refresh timing after a fix
+# French: LOCALE=fr CB_LANGUAGE=fr CB_PROMPT=voice-ref/martin-fr-cut.wav (Chatterbox Multilingual)
 ```
 
-The current narration is Chatterbox's default voice at exaggeration 0.8, CFG 0.35.
+The narration clones Martin's voice from a short reference recording (`voice-ref/`, never
+committed), exaggeration 0.6, CFG 0.3.
 
 Clip files carry a hash of engine + settings, so only missing or changed lines are generated.
 
 ## Review helpers
 
 ```bash
-npm run frames                         # every scene: start frame, length, beat frames
+npm run frames                         # every scene: start frame, length, beat frames (CUT=, LOCALE= env)
 node scripts/stills.mjs data:6:30 outro:3   # stills at scene:beat:offset -> out/stills + out/sheet-*.jpg
 ```
 
 ## Layout
 
 ```
-scripts/   export_data.py  voice.mjs  music.py  stills.mjs  frames.mjs  sheet.py
-src/       script.ts (THE SCRIPT)  timing.ts  beats.tsx  Video.tsx  Root.tsx
+scripts/   export_data.py  voice.mjs  voice_check.py  music.py  render.mjs  stills.mjs  frames.mjs
+src/       i18n/ (ALL THE TEXT: en.ts, fr.ts)  content/scenes.ts  cuts.ts  timing.ts  Video.tsx  Root.tsx
            components/  (Space3D canvas renderer, captions, charts, KaTeX)
            scenes/      (one file per group of scenes)
-public/    data/*.json (exported)  voice/*.wav (generated)  audio/*.wav (synthesised)
+public/    data/*.json (exported)  voice/<locale>/*.wav (generated)  audio/*.wav (synthesised)
 ```
 
 Remotion is free for individuals and small teams; check its licence for company use.

@@ -1,4 +1,5 @@
 import React from 'react';
+import {useFmt} from '../i18n';
 import {C, FONT} from '../theme';
 
 export type Box = {x: number; y: number; w: number; h: number};
@@ -23,7 +24,10 @@ export const Axes: React.FC<{
   fmtY?: (v: number) => string;
   opacity?: number;
   grid?: boolean;
-}> = ({box, xd, yd, logX, xticks = [], yticks = [], xlabel, ylabel, fmtX = String, fmtY = String, opacity = 1, grid = true}) => {
+}> = ({box, xd, yd, logX, xticks = [], yticks = [], xlabel, ylabel, fmtX, fmtY, opacity = 1, grid = true}) => {
+  const fmt = useFmt(); // tick numbers follow the language (0.1 / 0,1) unless a formatter is given
+  fmtX = fmtX ?? ((v: number) => fmt(v, undefined, false));
+  fmtY = fmtY ?? ((v: number) => fmt(v, undefined, false));
   const {X, Y} = scales(box, xd, yd, logX);
   return (
     <g opacity={opacity} fontFamily={FONT.body}>

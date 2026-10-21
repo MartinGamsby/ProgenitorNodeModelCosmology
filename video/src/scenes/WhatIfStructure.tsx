@@ -88,11 +88,11 @@ export const WhatIfObserver: React.FC = () => {
           <Axes box={box} xd={[0.42, 0.47]} yd={[0, 1]} xticks={[0.42, 0.44, 0.46]} fmtX={(v) => fmt(v, 2)} xlabel={tr('whatifstructure.fit_score_2_dof')} grid={false} />
           <rect x={sc.X(hubble.chi2.lcdm - NOISE)} y={box.y} width={sc.X(hubble.chi2.lcdm + NOISE) - sc.X(hubble.chi2.lcdm - NOISE)} height={box.h} fill={C.lcdm} opacity={0.14} />
           <text x={sc.X(hubble.chi2.lcdm)} y={box.y + box.h - 12} fill={C.lcdm} fontFamily={FONT.body} fontWeight={700} fontSize={20} textAnchor="middle" opacity={0.9}>
-            {tr('whatifstructure.noise')}{NOISE}
+            {tr('whatifstructure.noise')}{fmt(NOISE)}
           </text>
           <line x1={sc.X(hubble.chi2.lcdm)} x2={sc.X(hubble.chi2.lcdm)} y1={box.y} y2={box.y + box.h} stroke={C.lcdm} strokeWidth={4} />
           <text x={sc.X(hubble.chi2.lcdm) - 10} y={box.y - 14} fill={C.lcdm} fontFamily={FONT.body} fontWeight={800} fontSize={24} textAnchor="end">
-            {tr('whatifstructure.cdm_2')}{hubble.chi2.lcdm}
+            {tr('whatifstructure.cdm_2')}{fmt(hubble.chi2.lcdm)}
           </text>
           {goodCells.map((c, i) => {
             const x = sc.X(Math.min(0.47, c.bo!));
@@ -232,7 +232,7 @@ export const WhatIfClose: React.FC = () => {
           )}
           <At x={CX} y={120}>
             <Label size={30} color={C.dim} style={{fontFamily: FONT.display, fontWeight: 800, letterSpacing: 2}}>
-              {tr('whatifstructure.real_simulations_core_particles')}{knot.t_Gyr[0]} {tr('whatifstructure.13_8_gyr')}</Label>
+              {tr('whatifstructure.real_simulations_core_particles')}{fmt(knot.t_Gyr[0])} {tr('whatifstructure.13_8_gyr')}</Label>
           </At>
         </AbsoluteFill>
       )}

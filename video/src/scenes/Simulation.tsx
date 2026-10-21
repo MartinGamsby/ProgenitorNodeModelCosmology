@@ -94,7 +94,7 @@ export const Simulation: React.FC = () => {
             {fmt(tNow, 1)} {tr('simulation.gyr')}</Title>
         </div>
         <div style={{position: 'absolute', left: 84, top: 230}}>
-          <svg width={400} height={60}>
+          <svg width={640} height={60}>
             <line x1={0} x2={36 * 5} y1={20} y2={20} stroke={C.dim} strokeWidth={4} />
             <line x1={0} x2={0} y1={10} y2={30} stroke={C.dim} strokeWidth={4} />
             <line x1={180} x2={180} y1={10} y2={30} stroke={C.dim} strokeWidth={4} />

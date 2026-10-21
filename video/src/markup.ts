@@ -5,7 +5,7 @@
 export type Token = {text: string; em: boolean};
 
 export const spokenText = (s: string): string =>
-  s.replace(/\{([^|}]*)\|([^}]*)\}/g, '$2').replace(/\*/g, '').trim();
+  s.replace(/\{([^|}]*)\|([^}]*)\}/g, '$2').replace(/\*/g, '').replace(/’/g, "'").trim(); // TTS gets ASCII apostrophes
 
 export const shownText = (s: string): string =>
   s.replace(/\{([^|}]*)\|([^}]*)\}/g, '$1').replace(/\*/g, '').trim();
@@ -20,12 +20,16 @@ export const captionTokens = (s: string): Token[] => {
       em = !em;
       continue;
     }
-    for (const w of part.split(/\s+/)) {
-      if (!w) continue;
-      // glue punctuation-only fragments (after a closing *) to the previous word
-      if (/^[.,:;!?…)]+$/.test(w) && out.length) out[out.length - 1].text += w;
+    part.split(/\s+/).forEach((w, i) => {
+      if (!w) return;
+      // glue punctuation-only fragments to the previous word: right after a closing * directly,
+      // after a space (French "vérité :") with a no-break space so it never wraps alone
+      const last = out[out.length - 1];
+      if (/^[.,:;!?…)»]+$/.test(w) && last) last.text += (i > 0 ? ' ' : '') + w;
+      // French elision before a highlight ("l’*énergie*") stays one word, highlighted
+      else if (i === 0 && last && /[’']$/.test(last.text)) Object.assign(last, {text: last.text + w, em});
       else out.push({text: w, em});
-    }
+    });
   }
   return out;
 };

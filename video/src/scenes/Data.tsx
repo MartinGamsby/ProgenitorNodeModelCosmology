@@ -153,7 +153,7 @@ export const Data: React.FC = () => {
           <Card accent={C.gold} style={{textAlign: 'center'}}>
             <Title size={46}>
               {tr('data.it')}<span style={{color: C.gold}}>{tr('data.matches')}</span> {tr('data.cdm')}</Title>
-            <Label size={28}>{tr('data.gaps_below')}{NOISE} {tr('data.are_simulation_noise_converged')}</Label>
+            <Label size={28}>{tr('data.gaps_below')}{fmt(NOISE)} {tr('data.are_simulation_noise_converged')}</Label>
           </Card>
         </At>
       </Show>

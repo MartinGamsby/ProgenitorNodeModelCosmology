@@ -132,6 +132,7 @@ def main():
     ap.add_argument("--fix", action="store_true")
     ap.add_argument("--threshold", type=float, default=0.8)
     ap.add_argument("--retries", type=int, default=4)
+    ap.add_argument("--seed-offset", type=int, default=0, help="start re-roll seeds further on (a second pass tries new takes)")
     a = ap.parse_args()
     from transformers import pipeline
     asr = pipeline("automatic-speech-recognition", model="openai/whisper-base.en", device="cpu")
@@ -152,7 +153,7 @@ def main():
             best = None
             for k in range(a.retries):
                 tmp = path + f".try{k}.wav"
-                say(c["text"], tmp, f"#{k + 1}", c.get("exag"), c.get("cfg"))
+                say(c["text"], tmp, f"#{a.seed_offset + k + 1}", c.get("exag"), c.get("cfg"))
                 hyp, sim, problem = listen(asr, tmp, c["text"])
                 score = sim - (0.5 if problem else 0)
                 print(f"  retry {k + 1} {sim:.2f} {key} {problem}", flush=True)

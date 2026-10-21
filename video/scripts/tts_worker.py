@@ -57,7 +57,7 @@ def chatterbox_engine():
         extra = {}
     else:  # Chatterbox Multilingual (fr, es, de, …)
         from chatterbox.mtl_tts import ChatterboxMultilingualTTS
-        model = ChatterboxMultilingualTTS.from_pretrained(device=torch.device("cpu"))
+        model = ChatterboxMultilingualTTS.from_pretrained(device="cpu")  # a string: from_local only maps CUDA weights to CPU for device in ["cpu", "mps"]
         extra = {"language_id": lang}
     exag = float(os.environ.get("CB_EXAGGERATION", "0.6"))
     cfg = float(os.environ.get("CB_CFG", "0.5"))

@@ -60,6 +60,7 @@ gly(89, true)        // tr('units.gly_short', {n: 290}) → "290 billion ly"
   `spokenText` turns ’ into ' for the TTS (EN narration has none, so EN clip hashes didn't move).
 - French voice text spells every number out (`{1998|mille neuf cent quatre-vingt-dix-huit}`,
   `{0,436|zéro virgule quatre cent trente-six}`): the multilingual model is less reliable on digits.
+  Letters too: « Lambda CDM » came out as « l’âme d acdm » → spoken `Lambda cé-dé-emme`.
 - The FR voice (Chatterbox Multilingual cloning `martin-fr-cut.wav`) sounds France-French and deeper
   than Martin; the model's French accent wins over the reference. Kept for now; Martin may dub the
   French himself: record one wav per beat over the same file names in public/voice/fr/, then re-run

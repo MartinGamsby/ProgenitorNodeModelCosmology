@@ -29,7 +29,9 @@ LANG = "en"
 def norm(s):
     from num2words import num2words
     s = s.lower().replace("-", " ").replace(",", "")
-    s = re.sub(r"(\d+(?:\.\d+)?)%", r" percent", s)
+    if LANG != "en":  # French elisions: "l’univers" / "l'univers" -> "l univers" on both sides
+        s = s.replace("’", " ").replace("'", " ")
+    s = re.sub(r"(\d+(?:\.\d+)?)%", r"\1 percent", s)
     out = []
     for w in re.sub(r"[^a-z0-9.'àâäçéèêëîïôöùûüÿœæ ]", " ", s).split():
         w = w.strip(".'")
@@ -73,7 +75,7 @@ def silences(x, sr, min_s=0.45):
 def unnatural_pauses(ref, chunks, x, sr):
     """Silences that fall after a script word with no punctuation (e.g. 'call ... whatever').
     Whisper's word timings place each silence after a heard word; difflib maps it to the script."""
-    words = ref.split()
+    words = re.sub(r"\s+([:;!?»])", r"\1", ref).split()  # French "vérité :" -> "vérité:"
     rn = [" ".join(norm(w)) or "_" for w in words]
     hn = [" ".join(norm(c["text"])) or "_" for c in chunks]
     h2r = {}

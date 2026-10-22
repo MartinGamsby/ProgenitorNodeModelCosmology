@@ -29,7 +29,8 @@ graph LR
   key = `sceneId-beat-hash(spoken)` + settings hash, so the same line in two cuts is voiced once.
   EN: Chatterbox (English model), `voice-ref/martin-en-cut.wav`. FR: Chatterbox Multilingual
   (`chatterbox.mtl_tts`, language "fr"), `voice-ref/martin-fr-cut.wav` (also trimmed to end on a
-  full sentence). QA: whisper-base.en for EN, multilingual whisper-base for FR.
+  full sentence). QA: whisper-base.en for EN, whisper-small for FR (whisper-base flagged ~half of the
+  French clips falsely; after two passes 6 flags remain, mostly spelling: « CDM », « 1A »).
 
 ## Code
 ```tsx

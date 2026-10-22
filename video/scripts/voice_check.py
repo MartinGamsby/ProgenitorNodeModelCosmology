@@ -142,7 +142,7 @@ def main():
     from transformers import pipeline
     global LANG
     LANG = os.environ.get("LOCALE", "en")
-    model = "openai/whisper-base.en" if LANG == "en" else "openai/whisper-base"
+    model = "openai/whisper-base.en" if LANG == "en" else "openai/whisper-small"  # base mishears French (~half of its flags were false)
     kw = {} if LANG == "en" else {"generate_kwargs": {"language": LANG, "task": "transcribe"}}
     _asr = pipeline("automatic-speech-recognition", model=model, device="cpu")
     asr = lambda x, **k: _asr(x, **k, **kw)

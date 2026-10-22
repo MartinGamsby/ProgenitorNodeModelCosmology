@@ -116,7 +116,7 @@ export const fr: Locale = {
         "Voici le score d’ajustement, où plus bas, c’est mieux. Sans énergie sombre : {0,843|zéro virgule huit cent quarante-trois}. {ΛCDM|Lambda cé-dé-emme} : {0,436|zéro virgule quatre cent trente-six}. Notre modèle : {0,440|zéro virgule quatre cent quarante}.",
         "Certaines simulations obtiennent même {0,433|zéro virgule quatre cent trente-trois}, un poil mieux que {ΛCDM|Lambda cé-dé-emme}. Mais cet écart est plus petit que le bruit de la simulation elle-même, alors le mot honnête, c’est : ça *concorde*.",
         "Et avec assez de réglages, une autre configuration ferait sûrement encore mieux. Mais ça ne prouverait rien.",
-        "Comme développeur logiciel, je surveille ça tout le temps. Ça s’appelle l’*overfitting*, ou le surajustement. Avec assez de boutons, un modèle colle à presque n’importe quoi. Les simulations aussi peuvent tomber dans ce piège.",
+        "Comme développeur, je surveille ça tout le temps : l’*overfitting*, ou surajustement. Avec assez de boutons, un modèle colle à presque tout. Les simulations aussi peuvent tomber dans ce piège.",
         "Coller aux données, ce n’est pas expliquer. Alors un bon ajustement n’est que le premier test. Ensuite, on vérifie si l’univers simulé ressemble vraiment au nôtre.",
       ],
       "whatif-observer": [

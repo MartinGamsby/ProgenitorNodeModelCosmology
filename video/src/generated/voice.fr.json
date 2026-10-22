@@ -1,1 +1,556 @@
-{"engine": "none", "clips": {}}
+{
+ "engine": "chatterbox;CB_EXAGGERATION=0.6;CB_CFG=0.3;CB_PROMPT=C:/Users/Martin/Documents/GitHub/ProgenitorNodeModelCosmology/video/voice-ref/martin-fr-cut.wav;CB_LANGUAGE=fr",
+ "clips": {
+  "hook-0-1ebmp2y": {
+   "file": "hook-0-1ebmp2y-1jqbj9z.wav",
+   "seconds": 5.249083333333333,
+   "text": "Tout, dans l'univers, s'éloigne de tout le reste."
+  },
+  "hook-1-m6o7ar": {
+   "file": "hook-1-m6o7ar-tw09e3.wav",
+   "seconds": 5.33175,
+   "text": "Et voici le plus bizarre. Ça accélère.",
+   "exag": 0.55
+  },
+  "hook-2-tt6ikc": {
+   "file": "hook-2-tt6ikc-1jqbj9z.wav",
+   "seconds": 4.029708333333334,
+   "text": "Ce qui cause ça, les physiciens l'appellent : l'énergie sombre."
+  },
+  "hook-3-1a9i9hh": {
+   "file": "hook-3-1a9i9hh-1jqbj9z.wav",
+   "seconds": 5.605791666666667,
+   "text": "Elle représente environ soixante-dix pour cent de tout. Et personne ne sait ce que c'est."
+  },
+  "hook-4-syfvki": {
+   "file": "hook-4-syfvki-1jqbj9z.wav",
+   "seconds": 2.3979583333333334,
+   "text": "Alors, voici une hypothèse."
+  },
+  "hook-5-1fkodix": {
+   "file": "hook-5-1fkodix-1jqbj9z.wav",
+   "seconds": 2.8120416666666666,
+   "text": "Et si rien n'était en train de pousser l'univers?"
+  },
+  "hook-6-o6gjlv": {
+   "file": "hook-6-o6gjlv-1jqbj9z.wav",
+   "seconds": 1.6585,
+   "text": "Et si quelque chose le tirait?"
+  },
+  "problem-0-1jxkwun": {
+   "file": "problem-0-1jxkwun-1jqbj9z.wav",
+   "seconds": 7.70275,
+   "text": "En mille neuf cent quatre-vingt-dix-huit, deux équipes ont mesuré des étoiles lointaines qui explosent, appelées supernovas de type un A."
+  },
+  "problem-1-5r287i": {
+   "file": "problem-1-5r287i-1jqbj9z.wav",
+   "seconds": 5.09075,
+   "text": "Elles paraissaient trop pâles. Elles étaient plus loin que ce que permettrait un univers qui ralentit."
+  },
+  "problem-2-1qsnon7": {
+   "file": "problem-2-1qsnon7-1jqbj9z.wav",
+   "seconds": 6.603,
+   "text": "La solution : une constante cosmologique, lambda, une énergie propre à l'espace vide lui-même."
+  },
+  "problem-3-1hor4o7": {
+   "file": "problem-3-1hor4o7-1jqbj9z.wav",
+   "seconds": 11.814791666666666,
+   "text": "Ajoutez de la matière noire invisible, et on obtient le modèle standard de l'univers, appelé Lambda cé-dé-emme. Lambda pour l'énergie sombre, cé-dé-emme pour la matière noire froide, en anglais."
+  },
+  "problem-4-vutqey": {
+   "file": "problem-4-vutqey-1jqbj9z.wav",
+   "seconds": 4.832916666666667,
+   "text": "Ça fonctionne à merveille. Mais ça vient avec deux problèmes embarrassants."
+  },
+  "problem-5-172z0sh": {
+   "file": "problem-5-172z0sh-1jqbj9z.wav",
+   "seconds": 7.475208333333334,
+   "text": "D'abord, la physique quantique prédit une énergie du vide trop grande d'un facteur un suivi de cent vingt zéros."
+  },
+  "problem-6-1l0o9fr": {
+   "file": "problem-6-1l0o9fr-1jqbj9z.wav",
+   "seconds": 7.514125,
+   "text": "Ensuite, pourquoi l'énergie sombre est-elle à peu près égale à la matière justement maintenant, parmi tous les moments où on aurait pu vivre?"
+  },
+  "problem-7-16wacmv": {
+   "file": "problem-7-16wacmv-1jqbj9z.wav",
+   "seconds": 3.687875,
+   "text": "Coller aux données, ce n'est pas la même chose que les expliquer."
+  },
+  "beyond-0-1qj9848": {
+   "file": "beyond-0-1qj9848-1jqbj9z.wav",
+   "seconds": 1.08375,
+   "text": "Prenons du recul."
+  },
+  "beyond-1-rb2ybi": {
+   "file": "beyond-1-rb2ybi-1jqbj9z.wav",
+   "seconds": 7.364916666666667,
+   "text": "Tout ce qu'on pourra jamais voir tient dans une sphère d'environ quarante-six milliards d'années-lumière de rayon."
+  },
+  "beyond-2-a822ch": {
+   "file": "beyond-2-a822ch-1jqbj9z.wav",
+   "seconds": 9.436791666666666,
+   "text": "La cosmologie standard suppose qu'au-delà de notre horizon, il y a simplement plus de la même chose : des galaxies comme la nôtre, dans toutes les directions, à l'infini."
+  },
+  "beyond-3-h0jogy": {
+   "file": "beyond-3-h0jogy-1jqbj9z.wav",
+   "seconds": 7.215791666666667,
+   "text": "Mais si ça s'arrêtait quelque part? Jusqu'au bord de ce que le Big Bang a projeté, et au-delà, l'espace vide."
+  },
+  "beyond-4-1l27wy2": {
+   "file": "beyond-4-1l27wy2-1jqbj9z.wav",
+   "seconds": 9.701041666666667,
+   "text": "Imaginez des masses sombres gigantesques, bien au-delà de notre horizon, chacune des centaines, voire des milliers de fois plus lourde que tout notre univers observable."
+  },
+  "beyond-5-3mgkzl": {
+   "file": "beyond-5-3mgkzl-1jqbj9z.wav",
+   "seconds": 3.8525833333333335,
+   "text": "Appelons-les des attracteurs externes hyper-massifs."
+  },
+  "beyond-6-1h68qr1": {
+   "file": "beyond-6-1h68qr1-1jqbj9z.wav",
+   "seconds": 8.443416666666666,
+   "text": "Ils ne forment pas une grille bien rangée. Ils forment un essaim irrégulier, mais stable, comme les galaxies d'un amas au repos, en absurdement plus gros."
+  },
+  "beyond-7-ktzxto": {
+   "file": "beyond-7-ktzxto-1jqbj9z.wav",
+   "seconds": 10.5105,
+   "text": "Les physiciens disent qu'il est virialisé. Pas un cristal figé où tout reste immobile, mais un essaim où tout bouge sans arrêt, et où l'ensemble garde sa forme."
+  },
+  "beyond-8-vty8jm": {
+   "file": "beyond-8-vty8jm-1jqbj9z.wav",
+   "seconds": 4.059291666666667,
+   "text": "Et notre univers se trouve dans l'un des vides entre eux."
+  },
+  "tides-0-s428ae": {
+   "file": "tides-0-s428ae-1jqbj9z.wav",
+   "seconds": 7.230833333333333,
+   "text": "Voici un fait sur la gravité qui a l'air faux. Entourez-vous d'une coquille de masse parfaitement uniforme, et elle ne vous attirera pas du tout."
+  },
+  "tides-1-kbvtvl": {
+   "file": "tides-1-kbvtvl-1jqbj9z.wav",
+   "seconds": 4.162833333333333,
+   "text": "Toutes les directions s'annulent. C'est le théorème de la coquille, de Newton."
+  },
+  "tides-2-t0cnzq": {
+   "file": "tides-2-t0cnzq-1jqbj9z.wav",
+   "seconds": 9.981875,
+   "text": "Mais les amas, eux, ne s'annulent pas. Le côté de notre univers qui fait face à un amas est tiré plus fort que le côté opposé, alors il se fait étirer."
+  },
+  "tides-3-16n03uk": {
+   "file": "tides-3-16n03uk-1jqbj9z.wav",
+   "seconds": 7.484208333333333,
+   "text": "Et les vrais amas ont des tailles différentes, à des distances différentes. Ça rend l'attraction encore plus inégale."
+  },
+  "tides-4-7sjpq1": {
+   "file": "tides-4-7sjpq1-1jqbj9z.wav",
+   "seconds": 6.57925,
+   "text": "Une attraction vers l'extérieur, qui augmente à mesure qu'on s'éloigne. C'est exactement ce que l'énergie sombre semble faire."
+  },
+  "tides-5-18zykw5": {
+   "file": "tides-5-18zykw5-1jqbj9z.wav",
+   "seconds": 9.72525,
+   "text": "Alors, pour la gravité, une traction de l'extérieur peut ressembler exactement à une poussée de l'intérieur. Aucune énergie exotique nécessaire."
+  },
+  "whatif-center-0-kqknvw": {
+   "file": "whatif-center-0-kqknvw-1jqbj9z.wav",
+   "seconds": 4.9191666666666665,
+   "text": "Et si on était pile au milieu, avec les voisins répartis également tout autour de nous?"
+  },
+  "whatif-center-1-pxn7kq": {
+   "file": "whatif-center-1-pxn7kq-1jqbj9z.wav",
+   "seconds": 4.859708333333334,
+   "text": "Alors toutes les attractions s'annuleraient, et rien n'accélérerait."
+  },
+  "whatif-center-2-9hcgy7": {
+   "file": "whatif-center-2-9hcgy7-1jqbj9z.wav",
+   "seconds": 5.6490833333333335,
+   "text": "Mais un vrai essaim n'est jamais parfaitement uniforme. Un côté tire toujours un peu plus fort."
+  },
+  "whatif-center-3-10dve31": {
+   "file": "whatif-center-3-10dve31-1jqbj9z.wav",
+   "seconds": 9.291458333333333,
+   "text": "Donc notre univers devrait s'étendre un peu plus vite dans une direction. Gardez ça en tête. C'est une empreinte qu'on peut vraiment chercher."
+  },
+  "progenitor-0-1uplpkh": {
+   "file": "progenitor-0-1uplpkh-1jqbj9z.wav",
+   "seconds": 3.8895833333333334,
+   "text": "Mais attendez. Pourquoi est-ce qu'on serait près du milieu d'un vide?"
+  },
+  "progenitor-1-14k2hsh": {
+   "file": "progenitor-1-14k2hsh-1jqbj9z.wav",
+   "seconds": 3.383125,
+   "text": "Et si le Big Bang était l'un de ces attracteurs?"
+  },
+  "progenitor-2-1hfh5bq": {
+   "file": "progenitor-2-1hfh5bq-1jqbj9z.wav",
+   "seconds": 3.427791666666667,
+   "text": "Imaginez-en un, en équilibre parmi ses voisins."
+  },
+  "progenitor-3-woivdm": {
+   "file": "progenitor-3-woivdm-1jqbj9z.wav",
+   "seconds": 1.8360416666666666,
+   "text": "Puis il devient instable."
+  },
+  "progenitor-4-159c6rf": {
+   "file": "progenitor-4-159c6rf-1jqbj9z.wav",
+   "seconds": 4.8585,
+   "text": "Il explose, et sa matière se répand uniformément dans le vide qui l'entoure."
+  },
+  "progenitor-5-pbgmkm": {
+   "file": "progenitor-5-pbgmkm-1jqbj9z.wav",
+   "seconds": 7.504166666666666,
+   "text": "Ça explique pourquoi on part près du milieu, et pourquoi l'expansion semble la même dans toutes les directions."
+  },
+  "progenitor-6-9w6cuv": {
+   "file": "progenitor-6-9w6cuv-1jqbj9z.wav",
+   "seconds": 4.993333333333333,
+   "text": "C'est l'hypothèse du progéniteur. Et ça veut dire qu'une seule masse joue deux rôles."
+  },
+  "progenitor-7-v3w420": {
+   "file": "progenitor-7-v3w420-1jqbj9z.wav",
+   "seconds": 9.554333333333334,
+   "text": "Avant le Big Bang, c'était un membre de l'essaim. Après, cette même masse est devenue tout notre univers, plus tout ce qui se trouve au-delà de ce qu'on peut voir."
+  },
+  "progenitor-8-nsu9oy": {
+   "file": "progenitor-8-nsu9oy-1jqbj9z.wav",
+   "seconds": 6.283666666666667,
+   "text": "L'idée la plus naturelle, c'est que notre progéniteur était un membre typique. Rien de spécial."
+  },
+  "simulation-0-j19uxs": {
+   "file": "simulation-0-j19uxs-1jqbj9z.wav",
+   "seconds": 4.625,
+   "text": "Belle histoire. Mais est-ce que ça marche vraiment? Place à la simulation."
+  },
+  "simulation-1-rdkiyv": {
+   "file": "simulation-1-rdkiyv-1jqbj9z.wav",
+   "seconds": 5.359291666666667,
+   "text": "On prend des milliers de particules dans un nuage, et rien d'autre que la bonne vieille gravité de Newton."
+  },
+  "simulation-2-rnh8ge": {
+   "file": "simulation-2-rnh8ge-1jqbj9z.wav",
+   "seconds": 5.130625,
+   "text": "La gravité du nuage lui-même le freine. Les attracteurs lointains l'étirent."
+  },
+  "simulation-3-11weife": {
+   "file": "simulation-3-11weife-1jqbj9z.wav",
+   "seconds": 8.926125,
+   "text": "On commence deux virgule neuf milliards d'années après le Big Bang, et on va jusqu'à aujourd'hui, à treize virgule huit milliards d'années."
+  },
+  "simulation-4-ix23ia": {
+   "file": "simulation-4-ix23ia-1jqbj9z.wav",
+   "seconds": 4.7182916666666666,
+   "text": "D'abord, une vérification. On met la masse des attracteurs à zéro."
+  },
+  "simulation-5-1vz7d10": {
+   "file": "simulation-5-1vz7d10-1jqbj9z.wav",
+   "seconds": 6.570333333333333,
+   "text": "La simulation redonne l'univers des manuels, sans énergie sombre. Exactement."
+  },
+  "simulation-6-14py16v": {
+   "file": "simulation-6-14py16v-1jqbj9z.wav",
+   "seconds": 2.952541666666667,
+   "text": "Bien. Maintenant, on allume les attracteurs."
+  },
+  "simulation-7-15bluec": {
+   "file": "simulation-7-15bluec-1jqbj9z.wav",
+   "seconds": 6.596916666666667,
+   "text": "Le nuage grandit juste de la bonne quantité, comme un univers avec de l'énergie sombre. Sans en avoir."
+  },
+  "data-0-hz2pmk": {
+   "file": "data-0-hz2pmk-1jqbj9z.wav",
+   "seconds": 4.375375,
+   "text": "Maintenant, le moment de vérité : de vraies données."
+  },
+  "data-1-94s1un": {
+   "file": "data-1-94s1un-1jqbj9z.wav",
+   "seconds": 6.1970833333333335,
+   "text": "Plus de quinze cents supernovas de type un A, tirées du catalogue Panthéon plus."
+  },
+  "data-2-10k3sc7": {
+   "file": "data-2-10k3sc7-1jqbj9z.wav",
+   "seconds": 7.68175,
+   "text": "C'est le même genre de données qui a donné ses chiffres à Lambda cé-dé-emme. On y compare maintenant notre simulation, exactement de la même façon."
+  },
+  "data-3-19jomoj": {
+   "file": "data-3-19jomoj-1jqbj9z.wav",
+   "seconds": 7.996,
+   "text": "On transforme l'expansion simulée en une courbe de distance selon le décalage vers le rouge, directement à partir des particules."
+  },
+  "data-4-1n61ced": {
+   "file": "data-4-1n61ced-1jqbj9z.wav",
+   "seconds": 7.507,
+   "text": "Maintenant, zoomons sur les différences. Un univers sans énergie sombre rate la cible. Largement."
+  },
+  "data-5-fohf3c": {
+   "file": "data-5-fohf3c-1jqbj9z.wav",
+   "seconds": 4.491,
+   "text": "Lambda cé-dé-emme, le modèle standard, tombe pile dessus."
+  },
+  "data-6-13f866n": {
+   "file": "data-6-13f866n-1jqbj9z.wav",
+   "seconds": 1.7455416666666668,
+   "text": "Et le modèle des attracteurs?"
+  },
+  "data-7-wuqmn": {
+   "file": "data-7-wuqmn-1jqbj9z.wav",
+   "seconds": 1.975625,
+   "text": "Pile dessus, lui aussi."
+  },
+  "data-8-hgjebl": {
+   "file": "data-8-hgjebl-1jqbj9z.wav",
+   "seconds": 15.728666666666667,
+   "text": "Voici le score d'ajustement, où plus bas, c'est mieux. Sans énergie sombre : zéro virgule huit cent quarante-trois. Lambda cé-dé-emme : zéro virgule quatre cent trente-six. Notre modèle : zéro virgule quatre cent quarante."
+  },
+  "data-9-1cauc5x": {
+   "file": "data-9-1cauc5x-1jqbj9z.wav",
+   "seconds": 12.475333333333333,
+   "text": "Certaines simulations obtiennent même zéro virgule quatre cent trente-trois, un poil mieux que Lambda cé-dé-emme. Mais cet écart est plus petit que le bruit de la simulation elle-même, alors le mot honnête, c'est : ça concorde."
+  },
+  "data-10-h5dpmx": {
+   "file": "data-10-h5dpmx-1jqbj9z.wav",
+   "seconds": 6.33875,
+   "text": "Et avec assez de réglages, une autre configuration ferait sûrement encore mieux. Mais ça ne prouverait rien."
+  },
+  "data-12-bhk28b": {
+   "file": "data-12-bhk28b-1jqbj9z.wav",
+   "seconds": 9.754166666666666,
+   "text": "Coller aux données, ce n'est pas expliquer. Alors un bon ajustement n'est que le premier test. Ensuite, on vérifie si l'univers simulé ressemble vraiment au nôtre."
+  },
+  "whatif-observer-0-xgfwvz": {
+   "file": "whatif-observer-0-xgfwvz-1jqbj9z.wav",
+   "seconds": 4.921,
+   "text": "Et si on n'était pas au centre du nuage? C'est presque certain qu'on n'y est pas."
+  },
+  "whatif-observer-1-ildm0a": {
+   "file": "whatif-observer-1-ildm0a-1jqbj9z.wav",
+   "seconds": 7.605875,
+   "text": "Alors chaque particule devient nous, à tour de rôle. Est-ce qu'un de ces points de vue voit un univers comme le nôtre?"
+  },
+  "whatif-observer-2-y5gk19": {
+   "file": "whatif-observer-2-y5gk19-1jqbj9z.wav",
+   "seconds": 10.517291666666667,
+   "text": "Plusieurs, oui. Et pas dans une seule configuration chanceuse. Sur soixante et onze configurations, le meilleur point de vue tombe tout près de Lambda cé-dé-emme."
+  },
+  "whatif-close-0-5zk1g9": {
+   "file": "whatif-close-0-5zk1g9-1jqbj9z.wav",
+   "seconds": 4.508666666666667,
+   "text": "Et si les attracteurs étaient trop proches? Deux choses peuvent mal tourner."
+  },
+  "whatif-close-1-1qba2xd": {
+   "file": "whatif-close-1-1qba2xd-1jqbj9z.wav",
+   "seconds": 5.957583333333333,
+   "text": "L'attraction peut carrément l'emporter, dans un emballement qui déchire le nuage beaucoup trop vite."
+  },
+  "whatif-close-2-1heybif": {
+   "file": "whatif-close-2-1heybif-1jqbj9z.wav",
+   "seconds": 7.738833333333333,
+   "text": "Ou alors, quelque chose de plus sournois arrive. Le cœur du nuage s'effondre en un noyau dense."
+  },
+  "whatif-close-3-1q97w4a": {
+   "file": "whatif-close-3-1q97w4a-1jqbj9z.wav",
+   "seconds": 9.571375,
+   "text": "À gauche, une simulation avec un ajustement correct aux supernovas, et un cœur qui s'effondre. À droite, une simulation en santé."
+  },
+  "whatif-close-4-13axjfi": {
+   "file": "whatif-close-4-13axjfi-1jqbj9z.wav",
+   "seconds": 6.825708333333333,
+   "text": "Donc un bon ajustement ne suffit pas. Une simulation qui ressemble à notre univers doit passer une liste de vérification."
+  },
+  "whatif-close-5-143r3yj": {
+   "file": "whatif-close-5-143r3yj-1jqbj9z.wav",
+   "seconds": 9.458583333333333,
+   "text": "Elle doit coller aux supernovas, grandir de la bonne quantité, empêcher son cœur de s'effondrer, et garder chaque attracteur au-delà de notre horizon."
+  },
+  "whatif-close-6-1vx68q8": {
+   "file": "whatif-close-6-1vx68q8-1jqbj9z.wav",
+   "seconds": 8.817583333333333,
+   "text": "Choisir les simulations seulement par l'ajustement aurait retenu les univers qui s'effondrent. La liste de vérification les attrape."
+  },
+  "whatif-close-7-1bdotu1": {
+   "file": "whatif-close-7-1bdotu1-1jqbj9z.wav",
+   "seconds": 13.616583333333333,
+   "text": "On a lancé des milliers de simulations pour trouver où des univers comme le nôtre peuvent se former. Dans la meilleure région, on a relancé soixante-douze configurations avec plus de particules, et soixante-huit d'entre elles passent toute la liste."
+  },
+  "whatif-mass-0-1dmm7n1": {
+   "file": "whatif-mass-0-1dmm7n1-1jqbj9z.wav",
+   "seconds": 2.9022916666666667,
+   "text": "Et si le progéniteur était minuscule? Ou énorme?"
+  },
+  "whatif-mass-1-152j82u": {
+   "file": "whatif-mass-1-152j82u-1jqbj9z.wav",
+   "seconds": 6.263458333333333,
+   "text": "On a essayé plus de trois ordres de grandeur, d'un seul univers observable jusqu'à trois mille."
+  },
+  "whatif-mass-2-1jrw3eo": {
+   "file": "whatif-mass-2-1jrw3eo-1jqbj9z.wav",
+   "seconds": 4.331958333333334,
+   "text": "L'ajustement s'en fiche presque. La structure, non."
+  },
+  "whatif-mass-3-1wjfg0n": {
+   "file": "whatif-mass-3-1wjfg0n-1jqbj9z.wav",
+   "seconds": 10.831375,
+   "text": "Et le choix le plus robuste, c'est le membre typique. Exactement ce que l'hypothèse préférait, avant même qu'on lance quoi que ce soit."
+  },
+  "catch-0-jmgap0": {
+   "file": "catch-0-jmgap0-1jqbj9z.wav",
+   "seconds": 3.8254166666666665,
+   "text": "Maintenant, le hic. Parce qu'il y en a un."
+  },
+  "catch-1-1vk8qlr": {
+   "file": "catch-1-1vk8qlr-1jqbj9z.wav",
+   "seconds": 7.65375,
+   "text": "Des attracteurs lourds et lointains, ou plus légers et plus proches. Les supernovas ne font pas la différence."
+  },
+  "catch-2-1biklvg": {
+   "file": "catch-2-1biklvg-1jqbj9z.wav",
+   "seconds": 5.399666666666667,
+   "text": "L'expansion moyenne ne mesure que la masse divisée par l'espacement au cube."
+  },
+  "catch-3-12cdf11": {
+   "file": "catch-3-12cdf11-1jqbj9z.wav",
+   "seconds": 5.185708333333333,
+   "text": "Donc les supernovas seules ne prouveront jamais ce modèle. Il nous faut un autre test."
+  },
+  "predictions-0-19dtthk": {
+   "file": "predictions-0-19dtthk-1jqbj9z.wav",
+   "seconds": 3.19475,
+   "text": "Vous vous souvenez de l'empreinte inégale? Voilà le test."
+  },
+  "predictions-1-ykvh4k": {
+   "file": "predictions-1-ykvh4k-1jqbj9z.wav",
+   "seconds": 9.6135,
+   "text": "Prédiction numéro un : un dipôle de Hubble. Une moitié du ciel devrait s'étendre un peu plus vite que l'autre."
+  },
+  "predictions-2-4dnmvf": {
+   "file": "predictions-2-4dnmvf-1jqbj9z.wav",
+   "seconds": 8.621583333333334,
+   "text": "Mesurez le taux d'expansion avec le ciel entier d'un coup, et vous obtenez soixante-sept. Mesurez-le avec les galaxies proches, et vous obtenez soixante-treize."
+  },
+  "predictions-3-m13pt3": {
+   "file": "predictions-3-m13pt3-1jqbj9z.wav",
+   "seconds": 6.180416666666667,
+   "text": "Ces chiffres devraient concorder, et ils ne concordent pas. C'est ce qu'on appelle la tension de Hubble."
+  },
+  "predictions-4-1dn6zr5": {
+   "file": "predictions-4-1dn6zr5-1jqbj9z.wav",
+   "seconds": 12.691416666666667,
+   "text": "Pour la cosmologie standard, c'est un casse-tête. Pour ce modèle, c'est attendu. Une expansion inégale, ce que les physiciens appellent l'anisotropie, donne des réponses différentes selon la façon de regarder."
+  },
+  "predictions-5-1dtyi1i": {
+   "file": "predictions-5-1dtyi1i-1jqbj9z.wav",
+   "seconds": 8.139541666666666,
+   "text": "Prédiction numéro deux : l'axe du mal. Les plus grands motifs du fond diffus cosmologique pointent tous le long du même axe étrange."
+  },
+  "predictions-6-3rpaok": {
+   "file": "predictions-6-3rpaok-1jqbj9z.wav",
+   "seconds": 4.803125,
+   "text": "Des voisins mal répartis pourraient imprimer exactement ce genre d'alignement."
+  },
+  "predictions-7-jgbhiu": {
+   "file": "predictions-7-jgbhiu-1jqbj9z.wav",
+   "seconds": 7.995583333333333,
+   "text": "Prédiction numéro trois : le courant noir. D'immenses régions de galaxies qui dérivent ensemble, comme tirées par quelque chose qu'on ne voit pas."
+  },
+  "predictions-8-p5l9p1": {
+   "file": "predictions-8-p5l9p1-1jqbj9z.wav",
+   "seconds": 11.765708333333333,
+   "text": "Prédiction numéro quatre : l'accélération continue d'augmenter. À mesure qu'on dérive vers les attracteurs, leur attraction se renforce, alors l'accélération elle-même accélère."
+  },
+  "predictions-9-114man3": {
+   "file": "predictions-9-114man3-1jqbj9z.wav",
+   "seconds": 8.633625,
+   "text": "Les cosmologistes appellent ça une énergie sombre fantôme. Une constante cosmologique ne peut pas faire ça, parce que sa poussée ne change jamais."
+  },
+  "predictions-10-98e7d0": {
+   "file": "predictions-10-98e7d0-1jqbj9z.wav",
+   "seconds": 7.968041666666666,
+   "text": "Et le clou du spectacle : les quatre devraient pointer dans la même direction, vers nos voisins les plus proches et les plus lourds."
+  },
+  "whatif-invisible-0-1qjv2td": {
+   "file": "whatif-invisible-0-1qjv2td-1jqbj9z.wav",
+   "seconds": 3.8375,
+   "text": "Si ces choses sont si massives, pourquoi on ne les voit pas?"
+  },
+  "whatif-invisible-1-2zwwk0": {
+   "file": "whatif-invisible-1-2zwwk0-1jqbj9z.wav",
+   "seconds": 6.558083333333333,
+   "text": "La distance n'est pas la réponse. Ils sont plus vieux que le Big Bang, alors leur lumière aurait eu amplement le temps de nous atteindre."
+  },
+  "whatif-invisible-2-1kpznfz": {
+   "file": "whatif-invisible-2-1kpznfz-1jqbj9z.wav",
+   "seconds": 9.890875,
+   "text": "La réponse, c'est qu'ils n'ont plus de lumière à donner. Ce seraient d'anciens trous noirs qui ont avalé tout ce qui les entourait il y a très longtemps, et un trou noir qui n'a plus rien à manger ne brille pas."
+  },
+  "whatif-invisible-3-16l3jgz": {
+   "file": "whatif-invisible-3-16l3jgz-1jqbj9z.wav",
+   "seconds": 10.407625,
+   "text": "Même leur rayonnement de Hawking est absurdement froid : environ dix puissance moins trente-trois kelvin. C'est aussi proche du zéro absolu qu'on peut l'être."
+  },
+  "whatif-invisible-4-wigw3d": {
+   "file": "whatif-invisible-4-wigw3d-1jqbj9z.wav",
+   "seconds": 3.3190416666666667,
+   "text": "Des géants sombres. Visibles seulement par leur attraction."
+  },
+  "whatif-cycle-0-1px1yb7": {
+   "file": "whatif-cycle-0-1px1yb7-1jqbj9z.wav",
+   "seconds": 8.203041666666667,
+   "text": "Une dernière hypothèse, complètement folle. Celle-là, c'est de la pure spéculation, sans aucune simulation derrière."
+  },
+  "whatif-cycle-1-1o8xgqs": {
+   "file": "whatif-cycle-1-1o8xgqs-1jqbj9z.wav",
+   "seconds": 3.227625,
+   "text": "Un attracteur explose, et sa matière remplit le vide."
+  },
+  "whatif-cycle-2-cho6ko": {
+   "file": "whatif-cycle-2-cho6ko-1jqbj9z.wav",
+   "seconds": 3.526291666666667,
+   "text": "Au fil des éons, les voisins avalent cette matière."
+  },
+  "whatif-cycle-3-1gj8ukn": {
+   "file": "whatif-cycle-3-1gj8ukn-1jqbj9z.wav",
+   "seconds": 4.5532916666666665,
+   "text": "L'un d'eux devient trop gros, devient instable, et explose à son tour."
+  },
+  "whatif-cycle-4-1vg8o8w": {
+   "file": "whatif-cycle-4-1vg8o8w-1jqbj9z.wav",
+   "seconds": 5.477875,
+   "text": "Notre univers serait une seule respiration dans un grand métabolisme cosmique."
+  },
+  "limits-0-1mnk4de": {
+   "file": "limits-0-1mnk4de-1jqbj9z.wav",
+   "seconds": 4.3810416666666665,
+   "text": "Soyons honnêtes sur ce que c'est. C'est un modèle-jouet."
+  },
+  "limits-1-1jfgooa": {
+   "file": "limits-1-1jfgooa-1jqbj9z.wav",
+   "seconds": 12.549125,
+   "text": "De la gravité newtonienne dans un espace plat. Pas de relativité générale, pas d'univers primordial, pas de spectre du fond diffus cosmologique, et pas d'oscillations acoustiques des baryons."
+  },
+  "limits-2-103zzhm": {
+   "file": "limits-2-103zzhm-1jqbj9z.wav",
+   "seconds": 9.753791666666666,
+   "text": "Il ne prétend pas être la réalité. Il prétend que la gravité ordinaire peut imiter l'énergie sombre. Et ça, ça vaut la peine d'être vérifié."
+  },
+  "outro-0-l8zipj": {
+   "file": "outro-0-l8zipj-1jqbj9z.wav",
+   "seconds": 7.332958333333333,
+   "text": "Alors, si le dipôle de Hubble, l'axe du mal et le courant noir pointent tous dans la même direction,"
+  },
+  "outro-1-1ibfa8g": {
+   "file": "outro-1-1ibfa8g-1jqbj9z.wav",
+   "seconds": 4.18375,
+   "text": "l'énergie sombre n'est peut-être pas du tout une propriété de l'espace."
+  },
+  "outro-2-1cq5vqn": {
+   "file": "outro-2-1cq5vqn-1jqbj9z.wav",
+   "seconds": 5.767833333333333,
+   "text": "C'est peut-être juste les voisins."
+  },
+  "data-11-gte3z9": {
+   "file": "data-11-gte3z9-1jqbj9z.wav",
+   "seconds": 13.055333333333333,
+   "text": "Comme développeur, je surveille ça tout le temps : l'overfitting, ou surajustement. Avec assez de boutons, un modèle colle à presque tout. Les simulations aussi peuvent tomber dans ce piège."
+  }
+ }
+}

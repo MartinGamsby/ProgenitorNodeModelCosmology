@@ -77,11 +77,11 @@ gly(89, true)        // tr('units.gly_short', {n: 290}) → "290 billion ly"
 ## Cuts (planned)
 | cut | format | content |
 |---|---|---|
-| full | 1920×1080 | today's ~11.5 min explainer |
+| full | 1920×1080 | the explainer: EN 11.4 min, FR 14.4 min (French runs longer) |
 | idea | 1920×1080 | the idea only: no simulation details, number beats skipped (~5–6 min) |
 | short | 1080×1920 | ~45–55 s vertical: existing scenes scaled into the middle, big captions |
 
 ## Phases
 1. (done) Infrastructure + extract EN strings; EN output must stay identical (frame count + still diffs).
-2. French translation draft (Martin reviews: native speaker). 3. French voice + render.
+2. (done) French translation (Martin's terms). 3. (done) French voice + render: full-fr = 14.4 min.
 4. Idea cut EN/FR. 5. Short EN/FR.

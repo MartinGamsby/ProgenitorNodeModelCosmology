@@ -64,8 +64,8 @@ gly(89, true)        // tr('units.gly_short', {n: 290}) → "290 billion ly"
   than Martin; the model's French accent wins over the reference. Kept for now; Martin may dub the
   French himself: record one wav per beat over the same file names in public/voice/fr/, then re-run
   voice.mjs with the same env (existing clips are re-measured, so the visuals re-time to the new takes).
-- Translation choices (Martin, 2026-10-21): clumps → « amas »; knot → « nœud » (open question: clashes
-  with « nœud progéniteur »); overfitting → « *overfitting*, ou le surajustement » (English term kept, as
+- Translation choices (Martin, 2026-10-21): clumps → « amas »; knot → « noyau dense » (not « nœud »: that
+  word stays the model's name, « nœud progéniteur »); overfitting → « *overfitting*, ou le surajustement » (English term kept, as
   in real French usage); dark flow → « courant noir » (Wikipedia FR); Axis of Evil → « axe du mal »;
   toy model → « modèle-jouet »; HMEA → « AEHM » (attracteur externe hyper-massif); Gyr → « Ga »; the paper
   title stays English (credits). Labels are ~20–30 % longer than EN: check stills for overflow

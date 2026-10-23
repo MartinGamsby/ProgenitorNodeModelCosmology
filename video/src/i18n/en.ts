@@ -189,9 +189,9 @@ export const en: Locale = {
       "hook": [
         "Everything in the universe is flying apart.",
         "And here's the weird part. It's *speeding up*.",
-        "Physicists call whatever is doing this: *dark energy*. And nobody knows what it is.",
+        "Physicists call whatever is doing this: *dark energy*.",
         "",
-        "So here's a what-if.",
+        "Nobody knows what it is. So here's a what-if.",
         "What if nothing is *pushing* the universe apart?",
         "What if something is *pulling* it?",
       ],

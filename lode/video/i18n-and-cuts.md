@@ -55,6 +55,12 @@ gly(89, true)        // tr('units.gly_short', {n: 290}) → "290 billion ly"
 - Refactor guard: EN frame count (20572) + 112 per-beat stills diffed against a pre-refactor
   baseline (`scripts/diff_stills.py`) — 0 differ. Grouping of axis ticks was the one regression found.
 - Scene code names the translator `tr` (not `t`: `t` is time in many scenes).
+- Scenes import `interpolate` from `src/interp.ts`, not from remotion: a skipped beat has zero
+  duration, so `[b.at(1), b.at(2), …]` repeats a time and Remotion throws ("inputRange must be strictly
+  monotonically increasing"). The wrapper nudges repeats apart by 1e-6 (= an instant jump) and passes
+  strictly increasing ranges through untouched (full-en stills identical). Use it in any new scene.
+- `voice_check.py --only k1,k2` QA's just the clips a cut adds, so accepted takes of other cuts
+  aren't re-rolled (re-rolling changes their length, hence the timing of a finished video).
 - French typography (OQLF): decimal comma, space thousands (fr-CA), space before « : » only (not
   ; ! ?). `captionTokens` glues a spaced « : » to the previous word with a no-break space, and keeps an
   elision before a highlight as one highlighted word (`l’*énergie sombre*` → « l’énergie sombre »).

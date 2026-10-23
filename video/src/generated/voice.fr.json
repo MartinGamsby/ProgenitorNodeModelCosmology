@@ -312,6 +312,11 @@
    "seconds": 6.33875,
    "text": "Et avec assez de réglages, une autre configuration ferait sûrement encore mieux. Mais ça ne prouverait rien."
   },
+  "data-11-gte3z9": {
+   "file": "data-11-gte3z9-1jqbj9z.wav",
+   "seconds": 13.055333333333333,
+   "text": "Comme développeur, je surveille ça tout le temps : l'overfitting, ou surajustement. Avec assez de boutons, un modèle colle à presque tout. Les simulations aussi peuvent tomber dans ce piège."
+  },
   "data-12-bhk28b": {
    "file": "data-12-bhk28b-1jqbj9z.wav",
    "seconds": 9.754166666666666,
@@ -547,10 +552,81 @@
    "seconds": 5.767833333333333,
    "text": "C'est peut-être juste les voisins."
   },
-  "data-11-gte3z9": {
-   "file": "data-11-gte3z9-1jqbj9z.wav",
-   "seconds": 13.055333333333333,
-   "text": "Comme développeur, je surveille ça tout le temps : l'overfitting, ou surajustement. Avec assez de boutons, un modèle colle à presque tout. Les simulations aussi peuvent tomber dans ce piège."
+  "hook-2-2sjb7i": {
+   "file": "hook-2-2sjb7i-1jqbj9z.wav",
+   "seconds": 6.570458333333334,
+   "text": "Ce qui cause ça, les physiciens l'appellent : l'énergie sombre. Et personne ne sait ce que c'est."
+  },
+  "beyond-4-1l4fgh6": {
+   "file": "beyond-4-1l4fgh6-1jqbj9z.wav",
+   "seconds": 6.887375,
+   "text": "Imaginez des masses sombres gigantesques, bien au-delà de notre horizon, chacune beaucoup plus lourde que tout notre univers observable."
+  },
+  "hook-1-nu9jnt": {
+   "file": "hook-1-nu9jnt-tw09e3.wav",
+   "seconds": 1.2010416666666666,
+   "text": "Et ça accélère.",
+   "exag": 0.55
+  },
+  "hook-2-1un6deq": {
+   "file": "hook-2-1un6deq-1jqbj9z.wav",
+   "seconds": 4.380375,
+   "text": "On appelle la cause l'énergie sombre. Personne ne sait ce que c'est."
+  },
+  "hook-5-1fge0i6": {
+   "file": "hook-5-1fge0i6-1jqbj9z.wav",
+   "seconds": 3.7885416666666667,
+   "text": "Et si rien ne poussait?"
+  },
+  "hook-6-14qrm2w": {
+   "file": "hook-6-14qrm2w-1jqbj9z.wav",
+   "seconds": 2.0219583333333335,
+   "text": "Et si quelque chose tirait?"
+  },
+  "beyond-4-c2prre": {
+   "file": "beyond-4-c2prre-1jqbj9z.wav",
+   "seconds": 4.5227916666666665,
+   "text": "Imaginez des masses sombres géantes, bien au-delà de tout ce qu'on peut voir."
+  },
+  "beyond-6-1lvuw1a": {
+   "file": "beyond-6-1lvuw1a-1jqbj9z.wav",
+   "seconds": 1.9657916666666666,
+   "text": "Tout un essaim de géants sombres."
+  },
+  "beyond-8-xvww5h": {
+   "file": "beyond-8-xvww5h-1jqbj9z.wav",
+   "seconds": 2.760625,
+   "text": "Et notre univers se trouve dans l'un des vides entre elles."
+  },
+  "tides-2-khehwn": {
+   "file": "tides-2-khehwn-1jqbj9z.wav",
+   "seconds": 3.309458333333333,
+   "text": "Leur attraction ne s'annule pas. Elle étire notre univers."
+  },
+  "tides-5-73mvtw": {
+   "file": "tides-5-73mvtw-1jqbj9z.wav",
+   "seconds": 5.656166666666667,
+   "text": "Pour la gravité, une traction de l'extérieur ressemble exactement à une poussée de l'intérieur."
+  },
+  "progenitor-1-1xtu7og": {
+   "file": "progenitor-1-1xtu7og-1jqbj9z.wav",
+   "seconds": 3.250125,
+   "text": "Et le Big Bang? C'était peut-être l'une d'elles."
+  },
+  "progenitor-4-1vc6qmu": {
+   "file": "progenitor-4-1vc6qmu-1jqbj9z.wav",
+   "seconds": 3.136833333333333,
+   "text": "Elle a explosé, et sa matière a rempli le vide."
+  },
+  "predictions-1-2q6igk": {
+   "file": "predictions-1-2q6igk-1jqbj9z.wav",
+   "seconds": 6.31075,
+   "text": "Si c'est vrai, une moitié du ciel devrait s'étendre un peu plus vite que l'autre. Ça, on peut le vérifier."
+  },
+  "outro-1-4esi3t": {
+   "file": "outro-1-4esi3t-1jqbj9z.wav",
+   "seconds": 4.865458333333334,
+   "text": "Alors l'énergie sombre n'est peut-être pas du tout une propriété de l'espace."
   }
  }
 }

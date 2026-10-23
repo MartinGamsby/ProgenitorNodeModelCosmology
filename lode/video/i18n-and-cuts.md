@@ -83,11 +83,12 @@ gly(89, true)        // tr('units.gly_short', {n: 290}) → "290 billion ly"
 ## Cuts
 | cut | format | scenes |
 |---|---|---|
-| full | 1920×1080 | all 18; EN 11.4 min, FR 14.4 min (French runs longer) |
-| idea | 1920×1080 | the idea, no simulation: drops simulation, data, whatif-observer/close/mass, catch, limits; skips number beats: hook 3 (70 % pie), problem 4–6 (10^120, coincidence), beyond 1 (46 Gly), predictions 2–4 (67 vs 73) and 9 (w chart), whatif-invisible 3 (10^-33 K) |
-| short | 1080×1920 | hook → beyond → tides → progenitor → predictions (dipole only) → outro, ~1 min, own narration, tighter pace |
+| full | 1920×1080 | all 18; EN 11:26, FR 14:24 (French runs longer) |
+| idea | 1920×1080 | EN 5:47, FR 7:03. The idea, no simulation: drops simulation, data, whatif-observer/close/mass, catch, limits; skips number beats: hook 3 (70 % pie), problem 4–6 (10^120, coincidence), beyond 1 (46 Gly), predictions 2–4 (67 vs 73) and 9 (w chart), whatif-invisible 3 (10^-33 K) |
+| short | 1080×1920 | EN 1:01, FR 1:16. hook → beyond → tides → progenitor → predictions (dipole only) → outro, ~1 min, own narration, tighter pace |
 
-- Idea overrides: hook 2 absorbs "nobody knows what it is" (its pie beat is skipped); beyond 4 drops
+- Idea overrides: EN hook 4 opens with "Nobody knows what it is." (pie beat 3 skipped; in hook 2 it gave
+  a "dark … energy" pause no re-roll fixed, so hook 2 reuses the full take; FR keeps it in hook 2); beyond 4 drops
   "hundreds to thousands of times". Everything else reuses the full narration (and its voice clips).
 - Short: `narration.short` rewrites every kept line (one idea per line); skipped beats are ''.
   `CutDef.pace` overrides timing knobs (short: beatGap 0.3 s, tail 0.5 s). The hook's 8.5 s silent
@@ -107,4 +108,4 @@ graph TB
 ## Phases
 1. (done) Infrastructure + extract EN strings; EN output must stay identical (frame count + still diffs).
 2. (done) French translation (Martin's terms). 3. (done) French voice + render: full-fr = 14.4 min.
-4. Idea cut EN/FR. 5. Short EN/FR.
+4. (done) Idea cut EN/FR. 5. (done) Short EN/FR. Renders: `out/<cut>-<locale>.mp4`.

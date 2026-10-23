@@ -1,5 +1,6 @@
 import React, {useMemo} from 'react';
-import {AbsoluteFill, interpolate, random} from 'remotion';
+import {AbsoluteFill, random} from 'remotion';
+import {interpolate} from '../interp';
 import {useBeats} from '../beats';
 import {Show} from '../components/Show';
 import {Camera, project, Space3D, V3} from '../components/Space3D';

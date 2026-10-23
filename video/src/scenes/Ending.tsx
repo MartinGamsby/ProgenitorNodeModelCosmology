@@ -1,5 +1,6 @@
 import React from 'react';
-import {AbsoluteFill, interpolate} from 'remotion';
+import {AbsoluteFill} from 'remotion';
+import {interpolate} from '../interp';
 import {useBeats} from '../beats';
 import {Show} from '../components/Show';
 import {Space3D} from '../components/Space3D';

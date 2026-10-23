@@ -1,5 +1,6 @@
 import React, {createContext, useContext} from 'react';
-import {Easing, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
+import {Easing, spring, useCurrentFrame, useVideoConfig} from 'remotion';
+import {interpolate} from './interp';
 import type {SceneDef, SceneTiming} from './types';
 
 type Ctx = {timing: SceneTiming; def: SceneDef};

@@ -45,23 +45,24 @@ export const buildTimeline = (cut: CutId, locale: LocaleId): Timeline => {
   const manifest = MANIFESTS[locale];
   const defs = resolveScenes(cut, locale);
   const skips = CUTS[cut].skip ?? {};
+  const P = {...T, ...CUTS[cut].pace};
   let cursor = 0;
   const scenes = defs.map((s) => {
     const skip = new Set(skips[s.id] ?? []);
-    const intro = (s.whatIf ? sec(T.whatIfIntro) : 0) + sec(s.leadSeconds ?? 0);
+    const intro = (s.whatIf ? sec(P.whatIfIntro) : 0) + sec(s.leadSeconds ?? 0);
     let t = intro;
     const beats = s.beats.map((text, i) => {
       if (skip.has(i)) return {from: t, dur: 0, text: ''};
       const spoken = spokenText(text);
       const clip = spoken ? manifest.clips[clipKey(s.id, i, text)] : undefined;
       const seconds = !spoken
-        ? T.silentBeat
-        : (clip?.seconds ?? spoken.split(/\s+/).length / WORDS_PER_SECOND) + T.beatGap;
+        ? P.silentBeat
+        : (clip?.seconds ?? spoken.split(/\s+/).length / WORDS_PER_SECOND) + P.beatGap;
       const b = {from: t, dur: sec(seconds), text, audio: clip?.file};
       t += b.dur;
       return b;
     });
-    const dur = Math.max(t + sec(T.tail), sec(s.minSeconds ?? 0));
+    const dur = Math.max(t + sec(P.tail), sec(CUTS[cut].minSeconds?.[s.id] ?? s.minSeconds ?? 0));
     const timing: SceneTiming = {id: s.id, from: cursor, dur, intro, beats};
     cursor += dur;
     return timing;

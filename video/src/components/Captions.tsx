@@ -1,7 +1,8 @@
 import React from 'react';
-import {interpolate, useCurrentFrame} from 'remotion';
+import {useCurrentFrame} from 'remotion';
+import {interpolate} from '../interp';
 import {captionTokens} from '../markup';
-import {C, FONT} from '../theme';
+import {C, FONT, VERTICAL} from '../theme';
 import type {SceneTiming} from '../types';
 
 /** "10^120" -> 10<sup>120</sup> (caption-only math). */
@@ -18,7 +19,7 @@ const withSup = (w: string) => {
 };
 
 /** YouTube-style subtitles: the current line, words lighting up as they are spoken. */
-export const Captions: React.FC<{timing: SceneTiming}> = ({timing}) => {
+export const Captions: React.FC<{timing: SceneTiming; vertical?: boolean}> = ({timing, vertical}) => {
   const frame = useCurrentFrame();
   const i = timing.beats.findIndex((b) => frame >= b.from && frame < b.from + b.dur);
   if (i < 0) return null;
@@ -33,9 +34,9 @@ export const Captions: React.FC<{timing: SceneTiming}> = ({timing}) => {
     <div
       style={{
         position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 54,
+        left: vertical ? 50 : 0,
+        right: vertical ? 50 : 0,
+        ...(vertical ? {top: VERTICAL.captionY} : {bottom: 54}),
         display: 'flex',
         justifyContent: 'center',
         opacity: appear,
@@ -44,14 +45,14 @@ export const Captions: React.FC<{timing: SceneTiming}> = ({timing}) => {
     >
       <div
         style={{
-          maxWidth: 1500,
-          padding: '14px 28px',
+          maxWidth: vertical ? 980 : 1500,
+          padding: vertical ? '20px 30px' : '14px 28px',
           borderRadius: 14,
           background: 'rgba(4,6,13,0.72)',
           fontFamily: FONT.body,
           fontWeight: 600,
-          fontSize: 40,
-          lineHeight: 1.3,
+          fontSize: vertical ? 64 : 40,
+          lineHeight: vertical ? 1.25 : 1.3,
           textAlign: 'center',
           color: C.ink,
         }}

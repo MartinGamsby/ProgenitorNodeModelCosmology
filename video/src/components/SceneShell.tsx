@@ -1,6 +1,7 @@
 import React from 'react';
-import {AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
-import {C, FONT, T} from '../theme';
+import {AbsoluteFill, spring, useCurrentFrame, useVideoConfig} from 'remotion';
+import {interpolate} from '../interp';
+import {C, FONT, HEIGHT, T, VERTICAL, WIDTH} from '../theme';
 import type {SceneDef, SceneTiming} from '../types';
 import {Starfield} from './Background';
 import {Captions} from './Captions';
@@ -96,12 +97,37 @@ const Chapter: React.FC<{label: string}> = ({label}) => {
   );
 };
 
-export const SceneShell: React.FC<{def: SceneDef; timing: SceneTiming; children: React.ReactNode}> = ({def, timing, children}) => {
+export const SceneShell: React.FC<{def: SceneDef; timing: SceneTiming; vertical?: boolean; children: React.ReactNode}> = ({def, timing, vertical, children}) => {
   const frame = useCurrentFrame();
   const fade = Math.min(
     interpolate(frame, [0, T.fade], [0, 1], {extrapolateRight: 'clamp'}),
     interpolate(frame, [timing.dur - T.fade, timing.dur], [1, 0], {extrapolateLeft: 'clamp'}),
   );
+  if (vertical) {
+    // the landscape scene, scaled into a stage across the middle; captions below it, large
+    return (
+      <AbsoluteFill style={{opacity: fade}}>
+        <div
+          style={{
+            position: 'absolute',
+            left: (VERTICAL.width - WIDTH * VERTICAL.scale) / 2,
+            top: VERTICAL.stageY,
+            width: WIDTH,
+            height: HEIGHT,
+            transform: `scale(${VERTICAL.scale})`,
+            transformOrigin: 'top left',
+            overflow: 'hidden',
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, #000 9%, #000 91%, transparent 100%)',
+          }}
+        >
+          {def.stars !== false && <Starfield starsOnly />}
+          {children}
+          {def.whatIf && <WhatIf q={def.whatIf} intro={timing.intro} />}
+        </div>
+        <Captions timing={timing} vertical />
+      </AbsoluteFill>
+    );
+  }
   return (
     <AbsoluteFill style={{opacity: fade}}>
       {def.stars !== false && <Starfield starsOnly />}

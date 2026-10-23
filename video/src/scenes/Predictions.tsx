@@ -1,5 +1,6 @@
 import React from 'react';
-import {AbsoluteFill, interpolate, random} from 'remotion';
+import {AbsoluteFill, random} from 'remotion';
+import {interpolate} from '../interp';
 import {useBeats} from '../beats';
 import {Axes, LegendItem, scales} from '../components/Chart';
 import {Show} from '../components/Show';

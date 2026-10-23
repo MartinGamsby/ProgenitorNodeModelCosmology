@@ -74,12 +74,29 @@ gly(89, true)        // tr('units.gly_short', {n: 290}) → "290 billion ly"
   (cards with fixed width, docked what-if badge vs. titles, panel subtitles side by side).
 - Review sheet: `npm run i18n:review` → `lode/tmp/fr-review.md` (EN | FR per beat, voice text when it differs).
 
-## Cuts (planned)
-| cut | format | content |
+## Cuts
+| cut | format | scenes |
 |---|---|---|
-| full | 1920×1080 | the explainer: EN 11.4 min, FR 14.4 min (French runs longer) |
-| idea | 1920×1080 | the idea only: no simulation details, number beats skipped (~5–6 min) |
-| short | 1080×1920 | ~45–55 s vertical: existing scenes scaled into the middle, big captions |
+| full | 1920×1080 | all 18; EN 11.4 min, FR 14.4 min (French runs longer) |
+| idea | 1920×1080 | the idea, no simulation: drops simulation, data, whatif-observer/close/mass, catch, limits; skips number beats: hook 3 (70 % pie), problem 4–6 (10^120, coincidence), beyond 1 (46 Gly), predictions 2–4 (67 vs 73) and 9 (w chart), whatif-invisible 3 (10^-33 K) |
+| short | 1080×1920 | hook → beyond → tides → progenitor → predictions (dipole only) → outro, ~1 min, own narration, tighter pace |
+
+- Idea overrides: hook 2 absorbs "nobody knows what it is" (its pie beat is skipped); beyond 4 drops
+  "hundreds to thousands of times". Everything else reuses the full narration (and its voice clips).
+- Short: `narration.short` rewrites every kept line (one idea per line); skipped beats are ''.
+  `CutDef.pace` overrides timing knobs (short: beatGap 0.3 s, tail 0.5 s). The hook's 8.5 s silent
+  cold open stays (its animation is keyed to absolute seconds from the lead).
+- Vertical layout (SceneShell): the 1920×1080 scene is scaled ×0.5625 into a stage across the middle
+  (y 560–1168); the title sits above it for the whole video; captions go below the stage, large
+  (64 px, max 960 px wide) and above y 1600 (TikTok/Shorts overlay their UI at the bottom and right).
+  No chapter labels. Scenes need no change: they draw in fixed WIDTH×HEIGHT coordinates.
+
+```mermaid
+graph TB
+    TITLE[title, y 200-500] --- STAGE[scene 1920x1080 scaled to 1080x608, y 560]
+    STAGE --- CAP[captions 64 px, y 1240-1600]
+    CAP --- UI[platform UI zone, y 1600+]
+```
 
 ## Phases
 1. (done) Infrastructure + extract EN strings; EN output must stay identical (frame count + still diffs).

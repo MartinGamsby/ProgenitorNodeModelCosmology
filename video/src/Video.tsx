@@ -3,7 +3,9 @@ import {AbsoluteFill, Audio, interpolate, Sequence, staticFile, useCurrentFrame}
 import {BeatProvider} from './beats';
 import {Starfield} from './components/Background';
 import {SceneShell} from './components/SceneShell';
-import {LocaleProvider} from './i18n';
+import {CUTS} from './cuts';
+import {LOCALES, LocaleProvider} from './i18n';
+import {C, FONT, VERTICAL} from './theme';
 import {SCENE_COMPONENTS} from './scenes';
 import {buildTimeline, Timeline} from './timing';
 import type {CutId, LocaleId} from './types';
@@ -42,16 +44,49 @@ const EndFade: React.FC<{total: number}> = ({total}) => {
   return o > 0 ? <AbsoluteFill style={{background: '#000', opacity: o}} /> : null;
 };
 
+/** Vertical cuts: the video's title above the stage, for the whole video (the short's hook text). */
+const VerticalTitle: React.FC<{title: string}> = ({title}) => {
+  const frame = useCurrentFrame();
+  const o = interpolate(frame, [10, 40], [0, 1], {extrapolateRight: 'clamp'});
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: 60,
+        right: 60,
+        top: 0,
+        height: VERTICAL.stageY - 40,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        fontFamily: FONT.display,
+        fontWeight: 900,
+        fontSize: 84,
+        lineHeight: 1.12,
+        color: C.ink,
+        textShadow: `0 0 40px ${C.nodeGlow}aa`,
+        opacity: o,
+        transform: `translateY(${(1 - o) * 20}px)`,
+      }}
+    >
+      {title}
+    </div>
+  );
+};
+
 export type VideoProps = {cut: CutId; locale: LocaleId};
 
 /** One video = one cut in one language (compositions are registered in Root.tsx). */
 export const Explainer: React.FC<VideoProps> = ({cut, locale}) => {
   const tl = useMemo(() => buildTimeline(cut, locale), [cut, locale]);
+  const vertical = CUTS[cut].format === 'vertical';
   return (
     <LocaleProvider locale={locale} cut={cut}>
       <AbsoluteFill style={{background: '#04060d'}}>
         <Starfield count={0} />
         <Music tl={tl} />
+        {vertical && <VerticalTitle title={LOCALES[locale].title} />}
         {tl.scenes.map((t, k) => {
           const def = tl.defs[k];
           const Scene = SCENE_COMPONENTS[def.scene];
@@ -59,7 +94,7 @@ export const Explainer: React.FC<VideoProps> = ({cut, locale}) => {
           return (
             <Sequence key={t.id} from={t.from} durationInFrames={t.dur} name={t.id}>
               <BeatProvider timing={t} def={def}>
-                <SceneShell def={def} timing={t}>
+                <SceneShell def={def} timing={t} vertical={vertical}>
                   <Scene />
                 </SceneShell>
               </BeatProvider>

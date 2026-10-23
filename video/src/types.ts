@@ -37,6 +37,10 @@ export type CutDef = {
   scenes: string[];
   /** beats that take zero time in this cut, e.g. the ones that talk about numbers */
   skip?: Record<string, number[]>;
+  /** timing knobs overridden for this cut (src/constants.ts T), e.g. a tighter short */
+  pace?: Partial<{beatGap: number; silentBeat: number; tail: number; whatIfIntro: number}>;
+  /** per-scene minimum length for this cut (replaces SceneSpec.minSeconds), e.g. a shorter end card */
+  minSeconds?: Record<string, number>;
 };
 
 export type SceneDef = {

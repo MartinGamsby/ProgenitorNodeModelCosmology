@@ -42,7 +42,16 @@ beat number, so rewording re-times the whole video.
 
 Every word is in `src/i18n/<locale>.ts` (English is the reference; a missing French string falls
 back to English and `npm run i18n:check` lists it). Each video ("cut") is a scene list plus beats to
-skip, in `src/cuts.ts`; compositions are named `<cut>-<locale>` (`full-en`, `full-fr`, …).
+skip, in `src/cuts.ts`; compositions are named `<cut>-<locale>` (`full-en`, `full-fr`, …):
+
+| cut | what | render |
+|---|---|---|
+| `full` | the whole explainer (~11 min EN, ~14 min FR) | `npm run render`, `npm run render:full:fr` |
+| `idea` | the idea only: no simulation, no number talk (~6 min) | `npm run render:idea:en` / `:fr` |
+| `short` | ~1 min vertical 1080×1920 for Shorts / TikTok | `npm run render:short:en` / `:fr` |
+
+A cut can rewrite lines (`narration.idea`, `narration.short` in the locale files), skip beats
+(zero time), tighten pacing (`pace`) and shorten scenes (`minSeconds`).
 
 ## Voice
 

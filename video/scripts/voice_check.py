@@ -138,6 +138,7 @@ def main():
     ap.add_argument("--threshold", type=float, default=0.8)
     ap.add_argument("--retries", type=int, default=4)
     ap.add_argument("--seed-offset", type=int, default=0, help="start re-roll seeds further on (a second pass tries new takes)")
+    ap.add_argument("--only", default="", help="comma-separated clip keys: check just these (e.g. lines a new cut added)")
     a = ap.parse_args()
     from transformers import pipeline
     global LANG
@@ -149,7 +150,10 @@ def main():
     man = json.load(open(os.path.join(ROOT, "src", "generated", f"voice.{LANG}.json"), encoding="utf-8"))
     vdir = os.path.join(ROOT, "public", "voice", LANG)
     report, bad = [], []
+    only = set(filter(None, a.only.split(",")))
     for key, c in man["clips"].items():
+        if only and key not in only:
+            continue
         path = os.path.join(vdir, c["file"])
         hyp, sim, problem = listen(asr, path, c["text"])
         report.append({"key": key, "sim": round(sim, 3), "problem": problem, "text": c["text"], "heard": hyp.strip()})

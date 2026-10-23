@@ -1,5 +1,6 @@
 import React, {useMemo} from 'react';
-import {AbsoluteFill, interpolate, random} from 'remotion';
+import {AbsoluteFill, random} from 'remotion';
+import {interpolate} from '../interp';
 import {useBeats} from '../beats';
 import {Show} from '../components/Show';
 import {At, Card, Label, NodeDot, SvgDefs, Title} from '../components/ui';

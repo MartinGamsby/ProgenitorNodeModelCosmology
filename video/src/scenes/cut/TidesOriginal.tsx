@@ -1,5 +1,6 @@
 import React from 'react';
-import {AbsoluteFill, interpolate} from 'remotion';
+import {AbsoluteFill} from 'remotion';
+import {interpolate} from '../../interp';
 import {range, useBeats} from '../../beats';
 import {Show} from '../../components/Show';
 import {Arrow, At, Card, Label, NodeDot, SvgDefs, Tex, Title} from '../../components/ui';

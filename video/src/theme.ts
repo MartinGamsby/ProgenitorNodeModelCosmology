@@ -2,7 +2,7 @@ import {loadFont as loadMontserrat} from '@remotion/google-fonts/Montserrat';
 import {loadFont as loadInter} from '@remotion/google-fonts/Inter';
 import {loadFont as loadMono} from '@remotion/google-fonts/JetBrainsMono';
 
-export {FPS, WIDTH, HEIGHT, T} from './constants';
+export {FPS, WIDTH, HEIGHT, T, VERTICAL} from './constants';
 
 const montserrat = loadMontserrat('normal', {weights: ['600', '800', '900'], subsets: ['latin']});
 const inter = loadInter('normal', {weights: ['400', '600', '700'], subsets: ['latin']});

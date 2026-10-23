@@ -1,5 +1,6 @@
 import React from 'react';
-import {interpolate, useCurrentFrame} from 'remotion';
+import {useCurrentFrame} from 'remotion';
+import {interpolate} from '../interp';
 import {useBeats} from '../beats';
 
 /**

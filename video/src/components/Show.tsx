@@ -18,6 +18,7 @@ export const Show: React.FC<{
 }> = ({from, until, offset = 0, fade = 12, rise = 24, children, style}) => {
   const frame = useCurrentFrame();
   const b = useBeats();
+  if (b.skipped(from)) return null; // a block introduced by a beat this cut leaves out never shows
   const a = b.at(from, offset);
   const z = until === undefined ? b.dur + 100 : b.at(until);
   if (frame < a || frame > z + fade) return null;

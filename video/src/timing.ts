@@ -63,6 +63,10 @@ export const buildTimeline = (cut: CutId, locale: LocaleId): Timeline => {
       return b;
     });
     const dur = Math.max(t + sec(P.tail), sec(CUTS[cut].minSeconds?.[s.id] ?? s.minSeconds ?? 0));
+    // beats skipped after the scene's last spoken one move to its very end (a frame the scene never
+    // shows): what they switch on (a title, the next diagram) can't appear during the closing hold,
+    // and an animation that runs "until beat i" still finishes within the scene
+    for (let i = beats.length - 1; i >= 0 && skip.has(i); i--) beats[i] = {...beats[i], from: dur};
     const timing: SceneTiming = {id: s.id, from: cursor, dur, intro, beats};
     cursor += dur;
     return timing;

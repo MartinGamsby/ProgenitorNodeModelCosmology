@@ -283,7 +283,7 @@ export const Limits: React.FC = () => {
 export const Outro: React.FC = () => {
   const tr = useT();
   const b = useBeats();
-  const {locale} = useLocale();
+  const {locale, cut} = useLocale();
   const credit = (k: string) => LOCALES[locale].credits[k] ?? en.credits[k];
   const f = b.frame;
   const nodes = medium.pos as [number, number, number][];
@@ -321,7 +321,18 @@ export const Outro: React.FC = () => {
           </At>
         </Show>
       </AbsoluteFill>
-      {credits > 0 && (
+      {credits > 0 && cut === 'short' && (
+        // the short ends on a pointer to the full video instead of the paper card
+        <AbsoluteFill style={{opacity: credits, background: 'rgba(4,6,13,0.78)', justifyContent: 'center', alignItems: 'center'}}>
+          <Card accent={C.gold} style={{maxWidth: 1500, textAlign: 'center', padding: '56px 80px'}}>
+            <Label size={40} color={C.gold} style={{fontFamily: FONT.display, fontWeight: 800, letterSpacing: 3}}>
+              {tr('ending.short_cta_kicker')}</Label>
+            <Title size={96} style={{margin: '18px 0 24px'}}>{tr('ending.short_cta')}</Title>
+            <Label size={40} color={C.ink}>{tr('ending.short_cta_sub')}</Label>
+          </Card>
+        </AbsoluteFill>
+      )}
+      {credits > 0 && cut !== 'short' && (
         <AbsoluteFill style={{opacity: credits, background: 'rgba(4,6,13,0.78)', justifyContent: 'center', alignItems: 'center'}}>
           <Card accent={C.gold} style={{maxWidth: 1400, textAlign: 'center', padding: '50px 70px'}}>
             <Label size={26} color={C.gold} style={{fontFamily: FONT.display, fontWeight: 800, letterSpacing: 3}}>

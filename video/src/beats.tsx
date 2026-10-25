@@ -29,14 +29,22 @@ export const useBeats = () => {
   const {beats, dur} = ctx.timing;
   const at = (i: number, offset = 0) =>
     (i >= beats.length ? dur : i < 0 ? 0 : beats[i].from) + offset;
+  /** beat i is cut from this video (zero duration): its animations snap instead of playing,
+   *  so an "appear at i, vanish at i+1" pair never flashes between the beats that remain */
+  const skipped = (i: number) => i >= 0 && i < beats.length && beats[i].dur === 0;
+  // ...and the spoken beat right after skipped ones snaps too: its "previous slide fades out"
+  // transition would otherwise fade a skipped beat's visuals through it
+  const snaps = (i: number) => skipped(i) || skipped(i - 1);
   const p = (i: number, len = 20, offset = 0) =>
-    interpolate(frame, [at(i, offset), at(i, offset) + len], [0, 1], {
-      extrapolateLeft: 'clamp',
-      extrapolateRight: 'clamp',
-      easing: ease,
-    });
+    snaps(i)
+      ? Number(frame >= at(i, offset))
+      : interpolate(frame, [at(i, offset), at(i, offset) + len], [0, 1], {
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+          easing: ease,
+        });
   const s = (i: number, offset = 0, damping = 14) =>
-    spring({frame: frame - at(i, offset), fps, config: {damping, mass: 0.8}});
+    snaps(i) ? Number(frame >= at(i, offset)) : spring({frame: frame - at(i, offset), fps, config: {damping, mass: 0.8}});
   const on = (i: number, offset = 0) => frame >= at(i, offset);
   let cur = -1;
   beats.forEach((b, i) => {
@@ -45,7 +53,7 @@ export const useBeats = () => {
   /** progress through the whole beat i (0→1 linear) */
   const through = (i: number) =>
     interpolate(frame, [at(i), at(i + 1)], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-  return {frame, fps, at, p, s, on, cur, through, dur, timing: ctx.timing, def: ctx.def};
+  return {frame, fps, at, p, s, on, cur, through, skipped, dur, timing: ctx.timing, def: ctx.def};
 };
 
 /** Generic eased range helper. */

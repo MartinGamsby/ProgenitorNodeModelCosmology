@@ -59,6 +59,12 @@ gly(89, true)        // tr('units.gly_short', {n: 290}) → "290 billion ly"
   duration, so `[b.at(1), b.at(2), …]` repeats a time and Remotion throws ("inputRange must be strictly
   monotonically increasing"). The wrapper nudges repeats apart by 1e-6 (= an instant jump) and passes
   strictly increasing ranges through untouched (full-en stills identical). Use it in any new scene.
+- **A skipped beat shows nothing** (Martin: "only the visuals for the slides that have sound"):
+  `Show` blocks whose `from` beat is skipped never render; `b.p()`/`b.s()` snap (no tween) for a
+  skipped beat AND for the spoken beat right after skipped ones (else the skipped visual fades out
+  through it); skipped beats after a scene's last spoken one sit at frame `dur` (never shown, but
+  "until beat i" animations still finish). Before this, zero-length beats flashed for ~12 frames
+  between slides. Check: low-res render + frames around every spoken-beat boundary.
 - `voice_check.py --only k1,k2` QA's just the clips a cut adds, so accepted takes of other cuts
   aren't re-rolled (re-rolling changes their length, hence the timing of a finished video).
 - French typography (OQLF): decimal comma, space thousands (fr-CA), space before « : » only (not
@@ -91,6 +97,8 @@ gly(89, true)        // tr('units.gly_short', {n: 290}) → "290 billion ly"
   a "dark … energy" pause no re-roll fixed, so hook 2 reuses the full take; FR keeps it in hook 2); beyond 4 drops
   "hundreds to thousands of times". Everything else reuses the full narration (and its voice clips).
 - Short: `narration.short` rewrites every kept line (one idea per line); skipped beats are ''.
+  It ends on "Want the details? Watch the full video." with a matching card (Ending outro, `cut === 'short'`)
+  instead of the paper card.
   `CutDef.pace` overrides timing knobs (short: beatGap 0.3 s, tail 0.5 s). The hook's 8.5 s silent
   cold open stays (its animation is keyed to absolute seconds from the lead).
 - Vertical layout (SceneShell): the 1920×1080 scene is scaled ×0.5625 into a stage across the middle

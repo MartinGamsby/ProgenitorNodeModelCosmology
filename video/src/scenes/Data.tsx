@@ -1,14 +1,14 @@
 import React from 'react';
 import {AbsoluteFill} from 'remotion';
 import {interpolate} from '../interp';
-import {useBeats} from '../beats';
+import {range, useBeats} from '../beats';
 import {Axes, LegendItem, scales} from '../components/Chart';
 import {Show} from '../components/Show';
 import {At, Card, Label, pathOf, partial, Tex, Title} from '../components/ui';
 import hubble from '../../public/data/hubble.json';
 import verdict from '../../public/data/verdict.json';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
-import {useFmt, useT} from '../i18n';
+import {useFmt, useLocale, useT} from '../i18n';
 
 const BOX = {x: 330, y: 190, w: 1260, h: 560};
 /** Best-observer χ²/dof moves ~±0.005 with particle count / observer sampling (lode PF28). */
@@ -19,13 +19,16 @@ const XD: [number, number] = [0.01, 2.3];
 
 export const Data: React.FC = () => {
   const tr = useT();
+  const {cut} = useLocale();
+  const plain = cut === 'hollow'; // a short with no earlier context: everyday words on screen
   const fmt = useFmt();
   const b = useBeats();
   const f = b.frame;
   const h = hubble;
   // ---- μ(z) view (beats 1-2)
   const muView = scales(BOX, XD, [33, 47], true);
-  const dotsP = b.p(1, 50);
+  // when beat 1 opens the scene, b.p would snap: the count should still run up
+  const dotsP = b.skipped(0) ? interpolate(f, [b.at(1), b.at(1) + 50], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}) : b.p(1, 50);
   const nShown = Math.round(h.n_sne * dotsP);
   const modelMuP = b.p(3, 50, 20);
   // ---- residual view vs ΛCDM (beats 3+)
@@ -41,9 +44,9 @@ export const Data: React.FC = () => {
   const chartGone = b.p(8, 15);
 
   const bars = [
-    {l: tr('data.bar_eds'), v: h.chi2.eds, c: C.eds, beat: 8},
-    {l: tr('data.bar_lcdm'), v: h.chi2.lcdm, c: C.lcdm, beat: 8},
-    {l: tr('data.bar_model'), v: h.chi2.model, c: C.model, beat: 8},
+    {l: tr(plain ? 'data.hollow_bar_nothing' : 'data.bar_eds'), v: h.chi2.eds, c: C.eds, beat: 8},
+    {l: tr(plain ? 'data.hollow_bar_de' : 'data.bar_lcdm'), v: h.chi2.lcdm, c: C.lcdm, beat: 8},
+    {l: tr(plain ? 'data.hollow_bar_neighbours' : 'data.bar_model'), v: h.chi2.model, c: C.model, beat: 8},
     {l: tr('data.bar_best'), v: BEST_RUN, c: '#ffc27a', beat: 9},
   ];
   return (
@@ -61,7 +64,7 @@ export const Data: React.FC = () => {
         <svg width={WIDTH} height={HEIGHT} style={{position: 'absolute', opacity: 1 - chartGone}}>
           {/* μ(z) */}
           <g opacity={muO}>
-            <Axes box={BOX} xd={XD} yd={[33, 47]} logX xticks={[0.01, 0.1, 1, 2]} yticks={[34, 38, 42, 46]} xlabel={tr('data.redshift_z')} ylabel={tr('data.distance_modulus')} />
+            <Axes box={BOX} xd={XD} yd={[33, 47]} logX xticks={[0.01, 0.1, 1, 2]} yticks={[34, 38, 42, 46]} xlabel={tr(plain ? 'data.hollow_x' : 'data.redshift_z')} ylabel={tr(plain ? 'data.hollow_y' : 'data.distance_modulus')} />
             {h.sne.z.slice(0, nShown).map((z, i) => (
               <circle key={i} cx={muView.X(z)} cy={muView.Y(h.sne.mu[i])} r={3.4} fill="#c9d4f5" opacity={0.55} />
             ))}
@@ -104,7 +107,7 @@ export const Data: React.FC = () => {
           )}
           {b.on(1) && !b.on(4) && (
             <text x={BOX.x + 40} y={BOX.y + 40} fill={C.ink} fontFamily={FONT.display} fontWeight={800} fontSize={40}>
-              {fmt(nShown)} {tr('data.supernovae')}</text>
+              {fmt(nShown)} {tr(plain ? 'data.hollow_stars' : 'data.supernovae')}</text>
           )}
         </svg>
       )}
@@ -133,11 +136,12 @@ export const Data: React.FC = () => {
       <Show from={8} until={11}>
         <AbsoluteFill style={{alignItems: 'center', paddingTop: 150}}>
           <Title size={58}>
-            {tr('data.fit_score')}<span style={{color: C.dim, fontSize: 36}}>{tr('data.2_dof_lower_is')}</span>
+            {tr(plain ? 'data.hollow_fit' : 'data.fit_score')}<span style={{color: C.dim, fontSize: 36}}>{tr(plain ? 'data.hollow_lower' : 'data.2_dof_lower_is')}</span>
           </Title>
           <div style={{marginTop: 50, display: 'flex', flexDirection: 'column', gap: 26, width: 1400}}>
-            {bars.map((bar, i) => {
-              const p = bar.beat === 8 ? b.p(8, 30, 25 + i * 35) : b.p(bar.beat, 30, 10);
+            {bars.filter((bar) => !b.skipped(bar.beat)).map((bar, i) => {
+              // with beat 7 skipped the bars open the beat, and a short line needs them all up quickly
+              const p = bar.beat !== 8 ? b.p(bar.beat, 30, 10) : b.skipped(7) ? range(f, b.at(8, 4 + i * 16), b.at(8, 20 + i * 16)) : b.p(8, 30, 25 + i * 35);
               return (
                 <div key={i} style={{display: 'flex', alignItems: 'center', gap: 30}}>
                   <div style={{width: 470, textAlign: 'right', fontFamily: FONT.body, fontWeight: 700, fontSize: 34, color: C.ink}}>{bar.l}</div>

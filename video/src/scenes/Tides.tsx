@@ -1,11 +1,11 @@
 import React from 'react';
 import {AbsoluteFill} from 'remotion';
 import {interpolate} from '../interp';
-import {useBeats} from '../beats';
+import {range, useBeats} from '../beats';
 import {Show} from '../components/Show';
 import {Arrow, At, Label, NodeDot, SvgDefs, Title} from '../components/ui';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
-import {useT} from '../i18n';
+import {useLocale, useT} from '../i18n';
 
 const CX = WIDTH / 2;
 const CY = HEIGHT / 2 - 20;
@@ -22,6 +22,7 @@ const LUMPS = [
 
 export const Tides: React.FC = () => {
   const tr = useT();
+  const {cut} = useLocale();
   const b = useBeats();
   const f = b.frame;
   const clump = b.p(2, 35);
@@ -60,7 +61,8 @@ export const Tides: React.FC = () => {
     const a = (k / Math.round(r / 18)) * Math.PI * 2 + r * 0.01;
     field.push({x: CX + Math.cos(a) * r, y: CY + Math.sin(a) * r, r, a});
   }
-  const fieldP = b.p(4, 40);
+  // when beat 4 opens the scene, b.p would snap: the arrows should still grow
+  const fieldP = b.skipped(3) ? range(f, b.at(4), b.at(4) + 40) : b.p(4, 40);
   const fieldO = 1 - b.p(5, 12);
   const finalP = b.p(5, 20);
   return (
@@ -103,6 +105,12 @@ export const Tides: React.FC = () => {
                   );
                 })}
                 {uneven > 0 && <Arrow x1={CX} y1={CY} x2={CX + (nx / nL) * net} y2={CY + (ny / nL) * net} color={C.hot} width={9} head={26} />}
+                {/* the short says what the circle is: you, then (same picture) our universe */}
+                {cut === 'hollow' && (
+                  <text x={CX} y={CY + 135} fill={C.bubble} stroke={C.bg} strokeWidth={10} paintOrder="stroke" fontFamily={FONT.body} fontWeight={700} fontSize={34} textAnchor="middle">
+                    {b.def.id === 'tides' ? tr('tides.you') : tr('tides.our_universe')}
+                  </text>
+                )}
               </>
             )}
           </g>
@@ -145,33 +153,39 @@ export const Tides: React.FC = () => {
       <Show from={0} until={2} offset={20}>
         <At x={CX} y={110}>
           <Title size={54}>
-            {tr('tides.smooth_shell_net_pull')}<span style={{color: C.gold}}>{interpolate(shellPull, [0, 140], [0, 1]) < 0.05 ? '0' : '…'}</span>
+            {cut === 'hollow' ? tr('tides.hollow_net_pull') : tr('tides.smooth_shell_net_pull')}<span style={{color: C.gold}}>{interpolate(shellPull, [0, 140], [0, 1]) < 0.05 ? '0' : '…'}</span>
           </Title>
         </At>
       </Show>
-      <Show from={2} until={3}>
+      {/* the hollow-planet short keeps this title for both beats: the next one is too wide for vertical */}
+      <Show from={2} until={cut === 'hollow' ? 4 : 3}>
         <At x={CX} y={110}>
           <Title size={58} color={C.node}>
-            {tr('tides.clumps_don_t_cancel')}</Title>
+            {cut === 'hollow' ? tr('tides.hollow_lumpy') : tr('tides.clumps_don_t_cancel')}</Title>
         </At>
       </Show>
-      <Show from={3} until={4}>
-        <At x={CX} y={110}>
-          <Title size={54}>
-            {tr('tides.different_sizes_different_distances')}<span style={{color: C.hot}}>{tr('tides.lopsided')}</span>
-          </Title>
-        </At>
-      </Show>
+      {cut !== 'hollow' && (
+        <Show from={3} until={4}>
+          <At x={CX} y={110}>
+            <Title size={54}>
+              {tr('tides.different_sizes_different_distances')}<span style={{color: C.hot}}>{tr('tides.lopsided')}</span>
+            </Title>
+          </At>
+        </Show>
+      )}
       <Show from={4} until={5}>
         <At x={CX} y={110}>
           <Title size={54}>
             {tr('tides.outward_pull')}<span style={{color: C.gold}}>{tr('tides.stronger_farther_out')}</span>
           </Title>
         </At>
-        <At x={CX} y={170}>
-          <Label size={32} color={C.ink} style={{fontWeight: 700}}>
-            {tr('tides.just_like_dark_energy')}</Label>
-        </At>
+        {/* the hollow-planet short only names dark energy two lines later */}
+        {cut !== 'hollow' && (
+          <At x={CX} y={170}>
+            <Label size={32} color={C.ink} style={{fontWeight: 700}}>
+              {tr('tides.just_like_dark_energy')}</Label>
+          </At>
+        )}
       </Show>
       <Show from={5}>
         <At x={520} y={120}>

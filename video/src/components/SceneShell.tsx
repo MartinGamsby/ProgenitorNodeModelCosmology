@@ -2,7 +2,7 @@ import React from 'react';
 import {AbsoluteFill, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {interpolate} from '../interp';
 import {C, FONT, HEIGHT, T, VERTICAL, WIDTH} from '../theme';
-import type {SceneDef, SceneTiming} from '../types';
+import type {SceneDef, SceneTiming, StageView} from '../types';
 import {Starfield} from './Background';
 import {Captions} from './Captions';
 import {useT} from '../i18n';
@@ -97,7 +97,7 @@ const Chapter: React.FC<{label: string}> = ({label}) => {
   );
 };
 
-export const SceneShell: React.FC<{def: SceneDef; timing: SceneTiming; vertical?: boolean; children: React.ReactNode}> = ({def, timing, vertical, children}) => {
+export const SceneShell: React.FC<{def: SceneDef; timing: SceneTiming; vertical?: boolean; stage?: StageView; children: React.ReactNode}> = ({def, timing, vertical, stage, children}) => {
   const frame = useCurrentFrame();
   const fade = Math.min(
     interpolate(frame, [0, T.fade], [0, 1], {extrapolateRight: 'clamp'}),
@@ -105,16 +105,19 @@ export const SceneShell: React.FC<{def: SceneDef; timing: SceneTiming; vertical?
   );
   if (vertical) {
     // the landscape scene, scaled into a stage across the middle; captions below it, large
+    const scale = stage?.scale ?? VERTICAL.scale;
+    const left = VERTICAL.width / 2 - (stage?.focusX ?? WIDTH / 2) * scale;
+    const top = stage ? VERTICAL.fullStageCenterY - (stage.focusY ?? HEIGHT / 2) * scale : VERTICAL.stageY;
     return (
       <AbsoluteFill style={{opacity: fade}}>
         <div
           style={{
             position: 'absolute',
-            left: (VERTICAL.width - WIDTH * VERTICAL.scale) / 2,
-            top: VERTICAL.stageY,
+            left,
+            top,
             width: WIDTH,
             height: HEIGHT,
-            transform: `scale(${VERTICAL.scale})`,
+            transform: `scale(${scale})`,
             transformOrigin: 'top left',
             overflow: 'hidden',
             WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, #000 9%, #000 91%, transparent 100%)',

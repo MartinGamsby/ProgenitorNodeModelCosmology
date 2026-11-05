@@ -627,6 +627,101 @@
    "file": "outro-3-13g8phr-19jm2dc.wav",
    "seconds": 2.3299166666666666,
    "text": "Want the details? Watch the full video."
+  },
+  "tides-0-un6u26": {
+   "file": "tides-0-un6u26-19jm2dc.wav",
+   "seconds": 2.9656666666666665,
+   "text": "If you stood inside a hollow planet, you'd float."
+  },
+  "tides-1-1s1fgjk": {
+   "file": "tides-1-1s1fgjk-19jm2dc.wav",
+   "seconds": 4.387625,
+   "text": "Gravity pulls you toward every part of the planet at once, and all those pulls cancel out."
+  },
+  "tides-2-6aetil": {
+   "file": "tides-2-6aetil-19jm2dc.wav",
+   "seconds": 2.7625416666666665,
+   "text": "But that only works if the planet is perfectly smooth."
+  },
+  "tides-3-1339l57": {
+   "file": "tides-3-1339l57-19jm2dc.wav",
+   "seconds": 5.951791666666667,
+   "text": "If it's lumpy, the pulls don't cancel, and the part of you closest to a lump gets pulled harder than the rest, so you get stretched."
+  },
+  "beyond-0-1angeme": {
+   "file": "beyond-0-1angeme-19jm2dc.wav",
+   "seconds": 3.4632916666666667,
+   "text": "That matters, because the same thing might be happening to our whole universe."
+  },
+  "hook-expansion-1-1q5ca2k": {
+   "file": "hook-expansion-1-1q5ca2k-19jm2dc.wav",
+   "seconds": 2.721125,
+   "text": "Our universe is expanding, and it's speeding up."
+  },
+  "hook-expansion-2-1x5nych": {
+   "file": "hook-expansion-2-1x5nych-19jm2dc.wav",
+   "seconds": 3.5375,
+   "text": "Scientists call the cause dark energy, but nobody knows what it is."
+  },
+  "tides-universe-2-5gbl77": {
+   "file": "tides-universe-2-5gbl77-19jm2dc.wav",
+   "seconds": 3.81225,
+   "text": "So picture our universe where you were standing, inside that lumpy planet."
+  },
+  "beyond-swarm-4-1wjr7zn": {
+   "file": "beyond-swarm-4-1wjr7zn-19jm2dc.wav",
+   "seconds": 4.832666666666666,
+   "text": "Only now the lumps are huge dark objects, far beyond anything we can see."
+  },
+  "beyond-swarm-8-llycs6": {
+   "file": "beyond-swarm-8-llycs6-19jm2dc.wav",
+   "seconds": 1.6852083333333334,
+   "text": "Think of them as our neighbours."
+  },
+  "tides-stretch-3-1m4ibpp": {
+   "file": "tides-stretch-3-1m4ibpp-19jm2dc.wav",
+   "seconds": 6.478875,
+   "text": "Their gravity would pull hardest on the parts of our universe closest to them, so our universe would get stretched, just like you did."
+  },
+  "tides-stretch-4-1s1ebrg": {
+   "file": "tides-stretch-4-1s1ebrg-19jm2dc.wav",
+   "seconds": 4.095583333333333,
+   "text": "And the farther away a galaxy is from us, the harder that stretch would pull it away."
+  },
+  "hook-racing-1-158udzn": {
+   "file": "hook-racing-1-158udzn-19jm2dc.wav",
+   "seconds": 6.129208333333334,
+   "text": "From where we sit, galaxies would look like they're racing away, faster and faster, with no dark energy at all."
+  },
+  "simulation-6-1e03nmv": {
+   "file": "simulation-6-1e03nmv-19jm2dc.wav",
+   "seconds": 5.016416666666666,
+   "text": "I'm a software developer, and I tested this in a computer simulation, with only gravity."
+  },
+  "data-1-iqbywn": {
+   "file": "data-1-iqbywn-19jm2dc.wav",
+   "seconds": 6.532875,
+   "text": "Then I checked it against real measurements of exploding stars, which show how the universe has grown over time."
+  },
+  "data-8-5cot8u": {
+   "file": "data-8-5cot8u-19jm2dc.wav",
+   "seconds": 2.73525,
+   "text": "It matched about as well as the standard dark energy model."
+  },
+  "limits-0-5bv64j": {
+   "file": "limits-0-5bv64j-19jm2dc.wav",
+   "seconds": 3.7515833333333335,
+   "text": "That doesn't prove it's right, because it's a simple model that leaves a lot out."
+  },
+  "predictions-1-13kapw7": {
+   "file": "predictions-1-13kapw7-19jm2dc.wav",
+   "seconds": 5.147291666666667,
+   "text": "But we can test it, because the universe should be expanding a little faster in one direction than in the opposite one."
+  },
+  "outro-2-yfmcmw": {
+   "file": "outro-2-yfmcmw-19jm2dc.wav",
+   "seconds": 3.93575,
+   "text": "If astronomers find that, dark energy might just be gravity from the neighbours."
   }
  }
 }

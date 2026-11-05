@@ -6,7 +6,7 @@ import {Axes, LegendItem, scales} from '../components/Chart';
 import {Show} from '../components/Show';
 import {Arrow, At, Galaxy, NodeDot, pathOf, partial, SvgDefs, Title} from '../components/ui';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
-import {useFmt, useT} from '../i18n';
+import {useFmt, useLocale, useT} from '../i18n';
 
 const CX = WIDTH / 2;
 const SKY = {cx: CX, cy: 470, rx: 560, ry: 280};
@@ -34,6 +34,7 @@ const H0 = [
  *  9 phantom: w < −1 · 10 all the same way (attractor marker outside the map, on the axis) */
 export const Predictions: React.FC = () => {
   const tr = useT();
+  const {cut} = useLocale();
   const fmt = useFmt();
   const b = useBeats();
   const f = b.frame;
@@ -231,7 +232,7 @@ export const Predictions: React.FC = () => {
       <Show from={1} until={2}>
         <At x={CX} y={830}>
           <Title size={46}>
-            <span style={{color: C.gold}}>#1</span> {tr('predictions.hubble_dipole')}<span style={{color: C.hot}}>{tr('predictions.faster')}</span> {tr('predictions.one_way')}<span style={{color: C.lcdm}}>{tr('predictions.slower')}</span> {tr('predictions.the_other')}</Title>
+            {cut !== 'hollow' && <><span style={{color: C.gold}}>#1</span> {tr('predictions.hubble_dipole')}</>}<span style={{color: C.hot}}>{tr('predictions.faster')}</span> {tr('predictions.one_way')}<span style={{color: C.lcdm}}>{tr('predictions.slower')}</span> {tr('predictions.the_other')}</Title>
         </At>
       </Show>
       <Show from={2} until={5}>

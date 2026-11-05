@@ -57,7 +57,7 @@ export const buildTimeline = (cut: CutId, locale: LocaleId): Timeline => {
       const clip = spoken ? manifest.clips[clipKey(s.id, i, text)] : undefined;
       const seconds = !spoken
         ? P.silentBeat
-        : (clip?.seconds ?? spoken.split(/\s+/).length / WORDS_PER_SECOND) + P.beatGap;
+        : (clip?.seconds ?? spoken.split(/\s+/).length / WORDS_PER_SECOND) + P.beatGap + (CUTS[cut].hold?.[s.id]?.[i] ?? 0);
       const b = {from: t, dur: sec(seconds), text, audio: clip?.file};
       t += b.dur;
       return b;

@@ -37,7 +37,7 @@ const {resolveScenes} = await loadTs('timing');
 const {CUTS} = await loadTs('cuts');
 const {spokenText, clipKey, hash} = await loadTs('markup');
 // every scene of every cut in this language (a scene used by several cuts is listed once per text)
-const SCENES = Object.keys(CUTS).flatMap((cut) => resolveScenes(cut, LOCALE).map((s) => ({...s, skip: new Set(CUTS[cut].skip?.[s.id] ?? [])})));
+const SCENES = Object.keys(CUTS).filter((cut) => !CUTS[cut].locales || CUTS[cut].locales.includes(LOCALE)).flatMap((cut) => resolveScenes(cut, LOCALE).map((s) => ({...s, skip: new Set(CUTS[cut].skip?.[s.id] ?? [])})));
 
 const wavSeconds = (file) => {
   const b = fs.readFileSync(file);

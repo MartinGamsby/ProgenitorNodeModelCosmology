@@ -41,9 +41,10 @@ export const Hook: React.FC = () => {
   const O = {x: WIDTH / 2, y: HEIGHT / 2};
   const bangF = sec(3.0);
   const tau = (frame - bangF) / b.fps; // seconds since the first bang
-  const swarmO = interpolate(frame, [0, 8, bangF, bangF + sec(0.5)], [0, 1, 1, 0], cl);
+  const coldOpen = lead > 0; // a variant with no lead-in joins straight into the expansion
+  const swarmO = coldOpen ? interpolate(frame, [0, 8, bangF, bangF + sec(0.5)], [0, 1, 1, 0], cl) : 0;
   const zoom = interpolate(frame, [0, bangF], [1.0, 4.5], cl);
-  const flash1 = interpolate(frame, [bangF, bangF + 3, bangF + sec(0.6)], [0, 1, 0], cl);
+  const flash1 = coldOpen ? interpolate(frame, [bangF, bangF + 3, bangF + sec(0.6)], [0, 1, 0], cl) : 0;
   // one continuous motion: a fast bang that keeps slowing down (exponential), while the two
   // neighbours' pull smoothly takes over and accelerates the galaxies into them
   const outward = tau > 0 ? 1 - Math.exp(-tau / 0.7) : 0;
@@ -52,7 +53,7 @@ export const Hook: React.FC = () => {
   const suck = suckAt(1);
   const swell = interpolate(frame, [bangF + sec(4.0), lead], [0, 1], cl);
   const pan = interpolate(frame, [bangF + sec(3.8), lead - 4], [0, 1], {...cl, easing: (u) => u * u * (3 - 2 * u)});
-  const flash2 = interpolate(frame, [lead, lead + 3, lead + 18], [0, 1, 0], cl);
+  const flash2 = coldOpen ? interpolate(frame, [lead, lead + 3, lead + 18], [0, 1, 0], cl) : 0;
   const NA = {x: CX - 560, y: CY + 60};
   const NB = {x: CX + 500, y: CY - 50};
   const dx = (CX - NB.x) * pan;

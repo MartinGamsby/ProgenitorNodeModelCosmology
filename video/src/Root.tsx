@@ -11,8 +11,8 @@ import type {CutId} from './types';
 /** One composition per cut x language: full-en, full-fr, idea-en, … (render: npx remotion render <id>). */
 export const RemotionRoot: React.FC = () => (
   <>
-    {(['full', 'idea', 'short'] as CutId[]).flatMap((cut) =>
-      LOCALE_IDS.map((locale) => {
+    {(Object.keys(CUTS) as CutId[]).flatMap((cut) =>
+      (CUTS[cut].locales ?? LOCALE_IDS).map((locale) => {
         const vertical = CUTS[cut].format === 'vertical';
         return (
           <Composition

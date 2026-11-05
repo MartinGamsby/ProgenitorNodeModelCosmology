@@ -81,12 +81,13 @@ export type VideoProps = {cut: CutId; locale: LocaleId};
 export const Explainer: React.FC<VideoProps> = ({cut, locale}) => {
   const tl = useMemo(() => buildTimeline(cut, locale), [cut, locale]);
   const vertical = CUTS[cut].format === 'vertical';
+  const stages = CUTS[cut].stage;
   return (
     <LocaleProvider locale={locale} cut={cut}>
       <AbsoluteFill style={{background: '#04060d'}}>
         <Starfield count={0} />
         <Music tl={tl} />
-        {vertical && <VerticalTitle title={LOCALES[locale].title} />}
+        {vertical && CUTS[cut].verticalTitle !== false && <VerticalTitle title={LOCALES[locale].title} />}
         {tl.scenes.map((t, k) => {
           const def = tl.defs[k];
           const Scene = SCENE_COMPONENTS[def.scene];
@@ -94,7 +95,7 @@ export const Explainer: React.FC<VideoProps> = ({cut, locale}) => {
           return (
             <Sequence key={t.id} from={t.from} durationInFrames={t.dur} name={t.id}>
               <BeatProvider timing={t} def={def}>
-                <SceneShell def={def} timing={t} vertical={vertical}>
+                <SceneShell def={def} timing={t} vertical={vertical} stage={stages ? (stages[t.id] ?? stages['*']) : undefined}>
                   <Scene />
                 </SceneShell>
               </BeatProvider>

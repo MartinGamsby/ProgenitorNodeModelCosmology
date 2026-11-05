@@ -92,6 +92,32 @@ gly(89, true)        // tr('units.gly_short', {n: 290}) → "290 billion ly"
 | full | 1920×1080 | all 18; EN 11:26, FR 14:24 (French runs longer) |
 | idea | 1920×1080 | EN 5:47, FR 7:03. The idea, no simulation: drops simulation, data, whatif-observer/close/mass, catch, limits; skips number beats: hook 3 (70 % pie), problem 4–6 (10^120, coincidence), beyond 1 (46 Gly), predictions 2–4 (67 vs 73) and 9 (w chart), whatif-invisible 3 (10^-33 K) |
 | short | 1080×1920 | EN 1:01, FR 1:16. hook → beyond → tides → progenitor → predictions (dipole only) → outro, ~1 min, own narration, tighter pace |
+| hollow | 1080×1920 | EN only, 1:34. "The hollow planet": tides → beyond → hook-expansion → tides-universe → beyond-swarm → tides-stretch → hook-racing → simulation → data → limits → predictions → outro; own narration; no cold open, title or end card; larger graphics; everyday labels instead of jargon (`plain` in Data, `cut === 'hollow'` elsewhere) |
+
+- Hollow: script source and channel rules live in the sibling `Videos` repo (`progenitor-short/v5.txt`,
+  `.claude/skills/viral-video-writing/channel.md`). `CutDef.locales: ['en']` keeps it out of French:
+  Root, voice.mjs and i18n-check skip a cut for a locale it doesn't list, otherwise the fr fallback
+  would voice English lines in the French voice.
+- Voice QA limit: `voice_check.py` passed "It meshed about as well" (for "matched") at similarity 0.91, because a
+  one-word error in a short line clears the 0.8 threshold. Read the `heard` text, or transcribe the render with
+  a second model; re-roll with `--threshold 0.97 --seed-offset N --only key`. Whisper also invents text in gaps
+  under music ("please subscribe"): slice the spot and transcribe it alone before believing it.
+- `SceneSpec.variant` = a second use of a scene component by a cut (`tides-stretch`, `tides-universe`, `hook-expansion`, `hook-racing`, `beyond-swarm`):
+  own id, so own narration and clips; excluded from `full`. Hook without a lead-in skips its swarm and
+  flashes (`coldOpen` = `b.at(0) > 0`) and joins straight into the expansion.
+- `CutDef.stage` (with `verticalTitle: false`): per-scene `{scale, focusX, focusY}`, centred on
+  `VERTICAL.fullStageCenterY`; `'*'` = default. Scale 1 crops the scene to its central 1080 px, so
+  wide titles and charts need less: data 0.75, predictions 0.82, outro 0.8.
+- Spoken beat right after skipped ones snaps (`b.p`), so when a beat opens a scene and should still
+  animate, tween it directly behind a `b.skipped(i)` check (Tides field arrows, Data supernova count).
+- Bars keyed to a skipped beat are filtered out in Data, or their label shows with no bar. Animation
+  offsets written for a long line can outlast a short one: check the key visual appears before the beat
+  ends (hollow's 0.44 bar did not). `CutDef.hold[sceneId][beat]` adds reading time after a spoken beat.
+- Memory: loading Chatterbox on CPU crashes (Windows access violation in `safetensors` load, no Python
+  error, exit 0xC0000005) when free commit memory is about 7 GB or less. Model files verified fine by
+  hash. Nothing is deleted when it fails: the manifest and orphan cleanup only run after all clips.
+- Never run voice.mjs with a different engine or settings without meaning to: orphan cleanup deletes
+  every clip whose settings hash doesn't match.
 
 - Idea overrides: EN hook 4 opens with "Nobody knows what it is." (pie beat 3 skipped; in hook 2 it gave
   a "dark … energy" pause no re-roll fixed, so hook 2 reuses the full take; FR keeps it in hook 2); beyond 4 drops

@@ -9,13 +9,14 @@ import {Arrow, At, Card, Label, pathOf, partial, Title} from '../components/ui';
 import hero from '../../public/data/cloud_hero.json';
 import growth from '../../public/data/growth.json';
 import {C, FONT, HEIGHT, WIDTH} from '../theme';
-import {useFmt, useGly, useT} from '../i18n';
+import {useFmt, useGly, useLocale, useT} from '../i18n';
 
 const CLOUD_W = 1000;
 const CLOUD_CX = 520;
 
 export const Simulation: React.FC = () => {
   const tr = useT();
+  const {cut} = useLocale();
   const fmt = useFmt();
   const gly = useGly();
   const b = useBeats();
@@ -92,9 +93,9 @@ export const Simulation: React.FC = () => {
           <Label size={26} style={{fontFamily: FONT.display, fontWeight: 800, letterSpacing: 2}}>
             {tr('simulation.age_of_the_universe')}</Label>
           <Title size={72} color={C.gold} style={{fontFamily: FONT.mono}}>
-            {fmt(tNow, 1)} {tr('simulation.gyr')}</Title>
+            {fmt(tNow, 1)} {tr(cut === 'hollow' ? 'simulation.billion_years' : 'simulation.gyr')}</Title>
         </div>
-        <div style={{position: 'absolute', left: 84, top: 230}}>
+        <div style={{position: 'absolute', left: 84, top: 230, display: cut === 'hollow' ? 'none' : undefined}}>
           <svg width={640} height={60}>
             <line x1={0} x2={36 * 5} y1={20} y2={20} stroke={C.dim} strokeWidth={4} />
             <line x1={0} x2={0} y1={10} y2={30} stroke={C.dim} strokeWidth={4} />

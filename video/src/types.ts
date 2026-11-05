@@ -1,7 +1,10 @@
 export type Sound = 'boom' | 'ding' | 'whoosh';
 
 export type LocaleId = 'en' | 'fr';
-export type CutId = 'full' | 'idea' | 'short';
+export type CutId = 'full' | 'idea' | 'short' | 'hollow';
+
+/** How a landscape scene sits in a vertical frame: zoom, and which scene point goes at the centre. */
+export type StageView = {scale?: number; focusX?: number; focusY?: number};
 
 /** Language-independent scene structure (src/content/scenes.ts). */
 export type SceneSpec = {
@@ -15,6 +18,8 @@ export type SceneSpec = {
   sfx?: {beat: number; sound: Sound; offset?: number; volume?: number}[];
   /** number of narration beats the visuals are keyed to */
   beats: number;
+  /** A second use of a scene by another cut (own id, so own voice clips); never in the full video. */
+  variant?: boolean;
 };
 
 /** Everything a language says (src/i18n/<locale>.ts). */
@@ -41,6 +46,14 @@ export type CutDef = {
   pace?: Partial<{beatGap: number; silentBeat: number; tail: number; whatIfIntro: number}>;
   /** per-scene minimum length for this cut (replaces SceneSpec.minSeconds), e.g. a shorter end card */
   minSeconds?: Record<string, number>;
+  /** Extra seconds after a spoken beat, so a visual can be read: hold[sceneId][beat]. */
+  hold?: Record<string, Record<number, number>>;
+  /** Languages this cut exists in (default: all). Stops a new cut voicing English in a French voice. */
+  locales?: LocaleId[];
+  /** Vertical cuts: false = no title above the stage, and the stage takes that space. */
+  verticalTitle?: boolean;
+  /** Vertical cuts with verticalTitle false: per-scene framing, '*' = default. */
+  stage?: Record<string, StageView>;
 };
 
 export type SceneDef = {

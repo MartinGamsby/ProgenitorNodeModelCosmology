@@ -248,7 +248,8 @@ export const Limits: React.FC = () => {
           {tr('ending.a')}<span style={{color: C.gold}}>{tr('ending.toy_model')}</span>
         </Title>
       </div>
-      <div style={{display: 'flex', gap: 60, marginTop: 50}}>
+      {/* a cut that skips the list shows the title alone, not two empty cards */}
+      <div style={{display: b.skipped(1) ? 'none' : 'flex', gap: 60, marginTop: 50}}>
         <Card accent={C.eds} style={{width: 640}}>
           <Title size={40} color={C.eds} style={{marginBottom: 16}}>
             {tr('ending.in')}</Title>
@@ -289,6 +290,7 @@ export const Outro: React.FC = () => {
   const nodes = medium.pos as [number, number, number][];
   const mass = medium.mass as number[];
   const credits = b.p(3, 25);
+  const pointsToFullVideo = cut === 'short' || cut === 'hollow';
 
   return (
     <AbsoluteFill>
@@ -321,7 +323,7 @@ export const Outro: React.FC = () => {
           </At>
         </Show>
       </AbsoluteFill>
-      {credits > 0 && cut === 'short' && (
+      {credits > 0 && pointsToFullVideo && (
         // the short ends on a pointer to the full video instead of the paper card
         <AbsoluteFill style={{opacity: credits, background: 'rgba(4,6,13,0.78)', justifyContent: 'center', alignItems: 'center'}}>
           <Card accent={C.gold} style={{maxWidth: 1500, textAlign: 'center', padding: '56px 80px'}}>
@@ -332,7 +334,7 @@ export const Outro: React.FC = () => {
           </Card>
         </AbsoluteFill>
       )}
-      {credits > 0 && cut !== 'short' && (
+      {credits > 0 && !pointsToFullVideo && (
         <AbsoluteFill style={{opacity: credits, background: 'rgba(4,6,13,0.78)', justifyContent: 'center', alignItems: 'center'}}>
           <Card accent={C.gold} style={{maxWidth: 1400, textAlign: 'center', padding: '50px 70px'}}>
             <Label size={26} color={C.gold} style={{fontFamily: FONT.display, fontWeight: 800, letterSpacing: 3}}>

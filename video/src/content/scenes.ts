@@ -121,4 +121,10 @@ export const SCENE_SPECS: SceneSpec[] = [
     minSeconds: 20,
     beats: 4,
   },
+  // second uses of a scene within a cut (own id = own narration and voice clips)
+  {id: "tides-stretch", scene: "Tides", stars: false, beats: 6, variant: true},
+  {id: "hook-expansion", scene: "Hook", stars: false, beats: 7, variant: true},
+  {id: "hook-racing", scene: "Hook", stars: false, beats: 7, variant: true},
+  {id: "tides-universe", scene: "Tides", stars: false, beats: 6, variant: true},
+  {id: "beyond-swarm", scene: "Beyond", stars: false, beats: 9, variant: true},
 ];

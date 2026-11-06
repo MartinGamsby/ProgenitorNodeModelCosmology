@@ -94,7 +94,7 @@ gly(89, true)        // tr('units.gly_short', {n: 290}) → "290 billion ly"
 | short | 1080×1920 | EN 1:01, FR 1:16. hook → beyond → tides → progenitor → predictions (dipole only) → outro, ~1 min, own narration, tighter pace |
 | hollow | 1080×1920 | EN only, 1:34. "The hollow planet": tides → beyond → hook-expansion → tides-universe → beyond-swarm → tides-stretch → hook-racing → simulation → data → limits → predictions → outro; own narration; no cold open, title or end card; larger graphics; everyday labels instead of jargon (`plain` in Data, `cut === 'hollow'` elsewhere) |
 
-- Hollow: script source and channel rules live in the sibling `Videos` repo (`progenitor-short/v5.txt`,
+- Hollow: script source and channel rules live in the sibling `Videos` repo (`videos/hollow-planet/script/script.txt`,
   `.claude/skills/viral-video-writing/channel.md`). `CutDef.locales: ['en']` keeps it out of French:
   Root, voice.mjs and i18n-check skip a cut for a locale it doesn't list, otherwise the fr fallback
   would voice English lines in the French voice.

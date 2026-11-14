@@ -1,5 +1,5 @@
 {
- "engine": "chatterbox;CB_EXAGGERATION=0.6;CB_CFG=0.3;CB_PROMPT=C:/Users/Martin/Documents/GitHub/ProgenitorNodeModelCosmology/video/voice-ref/martin-en-cut.wav",
+ "engine": "chatterbox;CB_EXAGGERATION=0.6;CB_CFG=0.3;CB_PROMPT=C:/Users/marti/Documents/GitHub/ProgenitorNodeModelCosmology/video/voice-ref/martin-en-cut.wav",
  "clips": {
   "hook-0-1mbojfw": {
    "file": "hook-0-1mbojfw-19jm2dc.wav",

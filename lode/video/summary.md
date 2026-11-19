@@ -111,16 +111,19 @@ const b = useBeats();
   (a colon before a reveal: "doing this: dark energy"; never a comma inside "one followed by…").
   Always run it before rendering.
 - Rejected: Breeze TTS 2 — CUDA-only per its model card and weights/outputs non-commercial.
-- `scripts/voice_audition.py` = clone-engine audition vs. the reels' Chatterbox (CB 0.6/0.3, martin-en-cut):
-  3 fixed lines + 3 lines Chatterbox got wrong (set off / Checks so far / noun "pull"), 3 takes each →
-  `out/voice-audition/<engine>/`, Whisper base.en `listen` + large-v3 transcripts, `README.md` + `listen.html`.
-  Candidates live in their own venvs, never `.tts-venv`: `.tts2-venv` = Qwen3-TTS 12Hz 1.7B Base (Apache 2.0,
-  qwen-tts pins transformers 4.57.3), `.tts2-ming-venv` = Ming-3.0-tts 0.5B (MIT, transformers 4.46.3, repo in
-  `.tts2-ming-venv/src`). Both torch 2.11 cu128 (RTX 5070 = sm_120 needs cu128; Ming's pinned torch 2.6 can't).
-  Ming on Windows: torchaudio 2.9+ loads via torchcodec (needs FFmpeg DLLs) → script patches `torchaudio.load`
-  to soundfile; pynini off (`text_normalization=False`).
-  Result 2026-11-18 (Whisper only, not yet judged by ear): Qwen3 got every hard word right, 5.6 GB VRAM, ~4.2 s
-  compute per audio s (Chatterbox on CPU ~9.3); Ming drops the first words of lines (19 s and 8.7 s ref alike).
+- `scripts/voice_audition.py` = voice audition vs. the reels' Chatterbox (CB 0.6/0.3, martin-en-cut): EN + FR
+  line sets (3 fixed + 3 Chatterbox-hard lines, 3 takes each) → `out/voice-audition/<variant>/`, Whisper base.en/small
+  `listen` + large-v3 transcripts, `README.md` + `listen.html` (one player per variant per take). Variants = Qwen3-TTS
+  12Hz 1.7B Base clone at temps 0.9/0.7/0.5/0.3, 48 s ref, x-vector only; VoiceDesign (text-described voice, not
+  Martin's); FR clone from martin-fr-cut. Refs + transcripts live git-ignored in `out/voice-audition/ref*.wav|txt`.
+  Venv `video/.tts2-venv` (torch 2.11 cu128 for the RTX 5070 sm_120; qwen-tts pins transformers 4.57.3), never
+  `.tts-venv`. Qwen3 licence Apache 2.0 (Base, VoiceDesign cards). Ming-3.0-tts tried and dropped (cut first words).
+  Qwen3 facts: no accent/region knob for cloning (language = "English"/"French"); instruction control (accent,
+  emotion) only in VoiceDesign/CustomVoice, or after fine-tuning Base on a speaker. Temp 0.9 default let the accent
+  wander (Martin: British/Spanish/French-sounding takes).
+  GPU safety: batches of 3 + `set_per_process_memory_fraction` (9 GB cap). A 12-take batch peaked 19.7 GB (Windows
+  spilled to RAM). The PC hard-reset twice during these renders (Kernel-Power 41, no bugcheck), once under the cap
+  with CPU Whisper running too → suspect power/thermal; don't run long GPU jobs until checked.
   base.en and large-v3 disagree on Chatterbox's "errors" (large heard 8/9 hard words right): base.en may be
   mishearing the cloned accent.
 - Generated audio (`public/voice`, `public/audio`) is gitignored; a fresh clone runs

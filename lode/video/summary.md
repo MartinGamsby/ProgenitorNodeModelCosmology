@@ -87,6 +87,12 @@ const b = useBeats();
   and `chatterbox` (MIT, expressive; `CB_EXAGGERATION`, `CB_CFG`, `CB_PROMPT` = reference wav to
   clone) run `scripts/tts_worker.py` inside `video/.tts-venv` (Python 3.12, CPU torch; needs
   `setuptools<81` because chatterbox's `perth` watermarker imports `pkg_resources`).
+- `qwen` (Qwen3-TTS 1.7B Base clone, Apache 2.0; `QWEN_REF` = wav with its transcript in the `.txt` beside it,
+  `QWEN_TEMP` 0.6, `QWEN_LANGUAGE`, `QWEN_POST` = ffmpeg filter per clip) runs `tts_worker.py` inside
+  `video/.tts2-venv` on the GPU: waits for 7 GB free VRAM, caps PyTorch at 9 GB, `max_new_tokens` = 12/s × max(30, words).
+  Only the Videos repo's reel.py uses it so far (its `SPEAKERS`); `voice.mjs` doesn't. The reels' narrator since
+  2026-11-19 is `voice-design/narrator-en.wav` + `.txt` (committed: a VoiceDesign clip, not Martin's voice; a new
+  design would be a different person). Findings and settings on hold (Martin's voice, French): `voice-audition.md`.
 - `piper` (`PIPER_MODEL`), `none` (timing from word count).
 - Clip filename = `sceneId-beat-hash(spoken)-hash(engine+settings).wav`: switching engines never
   mixes voices; an interrupted neural run resumes (worker writes `.part.wav` then renames).

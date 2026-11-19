@@ -125,6 +125,31 @@ ENGINES.update({
     "design-clone-fr-t06": {"name": "VoiceDesign once (Quebec), then cloned at temp 0.6", "lang": "fr", "model": BASE,
                             "ref": "ref-design-fr", "temp": 0.6},
 })
+# Round 4 (2026-11-19): Martin liked both evened French variants and asked for "half even out ref, half even out
+# after". HALF blends each signal 50/50 with its levelled copy, so it applies about half of dynaudnorm's correction.
+HALF = f"asplit[a][b];[b]{EVEN}[e];[a][e]amix=inputs=2:normalize=1"
+ENGINES.update({
+    "qwen3-t06-halfref": {"name": "Qwen3 clone, temp 0.6, half-evened reference", "lang": "en", "model": BASE,
+                          "ref": "ref-half", "temp": 0.6},
+    "qwen3-t06-halfboth": {"name": "Qwen3 clone, temp 0.6, half-evened reference + takes half-evened after",
+                           "lang": "en", "from": "qwen3-t06-halfref", "post": HALF},
+    "qwen3-t06-evenboth": {"name": "Qwen3 clone, temp 0.6, evened reference + takes evened after", "lang": "en",
+                           "from": "qwen3-t06-evenref", "post": EVEN},
+    "design-clone-en-t06-halfout": {"name": "Design-clone, temp 0.6, takes half-evened after", "lang": "en",
+                                    "from": "design-clone-en-t06", "post": HALF},
+    "design-clone-en-t06-evenout": {"name": "Design-clone, temp 0.6, takes evened after", "lang": "en",
+                                    "from": "design-clone-en-t06", "post": EVEN},
+    "qwen3-fr-t06-halfref": {"name": "Qwen3 clone, French, temp 0.6, half-evened reference", "lang": "fr",
+                             "model": BASE, "ref": "ref-fr-half", "temp": 0.6},
+    "qwen3-fr-t06-halfboth": {"name": "Qwen3 clone, French, temp 0.6, half-evened reference + takes half-evened after",
+                              "lang": "fr", "from": "qwen3-fr-t06-halfref", "post": HALF},
+    "qwen3-fr-t06-evenboth": {"name": "Qwen3 clone, French, temp 0.6, evened reference + takes evened after",
+                              "lang": "fr", "from": "qwen3-fr-t06-evenref", "post": EVEN},
+})
+# What listen.html puts first, side by side: the current picks and this round's new variants.
+SHORTLIST = ["design-clone-en-t06", "design-clone-en-t06-halfout", "design-clone-en-t06-evenout",
+             "qwen3-t06-evenout", "qwen3-t06-halfboth", "qwen3-t06-evenboth",
+             "qwen3-fr-t06-evenref", "qwen3-fr-t06-evenout", "qwen3-fr-t06-halfboth", "qwen3-fr-t06-evenboth"]
 for _k, _v in ENGINES.items():
     if "from" in _v:
         _v.update(venv="any (ffmpeg)", device="CPU, ffmpeg", licence=QWEN_LICENCE, need_mb=0)
@@ -205,9 +230,10 @@ def render_qwen(names):
     for n in set(names) - set(todo):
         print(f"{n}: already rendered (delete its folder to redo)")
     for r in {ENGINES[n].get("ref") for n in todo} - {None}:
-        if r.endswith("-even") and not os.path.exists(os.path.join(OUT, r + ".wav")):  # an evened copy of a reference
-            src = r[:-len("-even")]
-            subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", os.path.join(OUT, src + ".wav"), "-af", EVEN,
+        level = {"-even": EVEN, "-half": HALF}.get(r[-5:])
+        if level and not os.path.exists(os.path.join(OUT, r + ".wav")):  # an evened copy of a reference
+            src = r[:-5]
+            subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", os.path.join(OUT, src + ".wav"), "-af", level,
                             os.path.join(OUT, r + ".wav")], check=True)
             open(os.path.join(OUT, r + ".txt"), "w", encoding="utf-8").write(ref_files(src)[1] + "\n")
     designs = [r for r in DESIGNED_REFS if not os.path.exists(os.path.join(OUT, r + ".wav"))
@@ -330,7 +356,7 @@ def check():
     asrs = {"en": pipeline("automatic-speech-recognition", model="openai/whisper-base.en", device="cpu")}
     small = pipeline("automatic-speech-recognition", model="openai/whisper-small", device="cpu")
     asrs["fr"] = lambda x, **k: small(x, **k, generate_kwargs={"language": "fr", "task": "transcribe"})
-    for engine in rendered():
+    for engine in [e for e in rendered() if not load(e, "check.json")]:  # delete check.json to check again
         lang = ENGINES[engine]["lang"]
         vc.LANG = lang
         res = {}
@@ -345,7 +371,7 @@ def heard():
     """large-v3 transcript of every take (base.en's flags were wrong more often than right on the reels)."""
     from faster_whisper import WhisperModel
     m = WhisperModel("large-v3", device="cpu", compute_type="int8")
-    for engine in rendered():
+    for engine in [e for e in rendered() if not load(e, "heard-large.json")]:
         lang = ENGINES[engine]["lang"]
         res = {}
         for key, text, take, fname in takes(lang):
@@ -403,28 +429,34 @@ def readme():
 
 
 def listen_page():
-    """listen.html: per language, one row per take and one player per variant, to compare by ear in a browser."""
-    import html
+    """listen.html: the shortlist first, then every variant; per language, one row per take, one player per variant."""
     style = ("body{font:14px system-ui;margin:16px;background:#fff;color:#111}table{border-collapse:collapse;margin-bottom:32px}"
              "td,th{border:1px solid #ccc;padding:6px;vertical-align:top;text-align:left}th{max-width:220px}"
              ".h{color:#555;font-size:12px;max-width:230px}.k{color:#888;font-weight:normal;font-size:12px}audio{width:200px}")
     parts = [f'<!doctype html><meta charset="utf-8"><title>Voice audition</title><style>{style}</style>',
              "<h1>Voice audition</h1><p>Grey text under each player is what large Whisper heard. "
              "Whisper doesn't notice accents: that's for your ears.</p>"]
-    for lang in LINES:
-        have = [e for e in rendered() if ENGINES[e]["lang"] == lang]
-        if not have:
-            continue
-        hl = {e: load(e, "heard-large.json") for e in have}
-        head = "".join(f"<th>{html.escape(ENGINES[e]['name'])}<div class=\"k\">{e}</div></th>" for e in have)
-        rows = []
-        for key, text, take, fname in takes(lang):
-            cells = "".join(f'<td><audio controls preload="none" src="{e}/{fname}"></audio>'
-                            f'<div class="h">{html.escape(hl[e].get(fname, ""))}</div></td>' for e in have)
-            rows.append(f'<tr><th>{html.escape(text)}<div class="k">{key} take {take}</div></th>{cells}</tr>')
-        parts.append(f"<h2>{LANGUAGE[lang]}</h2><table><tr><th>line</th>{head}</tr>{''.join(rows)}</table>")
+    for title, pick in [("Shortlist", lambda e: e in SHORTLIST), ("Everything", lambda e: True)]:
+        parts.append(f"<h1>{title}</h1>")
+        for lang in LINES:
+            parts += page_table(lang, [e for e in (SHORTLIST if title == "Shortlist" else rendered())
+                                       if e in rendered() and pick(e) and ENGINES[e]["lang"] == lang])
     open(os.path.join(OUT, "listen.html"), "w", encoding="utf-8").write("".join(parts))
     print("wrote", os.path.join(OUT, "listen.html"))
+
+
+def page_table(lang, have):
+    import html
+    if not have:
+        return []
+    hl = {e: load(e, "heard-large.json") for e in have}
+    head = "".join(f"<th>{html.escape(ENGINES[e]['name'])}<div class=\"k\">{e}</div></th>" for e in have)
+    rows = []
+    for key, text, take, fname in takes(lang):
+        cells = "".join(f'<td><audio controls preload="none" src="{e}/{fname}"></audio>'
+                        f'<div class="h">{html.escape(hl[e].get(fname, ""))}</div></td>' for e in have)
+        rows.append(f'<tr><th>{html.escape(text)}<div class="k">{key} take {take}</div></th>{cells}</tr>')
+    return [f"<h2>{LANGUAGE[lang]}</h2><table><tr><th>line</th>{head}</tr>{''.join(rows)}</table>"]
 
 
 if __name__ == "__main__":

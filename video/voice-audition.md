@@ -11,7 +11,7 @@ redone. Martin judged by ear; Whisper and level measurements backed it up. Claud
 |---|---|---|---|
 | English reels | **narrator**: VoiceDesign once, then cloned | Qwen3 Base clone of `voice-design/narrator-en.wav` at temperature 0.6 | **In use from 2026-11-19** (`SPEAKERS` in the Videos repo's `reel.py`) |
 | Martin's own voice | Qwen3 clone, clips evened after | clone of `voice-ref/martin-en-cut.wav` at 0.6, then ffmpeg `EVEN` on every clip | On hold: the `martin` speaker in `reel.py` |
-| French | Qwen3 clone of Martin's French | clone of `voice-ref/martin-fr-cut.wav` at 0.6, `language="French"`, with the reference evened before cloning or the clips evened after (Martin liked both) | Later: reel qa and captions are English-only |
+| French | Qwen3 clone of Martin's French, **half evened both ways** (`qwen3-fr-t06-halfboth`) | clone of `voice-ref/martin-fr-cut.wav` with `HALF` applied first, at 0.6, `language="French"`, then `HALF` on every clip | Later: reel qa and captions are English-only. Martin found halfboth the most natural (2026-11-19). `-evenboth` (`EVEN` both ways) is easier to hear but less natural: the fallback if words get lost |
 | Chatterbox | Martin's clone on the CPU | exaggeration 0.6, cfg 0.3 | Kept for the reels recorded with it |
 
 `EVEN = dynaudnorm=f=100:g=7:p=0.9:m=10`. `HALF` blends a signal 50/50 with its evened copy:
@@ -82,3 +82,8 @@ Halving the reference levelling halves the rising-ending problem in English (6 i
 than evening the clips after. In French, half-evening the reference barely helped (-6.0 dB). On numbers alone,
 evening after (`evenout`) still looks best for Martin's English, and the narrator doesn't need either. Martin judges
 by ear: `out/voice-audition/listen.html` puts these side by side under "Shortlist".
+
+**Martin's verdict (2026-11-19).** French: `halfboth` sounds the most natural, even though it fades the most on
+paper; `evenboth` is clearer to hear. Narrator: no audible difference between plain, `halfout` and `evenout`, as
+expected since it barely fades, so the reels stay on the plain narrator with no filter. His own English voice stays
+on hold as `evenout`.

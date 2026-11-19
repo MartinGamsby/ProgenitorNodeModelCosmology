@@ -79,8 +79,56 @@ ENGINES = {
     "design-fr": {"name": "Qwen3 VoiceDesign (no cloning), Quebec accent asked, temp 0.5", "lang": "fr", "model": DESIGN,
                   "instruct": DESIGN_FR, "temp": 0.5},
 }
+# VoiceDesign designs a new voice on every call, so its accent drifted between lines even at temp 0.5. Two fixes:
+# the structured description its model card uses (every attribute spelled out), and "design once, clone after":
+# one designed clip becomes the clone reference (ref-design-<lang>), so every line comes from the same voice.
+ATTR = ("gender: Male.\npitch: Mid-low male pitch, steady, with gentle rises on questions.\n"
+        "speed: Moderate, unhurried pace with short natural pauses.\n"
+        "volume: Steady conversational volume, holding up to the very end of each sentence.\n"
+        "age: Middle-aged adult, around forty.\nclarity: Very clear, precise pronunciation.\n"
+        "fluency: Fluent, no hesitations.\naccent: {accent}, the same in every sentence.\n"
+        "texture: Warm, clear, slightly low.\nemotion: Calm curiosity, quietly fascinated.\n"
+        "tone: Friendly and explanatory, like a science documentary narrator.\npersonality: Thoughtful and engaging.")
+ATTR_EN = ATTR.format(accent="General North American English (Canadian)")
+ATTR_FR = ATTR.format(accent="Québécois French (Canadian French from Quebec)")
+DESIGNED_REFS = {  # name: (instruct, language, what the designed voice says, which becomes the clone transcript)
+    "ref-design-en": (ATTR_EN, "en", "Every night, the sky shows us light that left its source long before we were "
+                      "born. Some of it is older than the Earth itself. So when you look up, you're not just seeing far "
+                      "away. You're seeing back in time."),
+    "ref-design-fr": (ATTR_FR, "fr", "Chaque nuit, le ciel nous montre de la lumière partie bien avant notre naissance. "
+                      "Une partie est plus vieille que la Terre elle-même. Alors quand on lève les yeux, on ne voit pas "
+                      "seulement loin. On voit dans le passé."),
+}
+# Qwen3's clones lose about 5 dB (French 6-7) over a line's last quarter; Martin heard it as the sound going down.
+# "-even" refs run ffmpeg's fast leveller over the reference first; "post" variants level the finished takes instead.
+EVEN = "dynaudnorm=f=100:g=7:p=0.9:m=10"
+ENGINES.update({
+    "qwen3-t06": {"name": "Qwen3 clone, temp 0.6", "lang": "en", "model": BASE, "ref": "ref", "temp": 0.6},
+    "qwen3-t06-evenref": {"name": "Qwen3 clone, temp 0.6, evened reference", "lang": "en", "model": BASE,
+                          "ref": "ref-even", "temp": 0.6},
+    "qwen3-t06-evenout": {"name": "Qwen3 clone, temp 0.6, takes evened after", "lang": "en", "from": "qwen3-t06", "post": EVEN},
+    "design-en-attr": {"name": "VoiceDesign, structured description, temp 0.5", "lang": "en", "model": DESIGN,
+                       "instruct": ATTR_EN, "temp": 0.5},
+    "design-en-attr-t03": {"name": "VoiceDesign, structured description, temp 0.3", "lang": "en", "model": DESIGN,
+                           "instruct": ATTR_EN, "temp": 0.3},
+    "design-clone-en-t06": {"name": "VoiceDesign once, then cloned at temp 0.6", "lang": "en", "model": BASE,
+                            "ref": "ref-design-en", "temp": 0.6},
+    "qwen3-fr-t06": {"name": "Qwen3 clone, French, temp 0.6", "lang": "fr", "model": BASE, "ref": "ref-fr", "temp": 0.6},
+    "qwen3-fr-t07": {"name": "Qwen3 clone, French, temp 0.7", "lang": "fr", "model": BASE, "ref": "ref-fr", "temp": 0.7},
+    "qwen3-fr-t08": {"name": "Qwen3 clone, French, temp 0.8", "lang": "fr", "model": BASE, "ref": "ref-fr", "temp": 0.8},
+    "qwen3-fr-t06-evenref": {"name": "Qwen3 clone, French, temp 0.6, evened reference", "lang": "fr", "model": BASE,
+                             "ref": "ref-fr-even", "temp": 0.6},
+    "qwen3-fr-t06-evenout": {"name": "Qwen3 clone, French, temp 0.6, takes evened after", "lang": "fr",
+                             "from": "qwen3-fr-t06", "post": EVEN},
+    "design-fr-attr": {"name": "VoiceDesign, French, structured description (Quebec), temp 0.5", "lang": "fr",
+                       "model": DESIGN, "instruct": ATTR_FR, "temp": 0.5},
+    "design-clone-fr-t06": {"name": "VoiceDesign once (Quebec), then cloned at temp 0.6", "lang": "fr", "model": BASE,
+                            "ref": "ref-design-fr", "temp": 0.6},
+})
 for _k, _v in ENGINES.items():
-    if "model" in _v:
+    if "from" in _v:
+        _v.update(venv="any (ffmpeg)", device="CPU, ffmpeg", licence=QWEN_LICENCE, need_mb=0)
+    elif "model" in _v:
         _v.update(venv=".tts2-venv", device="GPU, bf16, SDPA attention", licence=QWEN_LICENCE, need_mb=7000)
 LANGUAGE = {"en": "English", "fr": "French"}
 BATCH = 3  # takes per batched call
@@ -156,25 +204,49 @@ def render_qwen(names):
     todo = [n for n in names if not os.path.exists(os.path.join(OUT, n, "stats.json"))]
     for n in set(names) - set(todo):
         print(f"{n}: already rendered (delete its folder to redo)")
+    for r in {ENGINES[n].get("ref") for n in todo} - {None}:
+        if r.endswith("-even") and not os.path.exists(os.path.join(OUT, r + ".wav")):  # an evened copy of a reference
+            src = r[:-len("-even")]
+            subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", os.path.join(OUT, src + ".wav"), "-af", EVEN,
+                            os.path.join(OUT, r + ".wav")], check=True)
+            open(os.path.join(OUT, r + ".txt"), "w", encoding="utf-8").write(ref_files(src)[1] + "\n")
+    designs = [r for r in DESIGNED_REFS if not os.path.exists(os.path.join(OUT, r + ".wav"))
+               and any(ENGINES[n].get("ref") == r for n in todo)]
     models, loaded = {}, None
-    for name in sorted(todo, key=lambda n: ENGINES[n]["model"]):  # one model load per model
-        spec = ENGINES[name]
-        if spec["model"] != loaded:
+    order = sorted(todo, key=lambda n: ENGINES[n]["model"] != DESIGN)  # VoiceDesign first: it makes the designed refs
+    for name in ([None] if designs and ENGINES[order[0]]["model"] != DESIGN else []) + order:
+        mid = DESIGN if name is None else ENGINES[name]["model"]
+        if mid != loaded:
             model = prompt = gen = None  # drop every reference to the old model, or empty_cache can't free it
             models.clear()
             import gc
             gc.collect()
             torch.cuda.empty_cache()
-            free = wait_for_room(spec["need_mb"])
+            free = wait_for_room(ENGINES[order[0]]["need_mb"])
             t0 = time.time()
-            models[spec["model"]] = Qwen3TTSModel.from_pretrained(spec["model"], device_map="cuda:0", dtype=torch.bfloat16,
-                                                                  attn_implementation="sdpa")
-            load_s, loaded = round(time.time() - t0, 1), spec["model"]
+            models[mid] = Qwen3TTSModel.from_pretrained(mid, device_map="cuda:0", dtype=torch.bfloat16,
+                                                        attn_implementation="sdpa")
+            load_s, loaded = round(time.time() - t0, 1), mid
+            if mid == DESIGN:
+                for r in designs:  # design each voice once; its clip and words become a clone reference
+                    instruct, lang, text = DESIGNED_REFS[r]
+                    torch.manual_seed(zlib.crc32(r.encode()))
+                    w, sr = models[mid].generate_voice_design(text=[text], language=[LANGUAGE[lang]], instruct=[instruct],
+                                                              temperature=0.5, subtalker_temperature=0.5)
+                    save(os.path.join(OUT, r + ".wav"), w[0], sr)
+                    open(os.path.join(OUT, r + ".txt"), "w", encoding="utf-8").write(text + "\n")
+                    print(f"designed {r}: {len(w[0]) / sr:.1f} s", flush=True)
+        if name is None:
+            continue
+        spec = ENGINES[name]
         model = models[loaded]
         d = os.path.join(OUT, name)
         os.makedirs(d, exist_ok=True)
         lang = spec["lang"]
         kw = {} if spec["temp"] is None else {"temperature": spec["temp"], "subtalker_temperature": spec["temp"]}
+        # 12 codec frames per second of audio: stop at 30 s. A VoiceDesign take of a 7 s French line ran on for
+        # 147 s, and its whole batch waited for it (design-fr, 2026-11-18).
+        kw["max_new_tokens"] = 12 * 30
         if "ref" in spec:
             wav, text = ref_files(spec["ref"])
             prompt = model.create_voice_clone_prompt(ref_audio=wav, ref_text=text, x_vector_only_mode=spec.get("xvec", False))
@@ -212,6 +284,38 @@ def render_qwen(names):
                      peak_alloc_mb=round(torch.cuda.max_memory_allocated() / 2**20), torch=torch.__version__)
         json.dump(stats, open(os.path.join(d, "stats.json"), "w"), indent=1)
         print(f"{name}: {len(jobs)} takes in {stats['total_s']} s, peak {stats['peak_vram_mb']} MB", flush=True)
+
+
+def render_post(names):
+    """Variants made from another variant's takes by an ffmpeg filter (no GPU)."""
+    for name in names:
+        spec, d = ENGINES[name], os.path.join(OUT, name)
+        src = load(spec["from"], "stats.json")
+        if os.path.exists(os.path.join(d, "stats.json")) or not src:
+            print(f"{name}: {'already made' if src else spec['from'] + ' is not rendered yet'}")
+            continue
+        os.makedirs(d, exist_ok=True)
+        for fname in src["takes"]:
+            subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", os.path.join(OUT, spec["from"], fname), "-af", spec["post"],
+                            "-c:a", "pcm_s16le", os.path.join(d, fname)], check=True)
+        json.dump({**src, "engine": name, "post": spec["post"]}, open(os.path.join(d, "stats.json"), "w"), indent=1)
+        print(f"{name}: made from {spec['from']}")
+
+
+def fade_db(path):
+    """How much a take fades: loudness of its last voiced quarter minus the rest, in dB (50 ms frames, voiced = within
+    35 dB of the loudest frame). Qwen3's clones measured about -5 dB in English, VoiceDesign about -2."""
+    import numpy as np
+    import soundfile as sf
+    x, sr = sf.read(path, dtype="float32")
+    x = x.mean(1) if x.ndim > 1 else x
+    fr = int(0.05 * sr)
+    db = np.array([10 * np.log10(np.mean(x[i:i + fr] ** 2) + 1e-12) for i in range(0, len(x) - fr, fr)])
+    v = db[db > db.max() - 35]
+    if len(v) < 8:
+        return None
+    k = int(len(v) * 0.75)
+    return round(float(v[k:].mean() - v[:k].mean()), 1)
 
 
 def rendered():
@@ -263,7 +367,8 @@ def readme():
          "**Whisper columns**: `sim` and `flag` come from `voice_check.listen` (the reels' QA: base.en, or small for "
          "French; similarity to the script, dropped/added words, mid-phrase pauses, rising endings). The reels re-record "
          "below 0.97. `large-v3 heard` is large Whisper's transcript, the better judge of the hard words. Neither "
-         "Whisper notices an accent.", ""]
+         "Whisper notices an accent. `end fade` = loudness of a take's last voiced quarter minus the rest (Martin heard "
+         "Qwen's lines go down at the end).", ""]
     notes = os.path.join(OUT, "notes.md")  # the hand-written verdict, kept above the tables
     if os.path.exists(notes):
         L += [open(notes, encoding="utf-8").read().strip(), ""]
@@ -271,24 +376,27 @@ def readme():
         L += [f"## Lines ({LANGUAGE[lang]})", "", "| key | line | takes | what to listen for |", "|---|---|---|---|"]
         L += [f"| {k} | {t} | {n} | {w} |" for k, t, n, w in LINES[lang]] + [""]
     L += ["## Variants", "", "Qwen3 licence as the cards state it: " + QWEN_LICENCE + ". Chatterbox: MIT.", "",
-          "| variant | what | VRAM peak | time per line | compute per s of audio |", "|---|---|---|---|---|"]
+          "| variant | what | VRAM peak | time per line | compute per s of audio | end fade |", "|---|---|---|---|---|---|"]
     for engine in rendered():
         st, spec = load(engine, "stats.json"), ENGINES[engine]
         g = [v["gen_s"] for v in st["takes"].values()]
         a = [v["audio_s"] for v in st["takes"].values()]
         vram = f"{st['peak_vram_mb']} MB" if "peak_vram_mb" in st else "CPU"
         how = "batched" if st.get("batch") else "one at a time"
-        L.append(f"| `{engine}` | {spec['name']} | {vram} | {sum(g) / len(g):.1f} s ({how}) | {sum(g) / sum(a):.2f} s |")
+        fades = [f for f in (fade_db(os.path.join(OUT, engine, n)) for n in st["takes"]) if f is not None]
+        how = "ffmpeg after " + spec["from"] if "from" in spec else how
+        L.append(f"| `{engine}` | {spec['name']} | {vram} | {sum(g) / len(g):.1f} s ({how}) | {sum(g) / sum(a):.2f} s "
+                 f"| {sum(fades) / len(fades):+.1f} dB |")
     if "design-en" in rendered() or "design-fr" in rendered():
         L += ["", f"VoiceDesign instructions: English: \"{DESIGN_EN}\" French: \"{DESIGN_FR}\""]
     for engine in rendered():
         st, ck, hl = load(engine, "stats.json"), load(engine, "check.json"), load(engine, "heard-large.json")
         L += ["", f"### {engine}: {ENGINES[engine]['name']}", "",
-              "| take | sim | flag | large-v3 heard | audio s |", "|---|---|---|---|---|"]
+              "| take | sim | flag | large-v3 heard | audio s | end fade dB |", "|---|---|---|---|---|---|"]
         for fname, v in st["takes"].items():
             c = ck.get(fname, {})
             L.append(f"| `{engine}/{fname}` | {c.get('sim', '')} | {c.get('problem') or ('ok' if c else '')} "
-                     f"| {hl.get(fname, '')} | {v['audio_s']} |")
+                     f"| {hl.get(fname, '')} | {v['audio_s']} | {fade_db(os.path.join(OUT, engine, fname))} |")
     open(os.path.join(OUT, "README.md"), "w", encoding="utf-8").write("\n".join(L) + "\n")
     print("wrote", os.path.join(OUT, "README.md"))
     listen_page()
@@ -324,7 +432,11 @@ if __name__ == "__main__":
     if cmd == "render" and args == ["chatterbox"]:
         render_chatterbox()
     elif cmd == "render" and all(a in ENGINES and a != "chatterbox" for a in args):
-        render_qwen(args or [e for e in ENGINES if e != "chatterbox"])
+        names = args or [e for e in ENGINES if e != "chatterbox"]
+        gpu = [n for n in names if "model" in ENGINES[n]]
+        if gpu:
+            render_qwen(gpu)
+        render_post([n for n in names if "from" in ENGINES[n]])
     elif cmd in ("check", "heard", "readme"):
         globals()[cmd]()
     else:

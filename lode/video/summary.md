@@ -123,7 +123,15 @@ const b = useBeats();
   wander (Martin: British/Spanish/French-sounding takes).
   GPU safety: batches of 3 + `set_per_process_memory_fraction` (9 GB cap). A 12-take batch peaked 19.7 GB (Windows
   spilled to RAM). The PC hard-reset twice during these renders (Kernel-Power 41, no bugcheck), once under the cap
-  with CPU Whisper running too → suspect power/thermal; don't run long GPU jobs until checked.
+  with CPU Whisper running too → suspect power/thermal. Round 3 (no CPU Whisper alongside) ran clean: max 181 W of
+  250, 62 °C (`out/voice-audition/gpu-log.csv`). `max_new_tokens=360` (12 codec frames/s → 30 s cap) after one
+  VoiceDesign take ran away to 147 s.
+  Round 3: Martin preferred temp 0.7 over 0.5/0.9 (EN) and 0.5 over 0.9 (FR) → added 0.6 (EN), 0.6/0.7/0.8 (FR).
+  End fade (`fade_db`: last voiced quarter minus the rest) is copied from Martin's reference reading: `-evenref`
+  (ffmpeg `dynaudnorm` on the ref) halves it but gave EN 9/12 rising endings vs 3; `-evenout` (same filter on the
+  takes, `"post"` variants) removes it without touching the voice. VoiceDesign drifts because it designs a new voice
+  per call → `design-clone-*` designs one 15 s clip (`DESIGNED_REFS`) and clones every line from it.
+  `readme` needs soundfile: run it with a venv python, not system python.
   base.en and large-v3 disagree on Chatterbox's "errors" (large heard 8/9 hard words right): base.en may be
   mishearing the cloned accent.
 - Generated audio (`public/voice`, `public/audio`) is gitignored; a fresh clone runs

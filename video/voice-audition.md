@@ -56,7 +56,9 @@ would make a different person.
 - The PC hard-reset twice during the first GPU renders (Kernel-Power 41, no bugcheck). One was a 12-take batch peaking
   at 19.7 GB, which Windows spilled into system RAM. The other ran with large Whisper loading the CPU at the same
   time. Since then, PyTorch is capped at 9 GB (`set_per_process_memory_fraction`), batches are 3 takes at most, and
-  no CPU Whisper runs beside a GPU render. Nothing has reset since, and the GPU log showed at most 181 W of 250 and 62 °C.
+  no CPU Whisper runs beside a GPU render. The GPU log then showed at most 181 W of 250 and 62 °C. But the PC reset
+  again on 2026-11-19 with only the local LLM (Strata) on the GPU, so the cause is power under GPU load, not these
+  scripts. The Videos repo's `NEXT-STEPS.md` tracks it.
 - One VoiceDesign take ran on to 147 s of audio for a 7 s line. Every generation is now capped by `max_new_tokens`
   (12 codec frames a second).
 - The local LLM (Strata) holds about 10 GB and unloads after 15 s idle, so the voice waits for 7 GB of free VRAM.

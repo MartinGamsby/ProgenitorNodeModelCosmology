@@ -1,6 +1,8 @@
 node_modules/
 out/
 .tts-venv/
+.tts2-venv/
+.tts2-ming-venv/
 # generated audio: npm run voice / npm run music
 public/voice/
 public/audio/
